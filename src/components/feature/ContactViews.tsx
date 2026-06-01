@@ -34,6 +34,7 @@ import {
 import { useAppModal } from "../../hooks/useAppModal";
 import { useAppData } from "../../contexts/AppDataContext";
 import { useDispatch, useSelector } from "react-redux";
+import { ContactsToolbar, ContactsListsRows } from "./ContactList.new";
 import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import { useToast } from "../../hooks/useToast";
@@ -75,6 +76,7 @@ interface ContactViewsProps {
   isActive?: boolean;
   refreshToken?: number;
   currentTab?: string;
+  onViewModeChange?: (mode: "list" | "detail") => void;
 }
 
 interface FilterBuilderFieldOption {
@@ -412,6 +414,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   isActive = false,
   refreshToken = 0,
   currentTab,
+  onViewModeChange,
 }) => {
   const dispatch = useDispatch();
   const [views, setViews] = useState<ViewItem[]>([]);
@@ -447,7 +450,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [editFiltersJson, setEditFiltersJson] = useState("");
   const [editFiltersSeed, setEditFiltersSeed] = useState("");
   const [isLoadingEditViewDetails, setIsLoadingEditViewDetails] = useState(false);
-  const [viewActionsAnchor, setViewActionsAnchor] = useState<number | null>(null);
+  const [viewActionsAnchor, setViewActionsAnchor] = useState<string | null>(null);
   const [viewContactCounts, setViewContactCounts] = useState<Record<number, number>>({});
   const [downloadingViewId, setDownloadingViewId] = useState<number | null>(null);
   const [showBulkUpdatePanel, setShowBulkUpdatePanel] = useState(false);
@@ -1530,6 +1533,7 @@ const handleDeleteContacts = async () => {
     }
     setSelectedView(view);
     setViewMode("detail");
+    onViewModeChange?.("detail");
     setSelectedContacts(new Set());
     setViewSearchQuery("");
     setViewCurrentPage(1);
@@ -1971,269 +1975,42 @@ const handleDeleteContacts = async () => {
       <div className="section-wrapper">
         {viewMode === "list" ? (
           <>
-            <h2 className="section-title">Views</h2>
-            <p style={{ marginBottom: "16px", color: "#555" }}>
-              Saved filters that you can reuse across lists and segments.
-            </p>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: -5,
-                gap: 16,
-              }}
-            >
-              <input
-                type="text"
-                className="search-input"
-                style={{ width: 340 }}
-                placeholder="Search a view name or ID"
-                value={viewSearch}
-                onChange={(event) => setViewSearch(event.target.value)}
-              />
-            </div>
-
-            <PaginationControls
+            <ContactsToolbar
+              search={viewSearch}
+              onSearchChange={setViewSearch}
+              sortKey={viewSortKey}
+              sortDirection={viewSortDirection}
+              onSort={() => handleViewSort("created_at")}
               currentPage={currentPageViews}
               totalPages={totalPagesViews}
               pageSize={pageSizeViews}
               totalRecords={filteredViews.length}
-              setCurrentPage={setCurrentPageViews}
-              setPageSize={setPageSizeViews}
-              showPageSizeDropdown={true}
-              pageLabel="Page:"
+              onPageChange={setCurrentPageViews}
+              onPageSizeChange={setPageSizeViews}
+              placeholder="Search a view name or ID"
             />
-
-            <div style={{ marginBottom: "10px" }} />
-            <table
-              className="contacts-table"
-              style={{ background: "#fff", width: "100%", tableLayout: "auto" }}
-            >
-              <thead>
-                <tr>
-                  <th
-                    onClick={() => handleViewSort("name")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Views{renderViewSortArrow("name")}
-                  </th>
-                  <th
-                    onClick={() => handleViewSort("id")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    ID{renderViewSortArrow("id")}
-                  </th>
-                  <th
-                    onClick={() => handleViewSort("created_at")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Created date{renderViewSortArrow("created_at")}
-                  </th>
-                  <th
-                    onClick={() => handleViewSort("description")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Description{renderViewSortArrow("description")}
-                  </th>
-                  <th>Contacts</th>
-                  <th style={{ minWidth: 48 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoadingViews ? (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: "center" }}>
-                      Loading...
-                    </td>
-                  </tr>
-                ) : paginatedViews.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: "center" }}>
-                      No views found.
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedViews.map((view) => (
-                    <tr key={view.id}>
-                      <td>
-                        <span
-                          className="list-link text-[#3f9f42]"
-                          style={{
-                            color: "#28a745",
-                            cursor: "pointer",
-                            textDecoration: "underline",
-                          }}
-                          onClick={() => openView(view)}
-                        >
-                          {view.name}
-                        </span>
-                      </td>
-                      <td>#{view.id}</td>
-                      <td>{formatDate(view.created_at)}</td>
-                      <td>{view.description || "-"}</td>
-                      <td>{view.contactCount ?? viewContactCounts[view.id] ?? "-"}</td>
-                      <td>
-                        <div style={{ position: "relative" }}>
-                          <button
-                            className="segment-actions-btn font-[600]"
-                            style={{
-                              border: "none",
-                              background: "none",
-                              fontSize: 24,
-                              cursor: "pointer",
-                              padding: "2px 10px",
-                            }}
-                            onClick={() =>
-                              setViewActionsAnchor(
-                                viewActionsAnchor === view.id ? null : view.id
-                              )
-                            }
-                            aria-label="View actions"
-                          >
-                            &#8942;
-                          </button>
-
-                          {viewActionsAnchor === view.id && (
-                            <div
-                              className="segment-actions-menu py-[10px]"
-                              style={{
-                                position: "absolute",
-                                right: 0,
-                                top: 32,
-                                background: "#fff",
-                                border: "1px solid #eee",
-                                borderRadius: 6,
-                                boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                                zIndex: 101,
-                                minWidth: 160,
-                              }}
-                            >
-                              <button
-                                onClick={() => {
-                                  openView(view);
-                                  setViewActionsAnchor(null);
-                                }}
-                                style={menuBtnStyle}
-                                className="flex gap-2 items-center"
-                              >
-                                <span style={actionIconStyle}>
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="22px"
-                                    height="22px"
-                                    viewBox="0 0 24 20"
-                                    fill="none"
-                                  >
-                                    <circle cx="12" cy="12" r="4" fill="#3f9f42" />
-                                    <path
-                                      d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12"
-                                      stroke="#3f9f42"
-                                      strokeWidth="2"
-                                    />
-                                  </svg>
-                                </span>
-                                <span className="font-[600]">View</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  openEditPanel(view);
-                                  setViewActionsAnchor(null);
-                                }}
-                                style={menuBtnStyle}
-                                className="flex gap-2 items-center"
-                              >
-                                <span style={actionIconStyle}>
-                                  <FontAwesomeIcon
-                                    icon={faEdit}
-                                    style={{ color: "#3f9f42", fontSize: 20 }}
-                                  />
-                                </span>
-                                <span className="font-[600]">Edit</span>
-                              </button>
-                              <button
-                                onClick={() => handleDownloadView(view)}
-                                style={menuBtnStyle}
-                                className="flex gap-2 items-center"
-                                disabled={downloadingViewId === view.id}
-                              >
-                                <span className="ml-[2px]">
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="22px"
-                                    height="22px"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <title />
-                                    <g id="Complete">
-                                      <g id="download">
-                                        <g>
-                                          <path
-                                            d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7"
-                                            fill="none"
-                                            stroke="#3f9f42"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            strokeWidth="2"
-                                          />
-                                          <g>
-                                            <polyline
-                                              data-name="Right"
-                                              fill="none"
-                                              id="Right-2"
-                                              points="7.9 12.3 12 16.3 16.1 12.3"
-                                              stroke="#3f9f42"
-                                              stroke-linecap="round"
-                                              stroke-linejoin="round"
-                                              strokeWidth="2"
-                                            />
-                                            <line
-                                              fill="none"
-                                              stroke="#3f9f42"
-                                              stroke-linecap="round"
-                                              stroke-linejoin="round"
-                                              strokeWidth="2"
-                                              x1="12"
-                                              x2="12"
-                                              y1="2.7"
-                                              y2="14.2"
-                                            />
-                                          </g>
-                                        </g>
-                                      </g>
-                                    </g>
-                                  </svg>
-                                </span>
-                                <span className="font-[600]">
-                                  {downloadingViewId === view.id
-                                    ? "Downloading..."
-                                    : "Download"}
-                                </span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  handleDeleteView(view);
-                                  setViewActionsAnchor(null);
-                                }}
-                                style={menuBtnStyle}
-                                className="flex gap-2 items-center"
-                              >
-                                <span style={actionIconStyle}>
-                                  <FontAwesomeIcon
-                                    icon={faTrashAlt}
-                                    style={{ color: "#3f9f42", fontSize: 20 }}
-                                  />
-                                </span>
-                                <span className="font-[600]">Delete</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            <ContactsListsRows
+              data={paginatedViews.map((v) => ({
+                id: v.id,
+                name: v.name,
+                description: v.description,
+                created_at: v.created_at,
+                contactCount: viewContactCounts[v.id] ?? v.contactCount,
+              })) as any[]}
+              isLoading={isLoadingViews}
+              sortKey={viewSortKey}
+              sortDirection={viewSortDirection}
+              onSort={handleViewSort}
+              actionsAnchor={viewActionsAnchor}
+              setActionsAnchor={setViewActionsAnchor}
+              onRowClick={(file) => { const v = paginatedViews.find((x) => x.id === file.id); if (v) openView(v); }}
+              onRename={(file) => { const v = paginatedViews.find((x) => x.id === file.id); if (v) openEditPanel(v); }}
+              onView={(file) => { const v = paginatedViews.find((x) => x.id === file.id); if (v) openView(v); }}
+              onDownload={(file) => { const v = paginatedViews.find((x) => x.id === file.id); if (v) handleDownloadView(v); }}
+              onDelete={(file) => { const v = paginatedViews.find((x) => x.id === file.id); if (v) handleDeleteView(v); }}
+              isDemoAccount={false}
+              formatDate={formatDate}
+            />
           </>
         ) : (
           <>
@@ -2415,6 +2192,7 @@ const handleDeleteContacts = async () => {
               }
               onBack={() => {
                 setViewMode("list");
+                onViewModeChange?.("list");
                 setSelectedView(null);
                 setBaseViewContacts([]);
                 setViewContacts([]);
@@ -2430,10 +2208,9 @@ const handleDeleteContacts = async () => {
       </div>
 
       <CommonSidePanel
-        //isOpen={isEditPanelOpen}
         isOpen={showContactViewEditModal}
         onClose={() => {
-          setIsEditPanelOpen(false);
+          dispatch(closePanel());
           setIsLoadingEditViewDetails(false);
           setEditingView(null);
           setEditFiltersSeed("");
@@ -2445,9 +2222,8 @@ const handleDeleteContacts = async () => {
           <>
             <button
               onClick={() => {
-                //setIsEditPanelOpen(false);
-                setIsLoadingEditViewDetails(false);
                 dispatch(closePanel());
+                setIsLoadingEditViewDetails(false);
                 setEditingView(null);
                 setEditFiltersSeed("");
                 setEditExcludedDataFileIds([]);

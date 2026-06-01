@@ -69,6 +69,108 @@ interface ContactDetailViewProps {
   embedded?: boolean;
 }
 
+const ResearchCards: React.FC<{ content: string }> = ({ content }) => {
+  let data: Record<string, any> | null = null;
+  try {
+    const clean = content.replace(/^```json\s*/i, "").replace(/\s*```$/, "").trim();
+    const parsed = JSON.parse(clean);
+    data = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return <pre style={{ fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 12, background: "#f8fafc", borderRadius: 8, border: "1px solid #e8eaee" }}>{content}</pre>;
+  }
+  if (!data) return null;
+
+  const cardStyle: React.CSSProperties = { background: "#fff", borderRadius: 12, border: "1px solid #e8eaee", padding: "14px 16px" };
+  const iconMap: Record<string, string> = {
+    company_overview: "🏢", key_findings: "💡", recent_news: "📰",
+    event_insights: "🗓", personalization_angle: "✉️", summary: "📋",
+    insights: "🔍", news: "📰", findings: "💡",
+  };
+  const getIcon = (k: string) => iconMap[k] || iconMap[Object.keys(iconMap).find(ik => k.includes(ik)) || ""] || "📌";
+  const fmtKey = (k: string) => k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+  const renderVal = (value: any): React.ReactNode => {
+    if (value == null) return null;
+    if (typeof value !== "object") return <p style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.6 }}>{String(value)}</p>;
+    if (Array.isArray(value)) {
+      if (!value.length) return null;
+      if (typeof value[0] !== "object") return (
+        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
+          {value.map((item, i) => (
+            <li key={i} style={{ display: "flex", gap: 8, fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
+              <span style={{ color: "#22c55e", flexShrink: 0 }}>✔</span>{String(item)}
+            </li>
+          ))}
+        </ul>
+      );
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {value.map((item: Record<string, any>, i) => {
+            const entries = Object.entries(item).filter(([, v]) => v != null && String(v).trim());
+            const dateE = entries.find(([k]) => /^(date|time|published|when)$/i.test(k));
+            const rest = entries.filter(([k]) => !/^(date|time|published|when)$/i.test(k));
+            if (dateE && rest.length) return (
+              <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", minWidth: 70, marginTop: 2 }}>{String(dateE[1])}</span>
+                <span style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}><span style={{ color: "#3f9f42", marginRight: 6 }}>◆</span>{rest.map(([, v]) => String(v)).join(" — ")}</span>
+              </div>
+            );
+            return <div key={i} style={{ padding: "8px 10px", background: "#f8fafc", borderRadius: 8, border: "1px solid #f1f5f9" }}>
+              {entries.map(([k, v]) => <div key={k} style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}><span style={{ fontWeight: 500 }}>{fmtKey(k)}: </span>{String(v)}</div>)}
+            </div>;
+          })}
+        </div>
+      );
+    }
+    const entries = Object.entries(value).filter(([, v]) => v != null && String(v).trim());
+    const descE = entries.find(([k]) => /description|summary|overview|about/i.test(k));
+    const rest = entries.filter(([k]) => !/description|summary|overview|about/i.test(k));
+    const useBadges = !rest.some(([, v]) => String(v).length > 35);
+    return (
+      <div>
+        {descE && <p style={{ fontSize: 13, color: "#374151", marginBottom: 10, lineHeight: 1.55, marginTop: 0 }}>{String(descE[1])}</p>}
+        {rest.length > 0 && (useBadges
+          ? <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{rest.map(([k, v]) => {
+            const sv = String(v); const isUrl = /^https?:\/\//i.test(sv) || /website|url|link/i.test(k);
+            return isUrl
+              ? <a key={k} href={/^https?:\/\//i.test(sv) ? sv : `https://${sv}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11.5, background: "#f0fdf4", padding: "3px 10px", borderRadius: 99, border: "1px solid #bbf7d0", color: "#15803d", textDecoration: "none", whiteSpace: "nowrap" }}>🔗 {sv}</a>
+              : <span key={k} style={{ fontSize: 11.5, background: "#f1f5f9", padding: "3px 10px", borderRadius: 99, border: "1px solid #e2e8f0", color: "#374151", whiteSpace: "nowrap" }}><span style={{ color: "#6b7280" }}>{fmtKey(k)}: </span>{sv}</span>;
+          })}</div>
+          : <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{rest.map(([k, v]) => (
+            <div key={k} style={{ display: "flex", gap: 8, fontSize: 13, alignItems: "flex-start" }}>
+              <span style={{ fontWeight: 500, flexShrink: 0, color: "#6b7280", minWidth: 80 }}>{fmtKey(k)}:</span>
+              <span style={{ color: "#374151", lineHeight: 1.5 }}>{String(v)}</span>
+            </div>
+          ))}</div>
+        )}
+      </div>
+    );
+  };
+
+  const entries = Object.entries(data).filter(([, v]) => v != null && !(typeof v === "string" && !v.trim()) && !(Array.isArray(v) && !v.length));
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {entries.map(([key, value]) => {
+          const isFullWidth = typeof value === "string";
+          return (
+            <div key={key} style={{ ...cardStyle, ...(isFullWidth ? { gridColumn: "1 / -1", background: "#f8fafc", borderColor: "#e2e8f0" } : {}) }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 16 }}>{getIcon(key)}</span>
+                <span style={{ fontWeight: 600, fontSize: 13, color: "#111827" }}>{fmtKey(key)}</span>
+              </div>
+              {renderVal(value)}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ marginTop: 12, padding: "7px 14px", background: "#f8fafc", borderRadius: 8, fontSize: 11.5, color: "#6b7280", textAlign: "center", border: "1px solid #e8eaee" }}>
+        ✦ Insights gathered from public web sources to help personalize outreach.
+      </div>
+    </div>
+  );
+};
+
 const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   embedded = false,
 }) => {
@@ -83,7 +185,7 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
       searchParams.get("dataField");
     const segmentId = searchParams.get("segmentId");
 
-  const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists" | "qa">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists" | "qa" | "insights">("profile");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
@@ -420,6 +522,7 @@ useEffect(() => {
     fetchEmailTimeline(Number(contactId));
   }
 }, [contactId]);
+
   const stripHtml = (html: string) => {
     if (!html) return "";
     // Remove code block backticks if present
@@ -1486,7 +1589,7 @@ dispatch(closePanel());
               >
                 {/* LEFT: PROFILE / HISTORY */}
                 <div style={{ display: "flex", gap: 24 }}>
-                  {["profile", "history", "lists", "qa"].map((tab) => (
+                  {["profile", "history", "lists", "qa", "insights"].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => {
@@ -1526,7 +1629,9 @@ dispatch(closePanel());
                           ? "Activity"
                           : tab === "lists"
                             ? "Lists"
-                            : "Q&A"}
+                            : tab === "qa"
+                              ? "Q&A"
+                              : "Insights"}
 
                     </button>
                   ))}
@@ -3048,6 +3153,19 @@ dispatch(closePanel());
                   emailTimeline={emailTimeline}
                   loading={loading || isLoadingHistory}
                 />
+              )}
+
+              {activeTab === "insights" && (
+                <div>
+                  {contact?.web_search_data ? (
+                    <ResearchCards content={contact.web_search_data} />
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "48px 0", color: "#9ca3af", fontSize: 13 }}>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+                      No web research data available for this contact.
+                    </div>
+                  )}
+                </div>
               )}
 
             </div>

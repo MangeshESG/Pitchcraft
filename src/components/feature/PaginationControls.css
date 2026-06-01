@@ -1,0 +1,170 @@
+/* ============================================================
+   PaginationControls.css — pc-* design system
+   ============================================================ */
+
+:root {
+  --pc-ink:        #0b1220;
+  --pc-ink-soft:   #374151;
+  --pc-ink-faint:  #6b7280;
+  --pc-ink-dim:    #9ca3af;
+  --pc-line:       #dadde2;
+  --pc-line-2:     #eef0f3;
+  --pc-bg:         #fafbfc;
+  --pc-bg-2:       #f5f6f8;
+  --pc-brand:      #3f9f42;
+}
+
+.pc-wrap {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  font-family: inherit;
+}
+
+.pc-info {
+  font-size: 12.5px; color: var(--pc-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+.pc-info strong { color: var(--pc-ink-soft); font-weight: 500; }
+.pc-info__muted { color: var(--pc-ink-dim); }
+
+.pc-right {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+
+/* ---------- Navigation pill (single unified group) ---------- */
+.pc-nav-pill {
+  display: flex; align-items: center;
+  background: #fff;
+  border: 1px solid var(--pc-line);
+  border-radius: 8px;
+  overflow: hidden;
+  height: 40px;
+}
+.pc-nav-pill > button {
+  height: 100%; padding: 0 12px;
+  background: transparent; border: 0;
+  font-family: inherit;
+  font-size: 13px; font-weight: 500;
+  color: var(--pc-ink-soft);
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.pc-nav-pill > button + button,
+.pc-nav-pill > .pc-nav-page + button,
+.pc-nav-pill > button + .pc-nav-page,
+.pc-nav-pill > .pc-nav-page {
+  border-left: 1px solid var(--pc-line);
+}
+.pc-nav-pill > button:hover:not(:disabled) {
+  background: var(--pc-bg-2);
+}
+.pc-nav-pill > button:disabled {
+  color: var(--pc-ink-dim);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.pc-nav-pill > button.pc-icon-only {
+  width: 36px; padding: 0;
+  justify-content: center;
+  color: var(--pc-ink-faint);
+}
+.pc-nav-page {
+  height: 100%; padding: 0 14px;
+  display: flex; align-items: center;
+  background: var(--pc-bg);
+  font-size: 12.5px; font-weight: 500;
+  color: var(--pc-ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pc-nav-page__slash { color: var(--pc-ink-dim); margin: 0 6px; }
+
+/* ---------- Page size select ---------- */
+.pc-select {
+  position: relative;
+}
+.pc-select select {
+  height: 40px;
+  padding: 0 30px 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--pc-line);
+  background: #fff;
+  font-family: inherit;
+  font-size: 13px; font-weight: 500;
+  color: var(--pc-ink-soft);
+  cursor: pointer;
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+}
+.pc-select select:hover { background: var(--pc-bg-2); }
+.pc-select select:focus {
+  outline: none; border-color: var(--pc-brand);
+  box-shadow: 0 0 0 2px rgba(63, 159, 66, 0.15);
+}
+.pc-select__caret {
+  position: absolute; right: 10px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--pc-ink-faint);
+  pointer-events: none;
+  display: inline-flex;
+}
+
+/* ---------- Page jump ---------- */
+.pc-jump {
+  display: flex; align-items: center; gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--pc-line);
+  background: #fff;
+}
+.pc-jump__label {
+  font-size: 12.5px; color: var(--pc-ink-faint); font-weight: 500;
+}
+.pc-jump input {
+  width: 52px; height: 28px;
+  padding: 0 6px;
+  text-align: center;
+  border-radius: 6px;
+  border: 1px solid var(--pc-line-2);
+  background: var(--pc-bg);
+  font-family: inherit;
+  font-size: 13px; font-weight: 600;
+  color: var(--pc-ink);
+  font-variant-numeric: tabular-nums;
+}
+.pc-jump input:focus {
+  outline: none; border-color: var(--pc-brand);
+  box-shadow: 0 0 0 2px rgba(63, 159, 66, 0.15);
+}
+.pc-jump input:disabled {
+  opacity: 0.4; cursor: not-allowed;
+}
+.pc-jump__of {
+  font-size: 12.5px; color: var(--pc-ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* hide default number-input spinners */
+.pc-jump input[type=number]::-webkit-inner-spin-button,
+.pc-jump input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.pc-jump input[type=number] { -moz-appearance: textfield; }
+
+/* ---------- Compact variant ---------- */
+.pc-compact {
+  display: inline-flex; align-items: center;
+}
+.pc-compact .pc-nav-pill { height: 36px; }
+.pc-compact .pc-nav-pill > button { width: 36px; padding: 0; justify-content: center; }
+.pc-compact .pc-nav-page { padding: 0 12px; font-size: 12px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 640px) {
+  .pc-wrap { gap: 12px; }
+  .pc-right { width: 100%; justify-content: space-between; }
+  .pc-btn-label { display: none; }
+  .pc-nav-pill > button { padding: 0; width: 36px; justify-content: center; }
+  .pc-jump { display: none; }
+}

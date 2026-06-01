@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { faAngleRight, faAngleLeft, faCircleRight, faCircleLeft } from "@fortawesome/free-solid-svg-icons";
+import BlueprintBuilderPanel from "./BlueprintBuilderPanel";
+import InstructionSetManager from "./InstructionSetManager";
 import {
   Send,
   Loader2,
@@ -24,7 +26,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars } from "@fortawesome/free-solid-svg-icons";
 import downArrow from "../../assets/images/down.png";
 import PopupModal from "../../common/PopupModal";
-import ElementsTab from "./ElementsTab";
 import toggleOn from "../../../assets/images/on-button.png";
 import toggleOff from "../../../assets/images/off-button.png";
 import RichTextEditor from "../../common/RTEEditor";
@@ -34,7 +35,7 @@ import { AVAILABLE_AI_MODELS } from "../../../utils/aiModels";
 
 
 // --- Type Definitions ---
-interface Message {
+export interface Message {
   type: "user" | "bot";
   content: string;
   timestamp: Date;
@@ -49,7 +50,7 @@ interface StoredChatMessage {
 type MainTab = "build" | "instructions" | "ct";
 type BuildSubTab = "chat" | "elements";
 
-type GPTModel = {
+export type GPTModel = {
   id: string;
   name: string;
   description?: string;
@@ -132,6 +133,7 @@ interface EmailCampaignBuilderProps {
 
 interface ConversationTabProps {
   // --- Core fields ---
+  isTemplateLoading?: boolean;
   conversationStarted: boolean;
   messages: Message[];
   isTyping: boolean;
@@ -139,9 +141,11 @@ interface ConversationTabProps {
 
   currentAnswer: string;
   setCurrentAnswer: (value: string) => void;
-  handleSendMessage: () => void;
+  handleSendMessage: (overrideText?: string) => void;
   handleKeyPress: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   resetAll: () => void;
+  onStartConversation?: (method: "reference" | "description", initialMessage: string) => void;
+  onApprove?: () => void;
 
   // --- Edit‑mode support ---
   isEditMode?: boolean;
@@ -181,8 +185,7 @@ interface ConversationTabProps {
   attachedImages: string[];
   setAttachedImages: React.Dispatch<React.SetStateAction<string[]>>;
   handleImageUpload: (file: File) => Promise<void>;
-
-
+  isPreviewLoading?: boolean;
 }
 
 // ✅ Add interface for EditInstructionsModal
@@ -398,7 +401,8 @@ const INITIAL_BLUEPRINT_WELCOME_MESSAGE = `
 </div>
 `.trim();
 
-const ConversationTab: React.FC<ConversationTabProps> = ({
+export const ConversationTab: React.FC<ConversationTabProps> = ({
+  isTemplateLoading = false,
   conversationStarted,
   messages,
 
@@ -439,19 +443,39 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   attachedImages,
   setAttachedImages,
   handleImageUpload,
+  onStartConversation,
+  onApprove,
+  isPreviewLoading = false,
 }) => {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [editableExampleOutput, setEditableExampleOutput] =
-    useState<string>("");
-
-  const [placeholderConfirmed, setPlaceholderConfirmed] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const hasExampleEmail = initialExampleEmail.trim().length > 0;
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-   const [showErrorToast, setShowErrorToast] = useState(false);
+
+  // Wizard phase state
+  const [localSelectedMethod, setLocalSelectedMethod] = useState<"reference" | "description" | null>(null);
+  const [referenceEmailDraft, setReferenceEmailDraft] = useState("");
+  const [referenceEmailSubmitted, setReferenceEmailSubmitted] = useState(false);
+  const [blueprintApproved, setBlueprintApproved] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+
+  // Track the message index when Phase 4 starts, so we only show refinement messages
+  const phase4StartIndexRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (blueprintApproved && phase4StartIndexRef.current === null) {
+      phase4StartIndexRef.current = messages.length;
+    } else if (!blueprintApproved) {
+      phase4StartIndexRef.current = null;
+    }
+  }, [blueprintApproved]);
+
+  // Auto-resize the input textarea as the user types
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    el.style.overflowY = el.scrollHeight > 160 ? "auto" : "hidden";
+  }, [currentAnswer]);
   // ========================================
   // IMAGE ATTACHMENT STATE
 
@@ -462,38 +486,21 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 
 
 
-  useEffect(() => {
-    if (exampleOutput) {
-      setEditableExampleOutput(exampleOutput);
-    }
-  }, [exampleOutput]);
-
   useLayoutEffect(() => {
     const container = messagesContainerRef.current;
     if (!container || !messages.length) return;
 
     const messageElements = container.querySelectorAll(".message-wrapper");
-
     if (!messageElements.length) return;
 
-    const lastMessage = messageElements[
-      messageElements.length - 1
-    ] as HTMLElement;
-
+    const lastMessage = messageElements[messageElements.length - 1] as HTMLElement;
     const lastMessageType = messages[messages.length - 1]?.type;
 
     if (lastMessageType === "user") {
-      // user message → bottom
-      container.scrollTop = container.scrollHeight;
+      lastMessage.scrollIntoView({ block: "end", behavior: "auto" });
     } else {
-      // bot message → start of response
-      lastMessage.scrollIntoView({
-        block: "start",
-        behavior: "auto",
-      });
-
-      // subtle spacing (ChatGPT feel)
-      container.scrollTop -= 16;
+      lastMessage.scrollIntoView({ block: "start", behavior: "auto" });
+      window.scrollBy(0, -16);
     }
   }, [messages]);
 
@@ -516,9 +523,6 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
       last.includes("==PLACEHOLDER_VALUES_END==") &&
       last.includes('"complete"');
 
-    if (isComplete) {
-      setPlaceholderConfirmed(true); // Enable dropdown again
-    }
   }, [messages]);
 
   const renderMessageContent = (rawContent: string) => {
@@ -547,91 +551,14 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
     return <p className="message-content">{content}</p>;
   };
 
-  const [activeSubStageTab, setActiveSubStageTab] = useState<
-    "search" | "data" | "summary"
-  >("search");
-
   const [popupmodalInfo, setPopupModalInfo] = useState({
     open: false,
     title: "",
     message: "",
   });
-  const showModal = (title: string, message: string) => {
-    setPopupModalInfo({ open: true, title, message });
-  };
-
   const closeModal = () => {
     setPopupModalInfo((prev) => ({ ...prev, open: false }));
   };
-
-  const saveExampleEmail = async () => {
-    try {
-      const storedId = sessionStorage.getItem("newCampaignId");
-      const activeCampaignId =
-        editTemplateId ?? (storedId ? Number(storedId) : null);
-
-      if (!activeCampaignId) {
-       // showModal("Error", "No campaign instance found.");
-       setToastMessage("No campaign instance found.");
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 5000);
-        return;
-      }
-
-      if (!exampleOutput) {
-        //showModal("Warning", "No generated email to save.");
-        setToastMessage("No generated email to save.");
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 5000);
-        return;
-      }
-      if (!editableExampleOutput.trim()) {
-       // showModal("Warning", "Example email is empty.");
-       setToastMessage("Example email is empty.");
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 5000);
-        return;
-      }
-
-      // ✅ Send example_output as a placeholder
-      await axios.post(
-        `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
-        {
-          templateId: activeCampaignId,
-          placeholderValues: {
-            example_output_email: editableExampleOutput,
-          },
-        },
-      );
-
-      // showModal("Success","✅ Example email saved successfully");
-      setToastMessage("Example email has been saved");
-      setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 5000);
-    } catch (error) {
-      console.error("❌ Save example output failed:", error);
-     // showModal("Error", "Failed to save example email.");
-      setToastMessage("Failed to save example email.");
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 5000);
-    }
-  };
-  const showInitialEmail =
-    isEditMode &&
-    hasExampleEmail &&
-    !selectedPlaceholder &&
-    !conversationStarted;
-
-
-  const showChat =
-    !isEditMode || selectedPlaceholder || conversationStarted;
-
-
-
-
-  // ===============================
-  // TYPES
-  // ===============================
 
   // ===============================
   // SAFE TRUNCATE HELPER
@@ -643,232 +570,563 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   // GROUP PLACEHOLDERS (CATEGORY WISE)
   // ===============================
 
+  // Derive current wizard phase (only applies to non-edit mode)
+  const wizardPhase: 1 | 2 | 3 | 4 = !conversationStarted ? 1 : !isComplete ? 2 : !blueprintApproved ? 3 : 4;
+
+  // Step indicator component — compact pill style
+  const StepIndicator = () => {
+    const steps = [
+      { num: 1, label: "Choose method" },
+      { num: 2, label: "Provide input" },
+      { num: 3, label: "Review blueprint" },
+      { num: 4, label: "Example email" },
+      { num: 5, label: "Edit & preview" },
+    ];
+    const activeStep = wizardPhase;
+    return (
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "12px 20px",
+        borderBottom: "1px solid #e5e7eb",
+        background: "#fff",
+        flexWrap: "wrap",
+      }}>
+        {steps.map((step) => {
+          const done = activeStep > step.num;
+          const active = activeStep === step.num;
+          return (
+            <div
+              key={step.num}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 12px 4px 5px",
+                borderRadius: 20,
+                background: done ? "#dcfce7" : active ? "#f0fdf4" : "#f3f4f6",
+                border: `1px solid ${done ? "#86efac" : active ? "#3f9f42" : "#e5e7eb"}`,
+                color: done ? "#16a34a" : active ? "#3f9f42" : "#9ca3af",
+                fontSize: 13,
+                fontWeight: done || active ? 600 : 400,
+                transition: "all 0.2s",
+              }}
+            >
+              <span style={{
+                width: 20, height: 20,
+                background: done ? "#3f9f42" : active ? "#3f9f42" : "#e5e7eb",
+                borderRadius: "50%",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                color: done || active ? "#fff" : "#9ca3af",
+                fontSize: 10, fontWeight: 700, flexShrink: 0,
+              }}>
+                {done ? "✓" : step.num}
+              </span>
+              {step.label}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Filtered conversation placeholders for review card
+  const reviewPlaceholders = Object.entries(placeholderValues || {})
+    .filter(([k, v]) => !CONTACT_PLACEHOLDERS.includes(k) && k !== "example_output_email" && v && v.trim())
+    .slice(0, 8);
+
   return (
-    <div className="conversation-container shadow-[3px_3px_10px_rgba(0,0,0,0.2)]">
-      <div className="chat-layout">
+    <div className="conversation-container" style={{ display: "flex", flexDirection: "row" }}>
 
-        {/* ===================== LEFT : CHAT ===================== */}
-        <div className="chat-section">
+      {/* ---- SIDEBAR: wizard mode only ---- */}
+      {!isEditMode && (
+        <div style={{ width: 240, flexShrink: 0, borderRight: "1px solid #e5e7eb", padding: "28px 20px", background: "#fff" }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 20 }}>
+            Build your blueprint in 5 easy steps
+          </p>
+          {[
+            { num: 1, label: "Choose method", desc: "Select how you'd like to start." },
+            { num: 2, label: "Provide input", desc: "Share details about your offer and target." },
+            { num: 3, label: "Review blueprint", desc: "See AI's draft of your blueprint." },
+            { num: 4, label: "Example email", desc: "View a sample email for inspiration." },
+            { num: 5, label: "Edit & preview", desc: "Make changes and preview your final email." },
+          ].map((step) => {
+            const done = wizardPhase > step.num;
+            const active = wizardPhase === step.num;
+            return (
+              <div key={step.num} style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", background: done ? "#3f9f42" : active ? "#3f9f42" : "#e5e7eb", color: done || active ? "#fff" : "#9ca3af", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
+                  {done ? "✓" : step.num}
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: active ? 700 : 500, color: active ? "#111827" : done ? "#374151" : "#6b7280" }}>{step.label}</div>
+                  <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.4, marginTop: 2 }}>{step.desc}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-          {/* ===== CHAT HEADING ===== */}
+      {/* ---- RIGHT PANEL: all phase + edit mode content ---- */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
-
-          {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
-          {(
-            <div className="chat-placeholder-panel px-[20px] pt-[20px]" style={{ color: '#3f9f42' }}>
-
-
-              <select
-                className="placeholder-dropdown"
-                value={selectedPlaceholder || ""}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value) {
-                    setIsTyping?.(true);
-                  }
-                  onPlaceholderSelect?.(value);
-                }}
-                disabled={isTyping}
-              >
-                <option value="">Edit elements</option>
-
-                {Object.entries(groupedPlaceholders).map(
-                  ([category, placeholders]) => (
-                    <optgroup key={category} label={category}>
-                      {placeholders.map((p) => {
-                        const value =
-                          placeholderValues?.[p.placeholderKey] || "";
-
-                        return (
-                          <option
-                            key={p.placeholderKey}
-                            value={p.placeholderKey}
-                          >
-                            {p.friendlyName}
-                            {value ? ` — ${truncate(value)}` : " — Not set"}
-                          </option>
-                        );
-                      })}
-                    </optgroup>
-                  ),
-                )}
-              </select>
-              {!(
-                conversationStarted ||
-                (isEditMode && selectedElement)
-              ) && (
-                  <div
-                    style={{
-                      //marginBottom: "15px",
-                      padding: "10px",
-                      background: "#f3f4f6",
-                      //borderRadius: "6px",
-                      //fontSize: "14px",
-                      color: "#111827",
-                      // whiteSpace: "pre-wrap",
-                      // maxHeight: "370px",   // ✅ limit height
-                      //overflowY: "visible",    // ✅ enable vertical scroll
-                    }}
-                  >
-                    <div
-                      className="email-preview-content"
-                      dangerouslySetInnerHTML={{
-                        __html: hasExampleEmail
-                          ? initialExampleEmail
-                          : "<p style='color:#6b7280'>No example email loaded.</p>",
-                      }}
-
-                    />
+      {/* ===== PHASE 1: CHOOSE METHOD ===== */}
+      {!isEditMode && wizardPhase === 1 && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 32px", gap: 28, background: "#fafafa" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>✨</div>
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111827", marginBottom: 10 }}>Let's build your blueprint</h2>
+            <p style={{ color: "#6b7280", fontSize: 14, maxWidth: 420, lineHeight: 1.6 }}>
+              Choose how you'd like to start. We'll derive the placeholders and let you fine-tune before sending.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 16, width: "100%", maxWidth: 560 }}>
+            {[
+              { id: "reference" as const, icon: "📧", title: "Use a reference email", desc: "Paste an email you've already sent or like the style of. We'll derive your blueprint from it." },
+              { id: "description" as const, icon: "✏️", title: "Start from a description", desc: "No reference yet? Describe your company and what your outbound should do." },
+            ].map((opt) => {
+              const selected = localSelectedMethod === opt.id;
+              return (
+                <div key={opt.id} onClick={() => setLocalSelectedMethod(opt.id)}
+                  style={{ flex: 1, padding: 20, border: `2px solid ${selected ? "#3f9f42" : "#e5e7eb"}`, borderRadius: 14, cursor: "pointer", background: "#fff", position: "relative", transition: "all 0.2s" }}>
+                  <div style={{ position: "absolute", top: 14, right: 14, width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selected ? "#3f9f42" : "#d1d5db"}`, background: selected ? "#3f9f42" : "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {selected && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
                   </div>
-                )}
+                  <div style={{ width: 44, height: 44, background: "#f3f4f6", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, fontSize: 22 }}>
+                    {opt.icon}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "#111827", marginBottom: 6 }}>{opt.title}</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>{opt.desc}</div>
+                </div>
+              );
+            })}
+          </div>
+          {(() => {
+            const busy = isTemplateLoading || isStarting;
+            return (
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <button onClick={resetAll} disabled={busy} style={{ padding: "10px 24px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff", color: "#374151", fontSize: 14, cursor: busy ? "not-allowed" : "pointer", fontWeight: 500, opacity: busy ? 0.5 : 1 }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (!localSelectedMethod || busy) return;
+                    setIsStarting(true);
+                    const msg = localSelectedMethod === "reference"
+                      ? "I'll start from a reference email."
+                      : "I'll start from a description.";
+                    onStartConversation?.(localSelectedMethod, msg);
+                  }}
+                  disabled={!localSelectedMethod || busy}
+                  style={{ padding: "10px 28px", borderRadius: 8, background: localSelectedMethod && !busy ? "#3f9f42" : "#e5e7eb", color: localSelectedMethod && !busy ? "#fff" : "#9ca3af", fontSize: 14, fontWeight: 600, cursor: localSelectedMethod && !busy ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8, minWidth: 140, justifyContent: "center" }}>
+                  {busy ? (
+                    <>
+                      <Loader2 size={16} style={{ animation: "campaign-builder-spin 1s linear infinite" }} />
+                      Setting up…
+                    </>
+                  ) : "Continue →"}
+                </button>
+              </div>
+            );
+          })()}
+          <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", display: "flex", alignItems: "center", gap: 5 }}>
+            🛡️ Don't worry — you can switch methods anytime before approving the blueprint.
+          </p>
+        </div>
+      )}
+
+      {/* ===== EDIT MODE: placeholder dropdown ===== */}
+      {isEditMode && (
+        <div className="chat-placeholder-panel px-[20px] pt-[20px]" style={{ color: "#3f9f42" }}>
+          <select
+            className="placeholder-dropdown"
+            value={selectedPlaceholder || ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value) setIsTyping?.(true);
+              onPlaceholderSelect?.(value);
+            }}
+            disabled={isTyping}
+          >
+            <option value="">Edit elements</option>
+            {Object.entries(groupedPlaceholders).map(([category, placeholders]) => (
+              <optgroup key={category} label={category}>
+                {placeholders.map((p) => {
+                  const value = placeholderValues?.[p.placeholderKey] || "";
+                  return (
+                    <option key={p.placeholderKey} value={p.placeholderKey}>
+                      {p.friendlyName}{value ? ` — ${truncate(value)}` : " — Not set"}
+                    </option>
+                  );
+                })}
+              </optgroup>
+            ))}
+          </select>
+          {!(conversationStarted || (isEditMode && selectedElement)) && (
+            <div style={{ padding: "10px", background: "#f3f4f6", color: "#111827" }}>
+              <div className="email-preview-content" dangerouslySetInnerHTML={{ __html: hasExampleEmail ? initialExampleEmail : "<p style='color:#6b7280'>No example email loaded.</p>" }} />
             </div>
           )}
+        </div>
+      )}
 
-          {/* ===== CHAT BODY ===== */}
-          <div className="messages-area" ref={messagesContainerRef} style={{
-            flex: showInitialEmail ? "0 0 auto" : "1 1 auto",
-            display: showInitialEmail || showChat ? "flex" : "none",
-          }}>
-
-
-            {/* EDIT MODE – no placeholder yet */}
-            {/* {isEditMode && !conversationStarted && !selectedPlaceholder && (
-            <div className="empty-conversation">
-              <p>Please select element to edit.</p>
-            </div>
-          )} */}
-
-            {/* EDIT MODE – preparing */}
+      {/* ===== PHASE 2: PROVIDE INPUT (CHAT) ===== */}
+      {(isEditMode || wizardPhase === 2) && (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {/* Messages */}
+          <div className="messages-area" ref={messagesContainerRef}>
             {isEditMode && !conversationStarted && selectedPlaceholder && (
-              <div className="empty-conversation">
-                <p>Preparing conversation…</p>
-              </div>
+              <div className="empty-conversation"><p>Preparing conversation…</p></div>
             )}
-
-            {/* NORMAL MODE – idle */}
-            {!conversationStarted && !isEditMode && (
-              <div className="empty-conversation" />
-            )}
-
-            {/* ACTIVE CHAT */}
-            {conversationStarted && (
+            {(conversationStarted || isEditMode) && (
               <div className="messages-list">
                 {messages.map((msg, idx) => (
                   <div key={idx} className={`message-wrapper ${msg.type}`}>
                     <div className={`message-bubble ${msg.type}`}>
                       {renderMessageContent(msg.content)}
                       <div className={`message-time ${msg.type}`}>
-                        {new Date(msg.timestamp).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </div>
                     </div>
                   </div>
                 ))}
-
                 {isTyping && (
-                  <div className="typing-indicator flex items-center gap-[5px]">
-                    <Loader2 className="typing-spinner" />
-                    <span>Blueprint builder is thinking…</span>
+                  <div className="typing-indicator">
+                    <div className="typing-dots-row">
+                      <div className="typing-avatar">🤖</div>
+                      <div className="typing-dots-bubble">
+                        <div className="typing-dot" />
+                        <div className="typing-dot" />
+                        <div className="typing-dot" />
+                      </div>
+                    </div>
+                    <span className="typing-label">Blueprint builder is thinking…</span>
                   </div>
                 )}
-
-
               </div>
             )}
           </div>
 
+          {/* Attached images */}
           {attachedImages.length > 0 && (
             <div className="flex gap-2 px-3 pb-2 flex-wrap">
               {attachedImages.map((url, idx) => (
                 <div key={idx} className="relative">
-                  <img
-                    src={url}
-                    className="w-16 h-16 object-cover rounded border"
-                  />
-                  <button
-                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs px-1"
-                    onClick={() =>
-                      setAttachedImages((prev) =>
-                        prev.filter((_, i) => i !== idx)
-                      )
-                    }
-                  >
-                    ✕
-                  </button>
+                  <img src={url} className="w-16 h-16 object-cover rounded border" />
+                  <button className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs px-1"
+                    onClick={() => setAttachedImages((prev) => prev.filter((_, i) => i !== idx))}>✕</button>
                 </div>
               ))}
             </div>
           )}
 
-          {/* ===== INPUT BAR ===== */}
+          {/* Input area */}
           {conversationStarted && (
-            <div className="input-area">
-              <div className="input-container flex items-end gap-2">
-
-                {/* 📎 ATTACH IMAGE */}
-                <label
-                  className="cursor-pointer p-2 rounded hover:bg-gray-100"
-                  title="Attach image"
-                >
-                  <input
-                    type="file"
-                    accept="image/*"
-                    hidden
+            <div className="input-area" style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#fff" }}>
+              {/* Reference email big textarea (shown until submitted) */}
+              {!isEditMode && localSelectedMethod === "reference" && !referenceEmailSubmitted && messages.length > 0 && !isTyping && (
+                <div style={{ padding: "12px 16px", borderTop: "1px solid #e5e7eb" }}>
+                  <textarea
+                    value={referenceEmailDraft}
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleImageUpload(file);
-                      e.currentTarget.value = ""; // allow re-upload same file
+                      setReferenceEmailDraft(e.target.value);
+                      e.target.style.height = "auto";
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, 320)}px`;
                     }}
-                    disabled={isTyping}
+                    placeholder="Paste your reference email here…"
+                    rows={2}
+                    style={{ width: "100%", minHeight: 44, height: 44, maxHeight: 320, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, resize: "none", fontFamily: "inherit", color: "#111827", overflowY: "hidden" }}
                   />
-                  <span style={{ fontSize: "18px" }}>
-                    <FontAwesomeIcon
-                      icon={faAngleRight}
-                      className="text-[#ffffff] text-md"
-                    />
-                  </span>
-                </label>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                    <span style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 4 }}>
+                      ⓘ Tone, structure and CTA all come from this
+                    </span>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <label style={{ padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, cursor: "pointer", background: "#fff", color: "#374151", display: "flex", alignItems: "center", gap: 6 }}>
+                        <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.currentTarget.value = ""; }} />
+                        📎 Attach file
+                      </label>
+                      <button
+                        onClick={() => {
+                          if (!referenceEmailDraft.trim() && attachedImages.length === 0) return;
+                          setReferenceEmailSubmitted(true);
+                          handleSendMessage(referenceEmailDraft.trim() || undefined);
+                          setReferenceEmailDraft("");
+                        }}
+                        disabled={isTyping || (!referenceEmailDraft.trim() && attachedImages.length === 0)}
+                        style={{ padding: "7px 18px", background: "#3f9f42", color: "#fff", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, border: "none" }}>
+                        ⚙️ Derive blueprint
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", marginTop: 6 }}>
+                    <button onClick={() => { setLocalSelectedMethod(null); resetAll(); }} style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer" }}>← Back to method</button>
+                    <span style={{ fontSize: 12, color: "#9ca3af", marginLeft: 12 }}>~30 seconds to derive</span>
+                  </div>
+                </div>
+              )}
 
-                {/* TEXT INPUT */}
+              {/* Normal chat input — show unless waiting for reference email paste */}
+              {(isEditMode || localSelectedMethod !== "reference" || referenceEmailSubmitted) && (
+                <div className="input-container flex items-end gap-2">
+                  <label className="cursor-pointer p-2 rounded hover:bg-gray-100" title="Attach image">
+                    <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.currentTarget.value = ""; }} disabled={isTyping} />
+                    <span style={{ fontSize: 18 }}><FontAwesomeIcon icon={faAngleRight} className="text-[#ffffff] text-md" /></span>
+                  </label>
+                  <textarea ref={inputRef} value={currentAnswer} onChange={(e) => setCurrentAnswer(e.target.value)} onKeyPress={handleKeyPress}
+                    placeholder="Type your answer…" className="message-input" rows={1} disabled={isTyping} />
+                  <button onClick={() => handleSendMessage()} disabled={isTyping || (!currentAnswer.trim() && attachedImages.length === 0)} className="send-button" title="Send message">
+                    <Send size={18} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== PHASE 3: REVIEW BLUEPRINT ===== */}
+      {!isEditMode && wizardPhase === 3 && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0" }}>
+            {/* Bot intro */}
+            <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 14, color: "#374151", display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <span style={{ fontSize: 18, flexShrink: 0 }}>🤖</span>
+              <span>Here's what I derived. Have a quick read — you can approve, ask me to refine it, or rewrite from scratch.</span>
+            </div>
+
+            {/* Blueprint review card */}
+            <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff", padding: "20px", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <span style={{ background: "#dcfce7", color: "#16a34a", fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 4, letterSpacing: "0.04em" }}>DERIVED BLUEPRINT</span>
+                <span style={{ fontSize: 12, color: "#9ca3af" }}>Generated just now</span>
+              </div>
+
+              {reviewPlaceholders.length > 0 ? (
+                reviewPlaceholders.map(([key, value], idx) => (
+                  <div key={key} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: idx < reviewPlaceholders.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.06em", marginBottom: 4, textTransform: "uppercase" }}>
+                      {key.replace(/_/g, " ")}
+                    </div>
+                    <div style={{ fontSize: 14, color: "#111827", lineHeight: 1.55 }}>{value}</div>
+                  </div>
+                ))
+              ) : (
+                <p style={{ color: "#9ca3af", fontSize: 14 }}>Blueprint elements are being finalised…</p>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, paddingTop: 14, borderTop: "1px solid #f3f4f6" }}>
+                <span style={{ fontSize: 13, color: "#6b7280" }}>Next: we'll generate an example email for you to approve.</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { setReferenceEmailSubmitted(false); resetAll(); }}
+                    style={{ padding: "8px 16px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 14, cursor: "pointer", color: "#374151" }}>
+                    Rewrite
+                  </button>
+                  <button
+                    onClick={() => setBlueprintApproved(true)}
+                    style={{ padding: "8px 20px", borderRadius: 8, background: "#3f9f42", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, border: "none" }}>
+                    Approve →
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Typing indicator for Phase 3 */}
+            {isTyping && (
+              <div className="typing-indicator" style={{ padding: "0 16px 8px" }}>
+                <div className="typing-dots-row">
+                  <div className="typing-avatar">🤖</div>
+                  <div className="typing-dots-bubble">
+                    <div className="typing-dot" />
+                    <div className="typing-dot" />
+                    <div className="typing-dot" />
+                  </div>
+                </div>
+                <span className="typing-label">Updating blueprint…</span>
+              </div>
+            )}
+
+            {/* Refinement chips */}
+            {!isTyping && (
+              <div style={{ marginBottom: 12 }}>
+                <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", marginBottom: 10, letterSpacing: "0.05em", fontWeight: 600 }}>NEED TO REFINE?</p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                  {["Less formal", "Fix the offer", "Tighten the hook", "Add stronger CTA"].map((chip) => (
+                    <button key={chip}
+                      onClick={() => handleSendMessage(chip)}
+                      style={{ padding: "6px 14px", border: "1px solid #d1d5db", borderRadius: 20, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ color: "#3f9f42" }}>⚡</span> {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Refinement chat input */}
+          <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", background: "#fff" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+              <textarea ref={inputRef} value={currentAnswer} onChange={(e) => setCurrentAnswer(e.target.value)} onKeyPress={handleKeyPress}
+                placeholder="Tell the AI what to change… e.g. 'the offer is outbound lead gen, not software'"
+                style={{ flex: 1, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, resize: "none", fontFamily: "inherit", minHeight: 44, maxHeight: 160, height: 44, overflowY: "hidden" }}
+                rows={1} disabled={isTyping} />
+              <button onClick={() => handleSendMessage()} disabled={isTyping || !currentAnswer.trim()}
+                style={{ padding: "10px 14px", background: isTyping || !currentAnswer.trim() ? "#e5e7eb" : "#3f9f42", color: "#fff", borderRadius: 8, border: "none", cursor: isTyping || !currentAnswer.trim() ? "not-allowed" : "pointer", flexShrink: 0 }}>
+                <Send size={16} />
+              </button>
+            </div>
+            <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", marginTop: 6 }}>
+              ⓘ Your follow-up updates the blueprint above — the conversation stays open until you approve.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ===== PHASE 4: EXAMPLE EMAIL REVIEW ===== */}
+      {!isEditMode && wizardPhase === 4 && (() => {
+        const exampleEmailHtml = placeholderValues?.["example_output_email"] || "";
+        const hasEmail = exampleEmailHtml.trim().length > 0;
+        const phase4Messages = phase4StartIndexRef.current !== null
+          ? messages.slice(phase4StartIndexRef.current)
+          : [];
+        return (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {/* Scrollable content */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0" }}>
+              {/* Bot intro */}
+              <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 14, color: "#374151", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>🤖</span>
+                <span>Here's the example email I derived from your blueprint. Approve it to open the editor, or refine it below.</span>
+              </div>
+
+              {/* Email card */}
+              {hasEmail ? (
+                <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff", overflow: "hidden", marginBottom: 16 }}>
+                  <div style={{ padding: "10px 16px", borderBottom: "1px solid #f3f4f6", background: "#f9fafb", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, background: "#dcfce7", color: "#16a34a", padding: "2px 8px", borderRadius: 20, letterSpacing: "0.04em" }}>EXAMPLE OUTPUT</span>
+                    <span style={{ fontSize: 12, color: "#9ca3af" }}>AI-generated from your blueprint</span>
+                  </div>
+                  <div
+                    style={{ padding: "20px 24px", fontSize: 14, lineHeight: 1.7, color: "#111827" }}
+                    dangerouslySetInnerHTML={{ __html: exampleEmailHtml }}
+                  />
+                </div>
+              ) : (
+                <div style={{ border: "1px dashed #d1d5db", borderRadius: 10, padding: "40px 24px", background: "#f9fafb", textAlign: "center", marginBottom: 16 }}>
+                  <div style={{ fontSize: 24, marginBottom: 10 }}>📭</div>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 4 }}>No example email found</p>
+                  <p style={{ fontSize: 13, color: "#9ca3af" }}>The AI didn't generate an example output yet. Go back and ask it to include one.</p>
+                </div>
+              )}
+
+              {/* Refinement messages (only messages sent/received during Phase 4) */}
+              {phase4Messages.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  {phase4Messages.map((msg, idx) => (
+                    <div key={idx} style={{
+                      display: "flex",
+                      justifyContent: msg.type === "user" ? "flex-end" : "flex-start",
+                      marginBottom: 10,
+                    }}>
+                      {msg.type === "bot" && (
+                        <span style={{ width: 28, height: 28, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, marginRight: 8, marginTop: 2 }}>🤖</span>
+                      )}
+                      <div style={{
+                        maxWidth: "80%",
+                        padding: "10px 14px",
+                        borderRadius: msg.type === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                        background: msg.type === "user" ? "#3f9f42" : "#f9fafb",
+                        border: msg.type === "user" ? "none" : "1px solid #e5e7eb",
+                        color: msg.type === "user" ? "#fff" : "#111827",
+                        fontSize: 14,
+                        lineHeight: 1.55,
+                      }}>
+                        {renderMessageContent(msg.content)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Typing indicator */}
+              {isTyping && (
+                <div className="typing-indicator" style={{ marginBottom: 12 }}>
+                  <div className="typing-dots-row">
+                    <div className="typing-avatar">🤖</div>
+                    <div className="typing-dots-bubble">
+                      <div className="typing-dot" />
+                      <div className="typing-dot" />
+                      <div className="typing-dot" />
+                    </div>
+                  </div>
+                  <span className="typing-label">Refining example email…</span>
+                </div>
+              )}
+
+              {/* Quick refinement chips */}
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 11, color: "#9ca3af", marginBottom: 8, fontWeight: 600, letterSpacing: "0.05em" }}>QUICK REFINEMENTS</p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {["Make it shorter", "Stronger opening", "More personalised", "Softer CTA", "More direct"].map((chip) => (
+                    <button key={chip}
+                      onClick={() => handleSendMessage(chip)}
+                      disabled={isTyping}
+                      style={{ padding: "6px 14px", border: "1px solid #d1d5db", borderRadius: 20, background: "#fff", fontSize: 13, cursor: isTyping ? "not-allowed" : "pointer", color: "#374151", display: "flex", alignItems: "center", gap: 5, opacity: isTyping ? 0.5 : 1 }}>
+                      <span style={{ color: "#3f9f42" }}>✦</span> {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Chat input for refinements */}
+            <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", background: "#fff", flexShrink: 0 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 10 }}>
                 <textarea
                   ref={inputRef}
                   value={currentAnswer}
                   onChange={(e) => setCurrentAnswer(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Type your answer…"
-                  className="message-input"
-                  rows={2}
+                  placeholder="Suggest a refinement… e.g. 'open with the personalisation instead' or 'cut the last paragraph'"
+                  style={{ flex: 1, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, resize: "none", fontFamily: "inherit", minHeight: 44, maxHeight: 160, height: 44, overflowY: "hidden", color: "#111827" }}
+                  rows={1}
                   disabled={isTyping}
                 />
-
-                {/* SEND BUTTON */}
                 <button
-                  onClick={handleSendMessage}
-                  disabled={
-                    isTyping ||
-                    (!currentAnswer.trim() && attachedImages.length === 0)
-                  }
-                  className="send-button"
-                  title="Send message"
+                  onClick={() => handleSendMessage()}
+                  disabled={isTyping || !currentAnswer.trim()}
+                  style={{ padding: "10px 14px", background: isTyping || !currentAnswer.trim() ? "#e5e7eb" : "#3f9f42", color: "#fff", borderRadius: 8, border: "none", cursor: isTyping || !currentAnswer.trim() ? "not-allowed" : "pointer", flexShrink: 0, display: "flex", alignItems: "center" }}
                 >
-                  <Send size={18} />
+                  <Send size={16} />
+                </button>
+              </div>
+
+              {/* Footer nav */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <button
+                  onClick={() => setBlueprintApproved(false)}
+                  style={{ padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
+                >
+                  ← Back to blueprint
+                </button>
+                <button
+                  onClick={onApprove}
+                  style={{ padding: "7px 20px", borderRadius: 8, background: "#3f9f42", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, border: "none" }}
+                >
+                  Approve & edit elements →
                 </button>
               </div>
             </div>
-          )}
+          </div>
+        );
+      })()}
 
-        </div>
+      {/* ===== MODAL ===== */}
+      <PopupModal open={popupmodalInfo.open} title={popupmodalInfo.title} message={popupmodalInfo.message} onClose={closeModal} />
 
-        {/* ===== MODAL ===== */}
-        <PopupModal
-          open={popupmodalInfo.open}
-          title={popupmodalInfo.title}
-          message={popupmodalInfo.message}
-          onClose={closeModal}
-        />
-      </div>
+      </div>{/* end right panel */}
     </div>
   );
 };
@@ -918,10 +1176,11 @@ interface ExampleOutputPanelProps {
   allSourcedData: string;
   sourcedSummary: string;
 
-  isPreviewAllowed: boolean; // ✅ ADD
+  isPreviewAllowed: boolean;
+  onCollapse?: () => void;
 }
 
-const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
+export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   dataFiles,
   contacts,
   selectedDataFileId,
@@ -941,281 +1200,177 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   regenerateExampleOutput,
   activeMainTab,
   setActiveMainTab,
-  activeSubStageTab,
-  setActiveSubStageTab,
   filledTemplate,
-  searchResults,
-  allSourcedData,
-  sourcedSummary,
   exampleOutput,
   isPreviewAllowed,
+  onCollapse,
 }) => {
-  const safe = (v: any) => (v?.trim ? v.trim() : v) || "NA";
   const selectedContact = contacts.find((c) => c.id === selectedContactId);
-  const [userRole, setUserRole] = useState<string>(""); // Store user role
+  const [userRole, setUserRole] = useState<string>("");
 
   useEffect(() => {
-    const isAdminString = sessionStorage.getItem("isAdmin");
-    const isAdmin = isAdminString === "true"; // Correct comparison
-    setUserRole(isAdmin ? "ADMIN" : "USER");
+    setUserRole(sessionStorage.getItem("isAdmin") === "true" ? "ADMIN" : "USER");
   }, []);
 
-  return (
-    <div className="example-section !h-[calc(100%-60px)] shadow-[3px_3px_10px_rgba(0,0,0,0.2)] border-t-0">
-      {/* ===================== HEADER ===================== */}
-      <div className="example-header mb-[0]">
-        <div className="example-datafile-section">
-          <label className="text-[14px] font-[600]">Contact list</label>
+  const getInitials = (contact: any) => {
+    const parts = (contact?.full_name || "").trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return parts[0]?.[0]?.toUpperCase() ?? "?";
+  };
 
-          <div
+  const handlePreview = async () => {
+    if (!selectedContact) return;
+    await applyContactPlaceholders(selectedContact);
+    if (regenerateExampleOutput) await regenerateExampleOutput();
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#fff" }}>
+
+      {/* ── HEADER ── */}
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <span style={{ fontSize: 13 }}>👁️</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>Live preview</span>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button
+            onClick={handlePreview}
+            disabled={isGenerating || !selectedContactId || !isPreviewAllowed}
+            title="Refresh preview for this contact"
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              marginTop: "-20px",
+              padding: "4px 10px", borderRadius: 6, border: "1px solid #d1d5db",
+              background: "#fff", fontSize: 12, cursor: (!selectedContactId || !isPreviewAllowed) ? "not-allowed" : "pointer",
+              color: "#374151", display: "flex", alignItems: "center", gap: 4,
+              opacity: (!selectedContactId || !isPreviewAllowed) ? 0.45 : 1,
             }}
           >
-            <select
-              className="datafile-dropdown"
-              value={selectedDataFileId || ""}
-              onChange={(e) => handleSelectDataFile(Number(e.target.value))}
-              style={{
-                width: "180px",
-                height: "35px",
-                fontSize: "14px",
-                padding: "6px 10px",
-                borderRadius: "6px",
-                border: "1px solid #ccc",
-                appearance: "none",
-              }}
-            >
-              <option value="">-- Select contact file --</option>
-              {[...dataFiles].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map((df) => (
-                <option key={df.id} value={df.id}>
-                  {df.name}
-                </option>
-              ))}
-            </select>
-
-            <div
-              className="pagination-wrapper example-pagination"
-              style={{ marginTop: "-20px" }}
-            >
-              <PaginationControls
-                currentPage={currentPage}
-                totalPages={totalPages}
-                pageSize={rowsPerPage}
-                totalRecords={contacts.length}
-                setCurrentPage={setCurrentPage}
-                setPageSize={setPageSize}
-                pageLabel="Contact:"
-              />
-            </div>
-          </div>
+            {isGenerating
+              ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+              : <RefreshCw size={11} />}
+            Refresh
+          </button>
+          {onCollapse && (
+            <button onClick={onCollapse} title="Collapse preview"
+              style={{ padding: "4px 7px", borderRadius: 6, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", color: "#9ca3af", fontSize: 14, lineHeight: 1, display: "flex", alignItems: "center" }}>
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ===================== CONTACT DETAILS ROW ===================== */}
-      {selectedContact && (
-        <div
-          className="contact-row-wrapper"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            marginTop: "-15px",
-            backgroundColor: " #f5f6fa",
-          }}
-        >
-          <div
-            className="contact-details"
+      {/* ── CONTACT LIST SELECTOR ── */}
+      <div style={{ padding: "8px 14px", borderBottom: "1px solid #f3f4f6", flexShrink: 0, background: "#fafafa" }}>
+        <div style={{ position: "relative" }}>
+          <select
+            value={selectedDataFileId || ""}
+            onChange={(e) => handleSelectDataFile(Number(e.target.value))}
             style={{
-              display: "flex",
-              gap: "8px",
-              flexWrap: "wrap",
-              border: "1px solid #d1d5db",
-              padding: "10px 10px",
-              borderRadius: "8px",
-              backgroundColor: "#f9fafb",
+              width: "100%", height: 30, fontSize: 12, padding: "0 26px 0 10px",
+              borderRadius: 6, border: "1px solid #d1d5db", background: "#fff",
+              appearance: "none", color: selectedDataFileId ? "#111827" : "#9ca3af", cursor: "pointer",
             }}
           >
-            <span>{safe(selectedContact.full_name)}</span> •
-            <span>{safe(selectedContact.job_title)}</span> •
-            <span>{safe(selectedContact.company_name)}</span> •
-            <span>{safe(selectedContact.country_or_address)}</span>
-          </div>
+            <option value="">— Select contact list —</option>
+            {[...dataFiles]
+              .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+              .map((df) => <option key={df.id} value={df.id}>{df.name}</option>)}
+          </select>
+          <span style={{ position: "absolute", right: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#9ca3af", fontSize: 9 }}>▼</span>
+        </div>
+      </div>
 
-          {/* GENERATE BUTTON */}
-          <button
-            className="regenerate-btn"
-            disabled={isGenerating || !isPreviewAllowed}
-            onClick={async () => {
-              await applyContactPlaceholders(selectedContact);
-              if (regenerateExampleOutput) {
-                await regenerateExampleOutput();
-              }
-            }}
-            style={{
-              borderRadius: "12px",
-            }}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 size={18} className="spinning" />
-                &nbsp; Preview email
-              </>
-            ) : (
-              "Preview email"
-            )}
-          </button>
+      {/* ── CONTACT CARD + COMPACT PAGINATION ── */}
+      {contacts.length > 0 && (
+        <div style={{ padding: "8px 14px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          {selectedContact ? (
+            <>
+              <div style={{
+                width: 34, height: 34, borderRadius: "50%",
+                background: "linear-gradient(135deg, #3f9f42 0%, #16a34a 100%)",
+                color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 700, flexShrink: 0, boxShadow: "0 1px 4px rgba(63,159,66,0.25)",
+              }}>
+                {getInitials(selectedContact)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {selectedContact.full_name || "—"}
+                </div>
+                <div style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {[selectedContact.job_title, selectedContact.company_name].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={{ flex: 1, fontSize: 12, color: "#9ca3af" }}>No contact selected</div>
+          )}
+          <PaginationControls
+            variant="compact"
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={rowsPerPage}
+            totalRecords={contacts.length}
+            setCurrentPage={setCurrentPage}
+            setPageSize={setPageSize}
+            showPageSizeDropdown={false}
+            showInfo={false}
+          />
         </div>
       )}
 
-      {/* ===================== TABS HEADER ===================== */}
-      <div
-        className="example-tabs"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: "0px",
-        }}
-      >
-        <div style={{ display: "flex", gap: "12px" }}>
-          {["output", "pt"].map((t) => {
-            if (t === "pt" && userRole !== "ADMIN") return null;
-
-            return (
-              <button
-                key={t}
-                className={`stage-tab-btn ${activeMainTab === t ? "active" : ""}`}
-                onClick={() => setActiveMainTab(t as any)}
-              >
-                {t.toUpperCase()}
-              </button>
-            );
-          })}
+      {/* ── TABS ── */}
+      <div style={{ padding: "0 14px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ display: "flex" }}>
+          {(["output", ...(userRole === "ADMIN" ? ["pt"] : [])] as Array<"output" | "pt">).map((t) => (
+            <button key={t} onClick={() => setActiveMainTab(t)}
+              style={{
+                padding: "9px 14px", fontSize: 12, fontWeight: 600, background: "none", border: "none",
+                borderBottom: activeMainTab === t ? "2px solid #3f9f42" : "2px solid transparent",
+                color: activeMainTab === t ? "#3f9f42" : "#9ca3af", cursor: "pointer",
+                letterSpacing: "0.04em", transition: "color 0.15s, border-color 0.15s",
+              }}>
+              {t.toUpperCase()}
+            </button>
+          ))}
         </div>
-
         {activeMainTab === "output" && editableExampleOutput && (
-          <button
-            onClick={saveExampleEmail}
-            title='If this preview looks good then save it as the new "Example output email"'
-            style={{
-              padding: "6px 14px",
-              background: "#3f9f42",
-              color: "white",
-              borderRadius: "6px",
-              fontSize: "14px",
-              fontWeight: 600,
-            }}
-          >
+          <button onClick={saveExampleEmail}
+            style={{ fontSize: 12, padding: "3px 12px", background: "#3f9f42", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
             Save email
           </button>
         )}
       </div>
 
-      {/* ===================== OUTPUT TAB ===================== */}
-      {activeMainTab === "output" && (
-        <div className="example-body">
-          {editableExampleOutput || exampleOutput ? (
+      {/* ── CONTENT ── */}
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {activeMainTab === "output" && (
+          editableExampleOutput || exampleOutput ? (
             <ExampleEmailEditor
               value={editableExampleOutput || exampleOutput || ""}
               onChange={setEditableExampleOutput}
             />
           ) : (
-            <div className="example-placeholder">
-              <div className="how-it-works-box">
-                <div className="how-it-works-title">
-                  <span className="icon">💡</span>
-                  <span>How this works</span>
-                </div>
-
-                <p>
-                  Once enough questions have been answered in the left conversation area, you can preview how your personalized email will look with real contact details.
-                  <br /><br />
-                  First, select from the <b>'Contact list'</b> above and then choose a contact. If you haven't added any contacts yet, then go over to the Contacts section and import or quickly add one or two.
-                  <br /><br />
-                  Now click the <b>'Preview email'</b> button, above right, to see how your email will look.
-                </p>
-
-
-                <br />
-
-                <div className="tip-text">
-                  <span className="icon">⭐</span>
-                  <span>
-                    Tip: You can change the blueprint elements and click <b>'Preview email'</b> again, and the email will update.
-                  </span>
-                </div>
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>✉️</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>No preview yet</div>
+              <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, maxWidth: 200, margin: "0 auto" }}>
+                Select a contact list and a contact, then click <strong>Refresh</strong> to generate a preview.
               </div>
+              {!isPreviewAllowed && (
+                <div style={{ marginTop: 14, fontSize: 11, color: "#d97706", background: "#fef3c7", borderRadius: 6, padding: "6px 12px", display: "inline-block" }}>
+                  Complete the blueprint first
+                </div>
+              )}
             </div>
-
-          )}
-        </div>
-      )}
-
-      {/* ===================== PT TAB ===================== */}
-      {activeMainTab === "pt" && (
-        <div className="example-body">
-          {filledTemplate ? (
-            <pre className="filled-template-box">{filledTemplate}</pre>
-          ) : (
-            <p className="example-placeholder">
-              Filled Template will appear here
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ===================== STAGES TAB ===================== */}
-      {/* {activeMainTab === "stages" && (
-        <div className="stages-container">
-          <div className="stage-tabs">
-            {["search", "data", "summary"].map((t) => (
-              <button
-                key={t}
-                className={`stage-tab ${activeSubStageTab === t ? "active" : ""}`}
-                onClick={() => setActiveSubStageTab(t as any)}
-              >
-                {t === "search"
-                  ? "Search Results"
-                  : t === "data"
-                  ? "All Sourced Data"
-                  : "Sourced Data Summary"}
-              </button>
-            ))}
-          </div>
-
-          <div className="stage-content">
-            {activeSubStageTab === "search" && (
-              <ul className="search-results-list">
-                {searchResults.length > 0 ? (
-                  searchResults.map((url, idx) => (
-                    <li key={idx}>
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        {url}
-                      </a>
-                    </li>
-                  ))
-                ) : (
-                  <p>No search results available.</p>
-                )}
-              </ul>
-            )}
-
-            {activeSubStageTab === "data" && (
-              <pre className="all-sourced-data">{allSourcedData}</pre>
-            )}
-
-            {activeSubStageTab === "summary" && (
-              <div className="sourced-summary">
-                {sourcedSummary || "No summary available."}
-              </div>
-            )}
-          </div>
-        </div>
-      )} */}
+          )
+        )}
+        {activeMainTab === "pt" && (
+          filledTemplate
+            ? <pre style={{ padding: 16, fontSize: 12, whiteSpace: "pre-wrap", fontFamily: "monospace", color: "#374151", margin: 0 }}>{filledTemplate}</pre>
+            : <p style={{ padding: 20, color: "#9ca3af", fontSize: 13 }}>Filled template will appear here</p>
+        )}
+      </div>
     </div>
   );
 };
@@ -1256,7 +1411,6 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   selectedClient,
 }) => {
   // --- State Management ---
-  const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>("chat");
   const [currentAnswer, setCurrentAnswer] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -1332,7 +1486,6 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     useSessionState<string>("campaign_master_prompt_extensive", "");
 
   const baseUserId = sessionStorage.getItem("clientId");
-  const [isSectionOpen, setIsSectionOpen] = useState(true);
   const effectiveUserId = selectedClient || baseUserId;
 
   const [templateDefinitions, setTemplateDefinitions] = useState<
@@ -1364,21 +1517,20 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   const [subjectInstructions, setSubjectInstructions] = useState<string>("");
   const [webSearchInstructions, setWebSearchInstructions] = useState<string>("");
   const [formValues, setFormValues] = useState<Record<string, string>>({});
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 1;
-  const setPageSize = () => { };
   const [openedFromTemplateEdit, setOpenedFromTemplateEdit] = useState(false);
+  // true once the user has completed the full wizard or an existing blueprint is loaded
+  const [wizardCompleted, setWizardCompleted] = useState(false);
 
   const isPreviewAllowed = React.useMemo(() => {
     const emailHtml = placeholderValues?.example_output_email;
     return getPlainTextLength(emailHtml) >= 20;
   }, [placeholderValues?.example_output_email]);
 
-  const isEditMode = React.useMemo(() => {
-    const html = placeholderValues?.example_output_email;
-    return typeof html === "string" && getPlainTextLength(html) >= 20;
-  }, [placeholderValues?.example_output_email]);
+  // isEditMode is driven by explicit completion, NOT by example_output_email content.
+  // This prevents the wizard from jumping to edit mode mid-conversation when the AI
+  // generates example_output_email in the same message as status:complete.
+  const isEditMode = wizardCompleted;
+
 
   // ========================================
   // IMAGE UPLOAD STATE
@@ -1445,25 +1597,11 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     PlaceholderDefinitionUI[]
   >([]);
 
-  const [previewTab, setPreviewTab] = useState<"output" | "pt" | "stages">(
-    "output",
-  );
-
-  const [previewSubTab, setPreviewSubTab] = useState<
-    "search" | "data" | "summary"
-  >("summary");
-  const totalPages = Math.max(
-    1,
-    Math.ceil((contacts.length || 1) / rowsPerPage),
-  );
   const [editableExampleOutput, setEditableExampleOutput] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isSavingElements, setIsSavingElements] = useState(false);
   const [activeMainTab, setActiveMainTab] = useState<MainTab>("build");
+  const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>("chat");
 
-  const [activeSubStageTab, setActiveSubStageTab] = useState<
-    "search" | "data" | "summary"
-  >("summary");
   const [popupmodalInfo, setPopupModalInfo] = useState({
     open: false,
     title: "",
@@ -1483,11 +1621,6 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
 
   const normalizeCategory = (category: string) =>
     category.trim().toLowerCase();
-
-  const formatCategoryLabel = (category: string) =>
-    category
-      .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase());
 
 
 
@@ -1573,15 +1706,10 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   };
 
   useEffect(() => {
-    if (
-      activeMainTab === "build" &&
-      activeBuildTab === "elements" &&
-      exampleOutput &&
-      !editableExampleOutput
-    ) {
+    if (activeMainTab === "build" && exampleOutput && !editableExampleOutput) {
       setEditableExampleOutput(exampleOutput);
     }
-  }, [activeMainTab, activeBuildTab, exampleOutput]);
+  }, [activeMainTab, exampleOutput]);
 
   // Load selectedTemplateDefinitionId from sessionStorage on mount
   useEffect(() => {
@@ -1626,12 +1754,6 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   }, [selectedTemplateDefinitionId]);
 
   useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [totalPages]);
-
-  useEffect(() => {
     setEditableExampleOutput(exampleOutput || "");
   }, [exampleOutput]);
 
@@ -1673,39 +1795,21 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     }
   }, [placeholderValues]);
 
-  // 1️⃣ Reset page ONLY when contacts list changes
+  // Restore/persist activeMainTab in sessionStorage
   useEffect(() => {
-    if (!selectedDataFileId) return;
-    setCurrentPage(1);
-  }, [selectedDataFileId]);
-
-  // 2️⃣ Apply contact when page changes
-  useEffect(() => {
-    if (!contacts.length) return;
-
-    const contact = contacts[(currentPage - 1) * rowsPerPage];
-    if (!contact || contact.id === selectedContactId) return;
-
-    setSelectedContactId(contact.id);
-    applyContactPlaceholders(contact);
-  }, [currentPage, contacts]);
-
-  useEffect(() => {
-    const main = sessionStorage.getItem(
-      "campaign_activeMainTab",
-    ) as MainTab | null;
-    const build = sessionStorage.getItem(
-      "campaign_activeBuildTab",
-    ) as BuildSubTab | null;
-
+    const main = sessionStorage.getItem("campaign_activeMainTab") as MainTab | null;
     if (main) setActiveMainTab(main);
+    const build = sessionStorage.getItem("campaign_activeBuildTab") as BuildSubTab | null;
     if (build) setActiveBuildTab(build);
   }, []);
 
   useEffect(() => {
     sessionStorage.setItem("campaign_activeMainTab", activeMainTab);
+  }, [activeMainTab]);
+
+  useEffect(() => {
     sessionStorage.setItem("campaign_activeBuildTab", activeBuildTab);
-  }, [activeMainTab, activeBuildTab]);
+  }, [activeBuildTab]);
 
   // ====================================================================
   // LOAD DATA FILES
@@ -1743,10 +1847,10 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
         // Set states (async)
         setSelectedTemplateDefinitionId(definitionId);
         setTemplateName(campaignName || "");
-        setIsTyping(true);
 
-        // Load template
+        // Load template — do not set isTyping here; Phase 1 shows after load
         await loadTemplateDefinitionById(definitionId);
+        setIsPreparingAutoStart(false);
 
         // ⛔ DO NOT remove autoStartConversation here
         // Let watcher handle it
@@ -1777,15 +1881,13 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       masterPrompt.trim() !== "" &&
       selectedTemplateDefinitionId !== null
     ) {
-      console.log("⚡ All template data ready — starting conversation now!");
-
-      // Remove flags AFTER readiness is confirmed
+      // Template is ready — navigate to Build > Chat so Phase 1 (choose method) shows.
+      // Do NOT call startConversation() here; the user must pick a method first.
       sessionStorage.removeItem("autoStartConversation");
       sessionStorage.removeItem("openConversationTab");
 
       setActiveMainTab("build");
       setActiveBuildTab("chat");
-      startConversation();
     }
   }, [systemPrompt, masterPrompt, selectedTemplateDefinitionId]);
 
@@ -2079,6 +2181,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     setSearchResults([]);
     setAllSourcedData("");
     setSourcedSummary("");
+    setWizardCompleted(false);
 
     if (options?.clearUiPlaceholders) {
       setUiPlaceholders([]);
@@ -2122,7 +2225,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   const regenerateExampleOutput = async () => {
     // if (isGenerating) return;
     try {
-      setIsGenerating(true);
+      setIsPreviewLoading(true);
       console.log("🚀 Manual regenerate button clicked");
 
       if (!editTemplateId && !selectedTemplateDefinitionId) {
@@ -2741,8 +2844,12 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
         setExampleOutput(template.exampleOutput);
       }
 
+      const loadedExampleEmail = template.placeholderValues?.example_output_email;
+      const hasExistingEmail = typeof loadedExampleEmail === "string" && getPlainTextLength(loadedExampleEmail) >= 20;
+
+      setWizardCompleted(hasExistingEmail);
       setActiveMainTab("build");
-      setActiveBuildTab("chat");
+      setActiveBuildTab(hasExistingEmail ? "elements" : "chat");
       setConversationStarted(loadedMessages.length > 0);
       setIsTyping(false);
       // setIsEditMode(true);
@@ -3135,21 +3242,6 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
 
   }, [masterPrompt]);
 
-  useEffect(() => {
-    const main = sessionStorage.getItem("campaign_activeMainTab") as MainTab;
-    const sub = sessionStorage.getItem(
-      "campaign_activeBuildTab",
-    ) as BuildSubTab;
-
-    if (main) setActiveMainTab(main);
-    if (sub) setActiveBuildTab(sub);
-  }, []);
-
-  useEffect(() => {
-    sessionStorage.setItem("campaign_activeMainTab", activeMainTab);
-    sessionStorage.setItem("campaign_activeBuildTab", activeBuildTab);
-  }, [activeMainTab, activeBuildTab]);
-
   // 🔒 ESSENTIAL placeholders ONLY (from masterPrompt)
   const essentialPlaceholderKeys = React.useMemo(
     () => extractPlaceholders(masterPrompt),
@@ -3311,7 +3403,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   // ====================================================================
   // START CONVERSATION
   // ====================================================================
-  const startConversation = async () => {
+  const startConversation = async (initialUserMessage?: string) => {
     if (!effectiveUserId) {
       console.warn("⚠️ No client ID available — cannot start conversation.");
       return;
@@ -3331,13 +3423,11 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
     setAttachedImages([]); // 🔥 clear images after start
 
 
-    setMessages([
-      {
-        type: "bot",
-        content: INITIAL_BLUEPRINT_WELCOME_MESSAGE,
-        timestamp: new Date(),
-      },
-    ]);
+    setMessages(
+      initialUserMessage
+        ? [{ type: "user", content: initialUserMessage, timestamp: new Date() }]
+        : [{ type: "bot", content: INITIAL_BLUEPRINT_WELCOME_MESSAGE, timestamp: new Date() }]
+    );
 
     const cleanAssistantMessage = (text: string): string => {
       if (!text) return "";
@@ -3473,18 +3563,15 @@ const parsePlaceholdersSafe = (block: string) => {
   return dict;
 };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (overrideText?: string) => {
+    const answerText = (overrideText ?? currentAnswer).trim();
     if (
       isTyping ||
       !effectiveUserId ||
-      (currentAnswer.trim() === "" && attachedImages.length === 0)
+      (answerText === "" && attachedImages.length === 0)
     ) {
       return;
     }
-
-
-    // capture the user's text before we clear it
-    const answerText = currentAnswer.trim();
 
     const imagesToSend = [...attachedImages];
 
@@ -3764,8 +3851,6 @@ const parsePlaceholdersSafe = (block: string) => {
   // RESET ALL
   // ====================================================================
   const resetAll = () => {
-    if (isEditMode) return;
-
     if (effectiveUserId) {
       axios
         .post(
@@ -3809,18 +3894,6 @@ const parsePlaceholdersSafe = (block: string) => {
     const isAdmin = isAdminString === "true"; // Correct comparison
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
-
-  const [instructionSubTab, setInstructionSubTab] = useState<
-    | "ai_new"
-    | "ai_edit"
-    | "placeholder_short"
-    | "placeholders"
-    | "ct"
-    | "web_search_instructions"
-    | "subject_instructions" // ⭐ NEW
-  >("ai_new");
-
-  const isEditingDefinition = selectedTemplateDefinitionId !== null;
 
   const createNewInstruction = () => {
     setSelectedTemplateDefinitionId(null); // remove dropdown selection
@@ -3925,24 +3998,6 @@ const parsePlaceholdersSafe = (block: string) => {
     }
   };
 
-  const [expandedPlaceholder, setExpandedPlaceholder] = useState<{
-    key: string;
-    friendlyName: string;
-  } | null>(null);
-
-  const [expandedDraft, setExpandedDraft] = useState("");
-
-  const editorRef = useRef<HTMLDivElement | null>(null);
-
-  const saveExpandedContent = () => {
-    if (!expandedPlaceholder || !editorRef.current) return;
-
-    setFormValues((prev) => ({
-      ...prev,
-      [expandedPlaceholder.key]: editorRef.current?.innerHTML ?? "",
-    }));
-  };
-
   function SimpleTextarea({
     value,
     onChange,
@@ -3971,110 +4026,6 @@ const parsePlaceholdersSafe = (block: string) => {
     );
   }
 
-  const movePlaceholder = (key: string, direction: "up" | "down") => {
-    setUiPlaceholders((prev) => {
-      const current = prev.find((p) => p.placeholderKey === key);
-      if (!current) return prev;
-
-      const category = current.category;
-
-      // 1️⃣ Get placeholders only inside this category
-      const sameCategory = prev
-        .filter((p) => p.category === category)
-        .sort((a, b) => a.placeholderSequence - b.placeholderSequence);
-
-      // 2️⃣ Find index inside category block
-      const idx = sameCategory.findIndex((p) => p.placeholderKey === key);
-
-      if (idx === -1) return prev;
-
-      // 3️⃣ Move inside category
-      if (direction === "up" && idx > 0) {
-        [sameCategory[idx - 1], sameCategory[idx]] = [
-          sameCategory[idx],
-          sameCategory[idx - 1],
-        ];
-      }
-
-      if (direction === "down" && idx < sameCategory.length - 1) {
-        [sameCategory[idx], sameCategory[idx + 1]] = [
-          sameCategory[idx + 1],
-          sameCategory[idx],
-        ];
-      }
-
-      // 4️⃣ Reassign NEW placeholderSequence inside this category only
-      sameCategory.forEach((p, i) => {
-        p.placeholderSequence = i + 1;
-      });
-
-      // 5️⃣ Merge back into full UI list
-      return prev.map((p) =>
-        p.category === category
-          ? sameCategory.find((x) => x.placeholderKey === p.placeholderKey)!
-          : p,
-      );
-    });
-  };
-
-  const categoryList = React.useMemo(() => {
-    const map = new Map<string, number>();
-
-    uiPlaceholders.forEach((p) => {
-      map.set(p.category, p.categorySequence ?? 999);
-    });
-
-    return Array.from(map.entries())
-      .map(([name, seq]) => ({ name, seq }))
-      .sort((a, b) => a.seq - b.seq);
-  }, [uiPlaceholders]);
-
-  const moveCategory = (category: string, direction: "up" | "down") => {
-    setUiPlaceholders((prev) => {
-      // 1️⃣ Build clean category list with FIXED default sequences
-      let categories = Array.from(new Set(prev.map((p) => p.category)));
-
-      // Assign proper sequential numbers (1,2,3...)
-      let categorySeqList = categories.map((cat, idx) => ({
-        name: cat,
-        seq: prev.find((p) => p.category === cat)?.categorySequence ?? idx + 1,
-      }));
-
-      // 2️⃣ Sort by sequence
-      categorySeqList.sort((a, b) => a.seq - b.seq);
-
-      // 3️⃣ Find target category index
-      const index = categorySeqList.findIndex((c) => c.name === category);
-      if (index === -1) return prev;
-
-      // 4️⃣ Swap UP
-      if (direction === "up" && index > 0) {
-        const tmp = categorySeqList[index - 1].seq;
-        categorySeqList[index - 1].seq = categorySeqList[index].seq;
-        categorySeqList[index].seq = tmp;
-      }
-
-      // 5️⃣ Swap DOWN
-      if (direction === "down" && index < categorySeqList.length - 1) {
-        const tmp = categorySeqList[index + 1].seq;
-        categorySeqList[index + 1].seq = categorySeqList[index].seq;
-        categorySeqList[index].seq = tmp;
-      }
-
-      // 6️⃣ Normalize sequences again (1,2,3…)
-      categorySeqList = categorySeqList
-        .sort((a, b) => a.seq - b.seq)
-        .map((c, idx) => ({ ...c, seq: idx + 1 }));
-
-      // 7️⃣ Apply NEW sequence numbers to each placeholder
-      return prev.map((p) => ({
-        ...p,
-        categorySequence:
-          categorySeqList.find((c) => c.name === p.category)?.seq ??
-          p.categorySequence,
-      }));
-    });
-  };
 
 
   const deletePlaceholderDefinition = async (placeholderKey: string) => {
@@ -4148,103 +4099,6 @@ const parsePlaceholdersSafe = (block: string) => {
   // ====================================================================
   return (
     <div className="email-campaign-builder !p-[0]">
-      {/* ================= TOP TABS ================= */}
-
-      <div className="sticky-tabs">
-        <ul className="flex items-center gap-6">
-          {/* LEFT TABS */}
-
-          {/* ================= ADMIN USAGE PANEL ================= */}
-          {userRole === "ADMIN" && usageInfo && (
-            <div
-              style={{
-                marginTop: "4px",
-                padding: "6px 10px",
-                background: "#f1f5f9",
-                border: "1px solid #e2e8f0",
-                borderRadius: "6px",
-                fontSize: "11px",
-                lineHeight: "1.3",
-                display: "inline-block",
-              }}
-            >
-              {/* Last Call */}
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                <strong>Last:</strong>
-                <span>In {usageInfo.promptTokens ?? 0}</span>
-                <span>Out {usageInfo.completionTokens ?? 0}</span>
-                <span>💲{(usageInfo.cost ?? 0).toFixed(6)}</span>
-              </div>
-
-              {/* Total */}
-              {totalUsage.totalCost > 0 && (
-                <div
-                  style={{
-                    marginTop: "2px",
-                    display: "flex",
-                    gap: "10px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <strong>Total:</strong>
-                  <span>In {totalUsage.totalInput}</span>
-                  <span>Out {totalUsage.totalOutput}</span>
-                  <span>💲{totalUsage.totalCost.toFixed(6)}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {userRole === "ADMIN" && (
-            <div className="flex items-center gap-2">
-              {["build", "instructions"].map((t) => (
-                <li key={t}>
-                  <button
-                    className={activeMainTab === t ? "active" : ""}
-                    onClick={() => setActiveMainTab(t as any)}
-                  >
-                    {t === "build" ? "Build" : "Instructions set"}
-                  </button>
-                </li>
-              ))}
-
-              {/* VT TAB */}
-              <li>
-                <button
-                  className={activeMainTab === "ct" ? "active" : ""}
-                  onClick={() => setActiveMainTab("ct")}
-                >
-                  VT
-                </button>
-              </li>
-            </div>
-          )}
-          {/* RIGHT SIDE — Notifications */}
-          <li className="flex items-center gap-0 cursor-pointer ml-[12px]">
-            <span
-              style={{ color: "#3f9f42", fontWeight: 500 }}
-              className="text-[20px]"
-              title={soundEnabled ? "Notifications ON" : "Notifications OFF"}
-              onClick={toggleNotifications}
-            >
-              🔔
-            </span>
-
-            <img
-              src={soundEnabled ? toggleOn : toggleOff}
-              alt="Notifications Toggle"
-              className="ml-[5px] mt-[4px]"
-              style={{
-                height: "30px",
-                objectFit: "contain",
-                borderRadius: "12px",
-              }}
-              onClick={toggleNotifications}
-            />
-          </li>
-        </ul>
-      </div>
-
       {/* ================= LOADING OVERLAYS ================= */}
       {isLoadingTemplate && <LoadingSpinner message="Loading template for editing..." />}
       {isLoadingDefinitions && <LoadingSpinner message="Loading blueprint definitions..." />}
@@ -4262,937 +4116,126 @@ const parsePlaceholdersSafe = (block: string) => {
 
           {/* ================= BUILD TAB ================= */}
           {activeMainTab === "build" && (
-            <>
-              {/* ================= SPLIT LAYOUT ================= */}
-              <div className="flex gap-4 h-[calc(100vh-200px)] mt-[10px]">
-                {/* RIGHT: Show Preview Button (only when closed) */}
-                {/* <div className="absolute right-[0] top-[8] z-[100]">
-                  <button
-                    className="show-preview-btn !rounded-[4px]"
-                    onClick={() => setIsSectionOpen(!isSectionOpen)}
-                  >
-                    <span className="flex items-center gap-[5px]">
-                      <FontAwesomeIcon
-                        icon={isSectionOpen ? faAngleRight : faAngleLeft}
-                        className="text-[#ffffff] text-md"
-                      />
-                      <span>
-                        {isSectionOpen ? "Hide" : "Show"} email preview
-                      </span>
-                    </span>
-                  </button>
-                </div> */}
-                {/* ================= LEFT PANEL ================= */}
-                <div
-                  style={{
-                    flex: 1,
-                    width: isSectionOpen ? "50%" : "100%",
-                    transition: "all 0.25s ease",
-                  }}
-                >
-                  {/* ================= BUILD SUBTAB HEADER ROW ================= */}
-                  <div className="build-subtabs-row !pb-[0]">
-                    {/* LEFT: Chat / Elements tabs */}
-                    <div className="build-subtabs !gap-[0]">
-                      {["chat", "elements"].map((t) => (
-                        <button
-                          key={t}
-                          className={activeBuildTab === t ? "active" : ""}
-                          onClick={() => setActiveBuildTab(t as any)}
-                        >
-                          {t === "chat" ? "Chat" : "Elements"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {activeBuildTab === "chat" && (
-                    <ConversationTab
-                      conversationStarted={conversationStarted}
-                      messages={visibleMessages}
-                      isTyping={isTyping}
-                      isComplete={isComplete}
-                      currentAnswer={currentAnswer}
-                      setCurrentAnswer={setCurrentAnswer}
-                      handleSendMessage={handleSendMessage}
-                      handleKeyPress={handleKeyPress}
-                      resetAll={resetAll}
-                      isEditMode={isEditMode}
-                      availablePlaceholders={extractPlaceholders(masterPrompt)}
-                      placeholderValues={visiblePlaceholderValues}
-                      onPlaceholderSelect={startEditConversation}
-                      selectedPlaceholder={selectedPlaceholder}
-                      setIsTyping={setIsTyping}
-                      exampleOutput={exampleOutput}
-                      regenerateExampleOutput={regenerateExampleOutput}
-                      dataFiles={dataFiles}
-                      contacts={contacts}
-                      selectedDataFileId={selectedDataFileId}
-                      selectedContactId={selectedContactId}
-                      handleSelectDataFile={handleSelectDataFile}
-                      setSelectedContactId={setSelectedContactId}
-                      applyContactPlaceholders={applyContactPlaceholders}
-                      searchResults={searchResults}
-                      allSourcedData={allSourcedData}
-                      sourcedSummary={sourcedSummary}
-                      filledTemplate={filledTemplate}
-                      groupedPlaceholders={visibleGroupedPlaceholders}
-                      initialExampleEmail={initialExampleEmail}
-                      selectedElement={selectedElement}
-                      attachedImages={attachedImages}
-                      setAttachedImages={setAttachedImages}
-                      handleImageUpload={uploadImage}
-                    />
-                  )}
-
-                  {activeBuildTab === "elements" && (
-                    <ElementsTab
-                      groupedPlaceholders={visibleGroupedPlaceholders}
-                      formValues={visibleFormValues}
-                      setFormValues={setFormValues}
-                      setExpandedKey={(key, friendlyName) => {
-                        setExpandedPlaceholder({ key, friendlyName });
-
-                        // ⭐ CRITICAL FIX
-                        setExpandedDraft(formValues[key] || "");
-                      }}
-                      saveAllPlaceholders={saveAllPlaceholders}
-                      dataFiles={dataFiles}
-                      contacts={contacts}
-                      selectedDataFileId={selectedDataFileId}
-                      selectedContactId={selectedContactId}
-                      handleSelectDataFile={handleSelectDataFile}
-                      setSelectedContactId={setSelectedContactId}
-                      applyContactPlaceholders={applyContactPlaceholders}
-                      renderPlaceholderInput={renderPlaceholderInput}
-                    />
-                  )}
-                </div>
-
-                {/* ================= RIGHT PANEL (EMAIL PREVIEW) ================= */}
-                {isSectionOpen && (
-                  <div
-                    style={{
-                      flex: 1,
-                      width: "50%",
-                      paddingLeft: "12px",
-                      position: "relative",
-                    }}
-                  >
-                    <div className="flex justify-between min-h-[44px] items-center">
-                      <div className="bg-white px-5 py-2 border border-gray-300 border-b-0 rounded-t-md">
-                        <h3 className="font-[600] flex items-center" style={{ color: '#3f9f42' }}>
-                          Email preview
-                        </h3>
-                      </div>
-                      <button
-                        className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[14px] px-[12px] py-[6px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
-                        onClick={() => setIsSectionOpen(false)}
-                        title="Hide preview"
-                      >
-                        <span className="flex items-center gap-[5px]">
-                          <FontAwesomeIcon
-                            icon={faAngleRight}
-                            className="text-[#3f9f42] text-md"
-                          />
-                          <span>Hide email preview</span>
-                        </span>
-                      </button>
-                    </div>
-
-                    {/* Collapse Button */}
-                    {/* <button
-                      onClick={() => setIsSectionOpen(false)}
-                      title="Collapse preview"
-                      style={{
-                        position: "absolute",
-                        top: "12px",
-                        left: "-14px",
-                        zIndex: 20,
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        border: "1px solid #d1d5db",
-                        background: "#fff",
-                        cursor: "pointer",
-                        fontWeight: 700,
-                      }}
-                    >
-                      <FontAwesomeIcon
-                          icon={faAngleRight}
-                          className="text-[#333333] text-[30px]"
-                        />
-                    </button> */}
-
-                    <ExampleOutputPanel
-                      dataFiles={dataFiles}
-                      contacts={contacts}
-                      selectedDataFileId={selectedDataFileId}
-                      selectedContactId={selectedContactId}
-                      handleSelectDataFile={handleSelectDataFile}
-                      setSelectedContactId={setSelectedContactId}
-                      applyContactPlaceholders={applyContactPlaceholders}
-                      exampleOutput={exampleOutput}
-                      editableExampleOutput={editableExampleOutput}
-                      setEditableExampleOutput={setEditableExampleOutput}
-                      saveExampleEmail={saveExampleEmail}
-                      isGenerating={isPreviewLoading}
-                      regenerateExampleOutput={regenerateExampleOutput}
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      rowsPerPage={rowsPerPage}
-                      setCurrentPage={setCurrentPage}
-                      setPageSize={setPageSize}
-                      activeMainTab={previewTab}
-                      setActiveMainTab={setPreviewTab}
-                      activeSubStageTab={previewSubTab}
-                      setActiveSubStageTab={setPreviewSubTab}
-                      filledTemplate={filledTemplate}
-                      searchResults={searchResults}
-                      allSourcedData={allSourcedData}
-                      sourcedSummary={sourcedSummary}
-                      isPreviewAllowed={isPreviewAllowed}
-                    />
-                  </div>
-                )}
-                {isSectionOpen === false &&
-                  <div className="flex">
-                    <button
-                      className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[20px] w-[50px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
-                      onClick={() => setIsSectionOpen(!isSectionOpen)}
-                    >
-                      <span className="flex items-center gap-[5px] rotate-90 pb-[3px] -mt-[46px]">
-                        <span className="nowrap">
-                          {isSectionOpen === false && "Show email preview"}
-                        </span>
-                        <FontAwesomeIcon
-                          icon={isSectionOpen ? faAngleLeft : faCircleLeft}
-                          className="text-[#3f9f42] text-md -rotate-90 pr-[2px]"
-                        />
-                      </span>
-                    </button>
-                  </div>
-                }
-              </div>
-            </>
+            <BlueprintBuilderPanel
+              conversationStarted={conversationStarted}
+              messages={visibleMessages}
+              isTyping={isTyping}
+              isComplete={isComplete}
+              currentAnswer={currentAnswer}
+              setCurrentAnswer={setCurrentAnswer}
+              handleSendMessage={handleSendMessage}
+              handleKeyPress={handleKeyPress}
+              resetAll={resetAll}
+              isEditMode={isEditMode}
+              selectedPlaceholder={selectedPlaceholder}
+              onPlaceholderSelect={startEditConversation}
+              setIsTyping={setIsTyping}
+              placeholderValues={visiblePlaceholderValues}
+              groupedPlaceholders={visibleGroupedPlaceholders}
+              formValues={visibleFormValues}
+              setFormValues={setFormValues}
+              renderPlaceholderInput={renderPlaceholderInput}
+              saveAllPlaceholders={saveAllPlaceholders}
+              exampleOutput={exampleOutput}
+              editableExampleOutput={editableExampleOutput}
+              setEditableExampleOutput={setEditableExampleOutput}
+              filledTemplate={filledTemplate}
+              isPreviewLoading={isPreviewLoading}
+              regenerateExampleOutput={regenerateExampleOutput}
+              saveExampleEmail={saveExampleEmail}
+              isPreviewAllowed={isPreviewAllowed}
+              dataFiles={dataFiles}
+              contacts={contacts}
+              selectedDataFileId={selectedDataFileId}
+              selectedContactId={selectedContactId}
+              handleSelectDataFile={handleSelectDataFile}
+              setSelectedContactId={setSelectedContactId}
+              applyContactPlaceholders={applyContactPlaceholders}
+              searchResults={searchResults}
+              allSourcedData={allSourcedData}
+              sourcedSummary={sourcedSummary}
+              editTemplateId={editTemplateId}
+              initialExampleEmail={initialExampleEmail}
+              selectedElement={selectedElement}
+              attachedImages={attachedImages}
+              setAttachedImages={setAttachedImages}
+              handleImageUpload={uploadImage}
+              activeBuildTab={activeBuildTab}
+              setActiveBuildTab={setActiveBuildTab}
+              onApprove={() => { setWizardCompleted(true); setActiveBuildTab("elements"); }}
+              onStartConversation={(method, msg) => startConversation(msg)}
+              isTemplateLoading={isPreparingAutoStart}
+              ConversationTabComponent={ConversationTab}
+              ExampleOutputPanelComponent={ExampleOutputPanel}
+              userRole={userRole}
+              usageInfo={usageInfo}
+              totalUsage={totalUsage}
+              onShowInstructions={() => setActiveMainTab("instructions")}
+              onShowVT={() => setActiveMainTab("ct")}
+            />
           )}
 
           {/* ================= INSTRUCTIONS TAB ================= */}
-          {activeMainTab === "instructions" && (
-            <div className="instructions-wrapper ">
-              {/* =======================================================
-                    TOP HEADER SECTION (Picklist + Inputs + Buttons)
-                 ======================================================== */}
-              <div className="instructions-header !px-[0]">
-                {/* Load Template Definition */}
-                <div className="load-template-box">
-                  <label className="section-label">
-                    Load existing template definition
-                  </label>
-                  <select
-                    className="definition-select"
-                    value={selectedTemplateDefinitionId || ""}
-                    onChange={(e) => {
-                      const id = Number(e.target.value);
-                      if (id) loadTemplateDefinitionById(id);
-                    }}
-                  >
-                    <option value="">-- Select a template definition --</option>
-                    {templateDefinitions.map((def) => (
-                      <option key={def.id} value={def.id}>
-                        {def.templateName} (Used {def.usageCount} times)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="input-row">
-                  {/* Template Name */}
-                  <div className="template-name-box">
-                    <label className="section-label">Template name</label>
-                    <input
-                      type="text"
-                      value={templateName}
-                      onChange={(e) => setTemplateName(e.target.value)}
-                      placeholder="Enter template name"
-                      className="text-input"
-                    />
-                  </div>
-
-                  {/* Model Picker */}
-                  <div className="model-select-box">
-                    <label className="section-label">Select AI model</label>
-                    <select
-                      className="definition-select"
-                      value={selectedModel}
-                      onChange={(e) => setSelectedModel(e.target.value)}
-                    >
-                      {availableModels.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="search-count-box">
-                    <label className="section-label">Search URL count</label>
-                    <select
-                      className="definition-select"
-                      value={searchURLCount}
-                      onChange={(e) =>
-                        setSearchURLCount(Number(e.target.value))
-                      }
-                    >
-                      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Save + Start Buttons */}
-                  <div className="button-row">
-                    {/* Save new definition */}
-                    {/* Save new template definition */}
-                    {selectedTemplateDefinitionId === null && (
-                      <button
-                        className="save-btn"
-                        onClick={saveTemplateDefinition}
-                        disabled={isSavingDefinition}
-                        style={{
-                          borderRadius: "12px",
-                        }}
-                      >
-                        {isSavingDefinition
-                          ? "Saving..."
-                          : "Save template definition"}
-                      </button>
-                    )}
-
-                    {/* Update existing template */}
-                    {selectedTemplateDefinitionId !== null && (
-                      <button
-                        className="save-btn"
-                        style={{ background: "#2563eb", borderRadius: "12px" }}
-                        onClick={updateTemplateDefinition}
-                        disabled={isSavingDefinition}
-                      >
-                        {isSavingDefinition
-                          ? "Updating..."
-                          : "Update template definition"}
-                      </button>
-                    )}
-
-                    <button
-                      className="start-btn"
-                      onClick={startConversation}
-                      disabled={!selectedTemplateDefinitionId}
-                      style={{
-                        borderRadius: "12px",
-                      }}
-                    >
-                      Start filling placeholders →
-                    </button>
-                    <button className="new-btn" onClick={createNewInstruction} style={{
-                      borderRadius: "12px",
-                    }}>
-                      + New instruction
-                    </button>
-                  </div>
-                  {selectedTemplateDefinitionId !== null && (
-                    <button
-                      className="delete-btn"
-                      style={{ background: "#dc2626", color: "white", borderRadius: "12px" }}
-                      onClick={deleteTemplateDefinition}
-                    >
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* =======================================================
-       INTERNAL SUB-TABS
-    ======================================================== */}
-              <div className="instruction-subtabs">
-                {[
-                  ["ai_new", "AI instructions (new blueprint)"],
-                  ["ai_edit", "AI instructions (edit blueprint)"],
-                  ["placeholder_short", "Placeholders list (essential)"],
-                  ["placeholders", "Placeholder manager"],
-                  ["ct", "UT "],
-                  ["subject_instructions", "Email subject instructions"],
-                  ["web_search_instructions", "Web search instructions"],
-                ].map(([key, label]) => (
-                  <button
-                    key={key}
-                    className={`subtab-btn ${instructionSubTab === key ? "active" : ""}`}
-                    onClick={() => setInstructionSubTab(key as any)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* =======================================================
-    INTERNAL TAB CONTENT
-======================================================= */}
-              <div className="instruction-subtab-content">
-                {instructionSubTab === "ai_new" && (
-                  <SimpleTextarea
-                    value={systemPrompt}
-                    onChange={(e: any) => setSystemPrompt(e.target.value)}
-                    placeholder="AI instructions (new blueprint)..."
-                  />
-                )}
-
-                {instructionSubTab === "ai_edit" && (
-                  <SimpleTextarea
-                    value={systemPromptForEdit}
-                    onChange={(e: any) =>
-                      setSystemPromptForEdit(e.target.value)
-                    }
-                    placeholder="AI instructions (edit blueprint)..."
-                  />
-                )}
-
-                {instructionSubTab === "placeholder_short" && (
-                  <SimpleTextarea
-                    value={masterPrompt}
-                    onChange={(e: any) => setMasterPrompt(e.target.value)}
-                    placeholder="Short placeholder list..."
-                  />
-                )}
-
-                {instructionSubTab === "placeholders" && (
-                  <div
-                    style={{
-                      background: "#fff",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "8px",
-                      padding: "20px",
-                    }}
-                  >
-                    <h3
-                      style={{
-                        fontSize: "18px",
-                        fontWeight: 600,
-                        marginBottom: "16px",
-                      }}
-                    >
-                      Placeholder manager
-                    </h3>
-
-                    {/* HEADER */}
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "2fr 2fr 2fr 2fr 2fr 2fr 1fr 1fr 60px 60px",
-                        gap: "10px",
-                        fontWeight: 600,
-                        fontSize: "13px",
-                        color: "#374151",
-                        marginBottom: "10px",
-                      }}
-                    >
-                      <div>Placeholder</div>
-                      <div>Friendly name</div>
-                      <div>Category</div>
-                      <div>Input / Options</div>
-                      <div>Default value</div>
-                      <div>Help link</div>
-                      <div>Size</div>
-                      <div>Expand</div>
-                      <div>Move</div>
-                      <div>Delete</div>
-
-                    </div>
-
-                    {/* ======================================================
-                      CATEGORY GROUPS (replaces the old uiPlaceholders.map)
-                    ====================================================== */}
-                    {categoryList.map((cat) => (
-                      <div key={cat.name} style={{ marginBottom: "20px" }}>
-                        {/* CATEGORY HEADER */}
-                        <div
-                          style={{
-                            fontWeight: 700,
-                            fontSize: "16px",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            margin: "12px 0 8px 0",
-                            borderBottom: "1px solid #e5e7eb",
-                            paddingBottom: "6px",
-                          }}
-                        >
-                          <span>{formatCategoryLabel(cat.name)}</span>
-
-                          <div style={{ display: "flex", gap: "6px" }}>
-                            <button
-                              style={{
-                                padding: "4px 8px",
-                                borderRadius: "6px",
-                                background: "#e5e7eb",
-                                cursor: "pointer",
-                              }}
-                              onClick={() => moveCategory(cat.name, "up")}
-                            >
-                              ↑
-                            </button>
-
-                            <button
-                              style={{
-                                padding: "4px 8px",
-                                borderRadius: "6px",
-                                background: "#e5e7eb",
-                                cursor: "pointer",
-                              }}
-                              onClick={() => moveCategory(cat.name, "down")}
-                            >
-                              ↓
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* ===== PLACEHOLDERS UNDER THIS CATEGORY ===== */}
-                        {uiPlaceholders
-                          .filter((p) => p.category === cat.name)
-                          .sort(
-                            (a, b) =>
-                              a.placeholderSequence - b.placeholderSequence,
-                          )
-                          .map((p) => (
-                            <div
-                              key={p.placeholderKey}
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "2fr 2fr 2fr 2fr 2fr 2fr 1fr 1fr 60px 60px",
-
-                                gap: "10px",
-                                alignItems: "center",
-                                marginBottom: "10px",
-                              }}
-                            >
-                              {/* Placeholder Key */}
-                              <strong>{`{${p.placeholderKey}}`}</strong>
-
-                              {/* Friendly Name */}
-                              <input
-                                value={p.friendlyName}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setUiPlaceholders((prev) =>
-                                    prev.map((x) =>
-                                      x.placeholderKey === p.placeholderKey
-                                        ? { ...x, friendlyName: v }
-                                        : x,
-                                    ),
-                                  );
-                                }}
-                                className="text-input"
-                              />
-
-                              {/* Category */}
-                              <select
-                                value={p.category}
-                                onChange={(e) => {
-                                  const v = e.target.value.toLowerCase().trim();
-                                  setUiPlaceholders((prev) =>
-                                    prev.map((x) =>
-                                      x.placeholderKey === p.placeholderKey
-                                        ? { ...x, category: v }
-                                        : x,
-                                    ),
-                                  );
-                                }}
-
-                                className="definition-select"
-                              >
-                                <option value="call-to-action">CALL-TO-ACTION</option>
-                                <option value="core message focus">CORE MESSAGE FOCUS</option>
-                                <option value="dos and don'ts">DOS AND DON'TS</option>
-                                <option value="extra assets">EXTRA ASSETS</option>
-                                <option value="extra visuals">EXTRA VISUALS</option>
-                                <option value="greetings & farewells">GREETINGS & FAREWELLS</option>
-                                <option value="message writing style">MESSAGE WRITING STYLE</option>
-                                <option value="subject line">SUBJECT LINE</option>
-                                <option value="your company">YOUR COMPANY</option>
-                                <option value="smart conditions">SMART CONDITIONS</option>
-
-
-
-                              </select>
-
-                              {/* INPUT TYPE + OPTIONS */}
-                              <div
-                                style={{
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  gap: "6px",
-                                }}
-                              >
-                                <select
-                                  value={p.inputType}
-                                  onChange={(e) => {
-                                    const v = e.target.value as any;
-                                    setUiPlaceholders((prev) =>
-                                      prev.map((x) =>
-                                        x.placeholderKey === p.placeholderKey
-                                          ? {
-                                            ...x,
-                                            inputType: v,
-                                            isRichText: v === "richtext",
-                                            isExpandable:
-                                              v === "richtext"
-                                                ? x.isExpandable
-                                                : false,
-                                            options:
-                                              v === "select"
-                                                ? x.options || []
-                                                : [],
-                                          }
-                                          : x,
-                                      ),
-                                    );
-                                  }}
-                                  className="definition-select"
-                                >
-                                  <option value="text">Text</option>
-                                  <option value="textarea">Textarea</option>
-                                  <option value="richtext">Rich text</option>
-                                  <option value="select">Dropdown</option>
-                                </select>
-
-                                {/* Option editor */}
-                                {p.inputType === "select" && (
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      flexDirection: "column",
-                                      gap: "6px",
-                                    }}
-                                  >
-                                    {(p.options || []).map((opt, idx) => (
-                                      <div
-                                        key={idx}
-                                        style={{
-                                          display: "flex",
-                                          gap: "6px",
-                                          alignItems: "center",
-                                        }}
-                                      >
-                                        <input
-                                          type="text"
-                                          value={opt}
-                                          onChange={(e) => {
-                                            const newVal = e.target.value;
-                                            setUiPlaceholders((prev) =>
-                                              prev.map((x) =>
-                                                x.placeholderKey ===
-                                                  p.placeholderKey
-                                                  ? {
-                                                    ...x,
-                                                    options: x.options?.map(
-                                                      (o, i) =>
-                                                        i === idx
-                                                          ? newVal
-                                                          : o,
-                                                    ),
-                                                  }
-                                                  : x,
-                                              ),
-                                            );
-                                          }}
-                                          className="text-input"
-                                          style={{ fontSize: "12px" }}
-                                        />
-
-                                        <button
-                                          onClick={() => {
-                                            setUiPlaceholders((prev) =>
-                                              prev.map((x) =>
-                                                x.placeholderKey ===
-                                                  p.placeholderKey
-                                                  ? {
-                                                    ...x,
-                                                    options:
-                                                      x.options?.filter(
-                                                        (_, i) => i !== idx,
-                                                      ),
-                                                  }
-                                                  : x,
-                                              ),
-                                            );
-                                          }}
-                                          style={{
-                                            background: "#ef4444",
-                                            color: "#fff",
-                                            padding: "4px 8px",
-                                            borderRadius: "4px",
-                                            fontSize: "12px",
-                                            border: "none",
-                                            cursor: "pointer",
-                                          }}
-                                        >
-                                          ✕
-                                        </button>
-                                      </div>
-                                    ))}
-
-                                    <button
-                                      onClick={() => {
-                                        setUiPlaceholders((prev) =>
-                                          prev.map((x) =>
-                                            x.placeholderKey ===
-                                              p.placeholderKey
-                                              ? {
-                                                ...x,
-                                                options: [
-                                                  ...(x.options || []),
-                                                  "",
-                                                ],
-                                              }
-                                              : x,
-                                          ),
-                                        );
-                                      }}
-                                      style={{
-                                        marginTop: "4px",
-                                        border: "1px dashed #9ca3af",
-                                        padding: "6px",
-                                        borderRadius: "6px",
-                                        cursor: "pointer",
-                                        background: "#e5e7eb",
-                                      }}
-                                    >
-                                      ➕ Add option
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                              {/* DEFAULT VALUE */}
-                              <div>
-                                {p.inputType === "select" ? (
-                                  <select
-                                    value={p.defaultValue ?? ""}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      setUiPlaceholders((prev) =>
-                                        prev.map((x) =>
-                                          x.placeholderKey === p.placeholderKey
-                                            ? { ...x, defaultValue: v }
-                                            : x
-                                        )
-                                      );
-                                    }}
-                                    className="definition-select"
-                                  >
-                                    <option value="">-- Default --</option>
-                                    {(p.options || []).map((opt) => (
-                                      <option key={opt} value={opt}>
-                                        {opt}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    type="text"
-                                    value={p.defaultValue ?? ""}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      setUiPlaceholders((prev) =>
-                                        prev.map((x) =>
-                                          x.placeholderKey === p.placeholderKey
-                                            ? { ...x, defaultValue: v }
-                                            : x
-                                        )
-                                      );
-                                    }}
-                                    className="text-input"
-                                    placeholder="Default value"
-                                  />
-                                )}
-                              </div>
-                              {/* HELP LINK */}
-                              <div>
-                                <input
-                                  type="url"
-                                  value={p.helpLink ?? ""}
-                                  placeholder="https://docs.example.com/placeholder"
-                                  onChange={(e) => {
-                                    const v = e.target.value;
-                                    setUiPlaceholders((prev) =>
-                                      prev.map((x) =>
-                                        x.placeholderKey === p.placeholderKey
-                                          ? { ...x, helpLink: v }
-                                          : x
-                                      )
-                                    );
-                                  }}
-                                  className="text-input"
-                                />
-                              </div>
-
-
-                              {/* UI Size */}
-                              <select
-                                value={p.uiSize}
-                                onChange={(e) => {
-                                  const v = e.target.value as
-                                    | "sm"
-                                    | "md"
-                                    | "lg"
-                                    | "xl"; // FIXED
-                                  setUiPlaceholders((prev) =>
-                                    prev.map((x) =>
-                                      x.placeholderKey === p.placeholderKey
-                                        ? { ...x, uiSize: v }
-                                        : x,
-                                    ),
-                                  );
-                                }}
-                                className="definition-select"
-                              >
-                                <option value="sm">SM</option>
-                                <option value="md">MD</option>
-                                <option value="lg">LG</option>
-                                <option value="xl">XL</option>
-                              </select>
-
-                              {/* Expand toggle */}
-                              <label
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "center",
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={!!p.isExpandable}
-                                  disabled={p.inputType !== "richtext"}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setUiPlaceholders((prev) =>
-                                      prev.map((x) =>
-                                        x.placeholderKey === p.placeholderKey
-                                          ? {
-                                            ...x,
-                                            isExpandable: checked,
-                                            isRichText:
-                                              checked || x.isRichText,
-                                          }
-                                          : x,
-                                      ),
-                                    );
-                                  }}
-                                />
-                              </label>
-
-                              {/* Placeholder move buttons */}
-                              {/* Move buttons */}
-                              <div style={{ display: "flex", gap: "6px" }}>
-                                <button
-                                  style={{
-                                    padding: "4px 8px",
-                                    borderRadius: "12px",
-                                    background: "#e5e7eb",
-                                    cursor: "pointer",
-                                  }}
-                                  onClick={() => movePlaceholder(p.placeholderKey, "up")}
-                                >
-                                  ↑
-                                </button>
-
-                                <button
-                                  style={{
-                                    padding: "4px 8px",
-                                    borderRadius: "12px",
-                                    background: "#e5e7eb",
-                                    cursor: "pointer",
-                                  }}
-                                  onClick={() => movePlaceholder(p.placeholderKey, "down")}
-                                >
-                                  ↓
-                                </button>
-                              </div>
-
-                              {/* DELETE BUTTON */}
-                              <button
-                                disabled={p.isRuntimeOnly}
-                                onClick={() => deletePlaceholderDefinition(p.placeholderKey)}
-                                title={
-                                  p.isRuntimeOnly
-                                    ? "Runtime placeholders cannot be deleted"
-                                    : "Delete placeholder"
-                                }
-                                style={{
-                                  background: p.isRuntimeOnly ? "#9ca3af" : "#dc2626",
-                                  cursor: p.isRuntimeOnly ? "not-allowed" : "pointer",
-                                  color: "#fff",
-                                  borderRadius: "12px",
-                                  padding: "6px 10px",
-                                }}
-                              >
-                                🗑️
-                              </button>
-
-                            </div>
-                          ))}
-                      </div>
-                    ))}
-
-                    {/* Save button */}
-                    <div style={{ marginTop: "20px", textAlign: "right" }}>
-                      <button
-                        onClick={savePlaceholderDefinitions}
-                        style={{
-                          padding: "10px 18px",
-                          background: "#3f9f42",
-                          color: "#fff",
-                          borderRadius: "12px",
-                          fontWeight: 600,
-                        }}
-                      >
-                        Save placeholder settings
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {instructionSubTab === "ct" && (
-                  <SimpleTextarea
-                    value={previewText}
-                    onChange={(e: any) => setPreviewText(e.target.value)}
-                    placeholder="Unpopulated master template..."
-                  />
-                )}
-
-                {instructionSubTab === "subject_instructions" && (
-                  <SimpleTextarea
-                    value={subjectInstructions}
-                    onChange={(e: any) =>
-                      setSubjectInstructions(e.target.value)
-                    }
-                    placeholder="Enter instructions for generating email subject..."
-                  />
-                )}
-
-                {instructionSubTab === "web_search_instructions" && (
-                  <SimpleTextarea
-                    value={webSearchInstructions}
-                    onChange={(e: any) =>
-                      setWebSearchInstructions(e.target.value)
-                    }
-                    placeholder="Enter instructions for web search. You can use placeholders like {company_name}, {job_title}, or {hook_search_terms}..."
-                  />
-                )}
-              </div>
+          {activeMainTab === "instructions" && userRole === "ADMIN" && (
+            <div style={{ padding: "10px 0 0" }}>
+              <button
+                onClick={() => setActiveMainTab("build")}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", marginBottom: 12 }}
+              >
+                ← Back to Build
+              </button>
             </div>
+          )}
+          {activeMainTab === "instructions" && (
+            <InstructionSetManager
+              templateDefinitions={templateDefinitions}
+              selectedTemplateDefinitionId={selectedTemplateDefinitionId}
+              isSavingDefinition={isSavingDefinition}
+              templateName={templateName}
+              setTemplateName={setTemplateName}
+              systemPrompt={systemPrompt}
+              setSystemPrompt={setSystemPrompt}
+              systemPromptForEdit={systemPromptForEdit}
+              setSystemPromptForEdit={setSystemPromptForEdit}
+              masterPrompt={masterPrompt}
+              setMasterPrompt={setMasterPrompt}
+              masterPromptExtensive={masterPromptExtensive}
+              setMasterPromptExtensive={setMasterPromptExtensive}
+              previewText={previewText}
+              setPreviewText={setPreviewText}
+              searchURLCount={searchURLCount}
+              setSearchURLCount={setSearchURLCount}
+              subjectInstructions={subjectInstructions}
+              setSubjectInstructions={setSubjectInstructions}
+              webSearchInstructions={webSearchInstructions}
+              setWebSearchInstructions={setWebSearchInstructions}
+              selectedModel={selectedModel}
+              setSelectedModel={setSelectedModel}
+              availableModels={availableModels}
+              uiPlaceholders={uiPlaceholders}
+              setUiPlaceholders={setUiPlaceholders}
+              onLoadTemplateDefinition={loadTemplateDefinitionById}
+              onSaveTemplateDefinition={saveTemplateDefinition}
+              onUpdateTemplateDefinition={updateTemplateDefinition}
+              onDeleteTemplateDefinition={deleteTemplateDefinition}
+              onCreateNewInstruction={createNewInstruction}
+              onStartConversation={startConversation}
+              onSavePlaceholderDefinitions={savePlaceholderDefinitions}
+              onDeletePlaceholderDefinition={deletePlaceholderDefinition}
+            />
           )}
 
           {/* ================= VT TAB ================= */}
+          {activeMainTab === "ct" && userRole === "ADMIN" && (
+            <div style={{ padding: "10px 0 0" }}>
+              <button
+                onClick={() => setActiveMainTab("build")}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", marginBottom: 12 }}
+              >
+                ← Back to Build
+              </button>
+            </div>
+          )}
           {activeMainTab === "ct" && (
             <div className="ct-tab-container mt-[6px]">
               <h3>Live vendor blueprint (Auto updated)</h3>
@@ -5204,80 +4247,6 @@ const parsePlaceholdersSafe = (block: string) => {
           )}
         </div>
       </div>
-      {/* ================= EXPANDED PLACEHOLDER MODAL ================= */}
-      {expandedPlaceholder && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              width: "80%",
-              maxWidth: "900px",
-              background: "#fff",
-              borderRadius: "10px",
-              padding: "20px",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.25)",
-            }}
-          >
-            {/* HEADER */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "12px",
-              }}
-            >
-              <h3 style={{ fontSize: "18px", fontWeight: 600 }}>
-                {expandedPlaceholder.friendlyName}
-              </h3>
-
-              <button
-                onClick={() => setExpandedPlaceholder(null)}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  fontSize: "20px",
-                  cursor: "pointer",
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* RICH TEXT EDITOR */}
-            <RichTextEditor
-              value={expandedDraft}
-              height={320}
-              onChange={setExpandedDraft}
-            />
-
-            {/* FOOTER */}
-            <div style={{ textAlign: "right", marginTop: "12px" }}>
-              <button
-                onClick={() => {
-                  setFormValues(prev => ({
-                    ...prev,
-                    [expandedPlaceholder.key]: expandedDraft,
-                  }));
-
-                  setExpandedPlaceholder(null);
-                }}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       <style>{toastAnimation}</style>
       {showSuccessToast && (
         <div

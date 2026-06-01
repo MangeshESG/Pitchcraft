@@ -7,6 +7,8 @@ import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import API_BASE_URL from "../../../config";
 import "./Template.css";
+import "./Template.new.css";
+import { BlueprintsEmptyState, BlueprintsList } from "./Template.new";
 import { useCreditCheck } from "../../../hooks/useCreditCheck";
 import { useAppModal } from "../../../hooks/useAppModal";
 import EmailCampaignBuilder from "./EmailCampaignBuilder";
@@ -906,6 +908,47 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
       setIsLoading(false);
     }
   };
+  // Named handler wrappers for BlueprintsList component
+  const handleRowOpen = async (template: CampaignTemplate) => {
+    sessionStorage.setItem("editTemplateId", template.id.toString());
+    sessionStorage.setItem("editTemplateMode", "true");
+    sessionStorage.setItem("newCampaignId", template.id.toString());
+    sessionStorage.setItem("newCampaignName", template.templateName);
+    setActiveBlueprintId(template.id);
+    try {
+      const full = await fetchCampaignTemplateDetails(template.id);
+      sessionStorage.setItem("initialExampleEmail", full?.placeholderValues?.example_output_email || "");
+    } catch {
+      sessionStorage.setItem("initialExampleEmail", "");
+    }
+    setShowCampaignBuilder(true);
+  };
+
+  const handleRowEdit = handleRowOpen;
+
+  const handleRowEditModel = (template: CampaignTemplate) => {
+    setSelectedCampaignTemplate(template);
+    setModelInput(template.selectedModel || "gpt-5.1");
+    dispatch(openPanel("edit-blueprint-model"));
+  };
+
+  const handleRowRename = (template: CampaignTemplate) => {
+    setSelectedCampaignTemplate(template);
+    setRenameInput(template.templateName);
+    dispatch(openPanel("rename-blueprint"));
+  };
+
+  const handleRowClone = (template: CampaignTemplate) => {
+    setSelectedCampaignTemplate(template);
+    setCloneNameInput(`${template.templateName} - copy`);
+    dispatch(openPanel("clone-blueprint"));
+  };
+
+  const handleRowDelete = (template: CampaignTemplate) => {
+    setSelectedCampaignTemplate(template);
+    setShowDeleteConfirmModal(true);
+  };
+
   const [activeBlueprintId, setActiveBlueprintId] = useState<number | null>(() =>
     getStoredActiveBlueprintId(),
   );
@@ -951,362 +994,38 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     <div className="template-container">
       {!showCampaignBuilder ? (
         <>
-          <div className="section-wrapper">
-            <h2 className="section-title">Blueprints</h2>
-
-            {/* Search and Create button */}
-            <div className="controls-wrapper">
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Search a blueprint name or ID"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <button
-                className="button save-button auto-width small"
-                onClick={handleCreateCampaignClick}
-                style={{ borderRadius: "12px" }}
-              >
-                <span className="text-[20px] mr-1">+</span> Create campaign
-                blueprint
-              </button>
-            </div>
-            <div style={{ marginBottom: "10px" }}>
-              <PaginationControls
-                currentPage={currentPage}
-                totalPages={totalPages}
-                pageSize={pageSize}
-                totalRecords={filteredCampaignTemplates.length}
-                setCurrentPage={setCurrentPage}
-                setPageSize={setPageSize}
-                showPageSizeDropdown={true}
-                pageLabel="Page:"
-              />
-            </div>
-
-            {/* Campaign Templates Table */}
-            <table className="contacts-table">
-              <thead>
-                <tr>
-                  <th onClick={() => handleListSort("templateName")} style={{ cursor: "pointer" }}>Blueprints{renderSortArrow("templateName", listSortKey, listSortDirection)}</th>
-                  <th onClick={() => handleListSort("id")} style={{ cursor: "pointer" }}>ID {renderSortArrow("id", listSortKey, listSortDirection)}</th>
-                  <th onClick={() => handleListSort("createdAt")} style={{ cursor: "pointer" }}>Creation date {renderSortArrow("createdAt", listSortKey, listSortDirection)}</th>
-                  <th style={{ minWidth: 48 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: "center" }}>
-                      Loading...
-                    </td>
-                  </tr>
-                ) : paginatedTemplates.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: "center" }}>
-                      No campaign blueprint found.
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedTemplates.map((template) => (
-                    <tr key={template.id}>
-                      {/* <td>
-                        <span
-                          className="template-link"
-                          onClick={() => handleViewCampaignTemplate(template)}
-                        >
-                          {template.templateName}
-                        </span>
-                      </td> */}
-                      <td>
-                        <span
-                          id={`blueprint-${template.id}`} // ✅ ADD THIS
-                          className="template-link"
-                          onMouseEnter={() => {
-                            setHoveredTemplateId(template.id);
-                            preloadExampleEmail(template);
-                          }}
-                          onClick={async () => { 
-                            sessionStorage.setItem(
-                              "editTemplateId",
-                              template.id.toString(),
-                            );
-                            sessionStorage.setItem("editTemplateMode", "true");
-                            sessionStorage.setItem(
-                              "newCampaignId",
-                              template.id.toString(),
-                            );
-                            sessionStorage.setItem(
-                              "newCampaignName",
-                              template.templateName,
-                            );
-                            setActiveBlueprintId(template.id);
-
-                            // const example =
-                            //   getTooltipText(exampleCache[template.id] || generateExampleEmail(template));
-
-                            // sessionStorage.setItem("initialExampleEmail", example);
-                            // ✅ FIXED: Load example email immediately, not from tooltip cache
-                            try {
-                              const fullTemplate = await fetchCampaignTemplateDetails(template.id);
-                              const example = fullTemplate?.placeholderValues?.example_output_email || "";
-                              sessionStorage.setItem("initialExampleEmail", example);
-                            } catch (error) {
-                              console.error("Error loading example email:", error);
-                              sessionStorage.setItem("initialExampleEmail", "");
-                            }
-                            setShowCampaignBuilder(true);
-                            setTimeout(() => {
-                            setShowCampaignBuilder(true);
-                           }, 0);
-                          }}
-                        >
-                          {template.templateName}
-                        </span>
-
-                        {/* Tooltip */}
-                        <Tooltip
-                          anchorId={`blueprint-${template.id}`}
-                          place="right"
-                          offset={20}
-                          positionStrategy="fixed" // ✅ ESCAPES TABLE CLIPPING
-                          className="example-tooltip"
-                        >
-                          {exampleCache[template.id] === undefined ? (
-                            <div>Loading example email...</div>
-                          ) : (
-                            <div
-                              className="tooltip-email-content"
-                              dangerouslySetInnerHTML={{
-                                __html:
-                                  exampleCache[template.id] ||
-                                  "<p>No example email available</p>",
-                              }}
-                            />
-                          )}
-                        </Tooltip>
-                      </td>
-
-                      <td>#{template.id}</td>
-                      <td>{formatDate(template.createdAt)}</td>
-                      <td style={{ position: "relative" }}>
-                        <button
-                          className="template-actions-btn"
-                          onClick={() =>
-                            setTemplateActionsAnchor(
-                              `campaign-${template.id}` ===
-                                templateActionsAnchor
-                                ? null
-                                : `campaign-${template.id}`,
-                            )
-                          }
-                        >
-                          ⋮
-                        </button>
-
-                        {templateActionsAnchor ===
-                          `campaign-${template.id}` && (
-                          <div className="template-actions-menu">
-                            <button
-                              onClick={() => {
-                                handleViewCampaignTemplate(template);
-                                setTemplateActionsAnchor(null);
-                              }}
-                              style={menuBtnStyle}
-                              className="flex gap-2 items-center"
-                            >
-                              <span style={actionIconStyle}>
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="22px"
-                                  height="22px"
-                                  viewBox="0 0 24 20"
-                                  fill="none"
-                                >
-                                  <circle
-                                    cx="12"
-                                    cy="12"
-                                    r="4"
-                                    fill="#3f9f42"
-                                  />
-                                  <path
-                                    d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12"
-                                    stroke="#3f9f42"
-                                    strokeWidth="2"
-                                  />
-                                </svg>
-                              </span>
-                              <span>View</span>
-                            </button>
-
-                            <>
-                              <button
-                                onClick={async () => {
-                                  sessionStorage.setItem("editTemplateId", template.id.toString());
-                                  sessionStorage.setItem("editTemplateMode", "true");
-
-                                  // REQUIRED FIX 🔥 (builder reads this!)
-                                  sessionStorage.setItem("newCampaignId", template.id.toString());
-                                  sessionStorage.setItem("newCampaignName", template.templateName);
-                                  setActiveBlueprintId(template.id);
-                                 // ✅ FIXED: Load example email immediately
-                                  try {
-                                    const fullTemplate = await fetchCampaignTemplateDetails(template.id);
-                                    const example =  fullTemplate?.placeholderValues?.example_output_email || "";
-                                    sessionStorage.setItem("initialExampleEmail", example);
-                                  } catch (error) {
-                                    console.error("Error loading example email:", error);
-                                    sessionStorage.setItem("initialExampleEmail", "");
-                                  }
-                                   setShowCampaignBuilder(true);
-                                  // Safe delay
-                                  // setTimeout(() => {
-                                  //   setShowCampaignBuilder(true);
-                                  // }, 0);
-
-                                  setTemplateActionsAnchor(null);
-                                }}
-                                style={menuBtnStyle}
-                                className="flex gap-2 items-center"
-                              >                          
-                              <span style={actionIconStyle}>
-                               <FontAwesomeIcon
-                               icon={faEdit}
-                               style={{ color: "#3f9f42", fontSize: 20 }}
-                                />
-                             </span>  
-                                <span>Edit</span>
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  setSelectedCampaignTemplate(template);
-                                  setModelInput(template.selectedModel || "gpt-5.1");
-                                  dispatch(openPanel("edit-blueprint-model"));
-                                  setTemplateActionsAnchor(null);
-                                }}
-                                style={menuBtnStyle}
-                                className="flex gap-2 items-center"
-                              >
-                                <span style={actionIconStyle}>
-                                  <FontAwesomeIcon
-                                    icon={faRobot}
-                                    style={{ color: "#3f9f42", fontSize: 20 }}
-                                  />
-                                </span>
-                                <span>Edit model</span>
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  setSelectedCampaignTemplate(template);
-                                  setRenameInput(template.templateName);
-                                  dispatch(openPanel("rename-blueprint"));
-                                  setTemplateActionsAnchor(null);
-                                }}
-                                style={menuBtnStyle}
-                                className="flex gap-2 items-center"
-                              >
-                                {/* <span>
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="28px"
-                                    height="28px"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                  >
-                                    <path
-                                      d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                      stroke="#3f9f42"
-                                      strokeWidth="2"
-                                      stroke-linecap="round"
-                                      stroke-linejoin="round"
-                                    ></path>
-                                  </svg>
-                                </span> */}
-                                <span style={actionIconStyle}>
-                                <FontAwesomeIcon
-                                 icon={faFileLines    }
-                                 style={{ color: "#3f9f42", fontSize: 20 }}
-                                 />
-                                </span>
-                                <span>Rename</span>
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  setSelectedCampaignTemplate(template);
-                                  setCloneNameInput(
-                                    `${template.templateName} - copy`,
-                                  );
-                                  dispatch(openPanel("clone-blueprint"));
-                                  setTemplateActionsAnchor(null);
-                                }}
-                                style={menuBtnStyle}
-                                className="flex gap-2 items-center"
-                              >
-                                <span style={actionIconStyle}>
-                                  {" "}
-                                  <img
-                                    src={duplicateIcon}
-                                    alt="Clone"
-                                    style={{
-                                      width: 22,
-                                      height: 22,
-                                      objectFit: "contain",
-                                      filter:
-                                     "invert(47%) sepia(82%) saturate(397%) hue-rotate(84deg) brightness(95%) contrast(90%)",
-                                    }}
-                                  />
-                                </span>
-                                <span>Clone</span>
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  setSelectedCampaignTemplate(template);
-                                  setShowDeleteConfirmModal(true);
-                                  setTemplateActionsAnchor(null);
-                                }}
-                                style={menuBtnStyle}
-                                className="flex gap-2 items-center"
-                              >
-                                {/* <span className="ml-[3px]">
-                                  <img
-                                    src={deleteIcon}
-                                    alt="Delete"
-                                    className="w-[24px] h-[24px] font-normal"
-                                  />
-                                </span> */}
-                                 <span style={actionIconStyle}>
-                                 <FontAwesomeIcon
-                                 icon={faTrashAlt}
-                                 style={{ color: "#3f9f42", fontSize: 20 }}
-                                 />
-                                </span>
-                                <span>Delete</span>
-                              </button>
-                            </>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-            <PaginationControls
+          {campaignTemplates.length === 0 && !isLoading ? (
+            <BlueprintsEmptyState onCreate={handleCreateCampaignClick} />
+          ) : (
+            <BlueprintsList
+              templates={paginatedTemplates}
+              totalCount={filteredCampaignTemplates.length}
+              isLoading={isLoading}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              sortKey={listSortKey}
+              sortDirection={listSortDirection}
+              onSort={handleListSort}
               currentPage={currentPage}
               totalPages={totalPages}
               pageSize={pageSize}
-              totalRecords={paginatedTemplates.length}
-              setCurrentPage={setCurrentPage}
-              setPageSize={setPageSize}
-              showPageSizeDropdown={true}
-              pageLabel="Page:"
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              onCreateClick={handleCreateCampaignClick}
+              onRowClick={handleRowOpen}
+              templateActionsAnchor={templateActionsAnchor}
+              setTemplateActionsAnchor={setTemplateActionsAnchor}
+              onView={handleViewCampaignTemplate}
+              onEdit={handleRowEdit}
+              onEditModel={handleRowEditModel}
+              onRename={handleRowRename}
+              onClone={handleRowClone}
+              onDelete={handleRowDelete}
+              formatDate={formatDate}
+              preloadExampleEmail={preloadExampleEmail}
+              exampleCache={exampleCache}
             />
-          </div>
+          )}
 
           <CommonSidePanel
             isOpen={showTemplateNameModal}
@@ -1972,14 +1691,14 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
         </>
       ) : (
         /* ✅ Show Campaign Builder Inline */
-        <div>
+        <div style={{ padding: "20px" }}>
           <div
             style={{
               display: "flex",
               gap: "16px",
               alignItems: "center",
               marginBottom: "20px",
-              marginTop: "-35px",
+              marginTop: "0",
               // borderBottom: "1px solid #e5e7eb",
               // background: "#f9fafb"
             }}
