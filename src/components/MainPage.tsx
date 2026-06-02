@@ -4282,123 +4282,34 @@ try {
                       </button>
                       {showMailSubmenu && (
                         <ul className="submenu">
-                          <li
-                            className={`${
-                              tab === "Mail" && mailSubTab === "Inbox" ? "active" : ""
-                            } ${
-                              showInboxSubmenu
-                                ? "has-submenu submenu-open"
-                                : "has-submenu"
-                            }`}
-                          >
+                          <li className={tab === "Mail" && mailSubTab === "Inbox" ? "active" : ""}>
                             <button
                               onClick={() => {
-                                if (mailSubTab !== "Inbox") {
-                                  setMailSubTab("Inbox");
-                                  setTab("Mail");
-                                  setShowInboxSubmenu(true);
-                                } else {
-                                  setShowInboxSubmenu((prev) => !prev);
-                                }
+                                setMailSubTab("Inbox");
+                                setTab("Mail");
+                                navigate("/main?tab=Mail&mailSubTab=Inbox");
                               }}
                               className="submenu-button"
-                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}
                             >
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span>Inbox</span>
-                                {inboxUnreadCount > 0 && (
-                                  <span
-                                    style={{
-                                      backgroundColor: '#3f9f42',
-                                      color: 'white',
-                                      borderRadius: '10px',
-                                      padding: '2px 8px',
-                                      fontSize: '12px',
-                                      fontWeight: 'bold',
-                                      minWidth: '20px',
-                                      textAlign: 'center'
-                                    }}
-                                  >
-                                    {inboxUnreadCount}
-                                  </span>
-                                )}
-                              </span>
-                              <span className="submenu-arrow" style={{ marginLeft: 'auto' }}>
-                                <FontAwesomeIcon
-                                  icon={faAngleRight}
-                                  className=" text-[#333333] text-lg"
-                                />
-                              </span>
+                              <span>Inbox</span>
+                              {inboxUnreadCount > 0 && (
+                                <span
+                                  style={{
+                                    backgroundColor: '#3f9f42',
+                                    color: 'white',
+                                    borderRadius: '10px',
+                                    padding: '2px 8px',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold',
+                                    minWidth: '20px',
+                                    textAlign: 'center'
+                                  }}
+                                >
+                                  {inboxUnreadCount}
+                                </span>
+                              )}
                             </button>
-                            {showInboxSubmenu && (
-                              <ul className="submenu">
-                                <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "Inbox" ? "active" : ""}>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setInboxSubTab("Inbox");
-                                      setMailSubTab("Inbox");
-                                      setTab("Mail");
-                                      navigate("/main?tab=Mail&mailSubTab=Inbox&inboxSubTab=Inbox");
-                                    }}
-                                    className="submenu-button"
-                                  >
-                                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
-                                      <span>Associated</span>
-                                      {renderInboxTabUnreadBadge(selectedInboxUnreadCounts.associated)}
-                                    </span>
-                                  </button>
-                                </li>
-                                <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "Unassigned" ? "active" : ""}>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setInboxSubTab("Unassigned");
-                                      setMailSubTab("Inbox");
-                                      setTab("Mail");
-                                      navigate("/main?tab=Mail&mailSubTab=Inbox&inboxSubTab=Unassigned");
-                                    }}
-                                    className="submenu-button"
-                                  >
-                                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
-                                      <span>External</span>
-                                      {renderInboxTabUnreadBadge(selectedInboxUnreadCounts.external)}
-                                    </span>
-                                  </button>
-                                </li>
-                                <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "Sent" ? "active" : ""}>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setInboxSubTab("Sent");
-                                      setMailSubTab("Inbox");
-                                      setTab("Mail");
-                                      navigate("/main?tab=Mail&mailSubTab=Inbox&inboxSubTab=Sent");
-                                    }}
-                                    className="submenu-button"
-                                  >
-                                    Sent
-                                  </button>
-                                </li>
-                                <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "AllMessages" ? "active" : ""}>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setInboxSubTab("AllMessages");
-                                      setMailSubTab("Inbox");
-                                      setTab("Mail");
-                                      navigate("/main?tab=Mail&mailSubTab=Inbox&inboxSubTab=AllMessages");
-                                    }}
-                                    className="submenu-button"
-                                  >
-                                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
-                                      <span>All messages</span>
-                                      {renderInboxTabUnreadBadge(selectedInboxUnreadCounts.allMessages)}
-                                    </span>
-                                  </button>
-                                </li>
-                              </ul>
-                            )}
                           </li>
                           <li
                             className={

@@ -21,7 +21,14 @@
       "Bash(ls \"C:\\\\Users\\\\Radhika\\\\Downloads\\\\Pitchkraft-handoff.tar.gz\\\\pitchkraft\")",
       "Read(//c/Users/Radhika/Downloads/Pitchkraft-handoff.tar.gz/**)",
       "Bash(powershell -Command \"Get-Content 'Mail Schedule - Redesign _standalone_.html' -TotalCount 10000 | Select-String -Pattern 'class=|className=' | Select-Object -First 100\")",
-      "PowerShell($content = Get-Content 'C:\\\\Users\\\\Radhika\\\\Downloads\\\\Mail Schedule - Redesign _standalone_.html' -Raw; Write-Output $content.Length)"
+      "PowerShell($content = Get-Content 'C:\\\\Users\\\\Radhika\\\\Downloads\\\\Mail Schedule - Redesign _standalone_.html' -Raw; Write-Output $content.Length)",
+      "Bash(curl -s \"https://api.anthropic.com/v1/design/h/ul3PaPLcCjEg3f5hVAV3oQ?open_file=Inbox+-+Redesign.html\" -o \"d:/New Pitchcraft/Pitchcraft/inbox-design.html\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(xxd)",
+      "Bash(mv inbox-design.html inbox-design.html.gz)",
+      "Bash(gunzip inbox-design.html.gz)",
+      "Bash(mkdir -p inbox-design-extracted)",
+      "Bash(tar -xf inbox-design.html -C inbox-design-extracted)"
     ]
   }
 }
