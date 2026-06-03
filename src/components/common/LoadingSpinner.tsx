@@ -1,12 +1,28 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import logo from "../../assets/images/pitch_logo.png";
 
 interface LoadingSpinnerProps {
   message?: string;
 }
 
-const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ 
-  message = "Loading..." 
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
+  message = "Loading...",
 }) => {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(interval);
+          return 90;
+        }
+        return prev + Math.random() * 12;
+      });
+    }, 300);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div
       style={{
@@ -15,40 +31,65 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
         left: 0,
         width: "100%",
         height: "100%",
-        // backgroundColor: "rgba(0, 0, 0, 0.5)",
-        backdropFilter: "blur(5px)",
+        backgroundColor: "#ffffff",
         zIndex: 9999,
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
+        gap: "32px",
       }}
     >
-      <div
+      <img
+        src={logo}
+        alt="PitchKraft"
         style={{
-          textAlign: "center",
+          height: "72px",
+          objectFit: "contain",
+          animation: "fadeInUp 0.5s ease both",
         }}
-      >
-        <div 
+      />
+
+      <div style={{ width: "260px", textAlign: "center" }}>
+        <div
           style={{
-            display: "inline-block",
-            width: "40px",
-            height: "40px",
-            border: "4px solid rgba(255, 255, 255, 0.3)",
-            borderRadius: "50%",
-            borderTopColor: "#3f9f42",
-            animation: "spin 1s linear infinite",
-            margin: "0 auto 10px",
+            width: "100%",
+            height: "5px",
+            backgroundColor: "#e8f5e9",
+            borderRadius: "99px",
+            overflow: "hidden",
           }}
-        ></div>
-        <p style={{ margin: 0, color: "#ffffff" }}>{message}</p>
-        <style>
-          {`
-            @keyframes spin {
-              to { transform: rotate(360deg); }
-            }
-          `}
-        </style>
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${Math.min(progress, 100)}%`,
+              background: "linear-gradient(90deg, #3f9f42, #66bb6a)",
+              borderRadius: "99px",
+              transition: "width 0.3s ease",
+            }}
+          />
+        </div>
+        <p
+          style={{
+            marginTop: "12px",
+            color: "#6b7280",
+            fontSize: "13px",
+            fontWeight: 500,
+            letterSpacing: "0.02em",
+            animation: "fadeInUp 0.6s ease both",
+          }}
+        >
+          {message}
+        </p>
       </div>
+
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 };

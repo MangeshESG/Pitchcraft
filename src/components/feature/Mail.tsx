@@ -22,7 +22,7 @@ import ToastMessage from "../common/ToastMessage";
 import deleteIcon from "../../assets/images/deleteiconn.png";
 import { faEdit,faTrashAlt,faCircleXmark } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import InboxView from "./InboxView";
+import InboxView from "./inbox/InboxView";
 import MailConfiguration from "./MailConfiguration";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import ScheduleTab from "./schedule/ScheduleTab";
@@ -1384,6 +1384,10 @@ const actionIconStyle = {
           totalPagesBCC={totalPagesBCC}
           sortedBccEmails={sortedBccEmails}
           setBccPage={setBccPage}
+          bccSortKey={bccSortKey}
+          setBccSortKey={setBccSortKey}
+          bccSortDirection={bccSortDirection}
+          setBccSortDirection={setBccSortDirection}
           showBCCEmailModal={showBCCEmailModal}
           handleSave={handleSave}
           newBccEmail={newBccEmail}

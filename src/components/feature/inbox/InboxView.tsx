@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import API_BASE_URL from '../../config';
-import LoadingSpinner from '../common/LoadingSpinner';
-import RichTextEditor from '../common/RTEEditor';
-import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
+import API_BASE_URL from '../../../config';
+import LoadingSpinner from '../../common/LoadingSpinner';
+import RichTextEditor from '../../common/RTEEditor';
+import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
-import { copyToClipboard } from '../../utils/utils';
-import Modal from '../common/Modal';
-import ToastMessage from '../common/ToastMessage';
+import { copyToClipboard } from '../../../utils/utils';
+import Modal from '../../common/Modal';
+import ToastMessage from '../../common/ToastMessage';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 import { faPaperclip, faReply, faShare } from '@fortawesome/free-solid-svg-icons';
@@ -15,6 +15,7 @@ import UnassignedTab from './UnassignedTab';
 import SentTab from './SentTab';
 import AllMessagesTab from './AllMessagesTab';
 import ContactInfoPanel from './ContactInfoPanel';
+import EmailIframe from './EmailIframe';
 import './InboxView.css';
 
 interface UnassignedEmail {
@@ -139,6 +140,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [forwardTrackingId, setForwardTrackingId] = useState('');
   const [isForwarding, setIsForwarding] = useState(false);
   const [showForwardBcc, setShowForwardBcc] = useState(false);
+  const [contactPanelOpen, setContactPanelOpen] = useState(false);
   
   useEffect(() => {
     setActiveTab(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages');
@@ -211,6 +213,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     selectedUnassignedThread?.trackingId,
     selectedAllMessagesThread?.trackingId
   ]);
+
+  // Auto-open contact panel when a thread is selected
+  useEffect(() => {
+    const hasThread = !!(selectedThread || selectedSentThread || selectedUnassignedThread || selectedAllMessagesThread);
+    if (hasThread) setContactPanelOpen(true);
+    else setContactPanelOpen(false);
+  }, [selectedThread, selectedSentThread, selectedUnassignedThread, selectedAllMessagesThread]);
 
   const refreshInboxDropdownCounts = useCallback(async () => {
     if (!effectiveUserId || !isVisible) return;
@@ -426,12 +435,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setSelectedUnassignedEmail(null);
     setSelectedUnassignedThread(null);
     
-    // Initialize all emails as collapsed with unique keys
-    const collapsed: { [key: string]: boolean } = {};
-    thread.messages.forEach((msg, idx) => {
-      collapsed[`${msg.messageId}-${idx}`] = true;
-    });
-    setCollapsedEmails(collapsed);
+    // Start all messages expanded
+    setCollapsedEmails({});
     
     // Mark thread as read
     if (thread.hasUnread) {
@@ -1319,12 +1324,28 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }
   };
 
+  const getActiveThread = (): InboxThread | null => {
+    if (activeTab === 'inbox') return selectedThread;
+    if (activeTab === 'sent') return selectedSentThread;
+    if (activeTab === 'unassigned') return selectedUnassignedThread;
+    return selectedAllMessagesThread;
+  };
+
+  const getActiveContactId = (): number | null => {
+    if (activeTab === 'inbox') return selectedThread?.contactId ?? null;
+    if (activeTab === 'sent') return selectedSentThread?.contactId ?? null;
+    if (activeTab === 'unassigned') return selectedUnassignedThread?.contactId ?? null;
+    return selectedAllMessagesThread?.contactId ?? null;
+  };
+
+  const hasActiveThread = !!(selectedThread || selectedSentThread || selectedUnassignedThread || selectedAllMessagesThread);
+
   if (!isVisible) {
     return null;
   }
 
   return (
-    <div className="dashboard-section" style={{ display: isVisible ? 'block' : 'none', marginTop: '-60px', position: 'relative' }}>
+    <div className="inbox-workspace dashboard-section" style={{ display: isVisible ? 'block' : 'none', position: 'relative' }}>
       <ToastMessage
         show={showToast}
         message={toastMessage}
@@ -1336,31 +1357,22 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       {loading && <LoadingSpinner message="Loading..." />}
 
       {/* Email Content */}
-      <div className="inbox-content" style={{ opacity: loading ? 0.5 : 1, pointerEvents: loading ? 'none' : 'auto' }}>
-          {/* Mail List - Always visible on left */}
-          <div className="mail-list">
-            {/* Inbox Selection - Inside mail list panel */}
-            <div style={{ 
-              padding: '12px 16px', 
-              background: '#fff', 
-              borderBottom: '1px solid #e5e7eb',
-              position: 'sticky',
-              top: 0,
-              zIndex: 10
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div
+        className="inbox-content inbox-grid"
+        style={{
+          opacity: loading ? 0.5 : 1,
+          pointerEvents: loading ? 'none' : 'auto',
+          gridTemplateColumns: `${hasActiveThread ? '340px' : '372px'} 1fr ${contactPanelOpen && hasActiveThread ? '332px' : '0px'}`
+        }}
+      >
+          {/* LIST PANE */}
+          <div className="list-pane">
+            {/* Inbox Selection */}
+            <div className="list-pane-header">
                 <select
                   value={selectedInboxId || ''}
                   onChange={handleInboxChange}
                   disabled={loading || inboxList.length === 0}
-                  style={{ 
-                    flex: 1,
-                    padding: '8px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                  }}
                 >
                   <option value="">Choose an inbox</option>
                   {inboxList.map((inbox) => (
@@ -1371,22 +1383,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   ))}
                 </select>
                 
-                {selectedInboxId && (
-                  <button
-                    onClick={handleRefreshInbox}
-                    disabled={isRefreshing}
-                    style={{
-                      padding: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      background: '#f3f4f6',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      cursor: isRefreshing ? 'not-allowed' : 'pointer',
-                      opacity: isRefreshing ? 0.6 : 1
-                    }}
-                    title={isRefreshing ? 'Refreshing...' : 'Refresh inbox'}
-                  >
+                <button
+                  className="refresh-btn"
+                  onClick={handleRefreshInbox}
+                  disabled={isRefreshing}
+                  title={isRefreshing ? 'Refreshing...' : 'Refresh inbox'}
+                >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="16px"
@@ -1402,113 +1404,38 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </g>
                     </svg>
                   </button>
-                )}
-              </div>
-              
-              {/* Tabs - Remove from here since they're now in sidebar */}
-              {/* <div style={{ display: 'flex', gap: '8px', marginTop: '12px', borderBottom: '2px solid #e5e7eb' }}>
-                <button
-                  onClick={() => {
-                    handleTabChange('inbox');
-                    setSelectedUnassignedEmail(null);
-                    setSelectedUnassignedThread(null);
-                    setSelectedSentThread(null);
-                    setShowReplySection(false);
-                    setReplyText('');
-                  }}
-                  style={{
-                    padding: '8px 16px',
-                    background: 'transparent',
-                    border: 'none',
-                    borderBottom: activeTab === 'inbox' ? '3px solid #3f9f42' : '3px solid transparent',
-                    color: activeTab === 'inbox' ? '#3f9f42' : '#6b7280',
-                    fontWeight: activeTab === 'inbox' ? '600' : '400',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    marginBottom: '-2px'
-                  }}
-                >
-                  Inbox
-                </button>
-                <button
-                  onClick={() => {
-                    handleTabChange('sent');
-                    setSelectedThread(null);
-                    setSelectedUnassignedEmail(null);
-                    setSelectedUnassignedThread(null);
-                    setSelectedSentThread(null);
-                    setShowReplySection(false);
-                    setReplyText('');
-                  }}
-                  style={{
-                    padding: '8px 16px',
-                    background: 'transparent',
-                    border: 'none',
-                    borderBottom: activeTab === 'sent' ? '3px solid #3f9f42' : '3px solid transparent',
-                    color: activeTab === 'sent' ? '#3f9f42' : '#6b7280',
-                    fontWeight: activeTab === 'sent' ? '600' : '400',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    marginBottom: '-2px'
-                  }}
-                >
-                  Sent
-                </button>
-                <button
-                  onClick={() => {
-                    handleTabChange('unassigned');
-                    setSelectedThread(null);
-                    setSelectedSentThread(null);
-                    setShowReplySection(false);
-                    setReplyText('');
-                  }}
-                  style={{
-                    padding: '8px 16px',
-                    background: 'transparent',
-                    border: 'none',
-                    borderBottom: activeTab === 'unassigned' ? '3px solid #3f9f42' : '3px solid transparent',
-                    color: activeTab === 'unassigned' ? '#3f9f42' : '#6b7280',
-                    fontWeight: activeTab === 'unassigned' ? '600' : '400',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    marginBottom: '-2px'
-                  }}
-                >
-                  Unassigned
-                </button>
-                <button
-                  onClick={() => {
-                    handleTabChange('all');
-                    setSelectedThread(null);
-                    setSelectedSentThread(null);
-                    setSelectedUnassignedThread(null);
-                    setSelectedAllMessagesThread(null);
-                    setShowReplySection(false);
-                    setReplyText('');
-                  }}
-                  style={{
-                    padding: '8px 16px',
-                    background: 'transparent',
-                    border: 'none',
-                    borderBottom: activeTab === 'all' ? '3px solid #3f9f42' : '3px solid transparent',
-                    color: activeTab === 'all' ? '#3f9f42' : '#6b7280',
-                    fontWeight: activeTab === 'all' ? '600' : '400',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    marginBottom: '-2px'
-                  }}
-                >
-                  All Messages
-                </button>
-              </div> */}
+            </div>
+
+            {/* Inbox Tabs */}
+            <div className="inbox-tabs">
+              <button
+                className={`inbox-tab${activeTab === 'allmessages' || activeTab === 'all' ? ' active' : ''}`}
+                onClick={() => handleTabChange('allmessages')}
+              >
+                All messages
+              </button>
+              <button
+                className={`inbox-tab${activeTab === 'inbox' ? ' active' : ''}`}
+                onClick={() => handleTabChange('inbox')}
+              >
+                Associated{unreadCounts.inboxReplies > 0 ? <span className="tab-badge">{unreadCounts.inboxReplies}</span> : null}
+              </button>
+              <button
+                className={`inbox-tab${activeTab === 'unassigned' ? ' active' : ''}`}
+                onClick={() => handleTabChange('unassigned')}
+              >
+                External{unreadCounts.unassigned > 0 ? <span className="tab-badge">{unreadCounts.unassigned}</span> : null}
+              </button>
+              <button
+                className={`inbox-tab${activeTab === 'sent' ? ' active' : ''}`}
+                onClick={() => handleTabChange('sent')}
+              >
+                Sent
+              </button>
             </div>
             
-            {/* Mail list items - conditional based on active tab */}
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+            {/* Mail list items */}
+            <div className="list-scroll">
             {activeTab === 'inbox' ? (
               !selectedInboxId ? (
                 <div className="no-mails">Please select an inbox</div>
@@ -1829,16 +1756,16 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 onUnreadCountsRefresh={refreshInboxDropdownCounts}
                 refreshTrigger={refreshUnassignedTab}
               />
-            ) : (
-              <AllMessagesTab 
-                effectiveUserId={effectiveUserId} 
-                token={token} 
+            ) : null}
+            {/* AllMessagesTab — always mounted inside list-scroll to prevent refetch */}
+            <div style={{ display: activeTab === 'all' || activeTab === 'allmessages' ? 'block' : 'none' }}>
+              <AllMessagesTab
+                effectiveUserId={effectiveUserId}
+                token={token}
                 selectedInboxId={selectedInboxId}
                 selectedProvider={selectedProvider}
                 selectedThread={selectedAllMessagesThread}
                 onThreadSelect={(thread) => {
-                  console.log('All Messages Thread Selected:', thread);
-                  console.log('Contact ID:', thread?.contactId);
                   setSelectedAllMessagesThread(thread);
                   setShowReplySection(false);
                   setReplyText('');
@@ -1853,11 +1780,49 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 onUnreadCountsRefresh={refreshInboxDropdownCounts}
                 refreshTrigger={refreshAllMessagesTab}
               />
-            )}
+            </div>
             </div>
           </div>
           
-          {/* Mail Detail - Right side - conditional based on active tab */}
+          {/* READING PANE */}
+          <div className="read-pane">
+            {/* Unified header: shown whenever a thread is active */}
+            {hasActiveThread && (
+              <div className="read-head">
+                <h1 className="read-subject">{getActiveThread()!.subject}</h1>
+                <div className="read-head-actions">
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      className="head-icon danger"
+                      title="Delete"
+                      onClick={() => setShowDeleteDropdown(!showDeleteDropdown)}
+                    >
+                      <FontAwesomeIcon icon={faTrashAlt} style={{ width: 16, height: 16 }} />
+                    </button>
+                    {showDeleteDropdown && (
+                      <div className="delete-dropdown">
+                        <button onClick={() => { setDeleteModalType('single'); setPendingDeleteMode('soft'); setShowDeleteModal(true); setShowDeleteDropdown(false); }}>Delete from Inbox</button>
+                        <button onClick={() => { setDeleteModalType('single'); setPendingDeleteMode('Permanent'); setShowDeleteModal(true); setShowDeleteDropdown(false); }}>Delete permanently</button>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    className={`head-icon${contactPanelOpen ? ' panel-active' : ''}`}
+                    title="Toggle contact panel"
+                    onClick={() => setContactPanelOpen(!contactPanelOpen)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" width="17" height="17"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
+                  </button>
+                </div>
+              </div>
+            )}
+            {!hasActiveThread && (
+              <div className="read-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <p>Select an email to read it here</p>
+              </div>
+            )}
+          {/* Tab-specific content */}
           {activeTab === 'inbox' ? (
             selectedThread ? (
             <div className="mail-detail">
@@ -2130,7 +2095,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       onClick={() => toggleEmailCollapse(uniqueKey)} 
                       style={{ cursor: 'pointer' }}
                     >
-                      <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
+                      <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
+                        <EmailIframe html={formatEmailBody(message.body)} />
+                      </div>
                     </div>
                   )}
                   {renderMessageAttachments(message.attachments)}
@@ -2576,7 +2543,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         onClick={() => toggleEmailCollapse(uniqueKey)} 
                         style={{ cursor: 'pointer' }}
                       >
-                        <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
+                        <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
+                        <EmailIframe html={formatEmailBody(message.body)} />
+                      </div>
                       </div>
                     )}
                     {renderMessageAttachments(message.attachments)}
@@ -2853,7 +2822,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         onClick={() => toggleEmailCollapse(uniqueKey)} 
                         style={{ cursor: 'pointer' }}
                       >
-                        <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
+                        <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
+                        <EmailIframe html={formatEmailBody(message.body)} />
+                      </div>
                       </div>
                     )}
                     {renderMessageAttachments(message.attachments)}
@@ -3371,9 +3342,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         </div>
                       </div>
                     </div>
-                    {collapsedEmails[uniqueKey] !== false ? (
-                      <div 
-                        className="mail-body-preview" 
+                    {collapsedEmails[uniqueKey] ? (
+                      <div
+                        className="mail-body-preview"
                         onClick={() => toggleEmailCollapse(uniqueKey)}
                         style={{ 
                           padding: '16px 24px',
@@ -3422,7 +3393,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         onClick={() => toggleEmailCollapse(uniqueKey)} 
                         style={{ cursor: 'pointer' }}
                       >
-                        <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
+                        <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
+                        <EmailIframe html={formatEmailBody(message.body)} />
+                      </div>
                       </div>
                     )}
                     {renderMessageAttachments(message.attachments)}
@@ -3718,48 +3691,35 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             ) : null
           )}
           
-          {/* Right Side Panel - Contact Info */}
-          {(() => {
-            const showPanel = (
-              (activeTab === 'inbox' && selectedThread?.contactId) || 
-              (activeTab === 'sent' && selectedSentThread?.contactId) || 
-              (activeTab === 'unassigned' && selectedUnassignedThread?.contactId) ||
-              (activeTab === 'all' && selectedAllMessagesThread?.contactId) ||
-              (activeTab === 'allmessages' && selectedAllMessagesThread?.contactId)
-            );
-            
-            console.log('Contact Panel Check:', {
-              activeTab,
-              showPanel,
-              inboxContactId: selectedThread?.contactId,
-              sentContactId: selectedSentThread?.contactId,
-              unassignedContactId: selectedUnassignedThread?.contactId,
-              allMessagesContactId: selectedAllMessagesThread?.contactId
-            });
-            
-            return showPanel ? (
-              <div style={{
-                width: '350px',
-                borderLeft: '1px solid #e5e7eb',
-                background: '#fff',
-                overflowY: 'auto',
-                flexShrink: 0,
-                marginRight: '-35px',
-                marginTop: '24px'
-              }}>
-                <ContactInfoPanel 
-                  contactId={
-                    activeTab === 'inbox' ? selectedThread?.contactId || null
-                    : activeTab === 'sent' ? selectedSentThread?.contactId || null
-                    : activeTab === 'unassigned' ? selectedUnassignedThread?.contactId || null
-                    : selectedAllMessagesThread?.contactId || null
-                  }
+          </div>{/* /read-pane */}
+
+          {/* CONTACT PANEL */}
+          <div className="contact-pane">
+            {contactPanelOpen && hasActiveThread && (
+              <div className="contact-inner">
+                <button
+                  className="contact-collapse-btn"
+                  title="Collapse panel"
+                  onClick={() => setContactPanelOpen(false)}
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+                <ContactInfoPanel
+                  contactId={getActiveContactId()}
                   token={token}
                 />
               </div>
-            ) : null;
-          })()}
+            )}
+          </div>
         </div>
+
+        {/* Floating contact reopen tab */}
+        {hasActiveThread && !contactPanelOpen && (
+          <button className="panel-reopen" onClick={() => setContactPanelOpen(true)}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+            Contact
+          </button>
+        )}
 
       <DeleteConfirmationModal
         isOpen={showDeleteModal}

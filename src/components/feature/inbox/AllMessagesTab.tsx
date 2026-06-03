@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import API_BASE_URL from '../../config';
-import LoadingSpinner from '../common/LoadingSpinner';
-import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
+import API_BASE_URL from '../../../config';
+import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 import { faPaperclip } from '@fortawesome/free-solid-svg-icons';
@@ -141,12 +140,8 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
     onThreadSelect(thread);
     onReplyReset();
     
-    // Initialize all emails as collapsed with unique keys
-    const collapsed: { [key: string]: boolean } = {};
-    thread.messages.forEach((msg, idx) => {
-      collapsed[`all-${msg.messageId}-${idx}`] = true;
-    });
-    onInitializeCollapsedEmails(collapsed);
+    // Start all messages expanded
+    onInitializeCollapsedEmails({});
     
     // Mark thread as read
     if (thread.hasUnread) {
@@ -290,12 +285,17 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
     return order[groupA as keyof typeof order] - order[groupB as keyof typeof order];
   });
 
-  if (loading) {
-    return <LoadingSpinner message="Loading all messages..." />;
-  }
-
   if (!selectedInboxId) {
     return <div className="no-mails">Please select an inbox</div>;
+  }
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 20px', gap: '12px' }}>
+        <div style={{ width: 24, height: 24, border: '3px solid #eaf5ea', borderTop: '3px solid #3f9f42', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+        <span style={{ fontSize: 13, color: '#9aa1ab' }}>Loading messages…</span>
+      </div>
+    );
   }
 
   return (

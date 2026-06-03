@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import API_BASE_URL from '../../config';
-import LoadingSpinner from '../common/LoadingSpinner';
-import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
+import API_BASE_URL from '../../../config';
+import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 import { faPaperclip } from '@fortawesome/free-solid-svg-icons';
 
-interface UnassignedAttachment {
+interface SentAttachment {
   id?: number;
   messageId?: string;
   fileName?: string;
@@ -17,7 +16,7 @@ interface UnassignedAttachment {
   fileSize?: number;
 }
 
-interface UnassignedMessage {
+interface SentMessage {
   type: string;
   messageId: string;
   subject: string;
@@ -28,10 +27,10 @@ interface UnassignedMessage {
   isRead: boolean;
   contactId: number | null;
   contactName?: string;
-  attachments?: UnassignedAttachment[];
+  attachments?: SentAttachment[];
 }
 
-interface UnassignedThread {
+interface SentThread {
   trackingId: string;
   subject: string;
   contactEmail: string;
@@ -39,56 +38,33 @@ interface UnassignedThread {
   lastMessageDate: string;
   hasUnread: boolean;
   contactId: number | null;
-  messages: UnassignedMessage[];
+  messages: SentMessage[];
 }
 
-interface UnassignedEmail {
-  id: number;
-  messageId: string;
-  inReplyTo: string | null;
-  threadId: string;
-  trackingid?: string | null;
-  fromEmail: string;
-  fromName: string | null;
-  subject: string;
-  body: string;
-  date: string;
-  isRead: boolean;
-  provider: string;
-  contactId: number | null;
-  attachments?: UnassignedAttachment[];
-}
-
-interface UnassignedTabProps {
+interface SentTabProps {
   effectiveUserId: string;
   token: string | null;
   selectedInboxId: number | null;
-  onEmailSelect: (email: UnassignedEmail | null) => void;
-  selectedEmail: UnassignedEmail | null;
-  onReplyReset?: () => void;
   selectedProvider: string;
-  selectedThread: UnassignedThread | null;
-  onThreadSelect: (thread: UnassignedThread | null) => void;
+  selectedThread: SentThread | null;
+  onThreadSelect: (thread: SentThread | null) => void;
   onInitializeCollapsedEmails: (collapsed: { [key: string]: boolean }) => void;
-  onUnreadCountsRefresh?: () => Promise<void> | void;
+  onReplyReset?: () => void;
   refreshTrigger?: number;
 }
 
-const UnassignedTab: React.FC<UnassignedTabProps> = ({ 
+const SentTab: React.FC<SentTabProps> = ({ 
   effectiveUserId, 
   token, 
   selectedInboxId, 
-  onEmailSelect, 
-  selectedEmail, 
-  onReplyReset, 
   selectedProvider,
   selectedThread,
   onThreadSelect,
   onInitializeCollapsedEmails,
-  onUnreadCountsRefresh,
+  onReplyReset,
   refreshTrigger
 }) => {
-  const [threads, setThreads] = useState<UnassignedThread[]>([]);
+  const [threads, setThreads] = useState<SentThread[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -101,7 +77,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [pendingDeleteMode, setPendingDeleteMode] = useState<'soft' | 'Permanent'>('soft');
 
-  const fetchUnassignedEmails = useCallback(async (showLoader = true) => {
+  const fetchSentEmails = useCallback(async (showLoader = true) => {
     if (!effectiveUserId || !selectedInboxId || !selectedProvider) return;
 
     if (showLoader) {
@@ -110,7 +86,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
     setError('');
     try {
       const fetchPage = (pageNumber: number) => axios.get(
-        `${API_BASE_URL}/api/Inbox/get_unassigned_inbox?clientId=${effectiveUserId}&inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${pageNumber}&pageSize=${pageSize}&_=${Date.now()}`,
+        `${API_BASE_URL}/api/Inbox/get_sent_only?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${pageNumber}&pageSize=${pageSize}&_=${Date.now()}`,
         {
           headers: {
             accept: '*/*',
@@ -144,8 +120,8 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
         setTotalPages(nextTotalPages);
       }
     } catch (err) {
-      console.error('Error fetching unassigned emails:', err);
-      setError('Failed to load unassigned emails');
+      console.error('Error fetching sent emails:', err);
+      setError('Failed to load sent emails');
     } finally {
       if (showLoader) {
         setLoading(false);
@@ -154,73 +130,18 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
   }, [effectiveUserId, token, selectedInboxId, selectedProvider, currentPage, pageSize]);
 
   useEffect(() => {
-    fetchUnassignedEmails();
-  }, [fetchUnassignedEmails, refreshTrigger]);
+    fetchSentEmails();
+  }, [fetchSentEmails, refreshTrigger]);
 
-  const handleThreadClick = async (thread: UnassignedThread) => {
+  const handleThreadClick = async (thread: SentThread) => {
     if (onReplyReset) {
       onReplyReset();
     }
     
     onThreadSelect(thread);
     
-    // Initialize all emails as collapsed with unique keys
-    const collapsed: { [key: string]: boolean } = {};
-    thread.messages.forEach((msg, idx) => {
-      collapsed[`unassigned-${msg.messageId}-${idx}`] = true;
-    });
-    onInitializeCollapsedEmails(collapsed);
-    
-    const firstMessage = thread.messages[0];
-    const unassignedEmail: UnassignedEmail = {
-      id: 0,
-      messageId: firstMessage.messageId,
-      inReplyTo: null,
-      threadId: thread.trackingId,
-      trackingid: thread.trackingId,
-      fromEmail: firstMessage.fromEmail,
-      fromName: firstMessage.contactName || null,
-      subject: thread.subject,
-      body: firstMessage.body,
-      date: firstMessage.date,
-      isRead: firstMessage.isRead,
-      provider: selectedProvider,
-      contactId: thread.contactId,
-      attachments: firstMessage.attachments
-    };
-    
-    onEmailSelect(unassignedEmail);
-    
-    // Check if thread has any unread messages
-    const hasAnyUnread = thread.messages.some(msg => !msg.isRead);
-    
-    if (hasAnyUnread) {
-      try {
-        // Mark thread as read using the correct API endpoint
-        await axios.post(
-          `${API_BASE_URL}/api/Inbox/mark-unassigned-read?id=${encodeURIComponent(thread.trackingId)}`,
-          {},
-          {
-            headers: {
-              accept: '*/*',
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-        
-        // Update local state to mark all messages as read
-        setThreads(prevThreads => 
-          prevThreads.map(t => 
-            t.trackingId === thread.trackingId 
-              ? { ...t, hasUnread: false, messages: t.messages.map(m => ({ ...m, isRead: true })) }
-              : t
-          )
-        );
-        await onUnreadCountsRefresh?.();
-      } catch (err) {
-        console.error('Error marking thread as read:', err);
-      }
-    }
+    // Start all messages expanded
+    onInitializeCollapsedEmails({});
   };
 
   const currentPageThreadIds = threads.map(thread => thread.trackingId);
@@ -268,7 +189,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
       if (response.data.success) {
         setSelectedThreadIds([]);
         setShowDeleteDropdown(false);
-        await fetchUnassignedEmails(false);
+        await fetchSentEmails(false);
       }
     } catch (err: any) {
       console.error('Error deleting emails:', err);
@@ -314,26 +235,17 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
     return name.substring(0, 1).toUpperCase();
   };
 
-  const getThreadAttachmentCount = (thread: UnassignedThread): number => {
+  const getThreadAttachmentCount = (thread: SentThread): number => {
     return thread.messages.reduce((count, message) => count + (message.attachments?.length || 0), 0);
   };
 
-  const formatEmailBody = (body: string): string => {
-    let formatted = body
-      .replace(/&gt;/g, '>')
-      .replace(/&lt;/g, '<')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
-    
-    return formatted;
-  };
-
-  const startIndex = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endIndex = Math.min(currentPage * pageSize, totalCount);
-
   if (loading) {
-    return <LoadingSpinner message="Loading unassigned emails..." />;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 20px', gap: '12px' }}>
+        <div style={{ width: 24, height: 24, border: '3px solid #eaf5ea', borderTop: '3px solid #3f9f42', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+        <span style={{ fontSize: 13, color: '#9aa1ab' }}>Loading sent…</span>
+      </div>
+    );
   }
 
   if (!selectedInboxId) {
@@ -358,7 +270,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
   }
 
   if (totalCount === 0) {
-    return <div className="no-mails">No unassigned emails found</div>;
+    return <div className="no-mails">No sent emails found</div>;
   }
 
   return (
@@ -529,108 +441,109 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
           const isSelected = selectedThreadIds.includes(thread.trackingId);
           const attachmentCount = getThreadAttachmentCount(thread);
           return (
-          <div
-            key={thread.trackingId}
-            className={`mail-item ${hasUnreadMessages ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''} ${isSelected ? 'selected' : ''}`}
-            onClick={() => {
-              if (selectedThreadIds.length > 0) {
-                toggleThreadSelection(thread.trackingId);
-              } else {
-                handleThreadClick(thread);
-              }
-            }}
-            onMouseEnter={() => setHoveredThreadId(thread.trackingId)}
-            onMouseLeave={() => setHoveredThreadId(null)}
-            style={{ position: 'relative' }}
-          >
-            {(hoveredThreadId === thread.trackingId || selectedThreadIds.length > 0) ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', marginLeft: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleThreadSelection(thread.trackingId)}
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    width: '18px',
-                    height: '18px',
-                    cursor: 'pointer'
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="mail-avatar">{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
-            )}
-            <div className="mail-content">
-              <div className="mail-item-header">
-                <span 
-                  className="mail-sender"
-                  style={{
-                    cursor: thread.contactId ? 'pointer' : 'default',
-                    color: thread.contactId ? '#3f9f42' : 'inherit',
-                    textDecoration: thread.contactId ? 'underline' : 'none'
-                  }}
-                  onClick={(e) => {
-                    if (thread.contactId) {
-                      e.stopPropagation();
-                      const clientId = sessionStorage.getItem('clientId') || '';
-                      const contactDetailsUrl = `/#/contact-details/${thread.contactId}?tab=Output&clientId=${clientId}`;
-                      window.open(contactDetailsUrl, '_blank');
-                    }
-                  }}
-                >
-                  {lastMessage.contactName || extractSenderName(thread.contactEmail)}
-                </span>
-                <span className="mail-date">{formatDate(thread.lastMessageDate)}</span>
-              </div>
-              <div className="mail-subject">
-                {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
-                {attachmentCount > 0 && (
-                  <span
-                    title={`${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`}
-                    style={{ display: 'inline-flex', alignItems: 'center', marginRight: '6px', color: '#6b7280' }}
+            <div
+              key={thread.trackingId}
+              className={`mail-item ${hasUnreadMessages ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''} ${isSelected ? 'selected' : ''}`}
+              onClick={() => {
+                if (selectedThreadIds.length > 0) {
+                  toggleThreadSelection(thread.trackingId);
+                } else {
+                  handleThreadClick(thread);
+                }
+              }}
+              onMouseEnter={() => setHoveredThreadId(thread.trackingId)}
+              onMouseLeave={() => setHoveredThreadId(null)}
+              style={{ position: 'relative' }}
+            >
+              {(hoveredThreadId === thread.trackingId || selectedThreadIds.length > 0) ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', marginLeft: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleThreadSelection(thread.trackingId)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="mail-avatar">{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
+              )}
+              <div className="mail-content">
+                <div className="mail-item-header">
+                  <span 
+                    className="mail-sender"
+                    style={{
+                      cursor: thread.contactId ? 'pointer' : 'default',
+                      color: thread.contactId ? '#3f9f42' : 'inherit',
+                      textDecoration: thread.contactId ? 'underline' : 'none'
+                    }}
+                    onClick={(e) => {
+                      if (thread.contactId) {
+                        e.stopPropagation();
+                        const clientId = sessionStorage.getItem('clientId') || '';
+                        const contactDetailsUrl = `/#/contact-details/${thread.contactId}?tab=Output&clientId=${clientId}`;
+                        window.open(contactDetailsUrl, '_blank');
+                      }
+                    }}
                   >
-                    <FontAwesomeIcon icon={faPaperclip} />
+                    {lastMessage.contactName || extractSenderName(thread.contactEmail)}
                   </span>
-                )}
-                {thread.subject}
-              </div>
-              <div className="mail-preview">
-                {(() => {
-                  let cleanText = lastMessage.body;
-                  const textarea = document.createElement('textarea');
-                  textarea.innerHTML = cleanText;
-                  cleanText = textarea.value;
-                  cleanText = cleanText
-                    .replace(/<style[^>]*>.*?<\/style>/gis, '')
-                    .replace(/<script[^>]*>.*?<\/script>/gis, '')
-                    .replace(/<!--.*?-->/gs, '')
-                    .replace(/<head[^>]*>.*?<\/head>/gis, '')
-                    .replace(/<[^>]+>/g, '')
-                    .replace(/&nbsp;/gi, ' ')
-                    .replace(/&gt;/g, '>')
-                    .replace(/&lt;/g, '<')
-                    .replace(/&amp;/g, '&')
-                    .replace(/&quot;/g, '"')
-                    .replace(/&#39;/g, "'")
-                    .replace(/&#x[0-9A-Fa-f]+;/g, '')
-                    .replace(/&#[0-9]+;/g, '')
-                    .replace(/\{[^}]*\}/g, '')
-                    .replace(/v\\:\*|o\\:\*|w\\:\*/g, '')
-                    .replace(/behavior:url\([^)]*\)/g, '')
-                    .replace(/mso-[^;:]*:[^;]*/gi, '')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-                  
-                  if (!cleanText || cleanText.length < 5 || /^[\W_\s]+$/.test(cleanText) || /^[v\\o\\w\\]/.test(cleanText)) {
-                    return 'No preview available';
-                  }
-                  
-                  return cleanText.substring(0, 100) + (cleanText.length > 100 ? '...' : '');
-                })()}
+                  <span className="mail-date">{formatDate(thread.lastMessageDate)}</span>
+                </div>
+                <div className="mail-subject">
+                  {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
+                  {attachmentCount > 0 && (
+                    <span
+                      title={`${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`}
+                      style={{ display: 'inline-flex', alignItems: 'center', marginRight: '6px', color: '#6b7280' }}
+                    >
+                      <FontAwesomeIcon icon={faPaperclip} />
+                    </span>
+                  )}
+                  {thread.subject}
+                </div>
+                <div className="mail-preview">
+                  {(() => {
+                    let cleanText = lastMessage.body;
+                    const textarea = document.createElement('textarea');
+                    textarea.innerHTML = cleanText;
+                    cleanText = textarea.value;
+                    cleanText = cleanText
+                      .replace(/<style[^>]*>.*?<\/style>/gis, '')
+                      .replace(/<script[^>]*>.*?<\/script>/gis, '')
+                      .replace(/<!--.*?-->/gs, '')
+                      .replace(/<head[^>]*>.*?<\/head>/gis, '')
+                      .replace(/<[^>]+>/g, '')
+                      .replace(/&nbsp;/gi, ' ')
+                      .replace(/&gt;/g, '>')
+                      .replace(/&lt;/g, '<')
+                      .replace(/&amp;/g, '&')
+                      .replace(/&quot;/g, '"')
+                      .replace(/&#39;/g, "'")
+                      .replace(/&#x[0-9A-Fa-f]+;/g, '')
+                      .replace(/&#[0-9]+;/g, '')
+                      .replace(/\{[^}]*\}/g, '')
+                      .replace(/v\\:\*|o\\:\*|w\\:\*/g, '')
+                      .replace(/behavior:url\([^)]*\)/g, '')
+                      .replace(/mso-[^;:]*:[^;]*/gi, '')
+                      .replace(/\s+/g, ' ')
+                      .trim();
+                    
+                    if (!cleanText || cleanText.length < 5 || /^[\W_\s]+$/.test(cleanText) || /^[v\\o\\w\\]/.test(cleanText)) {
+                      return 'No preview available';
+                    }
+                    
+                    return cleanText.substring(0, 100) + (cleanText.length > 100 ? '...' : '');
+                  })()}
+                </div>
               </div>
             </div>
-          </div>
-        );})}
+          );
+        })}
       </div>
 
       <DeleteConfirmationModal
@@ -647,4 +560,4 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
   );
 };
 
-export default UnassignedTab;
+export default SentTab;
