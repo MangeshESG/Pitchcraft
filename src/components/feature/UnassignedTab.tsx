@@ -223,6 +223,19 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
     }
   };
 
+  const currentPageThreadIds = threads.map(thread => thread.trackingId);
+  const areAllCurrentPageThreadsSelected = currentPageThreadIds.length > 0 && currentPageThreadIds.every(id => selectedThreadIds.includes(id));
+
+  const toggleCurrentPageThreadSelection = () => {
+    setSelectedThreadIds(prev => {
+      if (areAllCurrentPageThreadsSelected) {
+        return prev.filter(id => !currentPageThreadIds.includes(id));
+      }
+
+      return Array.from(new Set([...prev, ...currentPageThreadIds]));
+    });
+  };
+
   const toggleThreadSelection = (trackingId: string) => {
     setSelectedThreadIds(prev => 
       prev.includes(trackingId) 
@@ -360,6 +373,22 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
         flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {selectedThreadIds.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px' }}>
+              <input
+                type="checkbox"
+                checked={areAllCurrentPageThreadsSelected}
+                onChange={toggleCurrentPageThreadSelection}
+                title={areAllCurrentPageThreadsSelected ? 'Deselect all emails on this page' : 'Select all emails on this page'}
+                aria-label={areAllCurrentPageThreadsSelected ? 'Deselect all emails on this page' : 'Select all emails on this page'}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  cursor: 'pointer'
+                }}
+              />
+            </div>
+          )}
           {selectedThreadIds.length > 0 && (
             <div style={{ position: 'relative' }}>
               <button

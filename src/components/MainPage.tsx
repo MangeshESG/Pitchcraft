@@ -41,6 +41,7 @@ import { Dashboard } from "./feature/Dashboard";
 import EmailCampaignBuilder from "./feature/blueprint/EmailCampaignBuilder";
 import DeepSeekSearchGenerator from "./feature/blueprint/DeepSeekSearchGenerator";
 import Tracking from "./feature/Tracking";
+import Settings from "./feature/Settings";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
@@ -4786,7 +4787,7 @@ try {
             )}
             {shouldRenderTab("Settings") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Settings")}>
-                <Tracking selectedClient={selectedClient} />
+                <Settings selectedClient={effectiveUserId.toString()} />
               </div>
             )}
             {shouldRenderTab("MyPlan") && (

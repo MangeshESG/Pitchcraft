@@ -470,6 +470,19 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowDeleteDropdown(false);
   };
 
+  const currentPageThreadIds = threads.map(thread => thread.trackingId);
+  const areAllCurrentPageThreadsSelected = currentPageThreadIds.length > 0 && currentPageThreadIds.every(id => selectedThreadIds.includes(id));
+
+  const toggleCurrentPageThreadSelection = () => {
+    setSelectedThreadIds(prev => {
+      if (areAllCurrentPageThreadsSelected) {
+        return prev.filter(id => !currentPageThreadIds.includes(id));
+      }
+
+      return Array.from(new Set([...prev, ...currentPageThreadIds]));
+    });
+  };
+
   const toggleThreadSelection = (trackingId: string) => {
     setSelectedThreadIds(prev => 
       prev.includes(trackingId) 
@@ -750,6 +763,48 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const handleAttachmentDownload = async (attachment: InboxAttachment) => {
+    if (!attachment.id) return;
+    
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/Inbox/download/${attachment.id}`,
+        {
+          headers: {
+            accept: '*/*',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          responseType: 'blob'
+        }
+      );
+
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = attachment.originalFileName || attachment.fileName || 'download';
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^'"\s]+)['"]?/i);
+        if (filenameMatch) {
+          filename = decodeURIComponent(filenameMatch[1]);
+        }
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading attachment:', err);
+      setToastMessage('Failed to download attachment');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
+  };
+
   const renderMessageAttachments = (attachments?: InboxAttachment[]) => {
     if (!attachments || attachments.length === 0) return null;
 
@@ -760,11 +815,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           const fileSize = formatAttachmentSize(attachment.fileSize);
 
           return (
-            <a
+            <button
               key={`${attachment.id || attachment.filePath || fileName}-${index}`}
-              href={getAttachmentUrl(attachment)}
-              target="_blank"
-              rel="noreferrer"
+              onClick={() => handleAttachmentDownload(attachment)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -776,7 +829,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 color: '#1f2937',
                 background: '#fff',
                 textDecoration: 'none',
-                fontSize: '13px'
+                fontSize: '13px',
+                cursor: 'pointer'
               }}
               title={fileName}
             >
@@ -789,7 +843,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   {fileSize}
                 </span>
               )}
-            </a>
+            </button>
           );
         })}
       </div>
@@ -1471,8 +1525,24 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     position: 'sticky',
                     top: 0,
                     zIndex: 5
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {selectedThreadIds.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px' }}>
+                          <input
+                            type="checkbox"
+                            checked={areAllCurrentPageThreadsSelected}
+                            onChange={toggleCurrentPageThreadSelection}
+                            title={areAllCurrentPageThreadsSelected ? 'Deselect all emails on this page' : 'Select all emails on this page'}
+                            aria-label={areAllCurrentPageThreadsSelected ? 'Deselect all emails on this page' : 'Select all emails on this page'}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        </div>
+                      )}
                       {selectedThreadIds.length > 0 && (
                         <div style={{ position: 'relative' }}>
                           <button
