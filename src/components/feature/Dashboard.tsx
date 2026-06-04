@@ -15,7 +15,7 @@ import CreateATemplete from "../../assets/images/icons/create-a-template.png";
 import ImportContact from "../../assets/images/icons/import-contact.png";
 import CreateACampaign from "../../assets/images/icons/create-a-campaign.png";
 import GenerateEmail from "../../assets/images/icons/generate-email.png";
-import ScheduleCampaign from "../../assets/images/icons/schedule-campaign.png";
+
 
 /* ------------------------------------------------------------------
    Types
@@ -57,6 +57,19 @@ interface ActivityRow {
   title: string;
   meta: string;
   time: string;
+}
+
+interface ContactApiRow {
+  id: number;
+  dataFileId: number;
+  full_name: string;
+  email: string;
+  company_name: string;
+  job_title: string;
+  country_or_address: string;
+  updated_at: string | null;
+  email_sent_at: string | null;
+  unsubscribe: string;
 }
 
 export interface DashboardProps {
@@ -139,18 +152,6 @@ const buildSteps = (
       ctaPath: "/main?tab=Output",
       illustration: GenerateEmail,
       videoSrc: `${VIDEO_BASE}/video/KraftEmails.mp4`,
-    },
-    {
-      id: "schedule",
-      n: 5,
-      title: "Schedule and review campaigns",
-      time: "4 minutes",
-      status: "todo",
-      body: "Add email settings, use the deliverability tools, set sending windows, then check analytics for opens, clicks and replies.",
-      cta: "Schedule & review",
-      ctaPath: "/main?tab=Mail&mailSubTab=Schedule",
-      illustration: ScheduleCampaign,
-      videoSrc: `${VIDEO_BASE}/video/Schedule_review_campaigns.mp4`,
     },
     {
       id: "explore",
@@ -572,28 +573,69 @@ const ActivityItem: React.FC<ActivityRow> = ({ kind, title, meta, time }) => {
   );
 };
 
+const PAGE_SIZE = 8;
+
+const ContactStatusBadge: React.FC<{ row: ContactApiRow }> = ({ row }) => {
+  if (row.email_sent_at)
+    return (
+      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#e2f1e3] text-[#3f9f42]">
+        Sent
+      </span>
+    );
+  if (row.updated_at)
+    return (
+      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+        Krafted
+      </span>
+    );
+  return (
+    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+      Pending
+    </span>
+  );
+};
+
 const PostOnboardingView: React.FC<{
   firstName: string;
   kpis: NonNullable<DashboardProps["kpis"]>;
-}> = ({ firstName, kpis }) => {
-  // TODO: replace mock series + tables with real API data
+  clientId?: number | string;
+}> = ({ firstName, kpis, clientId }) => {
+  const [contacts, setContacts] = useState<ContactApiRow[]>([]);
+  const [contactTotal, setContactTotal] = useState(0);
+  const [contactPage, setContactPage] = useState(1);
+  const [contactSearch, setContactSearch] = useState("");
+
+  useEffect(() => {
+    if (!clientId) return;
+    fetch(`${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId?clientId=${clientId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { contacts?: ContactApiRow[]; contactCount?: number } | null) => {
+        const list = Array.isArray(data?.contacts) ? data!.contacts! : [];
+        setContacts(list);
+        setContactTotal(data?.contactCount ?? list.length);
+      })
+      .catch(() => {});
+  }, [clientId]);
+  const emailsGeneratedCount = contacts.filter((c) => c.updated_at != null).length;
+  const emailsSentCount = contacts.filter((c) => c.email_sent_at != null).length;
+
   const tiles: KpiTileData[] = [
     {
       label: "Total contacts",
-      value: kpis.totalContacts ?? "2,418",
+      value: kpis.totalContacts ?? (contactTotal > 0 ? contactTotal.toLocaleString() : "—"),
       delta: "+186 this week",
       series: [120, 132, 128, 145, 160, 178, 196],
     },
     {
       label: "Emails generated",
-      value: kpis.emailsGenerated ?? "8,540",
-      delta: "+412 this week",
+      value: kpis.emailsGenerated ?? (contacts.length > 0 ? emailsGeneratedCount.toLocaleString() : "—"),
+      delta: `${emailsGeneratedCount.toLocaleString()} krafted`,
       series: [60, 88, 72, 110, 132, 148, 165],
     },
     {
       label: "Emails sent",
-      value: kpis.emailsSent ?? "7,206",
-      delta: "+388 this week",
+      value: kpis.emailsSent ?? (contacts.length > 0 ? emailsSentCount.toLocaleString() : "—"),
+      delta: `${emailsSentCount.toLocaleString()} sent`,
       series: [58, 76, 92, 88, 110, 138, 162],
     },
     {
@@ -744,6 +786,115 @@ const PostOnboardingView: React.FC<{
         </div>
       </div>
 
+      {/* All Contacts */}
+      {contacts.length > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <div className="text-[15px] font-semibold text-gray-900">All contacts</div>
+              <div className="text-[12px] text-gray-500 mt-0.5">
+                {contactTotal.toLocaleString()} total
+              </div>
+            </div>
+            <input
+              type="text"
+              placeholder="Search name, email or company…"
+              value={contactSearch}
+              onChange={(e) => { setContactSearch(e.target.value); setContactPage(1); }}
+              className="h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#3f9f42] w-72"
+            />
+          </div>
+
+          <table className="w-full mt-4 text-[13px]">
+            <thead>
+              <tr className="text-left text-gray-400 text-[11px] uppercase tracking-wider border-b border-gray-100">
+                <th className="font-medium pb-2">Name</th>
+                <th className="font-medium pb-2">Email</th>
+                <th className="font-medium pb-2">Company</th>
+                <th className="font-medium pb-2">Job title</th>
+                <th className="font-medium pb-2">Country</th>
+                <th className="font-medium pb-2">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {contacts
+                .filter((c) => {
+                  if (!contactSearch) return true;
+                  const q = contactSearch.toLowerCase();
+                  return (
+                    c.full_name?.toLowerCase().includes(q) ||
+                    c.email?.toLowerCase().includes(q) ||
+                    c.company_name?.toLowerCase().includes(q)
+                  );
+                })
+                .slice((contactPage - 1) * PAGE_SIZE, contactPage * PAGE_SIZE)
+                .map((c) => (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="py-2.5 max-w-[160px] truncate">
+                      <a
+                        href={`/#/contact-details/${c.id}?tab=DataCampaigns&subtab=List&dataFileId=${c.dataFileId}&clientId=${clientId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-gray-900 hover:text-[#3f9f42] hover:underline"
+                      >
+                        {c.full_name || "—"}
+                      </a>
+                    </td>
+                    <td className="py-2.5 text-gray-600 max-w-[180px] truncate">{c.email || "—"}</td>
+                    <td className="py-2.5 text-gray-600 max-w-[140px] truncate">{c.company_name || "—"}</td>
+                    <td className="py-2.5 text-gray-600 max-w-[140px] truncate">{c.job_title || "—"}</td>
+                    <td className="py-2.5 text-gray-600">{c.country_or_address || "—"}</td>
+                    <td className="py-2.5">
+                      <ContactStatusBadge row={c} />
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+
+          {/* Pagination */}
+          {(() => {
+            const filtered = contacts.filter((c) => {
+              if (!contactSearch) return true;
+              const q = contactSearch.toLowerCase();
+              return (
+                c.full_name?.toLowerCase().includes(q) ||
+                c.email?.toLowerCase().includes(q) ||
+                c.company_name?.toLowerCase().includes(q)
+              );
+            });
+            const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+            if (totalPages <= 1) return null;
+            return (
+              <div className="flex items-center justify-between mt-4 text-[12px] text-gray-500">
+                <span>
+                  {(contactPage - 1) * PAGE_SIZE + 1}–
+                  {Math.min(contactPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={contactPage === 1}
+                    onClick={() => setContactPage((p) => p - 1)}
+                    className="h-7 px-3 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    disabled={contactPage === totalPages}
+                    onClick={() => setContactPage((p) => p + 1)}
+                    className="h-7 px-3 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Campaigns + Pro tip */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-8 rounded-2xl border border-gray-200 bg-white p-5">
@@ -847,7 +998,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       try {
         const id = clientId;
 
-        const [templatesRes, dataFilesRes, campaignsRes, scheduleRes] = await Promise.all([
+        const [templatesRes, dataFilesRes, campaignsRes] = await Promise.all([
           fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${id}`).then((r) =>
             r.ok ? r.json() : []
           ),
@@ -855,9 +1006,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             r.ok ? r.json() : []
           ),
           fetch(`${API_BASE_URL}/api/auth/campaigns/client/${id}`).then((r) =>
-            r.ok ? r.json() : []
-          ),
-          fetch(`${API_BASE_URL}/api/email/get-sequence?ClientId=${id}`).then((r) =>
             r.ok ? r.json() : []
           ),
         ]);
@@ -874,57 +1022,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
         const contactsDone = realFiles.length > 0;
         const campaignList = Array.isArray(campaignsRes) ? campaignsRes : [];
         const campaignDone = campaignList.length > 0;
-        const scheduleDone = Array.isArray(scheduleRes) && scheduleRes.length > 0;
-
-        // Check kraft: if there are campaigns, fetch contacts for the first one
-        // and see if any have an email generated (pitch / email_body present)
+        // Check kraft: dedicated endpoint checks if any contact for this client has been krafted
         let kraftDone = false;
         if (campaignDone) {
-          const firstCampaign = campaignList[0];
-          const campaignId =
-            firstCampaign?.id ?? firstCampaign?.campaignId ?? firstCampaign?.campaign_id;
-          const dataFileId =
-            firstCampaign?.dataFileId ??
-            firstCampaign?.data_file_id ??
-            firstCampaign?.datafileid;
-
-          if (dataFileId != null) {
-            try {
-              const contactsRes = await fetch(
-                `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${id}&dataFileId=${dataFileId}&isFollowUp=false&notKrafted=false&kraftedNotSent=false`
-              ).then((r) => (r.ok ? r.json() : []));
-              const contacts = Array.isArray(contactsRes) ? contactsRes : [];
-              kraftDone = contacts.some(
-                (c: any) =>
-                  c.pitch ||
-                  c.email_body ||
-                  c.sample_email_body ||
-                  c.isKrafted === true ||
-                  c.isKrafted === 1
-              );
-            } catch {
-              kraftDone = false;
-            }
-          } else if (campaignId != null) {
-            // Fallback: try view-contacts with campaignId
-            try {
-              const contactsRes = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ clientId: id, campaignId, notKrafted: false }),
-              }).then((r) => (r.ok ? r.json() : []));
-              const contacts = Array.isArray(contactsRes) ? contactsRes : [];
-              kraftDone = contacts.some(
-                (c: any) =>
-                  c.pitch ||
-                  c.email_body ||
-                  c.sample_email_body ||
-                  c.isKrafted === true ||
-                  c.isKrafted === 1
-              );
-            } catch {
-              kraftDone = false;
-            }
+          try {
+            const kraftRes = await fetch(
+              `${API_BASE_URL}/api/Crm/kraft-done?clientId=${id}`
+            );
+            const kraftData = kraftRes.ok ? await kraftRes.json() : {};
+            kraftDone = kraftData.kraftDone === true;
+          } catch {
+            kraftDone = false;
           }
         }
 
@@ -934,7 +1042,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             contacts: contactsDone ? "done" : blueprintDone ? "active" : "todo",
             campaign: campaignDone ? "done" : contactsDone ? "active" : "todo",
             kraft: kraftDone ? "done" : campaignDone ? "active" : "todo",
-            schedule: scheduleDone ? "done" : kraftDone ? "active" : "todo",
           });
         }
       } catch {
@@ -955,7 +1062,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const derivedComplete = useMemo(() => {
     if (typeof setupComplete === "boolean") return setupComplete;
     if (!stepStatus) return false;
-    const required = ["blueprint", "contacts", "campaign", "kraft", "schedule"];
+    const required = ["blueprint", "contacts", "campaign", "kraft"];
     return required.every((id) => stepStatus[id] === "done");
   }, [setupComplete, stepStatus]);
 
@@ -973,7 +1080,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="w-full min-h-full bg-white">
       {derivedComplete ? (
         <div className="p-6">
-          <PostOnboardingView firstName={name} kpis={kpis ?? {}} />
+          <PostOnboardingView firstName={name} kpis={kpis ?? {}} clientId={clientId} />
         </div>
       ) : (
         <div className="p-6">
