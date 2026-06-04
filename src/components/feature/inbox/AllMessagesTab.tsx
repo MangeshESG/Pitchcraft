@@ -53,6 +53,7 @@ interface AllMessagesTabProps {
   onUnreadCountsRefresh?: () => Promise<void> | void;
   refreshTrigger: number;
   onShowReplySection?: (show: boolean) => void;
+  onSetReplyText?: (text: string) => void;
 }
 
 const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
@@ -65,7 +66,8 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
   onInitializeCollapsedEmails,
   onReplyReset,
   onUnreadCountsRefresh,
-  refreshTrigger
+  refreshTrigger,
+  onSetReplyText
 }) => {
   const [threads, setThreads] = useState<InboxThread[]>([]);
   const [loading, setLoading] = useState(false);
@@ -139,6 +141,27 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
   const handleThreadClick = async (thread: InboxThread) => {
     onThreadSelect(thread);
     onReplyReset();
+    
+    // Fetch and set default signature
+    if (onSetReplyText) {
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${selectedInboxId}&Provider=${selectedProvider}`,
+          {
+            headers: {
+              accept: '*/*',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+        
+        if (response.data && response.data.signatureHtml) {
+          onSetReplyText(`<br/><br/>${response.data.signatureHtml}`);
+        }
+      } catch (err) {
+        console.error('Error fetching signature:', err);
+      }
+    }
     
     // Start all messages expanded
     onInitializeCollapsedEmails({});

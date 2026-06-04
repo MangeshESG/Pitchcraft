@@ -51,6 +51,7 @@ interface SentTabProps {
   onInitializeCollapsedEmails: (collapsed: { [key: string]: boolean }) => void;
   onReplyReset?: () => void;
   refreshTrigger?: number;
+  onSetReplyText?: (text: string) => void;
 }
 
 const SentTab: React.FC<SentTabProps> = ({ 
@@ -62,7 +63,8 @@ const SentTab: React.FC<SentTabProps> = ({
   onThreadSelect,
   onInitializeCollapsedEmails,
   onReplyReset,
-  refreshTrigger
+  refreshTrigger,
+  onSetReplyText
 }) => {
   const [threads, setThreads] = useState<SentThread[]>([]);
   const [loading, setLoading] = useState(false);
@@ -100,7 +102,7 @@ const SentTab: React.FC<SentTabProps> = ({
       const response = await fetchPage(currentPage);
 
       if (response.data.success && response.data.data) {
-        let pageThreads = response.data.data.data || [];
+        let pageThreads = Array.isArray(response.data.data.data) ? response.data.data.data : [];
         const nextTotalCount = response.data.data.totalCount || 0;
         const nextTotalPages = response.data.data.totalPages || 0;
         let nextPage = currentPage + 1;
@@ -118,10 +120,13 @@ const SentTab: React.FC<SentTabProps> = ({
         setThreads(pageThreads);
         setTotalCount(nextTotalCount);
         setTotalPages(nextTotalPages);
+      } else {
+        setThreads([]);
       }
     } catch (err) {
       console.error('Error fetching sent emails:', err);
       setError('Failed to load sent emails');
+      setThreads([]);
     } finally {
       if (showLoader) {
         setLoading(false);
@@ -140,11 +145,32 @@ const SentTab: React.FC<SentTabProps> = ({
     
     onThreadSelect(thread);
     
+    // Fetch and set default signature
+    if (onSetReplyText) {
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${selectedInboxId}&Provider=${selectedProvider}`,
+          {
+            headers: {
+              accept: '*/*',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+        
+        if (response.data && response.data.signatureHtml) {
+          onSetReplyText(`<br/><br/>${response.data.signatureHtml}`);
+        }
+      } catch (err) {
+        console.error('Error fetching signature:', err);
+      }
+    }
+    
     // Start all messages expanded
     onInitializeCollapsedEmails({});
   };
 
-  const currentPageThreadIds = threads.map(thread => thread.trackingId);
+  const currentPageThreadIds = (Array.isArray(threads) ? threads : []).map(thread => thread.trackingId);
   const areAllCurrentPageThreadsSelected = currentPageThreadIds.length > 0 && currentPageThreadIds.every(id => selectedThreadIds.includes(id));
 
   const toggleCurrentPageThreadSelection = () => {
@@ -434,7 +460,7 @@ const SentTab: React.FC<SentTabProps> = ({
         </div>
       </div>
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {threads.map((thread) => {
+        {(Array.isArray(threads) ? threads : []).map((thread) => {
           const lastMessage = thread.messages[thread.messages.length - 1];
           // Check if any message in thread is unread
           const hasUnreadMessages = thread.messages.some(msg => !msg.isRead);
