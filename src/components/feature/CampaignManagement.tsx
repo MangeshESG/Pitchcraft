@@ -10,6 +10,8 @@ import "react-toastify/dist/ReactToastify.css";
 import CommonSidePanel from "../common/CommonSidePanel";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import "./blueprint/Template.new.css";
+import campaignIllustration from "../../assets/images/campaign-illustration.png";
+import campaignIllustration2 from "../../assets/images/campaign-illustration2.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlay } from "@fortawesome/free-solid-svg-icons";
 import {
@@ -669,7 +671,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                 </div>
                 <div className="bp-empty-hero__art">
                   <img
-                    src={process.env.PUBLIC_URL + "/campaign-illustration.png"}
+                    src={campaignIllustration}
                     alt="Campaign illustration"
                     style={{ width: 520, height: "auto", maxWidth: "100%" }}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
@@ -722,7 +724,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                 </div>
                 <div className="bp-banner__art">
                   <img
-                    src={process.env.PUBLIC_URL + "/campaign-illustration2.png"}
+                    src={campaignIllustration2}
                     alt="Campaign illustration"
                     style={{ width: 350, height: "auto", maxWidth: "100%" }}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
