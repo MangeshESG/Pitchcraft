@@ -3657,17 +3657,16 @@ dispatch(closePanel());
       )}
 
     </div>
-    {(loading || isLoadingHistory || isLoadingNotes || isLoadingDetails || isBlueprintLoading || isSavingNote || isSavingLinkedIn) && (
-      <LoadingSpinner 
+    {(loading || isLoadingHistory || isLoadingNotes || isLoadingDetails || isBlueprintLoading || isSavingNote) && (
+      <LoadingSpinner
         message={
-          isSavingLinkedIn ? "Saving LinkedIn summary..." :
           isSavingNote ? "Saving note..." :
           isBlueprintLoading ? "Loading blueprint..." :
           isLoadingDetails ? "Loading details..." :
           isLoadingNotes ? "Loading Profile..." :
           isLoadingHistory ? "Loading history..." :
           "Loading..."
-        } 
+        }
       />
     )}
     </>

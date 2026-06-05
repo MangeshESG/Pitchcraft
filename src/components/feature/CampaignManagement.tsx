@@ -652,7 +652,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         <div className="bp-page-header">
           <div className="bp-page-header__inner">
             <div>
-              <div className="bp-eyebrow">Outreach</div>
+            
               <h1 className="bp-page-title">
                 Campaigns
                 <span className="bp-count-pill">{campaigns.length}</span>

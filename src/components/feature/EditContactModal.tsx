@@ -1480,7 +1480,6 @@ case "boolean":
           )}
 
           {/* LinkedIn Summary */}
-          {savedLinkedInSummary && (
           <div
             className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]"
           >
@@ -1577,47 +1576,67 @@ case "boolean":
             </div>
 
             {/* ✅ HTML RENDERER */}
-            <div
-              style={{
-                fontSize: 14,
-                color: "#374151",
-                lineHeight: "1.6",
-                whiteSpace: "normal",
-                overflow: "hidden",
-                wordWrap: "break-word",
-                wordBreak: "break-word",
-                overflowWrap: "break-word",
-                maxWidth: "100%",
-              }}
-              className='py-[16px]'
-               dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(
-                  isLinkedInExpanded
-                    ? savedLinkedInSummary
-                    : `<p>${getTruncatedLinkedIn(savedLinkedInSummary)}</p>`
-                ),
-              }}
-            />
-             {/* 🔥 EXPAND/COLLAPSE BUTTON */}
-            {linkedInSummary && getPlainText(linkedInSummary).length > LINKEDIN_TRUNCATE_LENGTH && (
+            {savedLinkedInSummary ? (
+              <>
+                <div
+                  style={{
+                    fontSize: 14,
+                    color: "#374151",
+                    lineHeight: "1.6",
+                    whiteSpace: "normal",
+                    overflow: "hidden",
+                    wordWrap: "break-word",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
+                    maxWidth: "100%",
+                  }}
+                  className='py-[16px]'
+                  dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(
+                      isLinkedInExpanded
+                        ? savedLinkedInSummary
+                        : `<p>${getTruncatedLinkedIn(savedLinkedInSummary)}</p>`
+                    ),
+                  }}
+                />
+                {/* 🔥 EXPAND/COLLAPSE BUTTON */}
+                {linkedInSummary && getPlainText(linkedInSummary).length > LINKEDIN_TRUNCATE_LENGTH && (
+                  <button
+                    onClick={() => setIsLinkedInExpanded(!isLinkedInExpanded)}
+                    style={{
+                      marginTop: 12,
+                      background: "transparent",
+                      border: "none",
+                      color: "#3f9f42",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      padding: 0,
+                    }}
+                  >
+                    {isLinkedInExpanded ? "Show less" : "Expand"}
+                  </button>
+                )}
+              </>
+            ) : (
               <button
-                onClick={() => setIsLinkedInExpanded(!isLinkedInExpanded)}
+                onClick={() => dispatch(openPanel("show-linkedin-summary-modal"))}
                 style={{
                   marginTop: 12,
                   background: "transparent",
                   border: "none",
-                  color: "#3f9f42",
+                  color: "#9ca3af",
                   cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 600,
+                  fontSize: 14,
+                  fontStyle: "italic",
                   padding: 0,
+                  textAlign: "left",
                 }}
               >
-                {isLinkedInExpanded ? "Show less" : "Expand"}
+                No LinkedIn summary yet. Click to add one.
               </button>
             )}
           </div>
-          )}
 
         </div>
       </div>
