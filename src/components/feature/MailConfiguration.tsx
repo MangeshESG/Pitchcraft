@@ -100,7 +100,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
   showValidateModal,
   selectedDomain,}) => {
   const [mailboxFilter, setMailboxFilter] = React.useState<
-    "all" | "smtp" | "imap" | "notConfigured"
+    "all" | "smtp" | "imap"
   >("all");
   const [editIncludeImap, setEditIncludeImap] = React.useState(false);
 
@@ -138,39 +138,75 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
     const incoming = hasIncoming(item);
 
     if (outgoing && incoming) return "Complete";
-    if (outgoing) return "SMTP Only";
-    if (incoming) return "IMAP Only";
-    return "Not Configured";
+    if (outgoing) return "SMTP only";
+    if (incoming) return "IMAP only";
+    return "Not configured";
   };
   const mailboxFilterOptions = [
-    { key: "all", label: "All Mailboxes" },
-    { key: "smtp", label: "SMTP Only" },
-    { key: "imap", label: "IMAP (Incoming)" },
-    { key: "notConfigured", label: "Not Configured" },
+    { key: "all", label: "All mailboxes" },
+    { key: "smtp", label: "SMTP only" },
+    { key: "imap", label: "IMAP (incoming)" },
   ];
   const mailboxCounts = {
     all: filteredMailboxes.length,
     smtp: filteredMailboxes.filter((item: any) => hasOutgoing(item) && !hasIncoming(item)).length,
     imap: filteredMailboxes.filter((item: any) => hasIncoming(item)).length,
-    notConfigured: filteredMailboxes.filter(
-      (item: any) => !hasOutgoing(item) && !hasIncoming(item)
-    ).length,
   };
   const filteredMailboxRows = filteredMailboxes.filter((item: any) => {
     if (mailboxFilter === "smtp") return hasOutgoing(item) && !hasIncoming(item);
     if (mailboxFilter === "imap") return hasIncoming(item);
-    if (mailboxFilter === "notConfigured") return !hasOutgoing(item) && !hasIncoming(item);
     return true;
   });
-  const mailboxTotalPages = Math.ceil(filteredMailboxRows.length / pageSize);
+  const getMailboxDateValue = (item: any) =>
+    item?.updatedAt || item?.createdAt || item?.inbox?.updatedAt || item?.inbox?.createdAt || "";
+  const getMailboxSortValue = (item: any, key: string) => {
+    const inbox = getInbox(item);
+
+    if (key === "emailAddress") {
+      return item.fromEmail || item.username || inbox?.emailAddress || "";
+    }
+
+    if (key === "server") {
+      const smtpSecurity = item.securityType || item.SecurityType || (item.useSsl || item.usessl ? "SSL" : "None");
+      return `${item.server || ""} ${item.port || ""} ${smtpSecurity || ""}`;
+    }
+
+    if (key === "incoming") {
+      return `${inbox?.host || ""} ${inbox?.port || ""} ${inbox?.encryption || ""}`;
+    }
+
+    if (key === "status") {
+      return getMailboxStatus(item);
+    }
+
+    if (key === "updatedAt") {
+      const time = new Date(getMailboxDateValue(item)).getTime();
+      return Number.isNaN(time) ? 0 : time;
+    }
+
+    return item?.[key] || "";
+  };
+  const sortedMailboxRows = [...filteredMailboxRows].sort((a: any, b: any) => {
+    const valueA = getMailboxSortValue(a, smtpSortKey);
+    const valueB = getMailboxSortValue(b, smtpSortKey);
+    const comparison =
+      typeof valueA === "number" && typeof valueB === "number"
+        ? valueA - valueB
+        : String(valueA).localeCompare(String(valueB), undefined, {
+            numeric: true,
+            sensitivity: "base",
+          });
+
+    return smtpSortDirection === "asc" ? comparison : -comparison;
+  });
+  const mailboxTotalPages = Math.ceil(sortedMailboxRows.length / pageSize);
   const mailboxStartIndex = (currentPageMailbox - 1) * pageSize;
-  const displayedMailboxRows = filteredMailboxRows.slice(
+  const displayedMailboxRows = sortedMailboxRows.slice(
     mailboxStartIndex,
     mailboxStartIndex + pageSize
   );
   const formatMailboxDate = (item: any) => {
-    const dateValue =
-      item?.updatedAt || item?.createdAt || item?.inbox?.updatedAt || item?.inbox?.createdAt;
+    const dateValue = getMailboxDateValue(item);
     if (!dateValue) return "-";
 
     const date = new Date(dateValue);
@@ -298,11 +334,11 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   <table className="contacts-table" style={{ background: "#fff", margin: 0 }}>
                     <thead>
                       <tr style={{ background: "#f8fafc" }}>
-                        <th>Email Address</th>
+                        <th onClick={() => toggleSort("emailAddress", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Email address{renderSortArrow("emailAddress", smtpSortKey, smtpSortDirection)}</th>
                         <th onClick={() => toggleSort("server", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Outgoing (SMTP){renderSortArrow("server", smtpSortKey, smtpSortDirection)}</th>
-                        <th>Incoming (IMAP)</th>
-                        <th>Status</th>
-                        <th>Last Updated</th>
+                        <th onClick={() => toggleSort("incoming", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Incoming (IMAP){renderSortArrow("incoming", smtpSortKey, smtpSortDirection)}</th>
+                        <th onClick={() => toggleSort("status", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Status{renderSortArrow("status", smtpSortKey, smtpSortDirection)}</th>
+                        <th onClick={() => toggleSort("updatedAt", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Last updated{renderSortArrow("updatedAt", smtpSortKey, smtpSortDirection)}</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
@@ -323,7 +359,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                           const statusTheme =
                             status === "Complete"
                               ? { background: "#e8f5e8", color: "#2e7d32" }
-                              : status === "SMTP Only"
+                              : status === "SMTP only"
                                 ? { background: "#eaf3ff", color: "#1d7fe8" }
                                 : { background: "#fdecec", color: "#dc2626" };
 
@@ -550,7 +586,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                       fullInboxSync: false,
                     });
                   }}
-                  title="Edit Inbox configuration"
+                  title="Edit inbox configuration"
                   width={500}
                   footerContent={
                     <>
@@ -612,7 +648,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                     >
                       <div className="form-group">
                         <label>
-                          Email Address <span style={{ color: "red" }}>*</span>
+                          Email address <span style={{ color: "red" }}>*</span>
                         </label>
                         <input
                           type="email"
@@ -747,7 +783,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <h3 style={{ marginBottom: 16, color: "#333" }}>Verify SMTP Email</h3>
+                      <h3 style={{ marginBottom: 16, color: "#333" }}>Verify SMTP email</h3>
                       <p style={{ marginBottom: 16, color: "#666" }}>
                         Please enter the OTP sent to {smtpOtpEmail}
                       </p>
@@ -1045,7 +1081,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                                     dispatch(openPanel("validate-modal"));
                                   }}
                                 >
-                                  Validate Records
+                                  Validate records
                                 </span>
                               </div>
                             )}
@@ -1125,7 +1161,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   }}
                   selectedDomain={selectedDomain}
                   onValidate={(domain) => {
-                    console.log('Validate Records for:', domain.emailDomain);
+                    console.log('Validate records for:', domain.emailDomain);
                     // Refresh domain data after validation
                     setTimeout(() => fetchDomainData(), 1000);
                   }}

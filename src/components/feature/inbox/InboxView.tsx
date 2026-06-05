@@ -114,6 +114,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [error, setError] = useState<string>('');
   const [replyText, setReplyText] = useState<string>('');
   const [replyAttachments, setReplyAttachments] = useState<File[]>([]);
+  const [replyCc, setReplyCc] = useState<string>('');
+  const [replyBcc, setReplyBcc] = useState<string>('');
+  const [showReplyCc, setShowReplyCc] = useState(false);
+  const [showReplyBcc, setShowReplyBcc] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [blueprints, setBlueprints] = useState<BlueprintTemplate[]>([]);
   const [selectedBlueprint, setSelectedBlueprint] = useState<number | null>(null);
@@ -153,6 +157,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowForwardSection(false);
     setReplyText('');
     setReplyAttachments([]);
+    setReplyCc('');
+    setReplyBcc('');
+    setShowReplyCc(false);
+    setShowReplyBcc(false);
     setCollapsedEmails({});
   }, [initialTab]);
   
@@ -167,6 +175,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowForwardSection(false);
     setReplyText('');
     setReplyAttachments([]);
+    setReplyCc('');
+    setReplyBcc('');
+    setShowReplyCc(false);
+    setShowReplyBcc(false);
     setCollapsedEmails({});
     
     if (onTabChange) {
@@ -428,6 +440,29 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setSelectedProvider(inbox?.provider || '');
   };
 
+  const fetchDefaultSignature = useCallback(async () => {
+    if (!selectedInboxId || !selectedProvider) return '';
+    
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${selectedInboxId}&Provider=${selectedProvider}`,
+        {
+          headers: {
+            accept: '*/*',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+      
+      if (response.data && response.data.signatureHtml) {
+        return `<br/><br/>${response.data.signatureHtml}`;
+      }
+    } catch (err) {
+      console.error('Error fetching signature:', err);
+    }
+    return '';
+  }, [effectiveUserId, selectedInboxId, selectedProvider, token]);
+
   const handleThreadClick = async (thread: InboxThread) => {
     setSelectedThread(thread);
     setShowReplySection(false);
@@ -473,6 +508,19 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowReplySection(false);
     setCollapsedEmails({});
     setShowDeleteDropdown(false);
+  };
+
+  const currentPageThreadIds = (Array.isArray(threads) ? threads : []).map(thread => thread.trackingId);
+  const areAllCurrentPageThreadsSelected = currentPageThreadIds.length > 0 && currentPageThreadIds.every(id => selectedThreadIds.includes(id));
+
+  const toggleCurrentPageThreadSelection = () => {
+    setSelectedThreadIds(prev => {
+      if (areAllCurrentPageThreadsSelected) {
+        return prev.filter(id => !currentPageThreadIds.includes(id));
+      }
+
+      return Array.from(new Set([...prev, ...currentPageThreadIds]));
+    });
   };
 
   const toggleThreadSelection = (trackingId: string) => {
@@ -651,7 +699,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     formData.append('ClientId', String(parseInt(effectiveUserId)));
     formData.append('ReplyBody', replyText);
     formData.append('Outboxid', String(selectedInboxId || 0));
-    formData.append('BccEmail', '');
+    formData.append('CC', replyCc);
+    formData.append('BCC', replyBcc);
     formData.append('Provider', selectedProvider);
     replyAttachments.forEach((file) => {
       formData.append('Attachments', file);
@@ -755,6 +804,48 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const handleAttachmentDownload = async (attachment: InboxAttachment) => {
+    if (!attachment.id) return;
+    
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/Inbox/download/${attachment.id}`,
+        {
+          headers: {
+            accept: '*/*',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          responseType: 'blob'
+        }
+      );
+
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = attachment.originalFileName || attachment.fileName || 'download';
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^'"\s]+)['"]?/i);
+        if (filenameMatch) {
+          filename = decodeURIComponent(filenameMatch[1]);
+        }
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading attachment:', err);
+      setToastMessage('Failed to download attachment');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
+  };
+
   const renderMessageAttachments = (attachments?: InboxAttachment[]) => {
     if (!attachments || attachments.length === 0) return null;
 
@@ -765,11 +856,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           const fileSize = formatAttachmentSize(attachment.fileSize);
 
           return (
-            <a
+            <button
               key={`${attachment.id || attachment.filePath || fileName}-${index}`}
-              href={getAttachmentUrl(attachment)}
-              target="_blank"
-              rel="noreferrer"
+              onClick={() => handleAttachmentDownload(attachment)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -781,7 +870,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 color: '#1f2937',
                 background: '#fff',
                 textDecoration: 'none',
-                fontSize: '13px'
+                fontSize: '13px',
+                cursor: 'pointer'
               }}
               title={fileName}
             >
@@ -794,7 +884,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   {fileSize}
                 </span>
               )}
-            </a>
+            </button>
           );
         })}
       </div>
@@ -1398,8 +1488,24 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     position: 'sticky',
                     top: 0,
                     zIndex: 5
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {selectedThreadIds.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px' }}>
+                          <input
+                            type="checkbox"
+                            checked={areAllCurrentPageThreadsSelected}
+                            onChange={toggleCurrentPageThreadSelection}
+                            title={areAllCurrentPageThreadsSelected ? 'Deselect all emails on this page' : 'Select all emails on this page'}
+                            aria-label={areAllCurrentPageThreadsSelected ? 'Deselect all emails on this page' : 'Select all emails on this page'}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        </div>
+                      )}
                       {selectedThreadIds.length > 0 && (
                         <div style={{ position: 'relative' }}>
                           <button
@@ -1657,6 +1763,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   setReplyText('');
                 }}
                 refreshTrigger={refreshSentTab}
+                onSetReplyText={(text) => setReplyText(text)}
               />
             ) : activeTab === 'unassigned' ? (
               <UnassignedTab 
@@ -1685,6 +1792,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 }}
                 onUnreadCountsRefresh={refreshInboxDropdownCounts}
                 refreshTrigger={refreshUnassignedTab}
+                onSetReplyText={(text) => setReplyText(text)}
               />
             ) : null}
             {/* AllMessagesTab — always mounted inside list-scroll to prevent refetch */}
@@ -1709,6 +1817,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 }}
                 onUnreadCountsRefresh={refreshInboxDropdownCounts}
                 refreshTrigger={refreshAllMessagesTab}
+                onSetReplyText={(text) => setReplyText(text)}
               />
             </div>
             </div>
@@ -2041,7 +2150,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <button
                     type="button"
                     className="reply-pill-button"
-                    onClick={() => setShowReplySection(true)}
+                    onClick={async () => {
+                      const signature = await fetchDefaultSignature();
+                      setReplyText(signature);
+                      setShowReplySection(true);
+                    }}
                   >
                     <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
                     Reply
@@ -2059,6 +2172,42 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write Reply</label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {!showReplyCc && (
+                      <button
+                        type="button"
+                        onClick={() => setShowReplyCc(true)}
+                        style={{
+                          padding: '6px 12px',
+                          background: '#fff',
+                          color: '#2563eb',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        CC
+                      </button>
+                    )}
+                    {!showReplyBcc && (
+                      <button
+                        type="button"
+                        onClick={() => setShowReplyBcc(true)}
+                        style={{
+                          padding: '6px 12px',
+                          background: '#fff',
+                          color: '#2563eb',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        BCC
+                      </button>
+                    )}
                     <select
                       value={selectedBlueprint || ''}
                       onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
@@ -2097,6 +2246,40 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     </button>
                   </div>
                 </div>
+                {showReplyCc && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <input
+                      type="text"
+                      value={replyCc}
+                      onChange={(e) => setReplyCc(e.target.value)}
+                      placeholder="CC"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
+                )}
+                {showReplyBcc && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <input
+                      type="text"
+                      value={replyBcc}
+                      onChange={(e) => setReplyBcc(e.target.value)}
+                      placeholder="BCC"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
+                )}
                 <style>
                   {`
                     .reply-section .rich-text-editor > div {
@@ -2262,6 +2445,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       setShowReplySection(false);
                       setReplyText('');
                       setReplyAttachments([]);
+                      setReplyCc('');
+                      setReplyBcc('');
+                      setShowReplyCc(false);
+                      setShowReplyBcc(false);
                     }}
                     style={{
                       padding: '10px 24px',
@@ -2768,7 +2955,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     <button
                       type="button"
                       className="reply-pill-button"
-                      onClick={() => setShowReplySection(true)}
+                      onClick={async () => {
+                        const signature = await fetchDefaultSignature();
+                        setReplyText(signature);
+                        setShowReplySection(true);
+                      }}
                     >
                       <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
                       Reply
@@ -2787,6 +2978,42 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write Reply</label>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {!showReplyCc && (
+                        <button
+                          type="button"
+                          onClick={() => setShowReplyCc(true)}
+                          style={{
+                            padding: '6px 12px',
+                            background: '#fff',
+                            color: '#2563eb',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          CC
+                        </button>
+                      )}
+                      {!showReplyBcc && (
+                        <button
+                          type="button"
+                          onClick={() => setShowReplyBcc(true)}
+                          style={{
+                            padding: '6px 12px',
+                            background: '#fff',
+                            color: '#2563eb',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          BCC
+                        </button>
+                      )}
                       <select
                         value={selectedBlueprint || ''}
                         onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
@@ -2859,6 +3086,40 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </button>
                     </div>
                   </div>
+                  {showReplyCc && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <input
+                        type="text"
+                        value={replyCc}
+                        onChange={(e) => setReplyCc(e.target.value)}
+                        placeholder="CC"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '14px'
+                        }}
+                      />
+                    </div>
+                  )}
+                  {showReplyBcc && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <input
+                        type="text"
+                        value={replyBcc}
+                        onChange={(e) => setReplyBcc(e.target.value)}
+                        placeholder="BCC"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '14px'
+                        }}
+                      />
+                    </div>
+                  )}
                   <style>
                     {`
                       .reply-section .rich-text-editor > div {
@@ -3087,6 +3348,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         setShowReplySection(false);
                         setReplyText('');
                         setReplyAttachments([]);
+                        setReplyCc('');
+                        setReplyBcc('');
+                        setShowReplyCc(false);
+                        setShowReplyBcc(false);
                       }}
                       style={{
                         padding: '10px 24px',
@@ -3339,7 +3604,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     <button
                       type="button"
                       className="reply-pill-button"
-                      onClick={() => setShowReplySection(true)}
+                      onClick={async () => {
+                        const signature = await fetchDefaultSignature();
+                        setReplyText(signature);
+                        setShowReplySection(true);
+                      }}
                     >
                       <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
                       Reply
@@ -3358,6 +3627,42 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write Reply</label>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {!showReplyCc && (
+                        <button
+                          type="button"
+                          onClick={() => setShowReplyCc(true)}
+                          style={{
+                            padding: '6px 12px',
+                            background: '#fff',
+                            color: '#2563eb',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          CC
+                        </button>
+                      )}
+                      {!showReplyBcc && (
+                        <button
+                          type="button"
+                          onClick={() => setShowReplyBcc(true)}
+                          style={{
+                            padding: '6px 12px',
+                            background: '#fff',
+                            color: '#2563eb',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          BCC
+                        </button>
+                      )}
                       <select
                         value={selectedBlueprint || ''}
                         onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
@@ -3430,6 +3735,40 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </button>
                     </div>
                   </div>
+                  {showReplyCc && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <input
+                        type="text"
+                        value={replyCc}
+                        onChange={(e) => setReplyCc(e.target.value)}
+                        placeholder="CC"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '14px'
+                        }}
+                      />
+                    </div>
+                  )}
+                  {showReplyBcc && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <input
+                        type="text"
+                        value={replyBcc}
+                        onChange={(e) => setReplyBcc(e.target.value)}
+                        placeholder="BCC"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '14px'
+                        }}
+                      />
+                    </div>
+                  )}
                   <style>
                     {`
                       .reply-section .rich-text-editor > div {
@@ -3600,6 +3939,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         setShowReplySection(false);
                         setReplyText('');
                         setReplyAttachments([]);
+                        setReplyCc('');
+                        setReplyBcc('');
+                        setShowReplyCc(false);
+                        setShowReplyBcc(false);
                       }}
                       style={{
                         padding: '10px 24px',

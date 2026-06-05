@@ -53,6 +53,7 @@ interface AllMessagesTabProps {
   onUnreadCountsRefresh?: () => Promise<void> | void;
   refreshTrigger: number;
   onShowReplySection?: (show: boolean) => void;
+  onSetReplyText?: (text: string) => void;
 }
 
 const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
@@ -65,7 +66,8 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
   onInitializeCollapsedEmails,
   onReplyReset,
   onUnreadCountsRefresh,
-  refreshTrigger
+  refreshTrigger,
+  onSetReplyText
 }) => {
   const [threads, setThreads] = useState<InboxThread[]>([]);
   const [loading, setLoading] = useState(false);
@@ -140,6 +142,27 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
     onThreadSelect(thread);
     onReplyReset();
     
+    // Fetch and set default signature
+    if (onSetReplyText) {
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${selectedInboxId}&Provider=${selectedProvider}`,
+          {
+            headers: {
+              accept: '*/*',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+        
+        if (response.data && response.data.signatureHtml) {
+          onSetReplyText(`<br/><br/>${response.data.signatureHtml}`);
+        }
+      } catch (err) {
+        console.error('Error fetching signature:', err);
+      }
+    }
+    
     // Start all messages expanded
     onInitializeCollapsedEmails({});
     
@@ -170,6 +193,19 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
         console.error('Error marking thread as read:', err);
       }
     }
+  };
+
+  const currentPageThreadIds = threads.map(thread => thread.trackingId);
+  const areAllCurrentPageThreadsSelected = currentPageThreadIds.length > 0 && currentPageThreadIds.every(id => selectedThreadIds.includes(id));
+
+  const toggleCurrentPageThreadSelection = () => {
+    setSelectedThreadIds(prev => {
+      if (areAllCurrentPageThreadsSelected) {
+        return prev.filter(id => !currentPageThreadIds.includes(id));
+      }
+
+      return Array.from(new Set([...prev, ...currentPageThreadIds]));
+    });
   };
 
   const toggleThreadSelection = (trackingId: string) => {
@@ -300,6 +336,22 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
         zIndex: 5
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {selectedThreadIds.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px' }}>
+              <input
+                type="checkbox"
+                checked={areAllCurrentPageThreadsSelected}
+                onChange={toggleCurrentPageThreadSelection}
+                title={areAllCurrentPageThreadsSelected ? 'Deselect all emails on this page' : 'Select all emails on this page'}
+                aria-label={areAllCurrentPageThreadsSelected ? 'Deselect all emails on this page' : 'Select all emails on this page'}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  cursor: 'pointer'
+                }}
+              />
+            </div>
+          )}
           {selectedThreadIds.length > 0 && (
             <div style={{ position: 'relative' }}>
               <button

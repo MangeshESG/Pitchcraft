@@ -71,6 +71,7 @@ interface UnassignedTabProps {
   onInitializeCollapsedEmails: (collapsed: { [key: string]: boolean }) => void;
   onUnreadCountsRefresh?: () => Promise<void> | void;
   refreshTrigger?: number;
+  onSetReplyText?: (text: string) => void;
 }
 
 const UnassignedTab: React.FC<UnassignedTabProps> = ({ 
@@ -85,7 +86,8 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
   onThreadSelect,
   onInitializeCollapsedEmails,
   onUnreadCountsRefresh,
-  refreshTrigger
+  refreshTrigger,
+  onSetReplyText
 }) => {
   const [threads, setThreads] = useState<UnassignedThread[]>([]);
   const [loading, setLoading] = useState(false);
@@ -123,7 +125,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
       const response = await fetchPage(currentPage);
 
       if (response.data.success && response.data.data) {
-        let pageThreads = response.data.data.data || [];
+        let pageThreads = Array.isArray(response.data.data.data) ? response.data.data.data : [];
         const nextTotalCount = response.data.data.totalCount || 0;
         const nextTotalPages = response.data.data.totalPages || 0;
         let nextPage = currentPage + 1;
@@ -141,10 +143,13 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
         setThreads(pageThreads);
         setTotalCount(nextTotalCount);
         setTotalPages(nextTotalPages);
+      } else {
+        setThreads([]);
       }
     } catch (err) {
       console.error('Error fetching unassigned emails:', err);
       setError('Failed to load unassigned emails');
+      setThreads([]);
     } finally {
       if (showLoader) {
         setLoading(false);
@@ -162,6 +167,27 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
     }
     
     onThreadSelect(thread);
+    
+    // Fetch and set default signature
+    if (onSetReplyText) {
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${selectedInboxId}&Provider=${selectedProvider}`,
+          {
+            headers: {
+              accept: '*/*',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+        
+        if (response.data && response.data.signatureHtml) {
+          onSetReplyText(`<br/><br/>${response.data.signatureHtml}`);
+        }
+      } catch (err) {
+        console.error('Error fetching signature:', err);
+      }
+    }
     
     // Start all messages expanded
     onInitializeCollapsedEmails({});
@@ -216,6 +242,19 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
         console.error('Error marking thread as read:', err);
       }
     }
+  };
+
+  const currentPageThreadIds = (Array.isArray(threads) ? threads : []).map(thread => thread.trackingId);
+  const areAllCurrentPageThreadsSelected = currentPageThreadIds.length > 0 && currentPageThreadIds.every(id => selectedThreadIds.includes(id));
+
+  const toggleCurrentPageThreadSelection = () => {
+    setSelectedThreadIds(prev => {
+      if (areAllCurrentPageThreadsSelected) {
+        return prev.filter(id => !currentPageThreadIds.includes(id));
+      }
+
+      return Array.from(new Set([...prev, ...currentPageThreadIds]));
+    });
   };
 
   const toggleThreadSelection = (trackingId: string) => {
@@ -361,6 +400,22 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {selectedThreadIds.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px' }}>
+              <input
+                type="checkbox"
+                checked={areAllCurrentPageThreadsSelected}
+                onChange={toggleCurrentPageThreadSelection}
+                title={areAllCurrentPageThreadsSelected ? 'Deselect all emails on this page' : 'Select all emails on this page'}
+                aria-label={areAllCurrentPageThreadsSelected ? 'Deselect all emails on this page' : 'Select all emails on this page'}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  cursor: 'pointer'
+                }}
+              />
+            </div>
+          )}
+          {selectedThreadIds.length > 0 && (
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setShowDeleteDropdown(!showDeleteDropdown)}
@@ -493,7 +548,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
         </div>
       </div>
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {threads.map((thread) => {
+        {(Array.isArray(threads) ? threads : []).map((thread) => {
           const lastMessage = thread.messages[thread.messages.length - 1];
           // Check if any message in thread is unread
           const hasUnreadMessages = thread.messages.some(msg => !msg.isRead);
