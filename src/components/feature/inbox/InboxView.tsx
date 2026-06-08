@@ -181,6 +181,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowReplyBcc(false);
     setCollapsedEmails({});
     
+    // Force refresh AllMessages tab when switching to it
+    if (tab === 'allmessages' || tab === 'all') {
+      setRefreshAllMessagesTab(prev => prev + 1);
+    }
+    
     if (onTabChange) {
       // Convert to proper case for parent
       const tabMap = {
@@ -420,22 +425,20 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     fetchMails();
   }, [fetchMails]);
 
-  const handleInboxChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleInboxChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const inboxId = parseInt(e.target.value);
     const inbox = inboxList.find(i => i.inboxId === inboxId);
     
-    // Immediately show loader
-    setLoading(true);
+    // Clear selections immediately
     setSelectedThread(null);
     setSelectedUnassignedEmail(null);
     setSelectedUnassignedThread(null);
     setSelectedSentThread(null);
     setSelectedAllMessagesThread(null);
     setThreads([]);
+    setLoading(true);
     
-    // Small delay to ensure loader is visible
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
+    // Update inbox immediately - fetchMails will be triggered by useEffect
     setSelectedInboxId(inboxId);
     setSelectedProvider(inbox?.provider || '');
   };
@@ -900,35 +903,58 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       const response = await sendReplyEmail(selectedThread.trackingId);
 
       if (response.data.success) {
-        setReplyText('');
-        setReplyAttachments([]);
-        // Refresh the thread to show the new reply
-        const refreshResponse = await axios.get(
-          `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}`,
-          {
-            headers: {
-              accept: '*/*',
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
+        // Add the sent message to the thread immediately
+        const sentMessage: InboxMessage = {
+          type: 'Reply',
+          messageId: `temp-${Date.now()}`,
+          subject: `Re: ${selectedThread.subject}`,
+          body: replyText,
+          fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
+          toEmail: selectedThread.contactEmail,
+          date: new Date().toISOString(),
+          isRead: true,
+          contactId: selectedThread.contactId
+        };
+        
+        // Update the thread with the new message
+        const updatedThread = {
+          ...selectedThread,
+          messages: [...selectedThread.messages, sentMessage],
+          totalMessages: selectedThread.totalMessages + 1,
+          lastMessageDate: sentMessage.date
+        };
+        
+        setSelectedThread(updatedThread);
+        
+        // Update threads list
+        setThreads(prevThreads => 
+          prevThreads.map(t => 
+            t.trackingId === selectedThread.trackingId ? updatedThread : t
+          )
         );
         
-        if (refreshResponse.data.success && refreshResponse.data.data) {
-          setThreads(refreshResponse.data.data);
-          // Update selected thread with new data
-          const updatedThread = refreshResponse.data.data.find(
-            (t: InboxThread) => t.trackingId === selectedThread.trackingId
-          );
-          if (updatedThread) {
-            setSelectedThread(updatedThread);
-          }
-        }
+        setReplyText('');
+        setReplyAttachments([]);
+        setShowReplySection(false);
+        setToastMessage('Reply sent successfully!');
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        
+        // Refresh the inbox list in background to get actual data from server
+        fetchMails(false);
       } else {
-        setError('Failed to send reply');
+        setToastMessage('Failed to send reply');
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
       }
     } catch (err: any) {
       console.error('Error sending reply:', err);
-      setError(err.response?.data?.message || 'Failed to send reply');
+      setToastMessage(err.response?.data?.message || 'Failed to send reply');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     } finally {
       setIsSending(false);
     }
@@ -1303,7 +1329,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setError('');
     
     try {
-      // First call the refresh API
+      // Call the refresh API
       const response = await axios.post(
         `${API_BASE_URL}/api/Inbox/RefreshInbox?inboxId=${selectedInboxId}&provider=${selectedProvider}`,
         {},
@@ -1315,7 +1341,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         }
       );
 
-      // Show success message
       setToastMessage(response.data.message || 'Inbox refreshed successfully');
       setToastType('success');
       setShowToast(true);
@@ -1326,29 +1351,19 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       setSelectedSentThread(null);
       setSelectedUnassignedThread(null);
       
-      // Refresh all tabs
+      // Trigger refresh for all tabs
       if (activeTab === 'inbox') {
-        // Fetch updated inbox list
-        const refreshResponse = await axios.get(
-          `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${inboxCurrentPage}&pageSize=${inboxPageSize}`,
-          {
-            headers: {
-              accept: '*/*',
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-        
-        if (refreshResponse.data.success && refreshResponse.data.data) {
-          setThreads(Array.isArray(refreshResponse.data.data.data) ? refreshResponse.data.data.data : []);
-          setInboxTotalCount(refreshResponse.data.data.totalCount || 0);
-          setInboxTotalPages(refreshResponse.data.data.totalPages || 0);
-        }
+        await fetchMails(false);
       } else if (activeTab === 'sent') {
         setRefreshSentTab(prev => prev + 1);
-      } else {
+      } else if (activeTab === 'unassigned') {
         setRefreshUnassignedTab(prev => prev + 1);
+      } else if (activeTab === 'all' || activeTab === 'allmessages') {
+        setRefreshAllMessagesTab(prev => prev + 1);
       }
+      
+      // Refresh unread counts
+      await refreshInboxDropdownCounts();
     } catch (err: any) {
       console.error('Error refreshing inbox:', err);
       setToastMessage(err.response?.data?.message || 'Failed to refresh inbox');
@@ -3286,7 +3301,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           if (response.data.success) {
                             // Add the sent message to the thread immediately
                             const sentMessage: InboxMessage = {
-                              type: 'Sent',
+                              type: 'Reply',
                               messageId: `temp-${Date.now()}`,
                               subject: `Re: ${selectedUnassignedThread.subject}`,
                               body: replyText,
@@ -3313,6 +3328,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             setToastType('success');
                             setShowToast(true);
                             setTimeout(() => setShowToast(false), 3000);
+                            
+                            // Refresh in background
+                            setRefreshUnassignedTab(prev => prev + 1);
                           } else {
                             setToastMessage('Failed to send reply');
                             setToastType('error');
@@ -3877,7 +3895,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
                           if (response.data.success) {
                             const sentMessage: InboxMessage = {
-                              type: 'Sent',
+                              type: 'Reply',
                               messageId: `temp-${Date.now()}`,
                               subject: `Re: ${selectedAllMessagesThread.subject}`,
                               body: replyText,
@@ -3896,7 +3914,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             };
 
                             setSelectedAllMessagesThread(updatedThread);
-                            setRefreshAllMessagesTab(prev => prev + 1);
                             setReplyText('');
                             setReplyAttachments([]);
                             setShowReplySection(false);
@@ -3904,6 +3921,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             setToastType('success');
                             setShowToast(true);
                             setTimeout(() => setShowToast(false), 3000);
+                            
+                            // Refresh in background
+                            setRefreshAllMessagesTab(prev => prev + 1);
                           } else {
                             setToastMessage('Failed to send reply');
                             setToastType('error');
