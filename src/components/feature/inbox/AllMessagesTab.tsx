@@ -138,6 +138,11 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
     fetchAllMessages();
   }, [fetchAllMessages, refreshTrigger]);
 
+  // Reset to page 1 when tab becomes active
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedInboxId, selectedProvider]);
+
   const handleThreadClick = async (thread: InboxThread) => {
     onThreadSelect(thread);
     onReplyReset();
