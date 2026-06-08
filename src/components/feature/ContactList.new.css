@@ -220,7 +220,7 @@
 }
 .ct-row:last-child { border-bottom: 0; }
 .ct-row:hover { background: var(--ct-bg); }
-.ct-row__rail { width: 6px; height: 24px; background: var(--ct-brand); border-radius: 999px; }
+.ct-row__rail { width: 10px; height: 10px; background: var(--ct-brand); border-radius: 50%; align-self: center; }
 .ct-row__link {
   font-size: 14px; font-weight: 600; color: var(--ct-ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -372,7 +372,7 @@
     gap: 6px 12px;
     padding: 14px 16px;
   }
-  .ct-row__rail { grid-area: rail; height: 100%; min-height: 60px; }
+  .ct-row__rail { grid-area: rail; height: 10px; min-height: 10px; }
   .ct-row__link { grid-area: name; white-space: normal; }
   .ct-row__actions { grid-area: actions; opacity: 1; }
   .ct-row__id, .ct-row__date, .ct-row__desc {

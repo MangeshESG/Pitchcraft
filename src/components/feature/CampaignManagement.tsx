@@ -13,7 +13,7 @@ import "./blueprint/Template.new.css";
 import campaignIllustration from "../../assets/images/campaign-illustration.png";
 import campaignIllustration2 from "../../assets/images/campaign-illustration2.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlay } from "@fortawesome/free-solid-svg-icons";
+import { faPlay, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import {
   FileText,
   MoreVertical,
@@ -713,7 +713,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <FontAwesomeIcon icon={faPlay} />
+                        <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
                         Explore best practices
                       </a>
                     </div>
