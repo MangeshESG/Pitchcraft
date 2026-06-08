@@ -2013,7 +2013,7 @@ const handleDeleteContacts = async () => {
             />
           </>
         ) : (
-          <>
+          <div style={{ padding: "20px 32px 24px" }}>
             <DynamicContactsTable
               data={viewContacts}
               isLoading={isLoadingViewContacts}
@@ -2203,7 +2203,7 @@ const handleDeleteContacts = async () => {
               columnNameMap={viewColumnNameMap}
               customHeader={detailHeader}
             />
-          </>
+          </div>
         )}
       </div>
 

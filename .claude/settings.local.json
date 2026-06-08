@@ -28,7 +28,14 @@
       "Bash(mv inbox-design.html inbox-design.html.gz)",
       "Bash(gunzip inbox-design.html.gz)",
       "Bash(mkdir -p inbox-design-extracted)",
-      "Bash(tar -xf inbox-design.html -C inbox-design-extracted)"
+      "Bash(tar -xf inbox-design.html -C inbox-design-extracted)",
+      "Bash(grep -n \"fetch\\(\\\\`\\\\${API_BASE_URL}\\\\|const fetchViews\\\\|const loadViews\\\\|api/Crm\\\\|api/crm\\\\|/views\" \"src/components/feature/ContactViews.tsx\")",
+      "Bash(awk 'NR==3280,NR==3420 {print NR\": \"$0}' \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\src\\\\components\\\\feature\\\\ContactList.tsx\")",
+      "Bash(awk 'NR==3350,NR==3470 {print NR\": \"$0}' \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\src\\\\components\\\\feature\\\\ContactList.tsx\")",
+      "Bash(awk 'NR==3620,NR==3680 {print NR\": \"$0}' \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\src\\\\components\\\\feature\\\\ContactList.tsx\")",
+      "Bash(awk 'NR>=3470 && NR<=3850 && /formatDate=\\\\{formatDate\\\\}/ {print NR\": \"$0}' \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\src\\\\components\\\\feature\\\\ContactList.tsx\")",
+      "Bash(awk 'NR>=3690 && NR<=3850 {print NR\": \"$0}' \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\src\\\\components\\\\feature\\\\ContactList.tsx\")",
+      "Bash(grep -E '^\\\\s*38[0-9][0-9]:|/>|^\\\\s*37[0-9][0-9]:.*>$')"
     ]
   }
 }

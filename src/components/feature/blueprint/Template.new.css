@@ -162,10 +162,7 @@
 .bp-empty-hero__bg {
   position: absolute;
   inset: 0;
-  opacity: 0.5;
-  background:
-    radial-gradient(circle at 20% 30%, var(--bp-brand-50) 0%, transparent 45%),
-    radial-gradient(circle at 80% 70%, var(--bp-brand-100) 0%, transparent 50%);
+  background: #fff;
 }
 .bp-empty-hero__content {
   position: relative;
@@ -253,8 +250,8 @@
 
 /* ---------------------- BANNER ---------------------- */
 .bp-banner {
-  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 50%, #f0fdf4 100%);
-  border: 1px solid #bbf7d0;
+  background: #ffffff;
+  border: 1px solid var(--bp-line);
   border-radius: 12px;
   padding: 24px 28px;
   display: flex;

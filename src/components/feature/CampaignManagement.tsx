@@ -21,7 +21,6 @@ import {
   Plus,
   Rocket,
   Search,
-  Sparkles,
   Trash2,
   Users,
   ArrowUp,
@@ -697,9 +696,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
             <div className="bp-list-body">
               <div className="bp-banner">
                 <div className="bp-banner__left">
-                  <div className="bp-banner__art">
-                    <Sparkles style={{ width: 90, height: 90, color: "#3f9f42" }} />
-                  </div>
                   <div className="bp-banner__copy">
                     <div className="bp-banner__title">Create  and view your campaigns </div>
                     <div className="bp-banner__sub">
@@ -711,14 +707,15 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                         <Plus className="h-4 w-4" />
                         Create campaign
                       </button>
-                      <button
+                      <a
                         className="bp-btn-banner-ghost"
-                        type="button"
-                        onClick={() => setShowCampaignVideo(true)}
+                        href="https://www.pitchkraft.ai/campaigns/"
+                        target="_blank"
+                        rel="noopener noreferrer"
                       >
                         <FontAwesomeIcon icon={faPlay} />
                         Explore best practices
-                      </button>
+                      </a>
                     </div>
                   </div>
                 </div>
