@@ -4610,6 +4610,7 @@ try {
                   isSoundEnabled={isSoundEnabled}
                   setIsSoundEnabled={setIsSoundEnabled}
                   clearUsage={clearUsage}
+                  isFetchingContacts={isFetchingContacts}
                 />
               </div>
             )}
@@ -4698,7 +4699,7 @@ try {
             )}
             {shouldRenderTab("Settings") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Settings")}>
-                <Settings selectedClient={effectiveUserId.toString()} />
+                <Settings selectedClient={(effectiveUserId ?? "").toString()} />
               </div>
             )}
             {shouldRenderTab("MyPlan") && (
@@ -4716,16 +4717,8 @@ try {
         onClose={appModal.hideModal}
         {...appModal.config}
       />
-      {(isFetchingContacts || isLoadingClientSettings) && (
-        <LoadingSpinner
-          message={
-            isFetchingContacts
-              ? "Loading contacts..."
-              : isLoadingClientSettings
-              ? "Loading blueprint..."
-              : "Loading client settings..."
-          }
-        />
+      {isLoadingClientSettings && (
+        <LoadingSpinner message="Loading blueprint..." />
       )}
       <CreditCheckModal
         isOpen={showCreditModal}

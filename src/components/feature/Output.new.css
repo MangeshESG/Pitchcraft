@@ -1,0 +1,215 @@
+/* ============================================================
+   Output.new.css — Empty state styling for Kraft Email
+   All classes prefixed ke-* to avoid collisions
+   ============================================================ */
+
+:root {
+  --ke-ink:        #0b1220;
+  --ke-ink-soft:   #374151;
+  --ke-ink-faint:  #6b7280;
+  --ke-ink-dim:    #9ca3af;
+  --ke-line:       #eef0f3;
+  --ke-bg:         #fafbfc;
+  --ke-bg-2:       #f4f5f7;
+  --ke-brand:      #3f9f42;
+  --ke-brand-d:    #2d7a30;
+  --ke-brand-50:   #f1f8f2;
+  --ke-brand-200:  #e8f3e9;
+}
+
+/* ---------------------- READY STATE (no campaign selected) ---------------------- */
+.ke-ready-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 40px 40px;
+  text-align: center;
+}
+/* Spinner */
+@keyframes ke-spin {
+  to { transform: rotate(360deg); }
+}
+.ke-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e8f5e9;
+  border-top-color: #3f9f42;
+  border-radius: 50%;
+  animation: ke-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+.ke-ready-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ke-ink);
+  letter-spacing: -0.02em;
+  margin: 20px 0 0;
+}
+.ke-ready-text {
+  font-size: 14px;
+  color: var(--ke-ink-faint);
+  line-height: 1.6;
+  margin: 10px 0 0;
+  max-width: 380px;
+}
+
+/* ---------------------- EMPTY STATE ---------------------- */
+.ke-empty-wrap {
+  background: var(--ke-bg);
+  min-height: 100vh;
+}
+.ke-empty-body {
+  padding: 32px 32px;
+}
+.ke-empty-hero {
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid var(--ke-line);
+  background: #fff;
+  overflow: hidden;
+}
+.ke-empty-hero__bg {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+}
+.ke-empty-hero__content {
+  position: relative;
+  display: grid;
+  grid-template-columns: 7fr 5fr;
+  gap: 24px;
+  padding: 40px;
+  align-items: center;
+}
+.ke-empty-hero__copy {
+  min-width: 0;
+}
+.ke-empty-hero__art {
+  display: flex;
+  justify-content: center;
+}
+.ke-start-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ke-brand-200);
+  color: var(--ke-brand-d);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.ke-empty-headline {
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--ke-ink);
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin: 12px 0 0;
+}
+.ke-empty-body-text {
+  font-size: 15px;
+  color: var(--ke-ink-faint);
+  line-height: 1.55;
+  margin: 12px 0 0;
+  max-width: 460px;
+}
+.ke-empty-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+  flex-wrap: wrap;
+}
+.ke-empty-meta {
+  font-size: 12px;
+  color: var(--ke-ink-dim);
+  margin-top: 16px;
+}
+
+/* ---------------------- FEATURES LIST ---------------------- */
+.ke-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 28px;
+}
+.ke-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.ke-feature__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--ke-brand-200);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.ke-feature__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ke-ink-soft);
+  margin-bottom: 2px;
+}
+.ke-feature__desc {
+  font-size: 12.5px;
+  color: var(--ke-ink-faint);
+  line-height: 1.45;
+}
+
+/* ---------------------- BUTTONS ---------------------- */
+.ke-btn-primary {
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 12px;
+  background: var(--ke-brand);
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 600;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ke-btn-primary:hover { background: var(--ke-brand-d); }
+
+.ke-btn-secondary {
+  height: 48px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #dadde2;
+  color: var(--ke-ink-soft);
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.ke-btn-secondary:hover { background: #f5f6f8; }
+
+/* ---------------------- RESPONSIVE ---------------------- */
+@media (max-width: 1024px) {
+  .ke-empty-hero__content { grid-template-columns: 1fr; }
+  .ke-empty-hero__art { order: -1; }
+  .ke-empty-headline { font-size: 28px; }
+}
+
+@media (max-width: 768px) {
+  .ke-empty-body { padding: 16px; }
+  .ke-empty-hero__content { padding: 24px; }
+  .ke-empty-headline { font-size: 24px; }
+  .ke-empty-actions { flex-direction: column; }
+}

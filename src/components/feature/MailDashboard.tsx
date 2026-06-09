@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { MailDashboardEmptyState } from "./MailDashboard.new";
+import mailDashboardNewUserImage from "../../assets/images/mail_dashboard_new_user.png";
 import axios from "axios";
 import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
 import DynamicContactsTable from "./DynamicContactsTable";
@@ -186,6 +188,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   // All useState hooks - Changed selectedView to selectedCampaign
   const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([]);
+  const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [dashboardTab, setDashboardTab] = useState("Overview");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -425,6 +428,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         } catch (error) {
           console.error("Dashboard: Error loading campaigns:", error);
           setAvailableCampaigns([]);
+        } finally {
+          setCampaignsLoaded(true);
         }
       });
     };
@@ -1930,6 +1935,14 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     });
   };
 
+  if (campaignsLoaded && !isLoading && availableCampaigns.length === 0) {
+    return (
+      <div className="md-root" style={{ display: isVisible ? "block" : "none" }}>
+        <MailDashboardEmptyState />
+      </div>
+    );
+  }
+
   return (
     <div className="md-root" style={{ display: isVisible ? "block" : "none" }}>
 
@@ -2033,7 +2046,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       </div>
 
       {/* ── Stats Grid (v2 — icon+label row / value / sparkline) ── */}
-      <div className="md-stats-grid">
+      {selectedCampaign && <div className="md-stats-grid">
         {([
           {
             id: "sent", label: "Sent", color: "#00C49F", bg: "#e0faf3",
@@ -2099,7 +2112,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             )}
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* ── Overview Tab ── */}
       {dashboardTab === "Overview" && (
@@ -2109,30 +2122,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             <div className="md-empty-state">
               {/* Illustration */}
               <div className="md-empty-illus">
-                <svg width="210" height="165" viewBox="0 0 210 165" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  {/* browser window */}
-                  <rect x="15" y="8" width="165" height="118" rx="9" fill="#fff" stroke="#e2e8f0" strokeWidth="1.5"/>
-                  <rect x="15" y="8" width="165" height="22" rx="9" fill="#f8fafc"/>
-                  <rect x="15" y="22" width="165" height="6" fill="#f8fafc"/>
-                  {/* dots */}
-                  <circle cx="28" cy="19" r="3" fill="#fca5a5"/>
-                  <circle cx="38" cy="19" r="3" fill="#fde68a"/>
-                  <circle cx="48" cy="19" r="3" fill="#86efac"/>
-                  {/* area chart fill */}
-                  <path d="M25 110 C45 92 65 78 85 68 C105 58 125 63 145 52 C158 44 165 48 178 43 L178 110 Z" fill="#dcfce7"/>
-                  {/* area chart line */}
-                  <path d="M25 110 C45 92 65 78 85 68 C105 58 125 63 145 52 C158 44 165 48 178 43" stroke="#3f9f42" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
-                  {/* donut chart */}
-                  <circle cx="163" cy="78" r="20" stroke="#e2e8f0" strokeWidth="7" fill="none"/>
-                  <circle cx="163" cy="78" r="20" stroke="#3f9f42" strokeWidth="7" fill="none" strokeDasharray="63 63" strokeLinecap="round" transform="rotate(-90 163 78)"/>
-                  <circle cx="163" cy="78" r="20" stroke="#f59e0b" strokeWidth="7" fill="none" strokeDasharray="31 95" strokeLinecap="round" transform="rotate(27 163 78)"/>
-                  {/* decorative plus signs */}
-                  <text x="5" y="75" fill="#3f9f42" fontSize="14" fontWeight="700" opacity="0.7">+</text>
-                  <text x="188" y="118" fill="#3f9f42" fontSize="10" fontWeight="700" opacity="0.6">+</text>
-                  {/* arrow */}
-                  <path d="M8 120 Q5 135 13 145" stroke="#3f9f42" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                  <path d="M10 143 L13 145 L11 141" stroke="#3f9f42" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <img src={mailDashboardNewUserImage} alt="" style={{ width: 400, height: "auto", display: "block", border: "none", background: "#fff" }} />
               </div>
               <h3 className="md-empty-title">Select a campaign to view analytics</h3>
               <p className="md-empty-sub">Choose a campaign and date range above to see performance insights like<br/>sent, opens, clicks, and more.</p>
@@ -2150,28 +2140,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               </button>
             </div>
 
-            {/* Feature row */}
-            <div className="md-feature-row">
-              {([
-                { icon: "clock",    title: "Track performance",     desc: "Monitor key metrics and measure campaign success." },
-                { icon: "target",   title: "Optimize results",      desc: "Identify what works best and improve future campaigns." },
-                { icon: "users",    title: "Data-driven decisions",  desc: "Make informed decisions with real-time insights." },
-                { icon: "shield",   title: "Guaranteed accuracy",   desc: "Analytics reflect only guaranteed emails for reliable data." },
-              ] as const).map(f => (
-                <div key={f.title} className="md-feature-card">
-                  <div className="md-feature-icon">
-                    {f.icon === "clock"  && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
-                    {f.icon === "target" && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>}
-                    {f.icon === "users"  && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>}
-                    {f.icon === "shield" && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>}
-                  </div>
-                  <div>
-                    <p className="md-feature-title">{f.title}</p>
-                    <p className="md-feature-desc">{f.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+
           </>
         ) : (
           /* ─── Populated state ─── */

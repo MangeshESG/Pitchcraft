@@ -916,7 +916,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  flex: 1;
+  flex: 0.7;
   min-width: 200px;
 }
 
@@ -1048,7 +1048,10 @@ body {
 }
 .md-empty-illus {
   margin-bottom: 20px;
-  filter: drop-shadow(0 4px 16px rgba(63,159,66,0.12));
+  background: #fff;
+  border: none;
+  box-shadow: none;
+  filter: none;
 }
 .md-empty-title {
   font-size: 20px;

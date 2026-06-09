@@ -160,7 +160,7 @@ export const BlueprintsHeroBanner: React.FC<{
       <img
         src={blueprintOldUserImage}
         alt=""
-        style={{ width: 430, height: "auto", maxWidth: "100%" }}
+        style={{ width: 350, height: "auto", maxWidth: "100%" }}
         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
       />
     </div>

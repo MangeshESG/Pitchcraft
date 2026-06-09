@@ -1,0 +1,189 @@
+/* ============================================================
+   MailDashboard.new.css — Empty state styling for Mail Dashboard
+   All classes prefixed mde-* to avoid collisions with md-* in Mail.css
+   ============================================================ */
+
+:root {
+  --mde-ink:        #0b1220;
+  --mde-ink-soft:   #374151;
+  --mde-ink-faint:  #6b7280;
+  --mde-ink-dim:    #9ca3af;
+  --mde-line:       #eef0f3;
+  --mde-bg:         #fafbfc;
+  --mde-brand:      #3f9f42;
+  --mde-brand-d:    #2d7a30;
+  --mde-brand-50:   #f1f8f2;
+  --mde-brand-200:  #e8f3e9;
+}
+
+/* ---------------------- EMPTY WRAP ---------------------- */
+.mde-empty-wrap {
+  background: var(--mde-bg);
+  min-height: 100vh;
+  padding: 32px;
+}
+
+/* ---------------------- HERO BANNER ---------------------- */
+.mde-empty-hero {
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid var(--mde-line);
+  background: #fff;
+  overflow: hidden;
+}
+.mde-empty-hero__bg {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+}
+.mde-empty-hero__content {
+  position: relative;
+  display: grid;
+  grid-template-columns: 7fr 5fr;
+  gap: 24px;
+  padding: 40px;
+  align-items: center;
+}
+.mde-empty-hero__copy {
+  min-width: 0;
+}
+.mde-empty-hero__art {
+  display: flex;
+  justify-content: center;
+}
+
+/* ---------------------- COPY ---------------------- */
+.mde-start-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--mde-brand-200);
+  color: var(--mde-brand-d);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.mde-empty-headline {
+  font-size: 34px !important;
+  font-weight: 700 !important;
+  color: #0b1220 !important;
+  letter-spacing: -0.025em;
+  line-height: 1.1 !important;
+  margin: 12px 0 0 !important;
+  padding: 0 !important;
+  display: block !important;
+  visibility: visible !important;
+}
+.mde-empty-body-text {
+  font-size: 15px;
+  color: var(--mde-ink-faint);
+  line-height: 1.55;
+  margin: 12px 0 0;
+  max-width: 460px;
+}
+.mde-empty-meta {
+  font-size: 12px;
+  color: var(--mde-ink-dim);
+  margin-top: 16px;
+}
+
+/* ---------------------- ACTIONS ---------------------- */
+.mde-empty-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+  flex-wrap: wrap;
+}
+.mde-btn-primary {
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 12px;
+  background: var(--mde-brand);
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 600;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mde-btn-primary:hover { background: var(--mde-brand-d); }
+
+.mde-btn-secondary {
+  height: 48px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #dadde2;
+  color: var(--mde-ink-soft);
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.mde-btn-secondary:hover { background: #f5f6f8; }
+
+/* ---------------------- VIDEO MODAL ---------------------- */
+.mde-video-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+.mde-video-modal {
+  position: relative;
+  width: 90%;
+  max-width: 900px;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.mde-video-player {
+  width: 100%;
+  display: block;
+  max-height: 80vh;
+  outline: none;
+}
+.mde-video-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  line-height: 1;
+}
+.mde-video-close:hover { background: rgba(0, 0, 0, 0.9); }
+
+/* ---------------------- RESPONSIVE ---------------------- */
+@media (max-width: 1024px) {
+  .mde-empty-hero__content { grid-template-columns: 1fr; }
+  .mde-empty-hero__art { order: -1; }
+  .mde-empty-headline { font-size: 28px; }
+}
+@media (max-width: 768px) {
+  .mde-empty-wrap { padding: 16px; }
+  .mde-empty-hero__content { padding: 24px; }
+  .mde-empty-headline { font-size: 24px; }
+  .mde-empty-actions { flex-direction: column; }
+}

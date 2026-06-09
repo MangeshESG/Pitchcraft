@@ -11,7 +11,7 @@ import CommonSidePanel from "../common/CommonSidePanel";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import "./blueprint/Template.new.css";
 import campaignIllustration from "../../assets/images/campaign-illustration.png";
-import campaignIllustration2 from "../../assets/images/campaign-illustration2.png";
+import campaignIllustration2 from "../../assets/images/campgain_old_ user.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlay, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import {
@@ -723,7 +723,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   <img
                     src={campaignIllustration2}
                     alt="Campaign illustration"
-                    style={{ width: 500, height: "auto", maxWidth: "100%" }}
+                    style={{ width: 350, height: "auto", maxWidth: "100%" }}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                   />
                 </div>
