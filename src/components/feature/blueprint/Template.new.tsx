@@ -109,7 +109,7 @@ export const BlueprintsEmptyState: React.FC<{ onCreate: () => void }> = ({
             <img
               src={blueprintNewUserImage}
               alt=""
-              style={{ width: 340, height: "auto", maxWidth: "100%" }}
+              style={{ width: 500, height: "auto", maxWidth: "100%" }}
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
           </div>
@@ -134,11 +134,10 @@ export const BlueprintsHeroBanner: React.FC<{
     <div className="bp-banner__left">
       <div className="bp-banner__copy">
         <div className="bp-banner__title">
-          Your blueprints are driving great campaigns! 🎉
+          You have so far created {totalCount} blueprint{totalCount !== 1 ? "s" : ""} 🎉
         </div>
         <div className="bp-banner__sub">
-          Well done! You have created <strong>{totalCount}</strong> blueprint{totalCount !== 1 ? "s" : ""}.
-          Keep refining your templates and content structures to create even more impactful emails.
+          Keep adding and refining your blueprints to create even more impactful emails.
         </div>
         <div className="bp-banner__actions">
           <button className="bp-btn-banner-primary" onClick={onCreateClick}>
@@ -161,7 +160,7 @@ export const BlueprintsHeroBanner: React.FC<{
       <img
         src={blueprintOldUserImage}
         alt=""
-        style={{ width: 350, height: "auto", maxWidth: "100%" }}
+        style={{ width: 430, height: "auto", maxWidth: "100%" }}
         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
       />
     </div>

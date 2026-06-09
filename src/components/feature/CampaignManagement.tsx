@@ -672,7 +672,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   <img
                     src={campaignIllustration}
                     alt="Campaign illustration"
-                    style={{ width: 520, height: "auto", maxWidth: "100%" }}
+                    style={{ width: 500, height: "auto", maxWidth: "100%" }}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                   />
                 </div>
@@ -723,7 +723,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   <img
                     src={campaignIllustration2}
                     alt="Campaign illustration"
-                    style={{ width: 350, height: "auto", maxWidth: "100%" }}
+                    style={{ width: 500, height: "auto", maxWidth: "100%" }}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                   />
                 </div>

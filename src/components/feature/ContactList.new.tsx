@@ -259,7 +259,7 @@ export const ContactsEmptyState: React.FC<{
           </div>
         </div>
         <div className="ct-empty-hero__art">
-          <img src={contactNewUserImage} alt="" width={340} style={{ display: "block", maxWidth: "100%", height: "auto" }} />
+          <img src={contactNewUserImage} alt="" width={500} style={{ display: "block", maxWidth: "100%", height: "auto" }} />
         </div>
       </div>
     </div>
