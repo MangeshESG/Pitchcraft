@@ -6,7 +6,8 @@ import CommonSidePanel from "../common/CommonSidePanel";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";
-import { MoreVertical, Pencil, Plus, Search, Settings2, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import customFieldNewUserImage from "../../assets/images/Custom_field_new_user.png";
 
 interface CustomField {
   id: number;
@@ -222,76 +223,63 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
 
   return (
     <div className="bp-list-wrap">
-      <div className="bp-page-header">
-        <div className="bp-page-header__inner">
-          <div>
-            
-            <h1 className="bp-page-title">
-              Custom fields
-              <span className="bp-count-pill">{fields.length}</span>
-            </h1>
-            <p className="bp-page-sub">
-              Define custom attributes to capture unique contact and company data beyond standard fields.
-            </p>
-          </div>
-          <div className="bp-header-actions">
-            <button type="button" className="bp-btn-primary-dark" onClick={openCreatePanel}>
-              <Plus className="h-4 w-4" />
-              Add field
-            </button>
-          </div>
-        </div>
-      </div>
-
       {fields.length === 0 ? (
-        <div className="bp-empty-body">
-          <div className="bp-empty-hero">
-            <div className="bp-empty-hero__bg" />
-            <div className="bp-empty-hero__content">
-              <div className="bp-empty-hero__copy">
-                <span className="bp-start-pill">Start here</span>
-                <h2 className="bp-empty-headline">Create your first custom field.</h2>
-                <p className="bp-empty-body-text">
-                  Custom fields let you store any extra information about contacts — industry, deal size, lead source, or anything your team tracks.
-                </p>
-                <div className="bp-empty-actions">
-                  <button className="bp-btn-primary" onClick={openCreatePanel}>
-                    <Plus className="h-4 w-4" />
-                    Add your first field
-                  </button>
-                </div>
-                <div className="bp-empty-meta">
-                  Fields appear on every contact record and can be used in segments.
-                </div>
-              </div>
-              <div className="bp-empty-hero__art">
-                <Settings2 style={{ width: 160, height: 160, color: "#3f9f42" }} />
-              </div>
-            </div>
-          </div>
-          <div className="bp-how-it-works">
-            <div className="bp-eyebrow" style={{ marginBottom: 16 }}>How custom fields fit in</div>
-            <div className="bp-steps">
-              {[
-                ["STEP 01", "Add contacts", false],
-                ["STEP 02", "Define fields", true],
-                ["STEP 03", "Fill data", false],
-                ["STEP 04", "Build segments", false],
-                ["STEP 05", "Run campaigns", false],
-              ].map(([step, label, active]) => (
-                <div key={String(step)} className={`bp-step ${active ? "is-active" : ""}`}>
-                  <div className="bp-step__head">
-                    <span className="bp-step__num">{step}</span>
-                    <span className="bp-step__icon">-</span>
+        <div className="bp-empty-wrap">
+          <div className="bp-empty-body">
+            <div className="bp-empty-hero">
+              <div className="bp-empty-hero__bg" />
+              <div className="bp-empty-hero__content">
+                <div className="bp-empty-hero__copy">
+                  <span className="bp-start-pill">Start here</span>
+                  <h2 className="bp-empty-headline">Create your first custom field.</h2>
+                  <p className="bp-empty-body-text">
+                    Custom fields let you store any extra information about contacts — industry, deal size, lead source, or anything your team tracks.
+                  </p>
+                  <div className="bp-empty-actions">
+                    <button className="bp-btn-primary" onClick={openCreatePanel}>
+                      <Plus className="h-4 w-4" />
+                      Add your first field
+                    </button>
                   </div>
-                  <div className="bp-step__label">{label}</div>
+                  <div className="bp-empty-meta">
+                    Fields appear on every contact record and can be used in segments.
+                  </div>
                 </div>
-              ))}
+                <div className="bp-empty-hero__art">
+                  <img
+                    src={customFieldNewUserImage}
+                    alt=""
+                    style={{ width: 460, height: "auto", maxWidth: "100%" }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       ) : (
-        <div className="bp-list-body">
+        <>
+          <div className="bp-page-header">
+            <div className="bp-page-header__inner">
+              <div>
+                <h1 className="bp-page-title">
+                  Custom fields
+                  <span className="bp-count-pill">{fields.length}</span>
+                </h1>
+                <p className="bp-page-sub">
+                  Define custom attributes to capture unique contact and company data beyond standard fields.
+                </p>
+              </div>
+              <div className="bp-header-actions">
+                <button type="button" className="bp-btn-primary-dark" onClick={openCreatePanel}>
+                  <Plus className="h-4 w-4" />
+                  Add field
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bp-list-body">
           <div className="bp-toolbar">
             <div className="bp-toolbar__left">
               <div className="bp-search">
@@ -401,6 +389,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
             Showing {filteredFields.length} of {fields.length} field{fields.length !== 1 ? "s" : ""}.
           </div>
         </div>
+        </>
       )}
 
       <CommonSidePanel

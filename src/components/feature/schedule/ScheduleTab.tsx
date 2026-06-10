@@ -7,6 +7,8 @@ import AppModal from "../../common/AppModal";
 import { useAppModal } from "../../../hooks/useAppModal";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../../Redux/store";
+import "../blueprint/Template.new.css";
+import schedulingNewUserImage from "../../../assets/images/scheduling_new_user.png";
 import CommonSidePanel from "../../common/CommonSidePanel";
 import { closePanel, openPanel } from "../../../slices/panelSlice";
 import {
@@ -534,31 +536,33 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
       <div className="bp-list-wrap schedule-bp-page">
 
         {/* ── Page header ── */}
-        <div className="bp-page-header">
-          <div className="bp-page-header__inner">
-            <div>
-              <h1 className="bp-page-title">
-                Schedules
-                <span className="bp-count-pill">{safeScheduleList.length}</span>
-              </h1>
-              <p className="bp-page-sub">
-                Create and manage email delivery schedules for your campaigns.
-              </p>
-            </div>
-            {!isDemoAccount && (
-              <div className="bp-header-actions">
-                <button
-                  type="button"
-                  className="bp-btn-primary-dark"
-                  onClick={() => dispatch(openPanel("schedule-modal"))}
-                >
-                  <Plus className="h-4 w-4" />
-                  New schedule
-                </button>
+        {(scheduleDataLoading || safeScheduleList.length > 0) && (
+          <div className="bp-page-header">
+            <div className="bp-page-header__inner">
+              <div>
+                <h1 className="bp-page-title">
+                  Schedules
+                  <span className="bp-count-pill">{safeScheduleList.length}</span>
+                </h1>
+                <p className="bp-page-sub">
+                  Create and manage email delivery schedules for your campaigns.
+                </p>
               </div>
-            )}
+              {!isDemoAccount && (
+                <div className="bp-header-actions">
+                  <button
+                    type="button"
+                    className="bp-btn-primary-dark"
+                    onClick={() => dispatch(openPanel("schedule-modal"))}
+                  >
+                    <Plus className="h-4 w-4" />
+                    New schedule
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {scheduleDataLoading ? (
           <div className="bp-list-body">
@@ -591,32 +595,17 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                   <div className="bp-empty-meta">Takes less than a minute. You can edit or delete at any time.</div>
                 </div>
                 <div className="bp-empty-hero__art">
-                  <CalendarClock style={{ width: 140, height: 140, color: "#3f9f42" }} />
+                  <img
+                    src={schedulingNewUserImage}
+                    alt=""
+                    style={{ width: 460, height: "auto", maxWidth: "100%" }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
                 </div>
               </div>
             </div>
 
-            <div className="bp-how-it-works">
-              <div className="bp-eyebrow" style={{ marginBottom: 16 }}>How schedules fit in</div>
-              <div className="bp-steps">
-                {(
-                  [
-                    ["STEP 01", "Add contacts"],
-                    ["STEP 02", "Create campaign"],
-                    ["STEP 03", "Kraft emails"],
-                    ["STEP 04", "Schedule emails"],
-                    ["STEP 05", "Monitor sends"],
-                  ] as [string, string][]
-                ).map(([step, label], i) => (
-                  <div key={step} className={`bp-step${i === 3 ? " is-active" : ""}`}>
-                    <div className="bp-step__head">
-                      <span className="bp-step__num">{step}</span>
-                    </div>
-                    <div className="bp-step__label">{label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+
           </div>
 
         ) : (
@@ -943,6 +932,13 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
           margin: 0;
           width: 100%;
           background: var(--bp-bg, #fafbfc);
+        }
+        .schedule-bp-page .bp-empty-headline {
+          color: var(--bp-ink, #0b1220);
+          text-align: left;
+          font-size: 34px;
+          font-weight: 700;
+          margin: 12px 0 0;
         }
         .schedule-bp-page .bp-page-header {
           margin: 0;
