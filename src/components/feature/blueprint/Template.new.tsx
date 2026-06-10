@@ -24,6 +24,7 @@ import {
 import { Tooltip } from "react-tooltip";
 import blueprintNewUserImage from "../../../assets/images/blueprint_new_user.png";
 import blueprintOldUserImage from "../../../assets/images/blueprint_old_user.png";
+import { BpBanner } from "./BpBanner";
 
 interface CampaignTemplate {
   id: number;
@@ -130,41 +131,18 @@ export const BlueprintsHeroBanner: React.FC<{
   onCreateClick: () => void;
 }> = ({ totalCount, onCreateClick }) => {
   return (
-  <div className="bp-banner">
-    <div className="bp-banner__left">
-      <div className="bp-banner__copy">
-        <div className="bp-banner__title">
-          You have so far created {totalCount} blueprint{totalCount !== 1 ? "s" : ""} 🎉
-        </div>
-        <div className="bp-banner__sub">
-          Keep adding and refining your blueprints to create even more impactful emails.
-        </div>
-        <div className="bp-banner__actions">
-          <button className="bp-btn-banner-primary" onClick={onCreateClick}>
-            <FontAwesomeIcon icon={faPlus} />
-            Create campaign blueprint
-          </button>
-          <a
-            className="bp-btn-banner-ghost"
-            href="https://www.pitchkraft.ai/blueprints"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
-            Explore blueprint best practices
-          </a>
-        </div>
-      </div>
-    </div>
-    <div className="bp-banner__art">
-      <img
-        src={blueprintOldUserImage}
-        alt=""
-        style={{ width: 350, height: "auto", maxWidth: "100%" }}
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-      />
-    </div>
-  </div>
+    <BpBanner
+      title={`You have so far created ${totalCount} blueprint${totalCount !== 1 ? "s" : ""} 🎉`}
+      subtitle="Keep adding and refining your blueprints to create even more impactful emails."
+      primaryLabel="Create campaign blueprint"
+      primaryIcon={<FontAwesomeIcon icon={faPlus} />}
+      onPrimaryClick={onCreateClick}
+      secondaryLabel="Explore blueprint best practices"
+      secondaryIcon={<FontAwesomeIcon icon={faArrowUpRightFromSquare} />}
+      secondaryHref="https://www.pitchkraft.ai/blueprints"
+      imageSrc={blueprintOldUserImage}
+      imageAlt=""
+    />
   );
 };
 
@@ -303,14 +281,15 @@ export const BlueprintsList: React.FC<ListProps> = (p) => {
               <div key={t.id} className="bp-row">
                 <div className="bp-row__rail" />
                 <div className="bp-row__name">
-                  <a
+                  <button
+                    type="button"
                     id={`blueprint-${t.id}`}
                     className="bp-row__link"
                     onMouseEnter={() => p.preloadExampleEmail(t)}
                     onClick={() => p.onRowClick(t)}
                   >
                     {t.templateName}
-                  </a>
+                  </button>
                   <Tooltip
                     anchorId={`blueprint-${t.id}`}
                     place="right"

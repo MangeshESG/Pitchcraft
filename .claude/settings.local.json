@@ -42,7 +42,11 @@
       "Bash(tasklist)",
       "Bash(rm -rf .tmp-verify \"../New PitchcraftPitchcraft.tmp-verifyinitial.png\")",
       "Bash(rm -f \"/d/New PitchcraftPitchcraft.tmp-verifyinitial.png\")",
-      "Bash(node -e \"const i = require\\('@fortawesome/free-solid-svg-icons'\\); console.log\\('faArrowUpRightFromSquare:', !!i.faArrowUpRightFromSquare\\); console.log\\('faExternalLinkAlt:', !!i.faExternalLinkAlt\\); console.log\\('faLink:', !!i.faLink\\); console.log\\('faUpRightFromSquare:', !!i.faUpRightFromSquare\\);\")"
+      "Bash(node -e \"const i = require\\('@fortawesome/free-solid-svg-icons'\\); console.log\\('faArrowUpRightFromSquare:', !!i.faArrowUpRightFromSquare\\); console.log\\('faExternalLinkAlt:', !!i.faExternalLinkAlt\\); console.log\\('faLink:', !!i.faLink\\); console.log\\('faUpRightFromSquare:', !!i.faUpRightFromSquare\\);\")",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(netstat -ano)",
+      "Bash(chromium-cli --session bp)"
     ]
   }
 }

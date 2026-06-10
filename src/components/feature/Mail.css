@@ -1059,6 +1059,13 @@ body {
   color: #1e293b;
   margin: 0 0 8px;
 }
+.md-empty-campaign-select {
+  width: 360px;
+  max-width: 100%;
+  flex: none;
+  min-width: 0;
+  text-align: left;
+}
 .md-empty-sub {
   font-size: 13px;
   color: #64748b;

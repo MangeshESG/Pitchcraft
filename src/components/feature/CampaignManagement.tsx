@@ -10,8 +10,9 @@ import "react-toastify/dist/ReactToastify.css";
 import CommonSidePanel from "../common/CommonSidePanel";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import "./blueprint/Template.new.css";
+import { BpBanner } from "./blueprint/BpBanner";
 import campaignIllustration from "../../assets/images/campaign-illustration.png";
-import campaignIllustration2 from "../../assets/images/campgain_old_ user.png";
+import campaignIllustration2 from "../../assets/images/Campgains_old_user.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlay, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import {
@@ -694,40 +695,23 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
             </div>
 
             <div className="bp-list-body">
-              <div className="bp-banner">
-                <div className="bp-banner__left">
-                  <div className="bp-banner__copy">
-                    <div className="bp-banner__title">Create  and view your campaigns </div>
-                    <div className="bp-banner__sub">
-                      You have created <strong>{campaigns.length}</strong> campaign{campaigns.length !== 1 ? "s" : ""}.
-                      Keep refining sources and blueprints to improve every outbound run.
-                    </div>
-                    <div className="bp-banner__actions">
-                      <button className="bp-btn-banner-primary" onClick={openCreateCampaignPanel}>
-                        <Plus className="h-4 w-4" />
-                        Create campaign
-                      </button>
-                      <a
-                        className="bp-btn-banner-ghost"
-                        href="https://www.pitchkraft.ai/campaigns/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
-                        Explore best practices
-                      </a>
-                    </div>
-                  </div>
-                </div>
-                <div className="bp-banner__art">
-                  <img
-                    src={campaignIllustration2}
-                    alt="Campaign illustration"
-                    style={{ width: 350, height: "auto", maxWidth: "100%" }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                  />
-                </div>
-              </div>
+              <BpBanner
+                title="Create  and view your campaigns"
+                subtitle={
+                  <>
+                    You have created <strong>{campaigns.length}</strong> campaign{campaigns.length !== 1 ? "s" : ""}.
+                    Keep refining sources and blueprints to improve every outbound run.
+                  </>
+                }
+                primaryLabel="Create campaign"
+                primaryIcon={<Plus className="h-4 w-4" />}
+                onPrimaryClick={openCreateCampaignPanel}
+                secondaryLabel="Explore best practices"
+                secondaryIcon={<FontAwesomeIcon icon={faArrowUpRightFromSquare} />}
+                secondaryHref="https://www.pitchkraft.ai/campaigns/"
+                imageSrc={campaignIllustration2}
+                imageAlt="Campaign illustration"
+              />
             </div>
 
             <div className="bp-list-body">

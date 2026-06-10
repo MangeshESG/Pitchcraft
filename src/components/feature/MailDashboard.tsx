@@ -1013,6 +1013,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0 });
       setRequestCount(0);
       setDataFetchedForCampaign("");
+      setDashboardTab("Overview");
     }
   };
 
@@ -1946,87 +1947,89 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   return (
     <div className="md-root" style={{ display: isVisible ? "block" : "none" }}>
 
-      {/* ── Tab Bar ── */}
-      <div className="md-tab-bar">
-        <button
-          className={`md-tab${dashboardTab === "Overview" ? " md-tab--active" : ""}`}
-          onClick={() => handleDashboardTabChange("Overview")}
-        >
-          Overview
-        </button>
-        <button
-          className={`md-tab${dashboardTab === "Details" ? " md-tab--active" : ""}`}
-          onClick={() => handleDashboardTabChange("Details")}
-        >
-          Details
-        </button>
-      </div>
-
-      {/* ── Controls Bar ── */}
-      <div className="md-controls-bar">
-        {/* Campaign — grows to fill available space */}
-        <div className="md-control-campaign">
-          <label className="md-label">Campaign <span className="md-required">*</span></label>
-          <select
-            value={selectedCampaign}
-            onChange={handleCampaignChange}
-            className={`md-select${!selectedCampaign ? " md-select--error" : ""}`}
+      {/* ── Tab Bar (shown when campaign selected) ── */}
+      {selectedCampaign && (
+        <div className="md-tab-bar">
+          <button
+            className={`md-tab${dashboardTab === "Overview" ? " md-tab--active" : ""}`}
+            onClick={() => handleDashboardTabChange("Overview")}
           >
-            <option value="">Select a campaign</option>
-            {availableCampaigns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.campaignName}{c.dataSource === "Segment" && c.segmentName ? ` (${c.segmentName})` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Start date */}
-        <div className="md-control-group">
-          <label className="md-label">Start date</label>
-          <input type="date" value={startDate} onChange={(e) => handleDateChange("start", e.target.value)}
-            max={endDate || undefined} className="md-date-input" />
-        </div>
-
-        {/* End date */}
-        <div className="md-control-group">
-          <label className="md-label">End date</label>
-          <input type="date" value={endDate} onChange={(e) => handleDateChange("end", e.target.value)}
-            min={startDate || undefined} className="md-date-input" />
-        </div>
-
-        {/* Refresh icon button */}
-        <div className="md-control-refresh">
-          <button className="md-icon-btn" onClick={handleRefresh}
-            disabled={isRefreshing || loading} title="Refresh analytics">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 1.5A6.5 6.5 0 001.5 8a.75.75 0 01-1.5 0A8 8 0 0113.5 2.19V1.25a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zm7.25 5.75a.75.75 0 01.75.75A8 8 0 012.5 13.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/>
-            </svg>
+            Overview
+          </button>
+          <button
+            className={`md-tab${dashboardTab === "Details" ? " md-tab--active" : ""}`}
+            onClick={() => handleDashboardTabChange("Details")}
+          >
+            Details
           </button>
         </div>
+      )}
 
-        {/* Only guaranteed toggle */}
-        <div className="md-control-group">
-          <ReactTooltip anchorSelect="#md-guaranteed-label" place="top">
-            Restrict to guaranteed opens and clicks by removing any chance of bot actions. This will deflate numbers pessimistically.
-          </ReactTooltip>
-          <label className="md-label" id="md-guaranteed-label" style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            Only guaranteed
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.45, flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
-            </svg>
-          </label>
-          <div className="md-toggle-wrapper">
-            <button onClick={() => setExcludeBots(!excludeBots)}
-              className={`md-toggle${excludeBots ? " md-toggle--on" : ""}`}>
-              <span className={`md-toggle-thumb${excludeBots ? " md-toggle-thumb--on" : ""}`} />
-            </button>
-            <span className="md-toggle-label">{excludeBots ? "ON" : "OFF"}</span>
+      {/* ── Controls Bar (shown when campaign selected) ── */}
+      {selectedCampaign && (
+        <div className="md-controls-bar">
+          {/* Campaign — grows to fill available space */}
+          <div className="md-control-campaign">
+            <label className="md-label">Campaign <span className="md-required">*</span></label>
+            <select
+              value={selectedCampaign}
+              onChange={handleCampaignChange}
+              className={`md-select${!selectedCampaign ? " md-select--error" : ""}`}
+            >
+              <option value="">Select a campaign</option>
+              {availableCampaigns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.campaignName}{c.dataSource === "Segment" && c.segmentName ? ` (${c.segmentName})` : ""}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
 
-        {/* Right-side actions (shown when campaign selected) */}
-        {selectedCampaign && (
+          {/* Start date */}
+          <div className="md-control-group">
+            <label className="md-label">Start date</label>
+            <input type="date" value={startDate} onChange={(e) => handleDateChange("start", e.target.value)}
+              max={endDate || undefined} className="md-date-input" />
+          </div>
+
+          {/* End date */}
+          <div className="md-control-group">
+            <label className="md-label">End date</label>
+            <input type="date" value={endDate} onChange={(e) => handleDateChange("end", e.target.value)}
+              min={startDate || undefined} className="md-date-input" />
+          </div>
+
+          {/* Refresh icon button */}
+          <div className="md-control-refresh">
+            <button className="md-icon-btn" onClick={handleRefresh}
+              disabled={isRefreshing || loading} title="Refresh analytics">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 1.5A6.5 6.5 0 001.5 8a.75.75 0 01-1.5 0A8 8 0 0113.5 2.19V1.25a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zm7.25 5.75a.75.75 0 01.75.75A8 8 0 012.5 13.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/>
+              </svg>
+            </button>
+          </div>
+
+          {/* Only guaranteed toggle */}
+          <div className="md-control-group">
+            <ReactTooltip anchorSelect="#md-guaranteed-label" place="top">
+              Restrict to guaranteed opens and clicks by removing any chance of bot actions. This will deflate numbers pessimistically.
+            </ReactTooltip>
+            <label className="md-label" id="md-guaranteed-label" style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              Only guaranteed
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.45, flexShrink: 0 }}>
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+            </label>
+            <div className="md-toggle-wrapper">
+              <button onClick={() => setExcludeBots(!excludeBots)}
+                className={`md-toggle${excludeBots ? " md-toggle--on" : ""}`}>
+                <span className={`md-toggle-thumb${excludeBots ? " md-toggle-thumb--on" : ""}`} />
+              </button>
+              <span className="md-toggle-label">{excludeBots ? "ON" : "OFF"}</span>
+            </div>
+          </div>
+
+          {/* Right-side actions */}
           <div className="md-control-actions">
             {(startDate || endDate) && (
               <button className="md-clear-btn"
@@ -2042,8 +2045,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               Export Report
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── Stats Grid (v2 — icon+label row / value / sparkline) ── */}
       {selectedCampaign && <div className="md-stats-grid">
@@ -2126,18 +2129,21 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               </div>
               <h3 className="md-empty-title">Select a campaign to view analytics</h3>
               <p className="md-empty-sub">Choose a campaign and date range above to see performance insights like<br/>sent, opens, clicks, and more.</p>
-              <button
-                className="md-empty-cta"
-                onClick={() => {
-                  const el = document.querySelector(".md-select") as HTMLSelectElement | null;
-                  if (el) el.focus();
-                }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-                </svg>
-                Select a campaign
-              </button>
+              <div className="md-control-campaign md-empty-campaign-select">
+                <label className="md-label">Campaign <span className="md-required">*</span></label>
+                <select
+                  value={selectedCampaign}
+                  onChange={handleCampaignChange}
+                  className={`md-select${!selectedCampaign ? " md-select--error" : ""}`}
+                >
+                  <option value="">Select a campaign</option>
+                  {availableCampaigns.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.campaignName}{c.dataSource === "Segment" && c.segmentName ? ` (${c.segmentName})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
 
