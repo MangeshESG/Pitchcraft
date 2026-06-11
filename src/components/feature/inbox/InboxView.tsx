@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../../config';
 import LoadingSpinner from '../../common/LoadingSpinner';
@@ -136,6 +136,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showForwardSection, setShowForwardSection] = useState(false);
   const [collapsedEmails, setCollapsedEmails] = useState<{ [key: string]: boolean }>({});
   const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
+  const mailDetailRef = useRef<HTMLDivElement>(null);
   const [showBulkDeleteDropdown, setShowBulkDeleteDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages'>(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages');
   const [forwardEmail, setForwardEmail] = useState('');
@@ -1876,10 +1877,23 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 <p>Select an email to read it here</p>
               </div>
             )}
+            {hasActiveThread && (
+              <button
+                type="button"
+                className="scroll-to-bottom-btn"
+                title="Scroll to bottom"
+                onClick={() => {
+                  const el = mailDetailRef.current;
+                  if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+              </button>
+            )}
           {/* Tab-specific content */}
           {activeTab === 'inbox' ? (
             selectedThread ? (
-            <div className="mail-detail">
+            <div className="mail-detail" ref={mailDetailRef}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 0', marginBottom: '24px' }}>
                 <h3 className="mail-detail-subject" style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>{selectedThread.subject}</h3>
                 <div style={{ position: 'relative' }}>
@@ -1984,7 +1998,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 const uniqueKey = `${message.messageId}-${index}`;
                 console.log('Message type:', message.type, 'contactId:', messageContactId);
                 return (
-                <div key={uniqueKey} style={{ marginBottom: index < sortedMessages.length - 1 ? '24px' : '0', paddingBottom: index < sortedMessages.length - 1 ? '24px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? '16px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                   <div className="mail-detail-header">
                     <div className="mail-detail-top">
                       <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
@@ -2485,7 +2499,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           ) : null
           ) : (
             selectedSentThread ? (
-              <div className="mail-detail">
+              <div className="mail-detail" ref={mailDetailRef}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 0', marginBottom: '24px' }}>
                   <h3 className="mail-detail-subject" style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>
                     {selectedSentThread.subject}
@@ -2590,7 +2604,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 ).map((message, index, sortedMessages) => {
                   const uniqueKey = `sent-${message.messageId}-${index}`;
                   return (
-                  <div key={uniqueKey} style={{ marginBottom: index < sortedMessages.length - 1 ? '24px' : '0', paddingBottom: index < sortedMessages.length - 1 ? '24px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                  <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? '16px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                     <div className="mail-detail-header">
                       <div className="mail-detail-top">
                         <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
@@ -2685,7 +2699,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 );})}
               </div>
             ) : selectedUnassignedThread ? (
-              <div className="mail-detail">
+              <div className="mail-detail" ref={mailDetailRef}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 0', marginBottom: '24px' }}>
                   <h3 className="mail-detail-subject" style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>
                     {selectedUnassignedThread.subject}
@@ -2790,7 +2804,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 ).map((message, index, sortedMessages) => {
                   const uniqueKey = `unassigned-${message.messageId}-${index}`;
                   return (
-                  <div key={uniqueKey} style={{ marginBottom: index < sortedMessages.length - 1 ? '24px' : '0', paddingBottom: index < sortedMessages.length - 1 ? '24px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                  <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? '16px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                     <div className="mail-detail-header">
                       <div className="mail-detail-top">
                         <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
@@ -3389,7 +3403,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 )}
               </div>
             ) : selectedAllMessagesThread ? (
-              <div className="mail-detail">
+              <div className="mail-detail" ref={mailDetailRef}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 0', marginBottom: '24px' }}>
                   <h3 className="mail-detail-subject" style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>
                     {selectedAllMessagesThread.subject}
@@ -3494,7 +3508,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 ).map((message, index, sortedMessages) => {
                   const uniqueKey = `all-${message.messageId}-${index}`;
                   return (
-                  <div key={uniqueKey} style={{ marginBottom: index < sortedMessages.length - 1 ? '24px' : '0', paddingBottom: index < sortedMessages.length - 1 ? '24px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                  <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? '16px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                     <div className="mail-detail-header">
                       <div className="mail-detail-top">
                         <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>

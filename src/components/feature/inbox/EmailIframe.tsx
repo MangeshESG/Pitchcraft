@@ -80,12 +80,13 @@ const EmailIframe: React.FC<EmailIframeProps> = ({ html }) => {
     const resize = () => {
       try {
         const doc = frame.contentDocument || frame.contentWindow?.document;
-        if (!doc) return;
-        const h = Math.max(
-          doc.documentElement?.scrollHeight ?? 0,
-          doc.body?.scrollHeight ?? 0,
-          80,
-        );
+        if (!doc || !doc.body) return;
+        // Measure the <body> only. `documentElement.scrollHeight` is
+        // max(viewport height, content height), so once the iframe is
+        // sized to the 600px placeholder it never reports a smaller
+        // value. <body> has no explicit height, so it always reflects
+        // the actual content height.
+        const h = Math.max(doc.body.scrollHeight, doc.body.offsetHeight, 80);
         frame.style.height = h + 'px';
       } catch { /* cross-origin guard */ }
     };

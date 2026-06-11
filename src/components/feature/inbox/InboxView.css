@@ -17,7 +17,7 @@
 /* ============ OUTER SHELL ============ */
 .inbox-workspace {
   position: relative;
-  height: calc(100vh - 120px);
+  height: calc(100vh - 100px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -27,6 +27,12 @@
   padding: 0;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+/* The "gap-down" wrapper adds a 20px bottom margin meant for normal pages,
+   which leaves a dead strip below the inbox. Reclaim it for the inbox panes. */
+.login-box.gap-down:has(.inbox-workspace) {
+  margin-bottom: 0;
 }
 
 /* ============ EMPTY STATE ============ */
@@ -58,11 +64,11 @@
   display: flex;
   flex: 1;
   overflow: hidden;
-  height: calc(100vh - 150px);
+  height: calc(100vh - 130px);
 }
 .inbox-grid {
   display: grid !important;
-  height: calc(100vh - 120px);
+  height: calc(100vh - 100px);
   min-height: 0;
   overflow: hidden;
   transition: grid-template-columns 0.2s ease;
@@ -355,12 +361,37 @@
 
 /* ============ READING PANE ============ */
 .read-pane {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   background: #fff;
   overflow: hidden;
+}
+
+/* Floating button that scrolls the open email to its bottom */
+.scroll-to-bottom-btn {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--green);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  z-index: 10;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.scroll-to-bottom-btn:hover {
+  background: var(--green-dark);
+  transform: translateY(-2px);
 }
 
 .read-empty {

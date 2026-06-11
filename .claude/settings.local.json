@@ -47,7 +47,9 @@
       "Skill(run:*)",
       "Bash(netstat -ano)",
       "Bash(chromium-cli --session bp)",
-      "Bash(dir \"src\\\\assets\\\\images\\\\Custom_field_new_user.png\")"
+      "Bash(dir \"src\\\\assets\\\\images\\\\Custom_field_new_user.png\")",
+      "Bash(curl -sf http://localhost:3000 -o /dev/null -w \"%{http_code}\\\\n\" --max-time 3)",
+      "Bash(git stash *)"
     ]
   }
 }
