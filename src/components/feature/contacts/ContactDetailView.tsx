@@ -36,6 +36,7 @@ import { Pin, PinOff } from 'lucide-react';
 import CommonSidePanel from '../../common/CommonSidePanel';
 import ContactQA from "./ContactQA";
 import { pinEmail } from "../inbox/inboxPin";
+import { repairAndParseJsonObject } from "../../../utils/jsonRepair";
 
 
 interface Contact {
@@ -70,15 +71,10 @@ interface ContactDetailViewProps {
 }
 
 const ResearchCards: React.FC<{ content: string }> = ({ content }) => {
-  let data: Record<string, any> | null = null;
-  try {
-    const clean = content.replace(/^```json\s*/i, "").replace(/\s*```$/, "").trim();
-    const parsed = JSON.parse(clean);
-    data = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
-  } catch {
+  const data = repairAndParseJsonObject(content);
+  if (!data) {
     return <pre style={{ fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 12, background: "#f8fafc", borderRadius: 8, border: "1px solid #e8eaee" }}>{content}</pre>;
   }
-  if (!data) return null;
 
   const cardStyle: React.CSSProperties = { background: "#fff", borderRadius: 12, border: "1px solid #e8eaee", padding: "14px 16px" };
   const iconMap: Record<string, string> = {

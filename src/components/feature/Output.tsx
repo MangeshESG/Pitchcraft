@@ -30,6 +30,7 @@ import LoadingSpinner from "../common/LoadingSpinner";
 import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus    } from "@fortawesome/free-regular-svg-icons";
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 import { KraftEmailEmptyState, KraftLoadingState, KraftCampaignSelectState } from "./Output.new";
+import { repairAndParseJsonObject } from "../../utils/jsonRepair";
 
 // In Output.tsx
 interface ZohoClient {
@@ -312,24 +313,15 @@ const OutputLogBanner: React.FC<{
 };
 
 const WebResearchCards: React.FC<{ content: string }> = ({ content }) => {
-  let data: Record<string, any> | null = null;
+  const data = repairAndParseJsonObject(content);
 
-  try {
-    const clean = content
-      .replace(/^```json\s*/i, '')
-      .replace(/\s*```$/, '')
-      .trim();
-    const parsed = JSON.parse(clean);
-    data = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
-  } catch {
+  if (!data) {
     return (
       <div style={{ padding: '10px', border: '1px solid #e8eaee', borderRadius: '8px', lineHeight: 1.6, fontSize: '13px' }}>
         <ReactMarkdown>{content}</ReactMarkdown>
       </div>
     );
   }
-
-  if (!data) return null;
 
   const cardStyle: React.CSSProperties = {
     background: '#fff', borderRadius: '12px', border: '1px solid #e8eaee', padding: '16px 18px',
