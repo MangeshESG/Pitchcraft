@@ -29,7 +29,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import LoadingSpinner from "../common/LoadingSpinner";
 import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus    } from "@fortawesome/free-regular-svg-icons";
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
-import { KraftEmailEmptyState, KraftReadyState, KraftLoadingState } from "./Output.new";
+import { KraftEmailEmptyState, KraftLoadingState, KraftCampaignSelectState } from "./Output.new";
 
 // In Output.tsx
 interface ZohoClient {
@@ -2296,6 +2296,16 @@ useEffect(() => {
     return <KraftEmailEmptyState onGoToBlueprints={onGoToBlueprints} />;
   }
 
+  if (!selectedCampaign) {
+    return (
+      <KraftCampaignSelectState
+        campaigns={campaigns}
+        selectedCampaign={selectedCampaign}
+        handleCampaignChange={handleCampaignChange}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen" style={{ background: '#f3f4f6' }}>
       {/* PAGE HEADER */}
@@ -2582,10 +2592,10 @@ useEffect(() => {
 
           {/* RIGHT PANEL */}
           <div ref={editableArea} className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: '#e8eaee', position: 'relative' }}>
-            {/* Right-panel overlay: loading contacts OR no campaign selected */}
-            {(isFetchingContacts || !selectedCampaign) && (
+            {/* Right-panel overlay: loading contacts */}
+            {isFetchingContacts && (
               <div style={{ position: 'absolute', inset: 0, background: '#fff', zIndex: 10, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '48px' }}>
-                {isFetchingContacts ? <KraftLoadingState /> : <KraftReadyState />}
+                <KraftLoadingState />
               </div>
             )}
             {/* Output log - one-liner with expand toggle */}
