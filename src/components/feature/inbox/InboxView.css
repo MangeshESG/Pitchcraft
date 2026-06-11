@@ -306,7 +306,133 @@
   color: var(--faint);
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+.mail-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
+  flex-shrink: 0;
+}
+
+.mail-pin-button {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.mail-pin-button:hover:not(:disabled) {
+  background: #f3f4f6;
+  color: #3f9f42;
+}
+
+.mail-pin-button.pinned {
+  color: #3f9f42;
+  cursor: pointer;
+}
+
+.mail-pin-button:disabled {
+  opacity: 0.85;
+}
+
+.mail-pinned-indicator {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #3f9f42;
+  flex-shrink: 0;
+}
+
+.mail-action-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.mail-action-button {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.mail-action-button:hover {
+  background: #f3f4f6;
+  color: #3f9f42;
+}
+
+.mail-action-menu {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  min-width: 150px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(16,24,40,.12);
+  z-index: 150;
+}
+
+.mail-action-menu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.mail-action-menu button svg {
+  color: #3f9f42;
+  flex-shrink: 0;
+}
+
+.mail-action-menu button .svg-inline--fa {
+  color: #3f9f42;
+  flex-shrink: 0;
+}
+
+.mail-action-menu button:hover:not(:disabled) {
+  background: var(--line-2);
+}
+
+.mail-action-menu button.danger {
+  color: #3f9f42;
+}
+
+.mail-action-menu button.danger:hover:not(:disabled) {
+  background: var(--line-2);
+}
+
+.mail-action-menu button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 .mail-subject {
   font-size: 13.5px;

@@ -29,13 +29,13 @@ import "react-quill/dist/quill.snow.css";
 import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
 import RichTextEditor from '../../common/RTEEditor';
 import LoadingSpinner from '../../common/LoadingSpinner';
-import deleteIcon from "../../../assets/images/deleteiconn.png";
 
 import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
 import { Pin, PinOff } from 'lucide-react';
 
 import CommonSidePanel from '../../common/CommonSidePanel';
 import ContactQA from "./ContactQA";
+import { pinEmail } from "../inbox/inboxPin";
 
 
 interface Contact {
@@ -191,7 +191,13 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
-  const [expandedReplies, setExpandedReplies] = useState<{ [key: string]: boolean }>({});
+  const [emailActionsAnchor, setEmailActionsAnchor] = useState<string | null>(null);
+  const [emailDeleteOptionsAnchor, setEmailDeleteOptionsAnchor] = useState<string | null>(null);
+  const [emailToDelete, setEmailToDelete] = useState<any | null>(null);
+  const [showEmailDeleteModal, setShowEmailDeleteModal] = useState(false);
+  const [pendingEmailDeleteMode, setPendingEmailDeleteMode] = useState<"soft" | "Permanent">("soft");
+  const [isDeletingEmail, setIsDeletingEmail] = useState(false);
+  const [pinningEmailId, setPinningEmailId] = useState<string | null>(null);
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
@@ -462,6 +468,67 @@ useEffect(() => {
     fontSize: "14px",
     background: "#f9fafb",
   };
+
+  const getMessageTime = (message: any) =>
+    new Date(message?.date || message?.sentAt || message?.receiveAt || 0).getTime();
+
+  const normalizeConversationThread = (conversation: any) => {
+    const sortedMessages = [...(conversation.messages || [])].sort(
+      (a: any, b: any) => getMessageTime(a) - getMessageTime(b)
+    );
+    const latestMessage = sortedMessages[sortedMessages.length - 1] || {};
+    const threadDate = conversation.lastMessageDate || latestMessage.date;
+    const latestType = String(latestMessage.type || "").toLowerCase();
+    const isInboxThread = latestType !== "sent";
+    const primaryMessage = latestMessage;
+
+    return {
+      ...conversation,
+      trackingId: conversation.trackingId || latestMessage.messageId || `${conversation.contactId}-${threadDate}`,
+      subject: conversation.subject || latestMessage.subject,
+      body: primaryMessage?.body,
+      sentAt: threadDate,
+      receiveAt: threadDate,
+      senderEmailId: latestMessage.fromEmail,
+      fromEmail: latestMessage.fromEmail || conversation.contactEmail,
+      toEmail: latestMessage.toEmail,
+      emailType: isInboxThread ? "inbox" : "sent",
+      messages: sortedMessages,
+      replies: sortedMessages.filter((message: any) => message !== primaryMessage),
+      contactName: latestMessage.contactName,
+    };
+  };
+
+  const normalizeEmailTimeline = (data: any) => {
+    if (Array.isArray(data?.conversations) && data.conversations.length > 0) {
+      return data.conversations
+        .map(normalizeConversationThread)
+        .sort((a: any, b: any) => {
+          const dateA = new Date(a.sentAt || a.receiveAt || 0).getTime();
+          const dateB = new Date(b.sentAt || b.receiveAt || 0).getTime();
+          return dateB - dateA;
+        });
+    }
+
+    const sentEmails = (data?.emails || []).map((email: any) => ({
+      ...email,
+      emailType: "sent",
+    }));
+
+    const inboxEmails = (data?.inboxemails || []).map((email: any) => ({
+      ...email,
+      emailType: "inbox",
+      sentAt: email.receiveAt,
+      senderEmailId: email.fromEmail,
+    }));
+
+    return [...sentEmails, ...inboxEmails].sort((a, b) => {
+      const dateA = new Date(a.sentAt || a.receiveAt || 0).getTime();
+      const dateB = new Date(b.sentAt || b.receiveAt || 0).getTime();
+      return dateB - dateA;
+    });
+  };
+
   const fetchEmailTimeline = async (contactId: number) => {
     if (!contactId) return;
 
@@ -485,27 +552,7 @@ useEffect(() => {
           : prev
       );
 
-      // ✅ Merge sent emails and inbox emails into single timeline
-      const sentEmails = (data.emails || []).map((email: any) => ({
-        ...email,
-        emailType: 'sent'
-      }));
-      
-      const inboxEmails = (data.inboxemails || []).map((email: any) => ({
-        ...email,
-        emailType: 'inbox',
-        sentAt: email.receiveAt, // Map receiveAt to sentAt for consistency
-        senderEmailId: email.fromEmail
-      }));
-      
-      // Combine and sort by date (newest first)
-      const allEmails = [...sentEmails, ...inboxEmails].sort((a, b) => {
-        const dateA = new Date(a.sentAt || a.receiveAt).getTime();
-        const dateB = new Date(b.sentAt || b.receiveAt).getTime();
-        return dateB - dateA;
-      });
-      
-      setEmailTimeline(allEmails);
+      setEmailTimeline(normalizeEmailTimeline(data));
       setNotesHistory(data.notes || []); // ✅ Set notes from timeline API
       setAttachmentsHistory(data.attachments || []); // ✅ Set attachments from timeline API
     } catch (err) {
@@ -542,11 +589,410 @@ useEffect(() => {
     );
   };
 
-  const toggleReplies = (trackingId: string) => {
-    setExpandedReplies(prev => ({
-      ...prev,
-      [trackingId]: !prev[trackingId]
-    }));
+  const formatAttachmentSize = (bytes?: number) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleEmailAttachmentDownload = async (attachment: any) => {
+    if (!attachment?.id) return;
+
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/Inbox/download/${attachment.id}`,
+        {
+          headers: {
+            accept: "*/*",
+          },
+          responseType: "blob",
+        }
+      );
+
+      const contentDisposition = response.headers["content-disposition"];
+      let filename = attachment.originalFileName || attachment.fileName || "download";
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^'"\s]+)['"]?/i);
+        if (filenameMatch) {
+          filename = decodeURIComponent(filenameMatch[1]);
+        }
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download email attachment", error);
+      setToastMessage("Failed to download attachment.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 3000);
+    }
+  };
+
+  const renderMessageAttachments = (attachments?: any[]) => {
+    if (!attachments || attachments.length === 0) return null;
+
+    return (
+      <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {attachments.map((attachment, index) => {
+          const fileName = attachment.originalFileName || attachment.fileName || `Attachment ${index + 1}`;
+          const fileSize = formatAttachmentSize(attachment.fileSize);
+
+          return (
+            <button
+              key={`${attachment.id || attachment.filePath || fileName}-${index}`}
+              type="button"
+              onClick={() => handleEmailAttachmentDownload(attachment)}
+              disabled={!attachment.id}
+              title={fileName}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                maxWidth: "100%",
+                padding: "8px 10px",
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+                color: "#1f2937",
+                background: "#fff",
+                fontSize: 13,
+                cursor: attachment.id ? "pointer" : "not-allowed",
+              }}
+            >
+              <FontAwesomeIcon icon={faPaperclip} style={{ color: "#3f9f42", flexShrink: 0 }} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {fileName}
+              </span>
+              {fileSize && <span style={{ color: "#6b7280", flexShrink: 0 }}>{fileSize}</span>}
+              <FontAwesomeIcon icon={faDownload} style={{ color: "#6b7280", flexShrink: 0 }} />
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const getEmailPreviewMessages = (email: any) => {
+    if (Array.isArray(email.messages) && email.messages.length > 0) {
+      return email.messages;
+    }
+
+    return [
+      {
+        type: email.emailType === "sent" ? "Sent" : "Reply",
+        messageId: email.trackingId,
+        subject: email.subject,
+        body: email.body,
+        fromEmail: email.fromEmail || email.senderEmailId,
+        toEmail: email.toEmail,
+        date: email.sentAt || email.receiveAt,
+        attachments: email.attachments || [],
+      },
+    ];
+  };
+
+  const renderEmailPreview = (email: any) => {
+    const messages = getEmailPreviewMessages(email);
+
+    return (
+      <div
+        className="textarea-full-height preview-content-area"
+        style={{
+          minHeight: "500px",
+          padding: "10px",
+          border: "1px solid #ccc",
+          borderRadius: "4px",
+          fontFamily: "inherit",
+          fontSize: "inherit",
+          whiteSpace: "normal",
+          overflowY: "auto",
+          overflowX: "auto",
+          boxSizing: "border-box",
+          wordWrap: "break-word",
+          width: "100%",
+          maxWidth: "100%",
+          background: "white",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+        }}
+      >
+        {messages.map((message: any, messageIndex: number) => (
+          <div
+            key={message.messageId || `${email.trackingId}-${messageIndex}`}
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 6,
+              background: "#fff",
+              maxWidth: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "10px 12px",
+                borderBottom: "1px solid #e5e7eb",
+                background: "#f9fafb",
+                color: "#374151",
+                fontSize: 13,
+              }}
+            >
+              {message.type && (
+                <div style={{ fontSize: 12, color: "#3f9f42", fontWeight: 700, marginBottom: 4 }}>
+                  {message.type}
+                </div>
+              )}
+              <div style={{ fontWeight: 700, color: "#111827", wordBreak: "break-word" }}>
+                {message.subject || email.subject || "No subject"}
+              </div>
+              <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+                {message.fromEmail && <span>From: {message.fromEmail}</span>}
+                {message.toEmail && <span>To: {message.toEmail}</span>}
+                {(message.date || email.sentAt || email.receiveAt) && (
+                  <span>{formatDateTimeIST(message.date || email.sentAt || email.receiveAt)}</span>
+                )}
+              </div>
+            </div>
+            <div
+              style={{
+                padding: 12,
+                maxWidth: "100%",
+                overflowX: "auto",
+                fontSize: 14,
+                lineHeight: 1.5,
+                color: "#374151",
+              }}
+              dangerouslySetInnerHTML={{
+                __html: message.body || "<p>No email body available</p>",
+              }}
+            />
+            <div style={{ padding: "0 12px 12px" }}>
+              {renderMessageAttachments(message.attachments)}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const isEmailPinned = (email: any) => Boolean(email?.isPinned ?? email?.isPin);
+
+  const handleToggleEmailPin = async (email: any) => {
+    if (!effectiveUserId || !email?.trackingId) return;
+
+    const nextPinned = !isEmailPinned(email);
+    setPinningEmailId(email.trackingId);
+    setEmailActionsAnchor(null);
+
+    try {
+      const response = await pinEmail(String(effectiveUserId), email.trackingId, null);
+
+      if (response.data?.success === false) {
+        throw new Error(response.data?.message || "Failed to update email pin");
+      }
+
+      setEmailTimeline((prev) =>
+        prev.map((item) =>
+          item.trackingId === email.trackingId
+            ? { ...item, isPinned: nextPinned, isPin: nextPinned }
+            : item
+        )
+      );
+      setToastMessage(nextPinned ? "Email was pinned" : "Email was unpinned");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 2500);
+    } catch (error) {
+      console.error("Failed to update email pin", error);
+      setToastMessage("Failed to update email pin.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 3000);
+    } finally {
+      setPinningEmailId(null);
+    }
+  };
+
+  const handleEmailDelete = (email: any, deleteMode: "soft" | "Permanent") => {
+    setEmailActionsAnchor(null);
+    setEmailDeleteOptionsAnchor(null);
+    setEmailToDelete(email);
+    setPendingEmailDeleteMode(deleteMode);
+    setShowEmailDeleteModal(true);
+  };
+
+  const deleteEmail = async (email: any, deleteMode: "soft" | "Permanent") => {
+    if (!effectiveUserId || !email?.trackingId) return;
+
+    setIsDeletingEmail(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Inbox/delete-conversation`,
+        {
+          TrackingIds: [email.trackingId],
+          deleteMode,
+          clientid: Number(effectiveUserId),
+        },
+        {
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.data?.success === false) {
+        throw new Error(response.data?.message || "Failed to delete email");
+      }
+
+      setEmailTimeline((prev) => prev.filter((item) => item.trackingId !== email.trackingId));
+      setExpandedEmailId((prev) => (prev === email.trackingId ? null : prev));
+      setShowEmailDeleteModal(false);
+      setEmailToDelete(null);
+      setToastMessage(deleteMode === "Permanent" ? "Email deleted permanently" : "Email moved to trash");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 2500);
+    } catch (error) {
+      console.error("Failed to delete email", error);
+      setToastMessage("Failed to delete email.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 3000);
+    } finally {
+      setIsDeletingEmail(false);
+    }
+  };
+
+  const confirmEmailDelete = () => {
+    if (!emailToDelete) return;
+    deleteEmail(emailToDelete, pendingEmailDeleteMode);
+  };
+
+  const renderEmailActions = (email: any) => {
+    const pinned = isEmailPinned(email);
+    const isPinning = pinningEmailId === email.trackingId;
+
+    return (
+      <div style={{ position: "absolute", top: 0, right: 0, zIndex: 10 }}>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            const nextAnchor = emailActionsAnchor === email.trackingId ? null : email.trackingId;
+            setEmailActionsAnchor(nextAnchor);
+            setEmailDeleteOptionsAnchor(null);
+          }}
+          style={{
+            border: "none",
+            background: "#ebebeb",
+            borderRadius: "50%",
+            width: 32,
+            height: 32,
+            cursor: "pointer",
+          }}
+          title="Email actions"
+        >
+          <FontAwesomeIcon icon={faEllipsisV} />
+        </button>
+
+        {emailActionsAnchor === email.trackingId && (
+          <div
+            style={{
+              position: "absolute",
+              right: 0,
+              top: 38,
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 8,
+              boxShadow: "0 10px 24px rgba(0,0,0,0.12)",
+              zIndex: 30,
+              minWidth: 150,
+              overflow: "hidden",
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => handleToggleEmailPin(email)}
+              disabled={isPinning}
+              style={menuBtnStyle}
+              className="flex gap-2 items-center"
+            >
+              <div style={menuIconStyle}>
+                {pinned ? (
+                  <PinOff size={19} color="#3f9f42" strokeWidth={2.5} />
+                ) : (
+                  <Pin size={21} color="#3f9f42" strokeWidth={2} />
+                )}
+              </div>
+              <span className="font-[600]" style={{ color: "#3f9f42" }}>
+                {isPinning ? "Updating..." : pinned ? "Unpin" : "Pin"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setEmailDeleteOptionsAnchor(
+                  emailDeleteOptionsAnchor === email.trackingId ? null : email.trackingId
+                );
+              }}
+              style={menuBtnStyle}
+              className="flex gap-2 items-center"
+            >
+              <div style={menuIconStyle}>
+                <FontAwesomeIcon
+                  icon={faTrashAlt}
+                  style={{ color: "#3f9f42", fontSize: 18 }}
+                />
+              </div>
+              <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete</span>
+              <span style={{ marginLeft: "auto", color: "#6b7280", fontSize: 12 }}>
+                <FontAwesomeIcon icon={faAngleRight} />
+              </span>
+            </button>
+
+            {emailDeleteOptionsAnchor === email.trackingId && (
+              <div
+                style={{
+                  borderTop: "1px solid #e5e7eb",
+                  background: "#fff",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleEmailDelete(email, "soft");
+                  }}
+                  style={{ ...menuBtnStyle, paddingLeft: 42 }}
+                  className="flex gap-2 items-center"
+                >
+                  <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete from Inbox</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleEmailDelete(email, "Permanent");
+                  }}
+                  style={{ ...menuBtnStyle, paddingLeft: 42 }}
+                  className="flex gap-2 items-center"
+                >
+                  <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete permanently</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
   //IST Formatter
   // const formatDateTimeIST = (dateString?: string) => {
@@ -1832,7 +2278,7 @@ dispatch(closePanel());
                             if (item.type === "email") {
                               const email = item.data;
                               const isInboxEmail = email.emailType === 'inbox';
-
+                              const threadMessageCount = email.messages?.length || 0;
                               return (
                                 <div key={email.trackingId || index} style={{ marginBottom: 24 }}>
                                   {/* Row: timeline dot + content */}
@@ -1867,7 +2313,8 @@ dispatch(closePanel());
                                     </div>
 
                                     {/* Content */}
-                                    <div style={{ flex: 1 }}>
+                                    <div style={{ flex: 1, position: "relative", paddingRight: 44 }}>
+                                      {renderEmailActions(email)}
                                       {/* Source */}
                                       {!isInboxEmail && (
                                         <div style={{ fontSize: 13, marginBottom: 6 }}>
@@ -1878,7 +2325,7 @@ dispatch(closePanel());
 
                                       {/* Email sent/received */}
                                       <div style={{ fontWeight: 600 }}>
-                                        {isInboxEmail ? "Email received" : "Email sent"}
+                                        {threadMessageCount > 1 ? "Email thread" : isInboxEmail ? "Email received" : "Email sent"}
                                       </div>
                                       <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
                                         {formatDateTimeIST(email.sentAt || email.receiveAt)}
@@ -1910,6 +2357,11 @@ dispatch(closePanel());
                                         <div>
                                           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Subject</div>
                                           <div style={{ color: "#666", fontSize: 13 }}>{email.subject || "No subject"}</div>
+                                          {threadMessageCount > 1 && (
+                                            <div style={{ color: "#6b7280", fontSize: 12, marginTop: 4 }}>
+                                              {threadMessageCount} messages in this thread
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -1929,82 +2381,7 @@ dispatch(closePanel());
                                     </span>
                                   </div>
 
-                                  {/* Email body — OUTSIDE the flex row */}
-                                  {expandedEmailId === email.trackingId && (
-                                    <div
-                                      className="textarea-full-height preview-content-area"
-                                      style={{
-                                        minHeight: "500px",
-                                        padding: "10px",
-                                        border: "1px solid #ccc",
-                                        borderRadius: "4px",
-                                        fontFamily: "inherit",
-                                        fontSize: "inherit",
-
-                                        whiteSpace: "normal",        // ✅ CRITICAL
-                                        overflowY: "auto",
-                                        overflowX: "auto",
-                                        boxSizing: "border-box",
-                                        wordWrap: "break-word",
-
-                                        width: "100%",
-                                        maxWidth: "100%",            // or simulate device if needed
-                                        background: "white",
-                                      }}
-                                      dangerouslySetInnerHTML={{
-                                        __html: email.body || "<p>No email body available</p>",
-                                      }}
-                                    />
-                                  )}
-
-                                  {/* Replies Section */}
-                                  {email.replies && email.replies.length > 0 && (
-                                    <>
-                                      <div
-                                        className={`email-preview-toggle ${expandedReplies[email.trackingId] ? "submenu-open" : ""}`}
-                                        onClick={() => toggleReplies(email.trackingId)}
-                                        style={{ marginTop: 15, cursor: "pointer" }}
-                                      >
-                                        <span>
-                                          {expandedReplies[email.trackingId] ? "Hide replies" : `Show replies (${email.replies.length})`}
-                                        </span>
-                                        <span className="submenu-arrow">
-                                          <FontAwesomeIcon icon={faAngleRight} />
-                                        </span>
-                                      </div>
-
-                                      {expandedReplies[email.trackingId] && (
-                                        <div style={{ marginTop: 16, marginLeft: 26, borderLeft: "2px solid #e5e7eb", paddingLeft: 16 }}>
-                                          {email.replies.map((reply: any, replyIndex: number) => (
-                                            <div key={reply.id || replyIndex} style={{ marginBottom: 16, background: "#f9fafb", padding: 12, borderRadius: 8 }}>
-                                              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                                                From: {reply.fromEmail}
-                                              </div>
-                                              <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
-                                                {formatDateTimeIST(reply.date)}
-                                              </div>
-                                              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                                                Subject: {reply.subject}
-                                              </div>
-                                              <div
-                                                style={{
-                                                  fontSize: 13,
-                                                  color: "#374151",
-                                                  whiteSpace: "pre-wrap",
-                                                  wordWrap: "break-word",
-                                                  marginTop: 8,
-                                                  padding: 8,
-                                                  background: "#fff",
-                                                  borderRadius: 4,
-                                                }}
-                                                dangerouslySetInnerHTML={{ __html: reply.body || "<p>No reply content</p>" }}
-                                              />
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </>
-                                  )}
+                                  {expandedEmailId === email.trackingId && renderEmailPreview(email)}
 
                                 </div>
 
@@ -2329,6 +2706,7 @@ dispatch(closePanel());
                       {(historyFilter === "emails") &&
                         emailTimeline.map((email: any, index: number) => {
                           const isInboxEmail = email.emailType === 'inbox';
+                          const threadMessageCount = email.messages?.length || 0;
                           
                           return (
                           <div key={email.trackingId || index}>
@@ -2363,7 +2741,8 @@ dispatch(closePanel());
                               </div>
 
                               {/* Content */}
-                              <div style={{ flex: 1 }}>
+                              <div style={{ flex: 1, position: "relative", paddingRight: 44 }}>
+                                {renderEmailActions(email)}
                                 {/* 2️⃣ SOURCE - Only show for sent emails */}
                                 {!isInboxEmail && (
                                   <div style={{ fontSize: 13, marginBottom: 6 }}>
@@ -2376,7 +2755,7 @@ dispatch(closePanel());
 
                                 {/* 3️⃣ EMAIL SENT/RECEIVED */}
                                 <div style={{ fontWeight: 600 }}>
-                                  {isInboxEmail ? "Email received" : "Email sent"}
+                                  {threadMessageCount > 1 ? "Email thread" : isInboxEmail ? "Email received" : "Email sent"}
                                 </div>
                                 <div
                                   style={{
@@ -2445,6 +2824,11 @@ dispatch(closePanel());
                                     <div style={{ color: "#666", fontSize: 13 }}>
                                       {email.subject || "No subject"}
                                     </div>
+                                    {threadMessageCount > 1 && (
+                                      <div style={{ color: "#6b7280", fontSize: 12, marginTop: 4 }}>
+                                        {threadMessageCount} messages in this thread
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -2467,81 +2851,7 @@ dispatch(closePanel());
                               </span>
                             </div>
 
-                          {expandedEmailId === email.trackingId && (
-                            <div
-                              className="textarea-full-height preview-content-area"
-                              style={{
-                                minHeight: "500px",
-                                padding: "10px",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px",
-                                fontFamily: "inherit",
-                                fontSize: "inherit",
-
-                                whiteSpace: "normal",        // ✅ CRITICAL
-                                overflowY: "auto",
-                                overflowX: "auto",
-                                boxSizing: "border-box",
-                                wordWrap: "break-word",
-
-                                width: "100%",
-                                maxWidth: "100%",            // or simulate device if needed
-                                background: "white",
-                              }}
-                              dangerouslySetInnerHTML={{
-                                __html: email.body || "<p>No email body available</p>",
-                              }}
-                            />
-                          )}
-
-                          {/* Replies Section for Email Filter */}
-                          {email.replies && email.replies.length > 0 && (
-                            <>
-                              <div
-                                className={`email-preview-toggle ${expandedReplies[email.trackingId] ? "submenu-open" : ""}`}
-                                onClick={() => toggleReplies(email.trackingId)}
-                                style={{ marginTop: 15, cursor: "pointer" }}
-                              >
-                                <span>
-                                  {expandedReplies[email.trackingId] ? "Hide replies" : `Show replies (${email.replies.length})`}
-                                </span>
-                                <span className="submenu-arrow">
-                                  <FontAwesomeIcon icon={faAngleRight} />
-                                </span>
-                              </div>
-
-                              {expandedReplies[email.trackingId] && (
-                                <div style={{ marginTop: 16, marginLeft: 26, borderLeft: "2px solid #e5e7eb", paddingLeft: 16 }}>
-                                  {email.replies.map((reply: any, replyIndex: number) => (
-                                    <div key={reply.id || replyIndex} style={{ marginBottom: 16, background: "#f9fafb", padding: 12, borderRadius: 8 }}>
-                                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                                        From: {reply.fromEmail}
-                                      </div>
-                                      <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
-                                        {formatDateTimeIST(reply.date)}
-                                      </div>
-                                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                                        Subject: {reply.subject}
-                                      </div>
-                                      <div
-                                        style={{
-                                          fontSize: 13,
-                                          color: "#374151",
-                                          whiteSpace: "pre-wrap",
-                                          wordWrap: "break-word",
-                                          marginTop: 8,
-                                          padding: 8,
-                                          background: "#fff",
-                                          borderRadius: 4,
-                                        }}
-                                        dangerouslySetInnerHTML={{ __html: reply.body || "<p>No reply content</p>" }}
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </>
-                          )}
+                          {expandedEmailId === email.trackingId && renderEmailPreview(email)}
 
                           </div>
                         );}
@@ -3648,6 +3958,69 @@ dispatch(closePanel());
 
             <button
               onClick={() => setDeletePopupOpen(false)}
+              className="absolute top-4 right-4 text-xl"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      {showEmailDeleteModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (isDeletingEmail) return;
+            setShowEmailDeleteModal(false);
+            setEmailToDelete(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-xl p-6 w-[520px] relative"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold mb-3">Delete email</h2>
+
+            <p className="text-sm text-gray-600 mb-6">
+              {pendingEmailDeleteMode === "Permanent"
+                ? "Are you sure you want to permanently delete this email?"
+                : "Are you sure you want to move this email to trash?"}
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEmailDeleteModal(false);
+                  setEmailToDelete(null);
+                }}
+                disabled={isDeletingEmail}
+                className="px-5 py-2 rounded-full bg-black text-white disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmEmailDelete}
+              disabled={isDeletingEmail}
+              className="px-5 py-2 rounded-full bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+            >
+                {isDeletingEmail
+                  ? "Deleting..."
+                  : pendingEmailDeleteMode === "Permanent"
+                    ? "Delete permanently"
+                    : "Delete from Inbox"}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (isDeletingEmail) return;
+                setShowEmailDeleteModal(false);
+                setEmailToDelete(null);
+              }}
               className="absolute top-4 right-4 text-xl"
             >
               ✕

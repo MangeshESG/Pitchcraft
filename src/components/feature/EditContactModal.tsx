@@ -21,6 +21,7 @@ import {
   faFileAlt,
   faGear,
   faList,
+  faPaperclip,
   faRobot,
   faThumbtack, // Add this for Campaign Builder
   faAngleDown,
@@ -28,6 +29,7 @@ import {
 import { useAppModal } from '../../hooks/useAppModal';
 import RichTextEditor from './../common/RTEEditor';
 import AccordionSection from '../common/accordion/Accordion';
+import AppModal from '../common/AppModal';
 import deleteIcon from "../../assets/images/deleteiconn.png";
 import gpsPin from "../../assets/images/Unpin.png";
 import pinimage from "../../assets/images/pin.png";
@@ -36,6 +38,7 @@ import { Pin, PinOff } from 'lucide-react';
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 import CommonSidePanel from '../common/CommonSidePanel';
 import { closePanel, openPanel } from '../../slices/panelSlice';
+import { pinEmail } from './inbox/inboxPin';
 
 interface Contact {
   id: number;
@@ -86,6 +89,42 @@ interface Note {
   createdByEmail?: string;
   isPin: boolean;
   isUseInGenration: boolean;
+}
+
+interface PinnedEmailMessage {
+  type?: string;
+  messageId?: string;
+  subject?: string;
+  body?: string;
+  fromEmail?: string;
+  toEmail?: string;
+  date?: string;
+  isRead?: boolean;
+  contactId?: number | null;
+  contactName?: string;
+  attachments?: PinnedEmailAttachment[];
+}
+
+interface PinnedEmailAttachment {
+  id?: number;
+  messageId?: string;
+  fileName?: string;
+  originalFileName?: string;
+  contentType?: string;
+  filePath?: string;
+  fileSize?: number;
+}
+
+interface PinnedEmailThread {
+  trackingId: string;
+  subject: string;
+  contactEmail?: string | null;
+  totalMessages: number;
+  lastMessageDate: string;
+  hasUnread: boolean;
+  contactId: number | null;
+  isPinned: boolean;
+  messages?: PinnedEmailMessage[];
 }
 
 
@@ -164,7 +203,16 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
    const [showErrorToast, setShowErrorToast] = useState(false);
    const [linkedInActionsAnchor, setLinkedInActionsAnchor] = useState<boolean>(false);
    const [showLinkedInDeleteModal, setShowLinkedInDeleteModal] = useState(false);
-   const [isDeleteLinkedInLoading, setIsDeleteLinkedInLoading] = useState(false);
+  const [isDeleteLinkedInLoading, setIsDeleteLinkedInLoading] = useState(false);
+  const [pinnedEmails, setPinnedEmails] = useState<PinnedEmailThread[]>([]);
+  const [isLoadingPinnedEmails, setIsLoadingPinnedEmails] = useState(false);
+  const [expandedPinnedEmailIds, setExpandedPinnedEmailIds] = useState<Set<string>>(new Set());
+  const [pinnedEmailActionsAnchor, setPinnedEmailActionsAnchor] = useState<string | null>(null);
+  const [pinnedEmailDeleteOptionsAnchor, setPinnedEmailDeleteOptionsAnchor] = useState<string | null>(null);
+  const [showPinnedEmailDeleteModal, setShowPinnedEmailDeleteModal] = useState(false);
+  const [pinnedEmailToDelete, setPinnedEmailToDelete] = useState<PinnedEmailThread | null>(null);
+  const [pendingPinnedEmailDeleteMode, setPendingPinnedEmailDeleteMode] = useState<"soft" | "Permanent">("soft");
+  const [isDeletingPinnedEmail, setIsDeletingPinnedEmail] = useState(false);
    // 🔥 LinkedIn Summary Character Limit
   const LINKEDIN_SUMMARY_MAX_LENGTH = 10000;
   const LINKEDIN_TRUNCATE_LENGTH = 300;
@@ -761,6 +809,47 @@ case "boolean":
       fetchEmailTimeline(contact.id);
     }
   }, [contact?.id]);
+
+  const fetchPinnedEmails = useCallback(async () => {
+    if (!effectiveUserId || !contact?.id) {
+      setPinnedEmails([]);
+      return;
+    }
+
+    setIsLoadingPinnedEmails(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/Inbox/pinned-emails`, {
+        params: {
+          clientId: effectiveUserId,
+          contactId: contact.id,
+        },
+        headers: {
+          accept: "*/*",
+        },
+      });
+
+      const data = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.data)
+          ? response.data.data
+          : [];
+
+      setPinnedEmails(data);
+      setExpandedPinnedEmailIds(new Set());
+      setPinnedEmailActionsAnchor(null);
+    } catch (error) {
+      console.error("Failed to fetch pinned emails", error);
+      setPinnedEmails([]);
+      setExpandedPinnedEmailIds(new Set());
+      setPinnedEmailActionsAnchor(null);
+    } finally {
+      setIsLoadingPinnedEmails(false);
+    }
+  }, [effectiveUserId, contact?.id]);
+
+  useEffect(() => {
+    fetchPinnedEmails();
+  }, [fetchPinnedEmails]);
   // const fetchNotesHistory = useCallback(async () => {
   //   if (!reduxUserId || !contact?.id) return;
 
@@ -828,6 +917,180 @@ case "boolean":
     () => (notesHistory || []).filter(n => n.isPin),
     [notesHistory]
   );
+
+  const togglePinnedEmailExpand = (trackingId: string) => {
+    setExpandedPinnedEmailIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(trackingId)) {
+        next.delete(trackingId);
+      } else {
+        next.add(trackingId);
+      }
+      return next;
+    });
+  };
+
+  const formatAttachmentSize = (bytes?: number) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleAttachmentDownload = async (attachment: PinnedEmailAttachment) => {
+    if (!attachment.id) return;
+
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/Inbox/download/${attachment.id}`,
+        {
+          headers: {
+            accept: "*/*",
+          },
+          responseType: "blob",
+        }
+      );
+
+      const contentDisposition = response.headers["content-disposition"];
+      let filename = attachment.originalFileName || attachment.fileName || "download";
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^'"\s]+)['"]?/i);
+        if (filenameMatch) {
+          filename = decodeURIComponent(filenameMatch[1]);
+        }
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download pinned email attachment", error);
+      appModal.showError("Failed to download attachment");
+    }
+  };
+
+  const renderMessageAttachments = (attachments?: PinnedEmailAttachment[]) => {
+    if (!attachments || attachments.length === 0) return null;
+
+    return (
+      <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {attachments.map((attachment, index) => {
+          const fileName = attachment.originalFileName || attachment.fileName || `Attachment ${index + 1}`;
+          const fileSize = formatAttachmentSize(attachment.fileSize);
+
+          return (
+            <button
+              key={`${attachment.id || attachment.filePath || fileName}-${index}`}
+              type="button"
+              onClick={() => handleAttachmentDownload(attachment)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                maxWidth: "100%",
+                padding: "8px 10px",
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+                color: "#1f2937",
+                background: "#fff",
+                textDecoration: "none",
+                fontSize: 13,
+                cursor: attachment.id ? "pointer" : "not-allowed",
+              }}
+              title={fileName}
+              disabled={!attachment.id}
+            >
+              <FontAwesomeIcon icon={faPaperclip} style={{ color: "#3f9f42", flexShrink: 0 }} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {fileName}
+              </span>
+              {fileSize && (
+                <span style={{ color: "#6b7280", flexShrink: 0 }}>
+                  {fileSize}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const handlePinnedEmailUnpin = async (email: PinnedEmailThread) => {
+    setPinnedEmailActionsAnchor(null);
+    try {
+      const response = await pinEmail(String(effectiveUserId), email.trackingId, null);
+
+      if (response.data?.success === false) {
+        throw new Error(response.data?.message || "Failed to unpin email");
+      }
+
+      setPinnedEmails((prev) => prev.filter((item) => item.trackingId !== email.trackingId));
+      setToastMessage("Email was unpinned");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 2500);
+    } catch (error) {
+      console.error("Failed to unpin pinned email", error);
+      appModal.showError("Failed to unpin email");
+    }
+  };
+
+  const deletePinnedEmail = async (email: PinnedEmailThread, deleteMode: "soft" | "Permanent") => {
+    setPinnedEmailActionsAnchor(null);
+    setPinnedEmailDeleteOptionsAnchor(null);
+    setIsDeletingPinnedEmail(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Inbox/delete-conversation`,
+        {
+          TrackingIds: [email.trackingId],
+          deleteMode,
+          clientid: Number(effectiveUserId),
+        },
+        {
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.data?.success === false) {
+        throw new Error(response.data?.message || "Failed to delete email");
+      }
+
+      setPinnedEmails((prev) => prev.filter((item) => item.trackingId !== email.trackingId));
+      setShowPinnedEmailDeleteModal(false);
+      setPinnedEmailToDelete(null);
+      setToastMessage(deleteMode === "Permanent" ? "Email deleted permanently" : "Email moved to trash");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 2500);
+    } catch (error) {
+      console.error("Failed to delete pinned email", error);
+      appModal.showError("Failed to delete email");
+    } finally {
+      setIsDeletingPinnedEmail(false);
+    }
+  };
+
+  const handlePinnedEmailDelete = (email: PinnedEmailThread, deleteMode: "soft" | "Permanent") => {
+    setPinnedEmailActionsAnchor(null);
+    setPinnedEmailDeleteOptionsAnchor(null);
+    setPinnedEmailToDelete(email);
+    setPendingPinnedEmailDeleteMode(deleteMode);
+    setShowPinnedEmailDeleteModal(true);
+  };
+
+  const confirmPinnedEmailDelete = () => {
+    if (!pinnedEmailToDelete) return;
+    deletePinnedEmail(pinnedEmailToDelete, pendingPinnedEmailDeleteMode);
+  };
 
   const formatDateTimeIST = formatDateTimeLocal;
    const formatTimeIST = formatTimeLocal;
@@ -1479,6 +1742,260 @@ case "boolean":
           </div>
           )}
 
+          {(isLoadingPinnedEmails || pinnedEmails.length > 0) && (
+            <div className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="text-[#3f9f42]">
+                  <svg className="h-5 w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8-4H8m12 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8l4 3v-3h0a2 2 0 002-2z" />
+                  </svg>
+                </span>
+                <h3 className="text-lg font-semibold text-foreground">Pinned emails ({pinnedEmails.length})</h3>
+              </div>
+
+              {isLoadingPinnedEmails ? (
+                <div style={{ fontSize: 13, color: "#6b7280" }}>Loading pinned emails...</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {pinnedEmails.map((email) => {
+                    const conversationMessages = email.messages || [];
+                    const latestMessage = email.messages?.[email.messages.length - 1];
+                    const isExpandedEmail = expandedPinnedEmailIds.has(email.trackingId);
+                    const hasEmailBody = conversationMessages.some((message) => Boolean(message.body));
+                    const hasAttachments = conversationMessages.some((message) => (message.attachments || []).length > 0);
+
+                    return (
+                      <div
+                        key={email.trackingId}
+                        className="relative rounded-[5px] border border-solid border-[#e5e7eb] border-l-[3px] border-l-[#3f9f42] bg-[#f8fff8] p-4"
+                      >
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 13, color: "#666", marginBottom: 6 }}>
+                              {formatDateTimeIST(email.lastMessageDate)}
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", wordBreak: "break-word" }}>
+                              {email.subject || latestMessage?.subject || "No subject"}
+                            </div>
+                          </div>
+                          <div style={{ position: "relative", flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                const nextAnchor = pinnedEmailActionsAnchor === email.trackingId ? null : email.trackingId;
+                                setPinnedEmailActionsAnchor(nextAnchor);
+                                setPinnedEmailDeleteOptionsAnchor(null);
+                              }}
+                              style={{
+                                border: "none",
+                                background: "#ebebeb",
+                                borderRadius: "50%",
+                                width: 32,
+                                height: 32,
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                              title="Email actions"
+                            >
+                              <FontAwesomeIcon icon={faEllipsisV} />
+                            </button>
+
+                            {pinnedEmailActionsAnchor === email.trackingId && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  right: 0,
+                                  top: 38,
+                                  background: "#fff",
+                                  border: "1px solid #eee",
+                                  borderRadius: 6,
+                                  boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                                  zIndex: 101,
+                                  minWidth: 150,
+                                }}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => handlePinnedEmailUnpin(email)}
+                                  style={menuBtnStyle}
+                                  className="flex gap-2 items-center"
+                                >
+                                  <div style={menuIconStyle}>
+                                    <PinOff size={19} color="#3f9f42" strokeWidth={2.5} />
+                                  </div>
+                                  <span className="font-[600]">Unpin</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setPinnedEmailDeleteOptionsAnchor(
+                                      pinnedEmailDeleteOptionsAnchor === email.trackingId ? null : email.trackingId
+                                    );
+                                  }}
+                                  style={menuBtnStyle}
+                                  className="flex gap-2 items-center"
+                                >
+                                  <div style={menuIconStyle}>
+                                    <FontAwesomeIcon
+                                      icon={faTrashAlt}
+                                      style={{ color: "#3f9f42", fontSize: 18 }}
+                                    />
+                                  </div>
+                                  <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete</span>
+                                </button>
+
+                                {pinnedEmailDeleteOptionsAnchor === email.trackingId && (
+                                  <div
+                                    style={{
+                                      borderTop: "1px solid #e5e7eb",
+                                      background: "#fff",
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        handlePinnedEmailDelete(email, "soft");
+                                      }}
+                                      style={{ ...menuBtnStyle, paddingLeft: 42 }}
+                                      className="flex gap-2 items-center"
+                                    >
+                                      <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete from Inbox</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        handlePinnedEmailDelete(email, "Permanent");
+                                      }}
+                                      style={{ ...menuBtnStyle, paddingLeft: 42 }}
+                                      className="flex gap-2 items-center"
+                                    >
+                                      <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete permanently</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {(latestMessage?.fromEmail || email.contactEmail) && (
+                          <div style={{ marginTop: 8, fontSize: 13, color: "#4b5563", wordBreak: "break-word" }}>
+                            From: {latestMessage?.fromEmail || email.contactEmail}
+                          </div>
+                        )}
+
+                        {(hasEmailBody || hasAttachments) && (
+                          <>
+                            {isExpandedEmail ? (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12 }}>
+                                {conversationMessages.map((message, messageIndex) => (
+                                  <div
+                                    key={message.messageId || `${email.trackingId}-${messageIndex}`}
+                                    style={{
+                                      border: "1px solid #e5e7eb",
+                                      borderRadius: 6,
+                                      background: "#fff",
+                                      maxWidth: "100%",
+                                      overflow: "hidden",
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        padding: "10px 12px",
+                                        borderBottom: "1px solid #e5e7eb",
+                                        background: "#f9fafb",
+                                        color: "#374151",
+                                        fontSize: 13,
+                                      }}
+                                    >
+                                      <div style={{ fontWeight: 700, color: "#111827", wordBreak: "break-word" }}>
+                                        {message.subject || email.subject || "No subject"}
+                                      </div>
+                                      <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+                                        {message.fromEmail && <span>From: {message.fromEmail}</span>}
+                                        {message.toEmail && <span>To: {message.toEmail}</span>}
+                                        {message.date && <span>{formatDateTimeIST(message.date)}</span>}
+                                      </div>
+                                    </div>
+                                    <div
+                                      style={{
+                                        padding: 12,
+                                        maxWidth: "100%",
+                                        overflowX: "auto",
+                                        fontSize: 14,
+                                        lineHeight: 1.5,
+                                        color: "#374151",
+                                      }}
+                                      dangerouslySetInnerHTML={{
+                                        __html: DOMPurify.sanitize(message.body || "<p>No email body available</p>"),
+                                      }}
+                                    />
+                                    <div style={{ padding: "0 12px 12px" }}>
+                                      {renderMessageAttachments(message.attachments)}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  marginTop: 12,
+                                  padding: 12,
+                                  border: "1px solid #e5e7eb",
+                                  borderRadius: 6,
+                                  background: "#fff",
+                                  maxWidth: "100%",
+                                  maxHeight: 180,
+                                  overflow: "hidden",
+                                  fontSize: 14,
+                                  lineHeight: 1.5,
+                                  color: "#374151",
+                                }}
+                                dangerouslySetInnerHTML={{
+                                  __html: DOMPurify.sanitize(latestMessage?.body || "<p>No preview available</p>"),
+                                }}
+                              />
+                            )}
+
+                            {!isExpandedEmail && renderMessageAttachments(latestMessage?.attachments)}
+
+                            {(hasEmailBody || hasAttachments) && (
+                              <button
+                                type="button"
+                                onClick={() => togglePinnedEmailExpand(email.trackingId)}
+                                style={{
+                                  marginTop: 12,
+                                  background: "none",
+                                  border: "none",
+                                  color: "#3f9f42",
+                                  cursor: "pointer",
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  padding: 0,
+                                }}
+                              >
+                                {isExpandedEmail ? "Show less" : "View conversation"}
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* LinkedIn Summary */}
           {savedLinkedInSummary && (
           <div
@@ -2084,6 +2601,74 @@ case "boolean":
     </div>
   </div>
 )}
+        {showPinnedEmailDeleteModal && (
+          <div
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-[99999]"
+            onClick={(event) => {
+              event.stopPropagation();
+              if (isDeletingPinnedEmail) return;
+              setShowPinnedEmailDeleteModal(false);
+              setPinnedEmailToDelete(null);
+            }}
+          >
+            <div
+              className="bg-white rounded-xl p-6 w-[520px] relative"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h2 className="text-lg font-semibold mb-3">Delete email</h2>
+
+              <p className="text-sm text-gray-600 mb-6">
+                {pendingPinnedEmailDeleteMode === "Permanent"
+                  ? "Are you sure you want to permanently delete this email?"
+                  : "Are you sure you want to move this email to trash?"}
+              </p>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPinnedEmailDeleteModal(false);
+                    setPinnedEmailToDelete(null);
+                  }}
+                  disabled={isDeletingPinnedEmail}
+                  className="px-5 py-2 rounded-full bg-black text-white disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={confirmPinnedEmailDelete}
+                  disabled={isDeletingPinnedEmail}
+                  className="px-5 py-2 rounded-full bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                >
+                  {isDeletingPinnedEmail
+                    ? "Deleting..."
+                    : pendingPinnedEmailDeleteMode === "Permanent"
+                      ? "Delete permanently"
+                      : "Delete from Inbox"}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (isDeletingPinnedEmail) return;
+                  setShowPinnedEmailDeleteModal(false);
+                  setPinnedEmailToDelete(null);
+                }}
+                className="absolute top-4 right-4 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+        <AppModal
+          isOpen={appModal.isOpen}
+          onClose={appModal.hideModal}
+          {...appModal.config}
+        />
       </>
     );
   }
@@ -2445,6 +3030,74 @@ case "boolean":
           </div>
         </form>
       </div>
+      {showPinnedEmailDeleteModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[99999]"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (isDeletingPinnedEmail) return;
+            setShowPinnedEmailDeleteModal(false);
+            setPinnedEmailToDelete(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-xl p-6 w-[520px] relative"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold mb-3">Delete email</h2>
+
+            <p className="text-sm text-gray-600 mb-6">
+              {pendingPinnedEmailDeleteMode === "Permanent"
+                ? "Are you sure you want to permanently delete this email?"
+                : "Are you sure you want to move this email to trash?"}
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPinnedEmailDeleteModal(false);
+                  setPinnedEmailToDelete(null);
+                }}
+                disabled={isDeletingPinnedEmail}
+                className="px-5 py-2 rounded-full bg-black text-white disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmPinnedEmailDelete}
+                disabled={isDeletingPinnedEmail}
+                className="px-5 py-2 rounded-full bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {isDeletingPinnedEmail
+                  ? "Deleting..."
+                  : pendingPinnedEmailDeleteMode === "Permanent"
+                    ? "Delete permanently"
+                    : "Delete from Inbox"}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (isDeletingPinnedEmail) return;
+                setShowPinnedEmailDeleteModal(false);
+                setPinnedEmailToDelete(null);
+              }}
+              className="absolute top-4 right-4 text-xl"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      <AppModal
+        isOpen={appModal.isOpen}
+        onClose={appModal.hideModal}
+        {...appModal.config}
+      />
     </div>
   );
 };

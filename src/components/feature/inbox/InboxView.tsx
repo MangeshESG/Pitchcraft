@@ -10,12 +10,14 @@ import Modal from '../../common/Modal';
 import ToastMessage from '../../common/ToastMessage';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
-import { faPaperclip, faReply, faShare } from '@fortawesome/free-solid-svg-icons';
+import { faEllipsisV, faPaperclip, faReply, faShare } from '@fortawesome/free-solid-svg-icons';
+import { Pin, PinOff } from 'lucide-react';
 import UnassignedTab from './UnassignedTab';
 import SentTab from './SentTab';
 import AllMessagesTab from './AllMessagesTab';
 import ContactInfoPanel from './ContactInfoPanel';
 import EmailIframe from './EmailIframe';
+import { isThreadPinned, pinEmail } from './inboxPin';
 import './InboxView.css';
 
 interface UnassignedEmail {
@@ -91,6 +93,8 @@ interface InboxThread {
   totalMessages: number;
   lastMessageDate: string;
   hasUnread: boolean;
+  isPinned?: boolean;
+  isPin?: boolean;
   contactId: number | null;
   messages: InboxMessage[];
 }
@@ -215,6 +219,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteModalType, setDeleteModalType] = useState<'single' | 'bulk'>('single');
   const [pendingDeleteMode, setPendingDeleteMode] = useState<'soft' | 'Permanent'>('soft');
+  const [pinningThreadId, setPinningThreadId] = useState<string | null>(null);
+  const [activeActionThreadId, setActiveActionThreadId] = useState<string | null>(null);
+  const [pendingDeleteThreadId, setPendingDeleteThreadId] = useState<string | null>(null);
 
   useEffect(() => {
     setShowForwardSection(false);
@@ -360,7 +367,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   }, [effectiveUserId, token, isVisible]);
 
   const fetchMails = useCallback(async (showLoader = true) => {
-    if (!selectedInboxId || !isVisible) return;
+    if (activeTab !== 'inbox' || !selectedInboxId || !isVisible) return;
 
     if (showLoader) {
       setLoading(true);
@@ -368,7 +375,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setError('');
     try {
       const fetchPage = (pageNumber: number) => axios.get(
-        `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${pageNumber}&pageSize=${inboxPageSize}&_=${Date.now()}`,
+        `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&clientId=${encodeURIComponent(effectiveUserId)}&Provider=${selectedProvider}&pageNumber=${pageNumber}&pageSize=${inboxPageSize}&_=${Date.now()}`,
         {
           headers: {
             accept: '*/*',
@@ -382,20 +389,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       const response = await fetchPage(inboxCurrentPage);
 
       if (response.data.success && response.data.data) {
-        let pageThreads = Array.isArray(response.data.data.data) ? response.data.data.data : [];
+        const pageThreads = Array.isArray(response.data.data.data) ? response.data.data.data : [];
         const nextTotalCount = response.data.data.totalCount || 0;
         const nextTotalPages = response.data.data.totalPages || 0;
-        let nextPage = inboxCurrentPage + 1;
-
-        while (pageThreads.length < inboxPageSize && nextPage <= nextTotalPages && pageThreads.length < nextTotalCount) {
-          const nextResponse = await fetchPage(nextPage);
-          const nextThreads = nextResponse.data.success && nextResponse.data.data && Array.isArray(nextResponse.data.data.data)
-            ? nextResponse.data.data.data
-            : [];
-          if (nextThreads.length === 0) break;
-          pageThreads = [...pageThreads, ...nextThreads].slice(0, inboxPageSize);
-          nextPage += 1;
-        }
 
         setThreads(pageThreads);
         setInboxTotalCount(nextTotalCount);
@@ -419,10 +415,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setLoading(false);
       }
     }
-  }, [selectedInboxId, selectedProvider, token, isVisible, inboxCurrentPage, inboxPageSize]);
+  }, [activeTab, selectedInboxId, selectedProvider, effectiveUserId, token, isVisible, inboxCurrentPage, inboxPageSize]);
 
   useEffect(() => {
-    fetchMails();
+    if (activeTab === 'inbox') {
+      fetchMails();
+    }
   }, [fetchMails]);
 
   const handleInboxChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -589,6 +587,34 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }
   };
 
+  const handlePinEmail = async (thread: InboxThread, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (!effectiveUserId || pinningThreadId) return;
+
+    const nextPinned = !isThreadPinned(thread);
+    setPinningThreadId(thread.trackingId);
+    setActiveActionThreadId(null);
+    try {
+      const response = await pinEmail(effectiveUserId, thread.trackingId, token);
+
+      if (response.data?.success) {
+        setThreads(prevThreads =>
+          prevThreads.map(t =>
+            t.trackingId === thread.trackingId ? { ...t, isPinned: nextPinned, isPin: nextPinned } : t
+          )
+        );
+
+        if (selectedThread?.trackingId === thread.trackingId) {
+          setSelectedThread(prevThread => prevThread ? { ...prevThread, isPinned: nextPinned, isPin: nextPinned } : prevThread);
+        }
+      }
+    } catch (err) {
+      console.error('Error pinning email:', err);
+    } finally {
+      setPinningThreadId(null);
+    }
+  };
+
   const toggleEmailCollapse = (messageId: string) => {
     setCollapsedEmails(prev => ({
       ...prev,
@@ -604,15 +630,17 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         : activeTab === 'unassigned'
           ? selectedUnassignedThread
           : selectedAllMessagesThread;
-    if (!currentThread) return;
+    const trackingIdToDelete = pendingDeleteThreadId || currentThread?.trackingId;
+    if (!trackingIdToDelete) return;
     
     setShowDeleteDropdown(false);
+    setActiveActionThreadId(null);
     
     try {
       const response = await axios.post(
         `${API_BASE_URL}/api/Inbox/delete-conversation`,
         {
-          TrackingIds: [currentThread.trackingId],
+          TrackingIds: [trackingIdToDelete],
           deleteMode: deleteMode,
           clientid: parseInt(effectiveUserId)
         },
@@ -633,7 +661,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         
         // Remove from list and close detail view based on active tab
         if (activeTab === 'inbox') {
-          setSelectedThread(null);
+          if (!pendingDeleteThreadId || selectedThread?.trackingId === pendingDeleteThreadId) {
+            setSelectedThread(null);
+          }
           await fetchMails(false);
         } else if (activeTab === 'sent') {
           setSelectedSentThread(null);
@@ -645,6 +675,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           setSelectedAllMessagesThread(null);
           setRefreshAllMessagesTab(prev => prev + 1);
         }
+        setPendingDeleteThreadId(null);
       } else {
         setToastMessage('Failed to delete email');
         setToastType('error');
@@ -657,6 +688,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       setToastType('error');
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
+    } finally {
+      setPendingDeleteThreadId(null);
     }
   };
 
@@ -1569,6 +1602,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               <button
                                 onClick={() => {
                                   setDeleteModalType('bulk');
+                                  setPendingDeleteThreadId(null);
                                   setPendingDeleteMode('soft');
                                   setShowDeleteModal(true);
                                   setShowBulkDeleteDropdown(false);
@@ -1593,6 +1627,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               <button
                                 onClick={() => {
                                   setDeleteModalType('bulk');
+                                  setPendingDeleteThreadId(null);
                                   setPendingDeleteMode('Permanent');
                                   setShowDeleteModal(true);
                                   setShowBulkDeleteDropdown(false);
@@ -1667,6 +1702,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     // Check if any message in thread is unread
                     const hasUnreadMessages = thread.messages.some(msg => !msg.isRead);
                     const isSelected = selectedThreadIds.includes(thread.trackingId);
+                    const threadPinned = isThreadPinned(thread);
                     return (
                       <div
                         key={thread.trackingId}
@@ -1702,7 +1738,59 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <div className="mail-content">
                           <div className="mail-item-header">
                             <span className="mail-sender">{lastMessage.contactName || extractSenderName(thread.contactEmail)}</span>
-                            <span className="mail-date">{formatDate(thread.lastMessageDate)}</span>
+                            <span className="mail-row-actions">
+                              <span className="mail-date">{formatDate(thread.lastMessageDate)}</span>
+                              {threadPinned && (
+                                <span className="mail-pinned-indicator" title="Pinned" aria-label="Pinned">
+                                  <Pin size={15} strokeWidth={2.5} />
+                                </span>
+                              )}
+                              <span className="mail-action-wrapper" onClick={(event) => event.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  className="mail-action-button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setActiveActionThreadId(activeActionThreadId === thread.trackingId ? null : thread.trackingId);
+                                  }}
+                                  title="Email actions"
+                                  aria-label="Email actions"
+                                >
+                                  <FontAwesomeIcon icon={faEllipsisV} />
+                                </button>
+                                {activeActionThreadId === thread.trackingId && (
+                                  <div className="mail-action-menu">
+                                    <button
+                                      type="button"
+                                      onClick={(event) => handlePinEmail(thread, event)}
+                                      disabled={pinningThreadId === thread.trackingId}
+                                    >
+                                      {threadPinned ? (
+                                        <PinOff size={17} strokeWidth={2.5} />
+                                      ) : (
+                                        <Pin size={17} strokeWidth={2.5} />
+                                      )}
+                                      {threadPinned ? 'Unpin' : 'Pin'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="danger"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setPendingDeleteThreadId(thread.trackingId);
+                                        setDeleteModalType('single');
+                                        setPendingDeleteMode('soft');
+                                        setShowDeleteModal(true);
+                                        setActiveActionThreadId(null);
+                                      }}
+                                    >
+                                      <FontAwesomeIcon icon={faTrashAlt} />
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </span>
+                            </span>
                           </div>
                           <div className="mail-subject">
                             {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
@@ -1764,6 +1852,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 token={token} 
                 selectedInboxId={selectedInboxId}
                 selectedProvider={selectedProvider}
+                isActive={activeTab === 'sent'}
                 selectedThread={selectedSentThread}
                 onThreadSelect={(thread) => {
                   setSelectedSentThread(thread);
@@ -1786,6 +1875,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 token={token} 
                 selectedInboxId={selectedInboxId}
                 selectedProvider={selectedProvider}
+                isActive={activeTab === 'unassigned'}
                 onEmailSelect={(email) => {
                   setSelectedUnassignedEmail(email);
                   setShowReplySection(false);
@@ -1817,6 +1907,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 token={token}
                 selectedInboxId={selectedInboxId}
                 selectedProvider={selectedProvider}
+                isActive={activeTab === 'all' || activeTab === 'allmessages'}
                 selectedThread={selectedAllMessagesThread}
                 onThreadSelect={(thread) => {
                   setSelectedAllMessagesThread(thread);
@@ -1855,8 +1946,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     </button>
                     {showDeleteDropdown && (
                       <div className="delete-dropdown">
-                        <button onClick={() => { setDeleteModalType('single'); setPendingDeleteMode('soft'); setShowDeleteModal(true); setShowDeleteDropdown(false); }}>Delete from Inbox</button>
-                        <button onClick={() => { setDeleteModalType('single'); setPendingDeleteMode('Permanent'); setShowDeleteModal(true); setShowDeleteDropdown(false); }}>Delete permanently</button>
+                        <button onClick={() => { setDeleteModalType('single'); setPendingDeleteThreadId(null); setPendingDeleteMode('soft'); setShowDeleteModal(true); setShowDeleteDropdown(false); }}>Delete from Inbox</button>
+                        <button onClick={() => { setDeleteModalType('single'); setPendingDeleteThreadId(null); setPendingDeleteMode('Permanent'); setShowDeleteModal(true); setShowDeleteDropdown(false); }}>Delete permanently</button>
                       </div>
                     )}
                   </div>
@@ -1928,6 +2019,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       <button
                         onClick={() => {
                           setDeleteModalType('single');
+                          setPendingDeleteThreadId(null);
                           setPendingDeleteMode('soft');
                           setShowDeleteModal(true);
                         }}
@@ -1951,6 +2043,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       <button
                         onClick={() => {
                           setDeleteModalType('single');
+                          setPendingDeleteThreadId(null);
                           setPendingDeleteMode('Permanent');
                           setShowDeleteModal(true);
                         }}
@@ -2536,6 +2629,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <button
                           onClick={() => {
                             setDeleteModalType('single');
+                            setPendingDeleteThreadId(null);
                             setPendingDeleteMode('soft');
                             setShowDeleteModal(true);
                           }}
@@ -2559,6 +2653,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <button
                           onClick={() => {
                             setDeleteModalType('single');
+                            setPendingDeleteThreadId(null);
                             setPendingDeleteMode('Permanent');
                             setShowDeleteModal(true);
                           }}
@@ -2736,6 +2831,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <button
                           onClick={() => {
                             setDeleteModalType('single');
+                            setPendingDeleteThreadId(null);
                             setPendingDeleteMode('soft');
                             setShowDeleteModal(true);
                           }}
@@ -2759,6 +2855,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <button
                           onClick={() => {
                             setDeleteModalType('single');
+                            setPendingDeleteThreadId(null);
                             setPendingDeleteMode('Permanent');
                             setShowDeleteModal(true);
                           }}
@@ -3440,6 +3537,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <button
                           onClick={() => {
                             setDeleteModalType('single');
+                            setPendingDeleteThreadId(null);
                             setPendingDeleteMode('soft');
                             setShowDeleteModal(true);
                           }}
@@ -3463,6 +3561,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <button
                           onClick={() => {
                             setDeleteModalType('single');
+                            setPendingDeleteThreadId(null);
                             setPendingDeleteMode('Permanent');
                             setShowDeleteModal(true);
                           }}
@@ -4022,11 +4121,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           setShowDeleteModal(false);
           setShowDeleteDropdown(false);
           setShowBulkDeleteDropdown(false);
+          setActiveActionThreadId(null);
+          setPendingDeleteThreadId(null);
         }}
         onConfirm={() => {
           setShowDeleteModal(false);
           setShowDeleteDropdown(false);
           setShowBulkDeleteDropdown(false);
+          setActiveActionThreadId(null);
           if (deleteModalType === 'bulk') {
             handleBulkDelete(pendingDeleteMode);
           } else {
