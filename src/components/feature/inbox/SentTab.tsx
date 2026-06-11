@@ -4,7 +4,9 @@ import API_BASE_URL from '../../../config';
 import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
-import { faPaperclip } from '@fortawesome/free-solid-svg-icons';
+import { faEllipsisV, faPaperclip } from '@fortawesome/free-solid-svg-icons';
+import { Pin, PinOff } from 'lucide-react';
+import { isThreadPinned, pinEmail } from './inboxPin';
 
 interface SentAttachment {
   id?: number;
@@ -37,6 +39,8 @@ interface SentThread {
   totalMessages: number;
   lastMessageDate: string;
   hasUnread: boolean;
+  isPinned?: boolean;
+  isPin?: boolean;
   contactId: number | null;
   messages: SentMessage[];
 }
@@ -46,6 +50,7 @@ interface SentTabProps {
   token: string | null;
   selectedInboxId: number | null;
   selectedProvider: string;
+  isActive?: boolean;
   selectedThread: SentThread | null;
   onThreadSelect: (thread: SentThread | null) => void;
   onInitializeCollapsedEmails: (collapsed: { [key: string]: boolean }) => void;
@@ -59,6 +64,7 @@ const SentTab: React.FC<SentTabProps> = ({
   token, 
   selectedInboxId, 
   selectedProvider,
+  isActive = true,
   selectedThread,
   onThreadSelect,
   onInitializeCollapsedEmails,
@@ -78,9 +84,12 @@ const SentTab: React.FC<SentTabProps> = ({
   const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [pendingDeleteMode, setPendingDeleteMode] = useState<'soft' | 'Permanent'>('soft');
+  const [pinningThreadId, setPinningThreadId] = useState<string | null>(null);
+  const [activeActionThreadId, setActiveActionThreadId] = useState<string | null>(null);
+  const [pendingDeleteThreadId, setPendingDeleteThreadId] = useState<string | null>(null);
 
   const fetchSentEmails = useCallback(async (showLoader = true) => {
-    if (!effectiveUserId || !selectedInboxId || !selectedProvider) return;
+    if (!isActive || !effectiveUserId || !selectedInboxId || !selectedProvider) return;
 
     if (showLoader) {
       setLoading(true);
@@ -102,20 +111,9 @@ const SentTab: React.FC<SentTabProps> = ({
       const response = await fetchPage(currentPage);
 
       if (response.data.success && response.data.data) {
-        let pageThreads = Array.isArray(response.data.data.data) ? response.data.data.data : [];
+        const pageThreads = Array.isArray(response.data.data.data) ? response.data.data.data : [];
         const nextTotalCount = response.data.data.totalCount || 0;
         const nextTotalPages = response.data.data.totalPages || 0;
-        let nextPage = currentPage + 1;
-
-        while (pageThreads.length < pageSize && nextPage <= nextTotalPages && pageThreads.length < nextTotalCount) {
-          const nextResponse = await fetchPage(nextPage);
-          const nextThreads = nextResponse.data.success && nextResponse.data.data
-            ? nextResponse.data.data.data || []
-            : [];
-          if (nextThreads.length === 0) break;
-          pageThreads = [...pageThreads, ...nextThreads].slice(0, pageSize);
-          nextPage += 1;
-        }
 
         setThreads(pageThreads);
         setTotalCount(nextTotalCount);
@@ -132,10 +130,12 @@ const SentTab: React.FC<SentTabProps> = ({
         setLoading(false);
       }
     }
-  }, [effectiveUserId, token, selectedInboxId, selectedProvider, currentPage, pageSize]);
+  }, [isActive, effectiveUserId, token, selectedInboxId, selectedProvider, currentPage, pageSize]);
 
   useEffect(() => {
-    fetchSentEmails();
+    if (isActive) {
+      fetchSentEmails();
+    }
   }, [fetchSentEmails, refreshTrigger]);
 
   const handleThreadClick = async (thread: SentThread) => {
@@ -192,14 +192,15 @@ const SentTab: React.FC<SentTabProps> = ({
   };
 
   const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
-    if (selectedThreadIds.length === 0) return;
+    const trackingIdsToDelete = pendingDeleteThreadId ? [pendingDeleteThreadId] : selectedThreadIds;
+    if (trackingIdsToDelete.length === 0) return;
     
     setLoading(true);
     try {
       const response = await axios.post(
         `${API_BASE_URL}/api/Inbox/delete-conversation`,
         {
-          TrackingIds: selectedThreadIds,
+          TrackingIds: trackingIdsToDelete,
           deleteMode: deleteMode,
           clientid: parseInt(effectiveUserId)
         },
@@ -215,12 +216,40 @@ const SentTab: React.FC<SentTabProps> = ({
       if (response.data.success) {
         setSelectedThreadIds([]);
         setShowDeleteDropdown(false);
+        setActiveActionThreadId(null);
+        setPendingDeleteThreadId(null);
         await fetchSentEmails(false);
       }
     } catch (err: any) {
       console.error('Error deleting emails:', err);
     } finally {
+      setActiveActionThreadId(null);
+      setPendingDeleteThreadId(null);
       setLoading(false);
+    }
+  };
+
+  const handlePinEmail = async (thread: SentThread, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (!effectiveUserId || pinningThreadId) return;
+
+    const nextPinned = !isThreadPinned(thread);
+    setPinningThreadId(thread.trackingId);
+    setActiveActionThreadId(null);
+    try {
+      const response = await pinEmail(effectiveUserId, thread.trackingId, token);
+
+      if (response.data?.success) {
+        setThreads(prevThreads =>
+          prevThreads.map(t =>
+            t.trackingId === thread.trackingId ? { ...t, isPinned: nextPinned, isPin: nextPinned } : t
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error pinning email:', err);
+    } finally {
+      setPinningThreadId(null);
     }
   };
 
@@ -374,6 +403,7 @@ const SentTab: React.FC<SentTabProps> = ({
                 }}>
                   <button
                     onClick={() => {
+                      setPendingDeleteThreadId(null);
                       setPendingDeleteMode('soft');
                       setShowDeleteModal(true);
                       setShowDeleteDropdown(false);
@@ -397,6 +427,7 @@ const SentTab: React.FC<SentTabProps> = ({
                   </button>
                   <button
                     onClick={() => {
+                      setPendingDeleteThreadId(null);
                       setPendingDeleteMode('Permanent');
                       setShowDeleteModal(true);
                       setShowDeleteDropdown(false);
@@ -466,6 +497,7 @@ const SentTab: React.FC<SentTabProps> = ({
           const hasUnreadMessages = thread.messages.some(msg => !msg.isRead);
           const isSelected = selectedThreadIds.includes(thread.trackingId);
           const attachmentCount = getThreadAttachmentCount(thread);
+          const threadPinned = isThreadPinned(thread);
           return (
             <div
               key={thread.trackingId}
@@ -518,7 +550,58 @@ const SentTab: React.FC<SentTabProps> = ({
                   >
                     {lastMessage.contactName || extractSenderName(thread.contactEmail)}
                   </span>
-                  <span className="mail-date">{formatDate(thread.lastMessageDate)}</span>
+                  <span className="mail-row-actions">
+                    <span className="mail-date">{formatDate(thread.lastMessageDate)}</span>
+                    {threadPinned && (
+                      <span className="mail-pinned-indicator" title="Pinned" aria-label="Pinned">
+                        <Pin size={15} strokeWidth={2.5} />
+                      </span>
+                    )}
+                    <span className="mail-action-wrapper" onClick={(event) => event.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="mail-action-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setActiveActionThreadId(activeActionThreadId === thread.trackingId ? null : thread.trackingId);
+                        }}
+                        title="Email actions"
+                        aria-label="Email actions"
+                      >
+                        <FontAwesomeIcon icon={faEllipsisV} />
+                      </button>
+                      {activeActionThreadId === thread.trackingId && (
+                        <div className="mail-action-menu">
+                          <button
+                            type="button"
+                            onClick={(event) => handlePinEmail(thread, event)}
+                            disabled={pinningThreadId === thread.trackingId}
+                          >
+                            {threadPinned ? (
+                              <PinOff size={17} strokeWidth={2.5} />
+                            ) : (
+                              <Pin size={17} strokeWidth={2.5} />
+                            )}
+                            {threadPinned ? 'Unpin' : 'Pin'}
+                          </button>
+                          <button
+                            type="button"
+                            className="danger"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setPendingDeleteThreadId(thread.trackingId);
+                              setPendingDeleteMode('soft');
+                              setShowDeleteModal(true);
+                              setActiveActionThreadId(null);
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faTrashAlt} />
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </span>
+                  </span>
                 </div>
                 <div className="mail-subject">
                   {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
@@ -575,8 +658,11 @@ const SentTab: React.FC<SentTabProps> = ({
       <DeleteConfirmationModal
         isOpen={showDeleteModal}
         deleteMode={pendingDeleteMode}
-        count={selectedThreadIds.length}
-        onClose={() => setShowDeleteModal(false)}
+        count={pendingDeleteThreadId ? 1 : selectedThreadIds.length}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setPendingDeleteThreadId(null);
+        }}
         onConfirm={() => {
           setShowDeleteModal(false);
           handleBulkDelete(pendingDeleteMode);
