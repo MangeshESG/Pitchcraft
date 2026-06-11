@@ -1,0 +1,2 @@
+tsconfig.json(13,25): error TS6046: Argument for '--moduleResolution' option must be: 'node', 'classic', 'node16', 'nodenext'.
+tsconfig.json(14,5): error TS5070: Option '--resolveJsonModule' cannot be specified without 'node' module resolution strategy.

@@ -417,7 +417,9 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const [selectedDeleteId, setSelectedDeleteId] = useState<any>(null);
   const [deletingInboxId, setDeletingInboxId] = useState<number | null>(null);
   // Fetch SMTP List
+  const [smtpListLoading, setSmtpListLoading] = useState(true);
   const fetchSmtp = async () => {
+    setSmtpListLoading(true);
     try {
       const response = await axios.get(
         `${API_BASE_URL}/api/email/get-smtp?ClientId=${effectiveUserId}`,
@@ -433,6 +435,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       setSmtpList(asArray<SmtpConfig>(response.data));
     } catch (error) {
       setSmtpList([]); // No records found or error
+    } finally {
+      setSmtpListLoading(false);
     }
   };
 
@@ -1100,6 +1104,7 @@ const actionIconStyle = {
   const [currentPageMailbox, setCurrentPageMailbox] = useState(1);
 
   const safeSmtpList = asArray<SmtpConfig>(smtpList);
+  const hasMailboxConfig = safeSmtpList.length > 0;
   const filteredMailboxes = safeSmtpList
     .filter((item) => {
       const search = mailboxSearch.toLowerCase();
@@ -1408,6 +1413,8 @@ const actionIconStyle = {
           fetchDomainData={fetchDomainData}
           showValidateModal={showValidateModal}
           selectedDomain={selectedDomain}
+          hasMailboxConfig={hasMailboxConfig}
+          smtpListLoading={smtpListLoading}
         />
       )}
 
