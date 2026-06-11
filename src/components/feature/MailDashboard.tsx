@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { MailDashboardEmptyState } from "./MailDashboard.new";
-import mailDashboardNewUserImage from "../../assets/images/mail_dashboard_new_user.png";
+import { MailDashboardEmptyState, MailDashboardCampaignSelectState } from "./MailDashboard.new";
 import axios from "axios";
 import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
 import DynamicContactsTable from "./DynamicContactsTable";
@@ -2120,34 +2119,11 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       {/* ── Overview Tab ── */}
       {dashboardTab === "Overview" && (
         !selectedCampaign ? (
-          /* ─── Empty state ─── */
-          <>
-            <div className="md-empty-state">
-              {/* Illustration */}
-              <div className="md-empty-illus">
-                <img src={mailDashboardNewUserImage} alt="" style={{ width: 400, height: "auto", display: "block", border: "none", background: "#fff" }} />
-              </div>
-              <h3 className="md-empty-title">Select a campaign to view analytics</h3>
-              <p className="md-empty-sub">Choose a campaign and date range above to see performance insights like<br/>sent, opens, clicks, and more.</p>
-              <div className="md-control-campaign md-empty-campaign-select">
-                <label className="md-label">Campaign <span className="md-required">*</span></label>
-                <select
-                  value={selectedCampaign}
-                  onChange={handleCampaignChange}
-                  className={`md-select${!selectedCampaign ? " md-select--error" : ""}`}
-                >
-                  <option value="">Select a campaign</option>
-                  {availableCampaigns.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.campaignName}{c.dataSource === "Segment" && c.segmentName ? ` (${c.segmentName})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-
-          </>
+          <MailDashboardCampaignSelectState
+            availableCampaigns={availableCampaigns}
+            selectedCampaign={selectedCampaign}
+            handleCampaignChange={handleCampaignChange}
+          />
         ) : (
           /* ─── Populated state ─── */
           <>

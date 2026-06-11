@@ -19,61 +19,63 @@ export const KraftLoadingState: React.FC<{ message?: string }> = ({
 );
 
 // ============================================================
-// READY STATE — shown in the right panel when no campaign selected
-// ============================================================
-export const KraftReadyState: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
-  <div className="ke-ready-wrap">
-    <img
-      src={kraftEmailNoCampaignImage}
-      alt=""
-      className="ke-ready-illustration"
-      onError={(e) => {
-        (e.currentTarget as HTMLImageElement).style.display = "none";
-      }}
-    />
-    <h3 className="ke-ready-title">Ready to craft something amazing?</h3>
-    <p className="ke-ready-text">
-      Select a campaign to start crafting personalized emails. Once selected,
-      you'll be able to review contacts, compose, and preview your email before
-      sending.
-    </p>
-    {children}
-  </div>
-);
-
-// ============================================================
-// CAMPAIGN SELECT STATE — full-page state shown when no campaign
-// is selected yet (replaces the entire Kraft Email page)
+// CAMPAIGN SELECT STATE — banner shown when no campaign is
+// selected yet (replaces the entire Kraft Email page)
 // ============================================================
 export const KraftCampaignSelectState: React.FC<{
   campaigns?: any[];
   selectedCampaign?: string;
   handleCampaignChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
 }> = ({ campaigns, selectedCampaign, handleCampaignChange }) => (
-  <div className="ke-ready-page">
-    <KraftReadyState>
-      <div className="ke-ready-select-wrap">
-        <label className="ke-ready-label">
-          Campaign <span className="ke-ready-required">*</span>
-        </label>
-        <select
-          value={selectedCampaign || ""}
-          onChange={handleCampaignChange}
-          className={`ke-ready-select${!selectedCampaign ? " ke-ready-select--error" : ""}`}
-        >
-          <option value="">Select a campaign</option>
-          {Array.isArray(campaigns) &&
-            campaigns
-              .slice()
-              .sort((a, b) => a.campaignName.toLowerCase().localeCompare(b.campaignName.toLowerCase()))
-              .map((campaign) => (
-                <option key={campaign.id} value={campaign.id.toString()}>
-                  {campaign.campaignName}
-                </option>
-              ))}
-        </select>
+  <div className="ke-empty-wrap">
+    <div className="ke-empty-body">
+      <div className="ke-empty-hero">
+        <div className="ke-empty-hero__bg" />
+        <div className="ke-empty-hero__content">
+          <div className="ke-empty-hero__copy">
+            <span className="ke-start-pill">📧 Get started</span>
+            <h2 className="ke-empty-headline">Ready to craft something amazing?</h2>
+            <p className="ke-empty-body-text">
+              Select a campaign to start crafting personalized emails. Once selected,
+              you'll be able to review contacts, compose, and preview your email before sending.
+            </p>
+            <div className="ke-empty-actions">
+              <div className="ke-empty-campaign-select">
+                <label className="ke-ready-label">
+                  Campaign <span className="ke-ready-required">*</span>
+                </label>
+                <select
+                  value={selectedCampaign || ""}
+                  onChange={handleCampaignChange}
+                  className={`ke-ready-select${!selectedCampaign ? " ke-ready-select--error" : ""}`}
+                >
+                  <option value="">Select a campaign</option>
+                  {Array.isArray(campaigns) &&
+                    campaigns
+                      .slice()
+                      .sort((a, b) => a.campaignName.toLowerCase().localeCompare(b.campaignName.toLowerCase()))
+                      .map((campaign) => (
+                        <option key={campaign.id} value={campaign.id.toString()}>
+                          {campaign.campaignName}
+                        </option>
+                      ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div className="ke-empty-hero__art">
+            <img
+              src={kraftEmailNoCampaignImage}
+              alt=""
+              style={{ width: 400, height: "auto", maxWidth: "100%" }}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          </div>
+        </div>
       </div>
-    </KraftReadyState>
+    </div>
   </div>
 );
 
