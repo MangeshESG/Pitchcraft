@@ -677,7 +677,7 @@ useEffect(() => {
 
   const getEmailPreviewMessages = (email: any) => {
     if (Array.isArray(email.messages) && email.messages.length > 0) {
-      return email.messages;
+      return [...email.messages].sort((a: any, b: any) => getMessageTime(b) - getMessageTime(a));
     }
 
     return [
