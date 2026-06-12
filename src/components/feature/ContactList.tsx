@@ -318,6 +318,10 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   // Segments state - moved before usage to fix TDZ error
   const [segments, setSegments] = useState<Segment[]>([]);
 
+  // Lightweight views summary - used for the header KPI strip (count + "added this month")
+  const [headerViews, setHeaderViews] = useState<{ id: number; created_at?: string }[]>([]);
+  const [isLoadingHeaderViews, setIsLoadingHeaderViews] = useState(false);
+
 
   // Persistent column selection state
   const [savedColumnSelection, setSavedColumnSelection] = useState<string[]>(() => {
@@ -371,13 +375,6 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       .then((res) => res.json())
       .then((data) => setCustomFields(data));
   }, [effectiveUserId]);
-
-  const handleTabChange = (tab: string) => {
-    setActiveSubTab(tab);
-    if (onTabChange) {
-      onTabChange(tab);
-    }
-  };
 
   // Fetch data files
   const fetchDataFiles = async () => {
@@ -750,6 +747,8 @@ const formatTimeIST = (dateString?: string) => {
   useEffect(() => {
     if (effectiveUserId) {
       fetchDataFiles();
+      fetchSegments();
+      fetchHeaderViews();
     }
   }, [effectiveUserId]);
 
@@ -1056,6 +1055,28 @@ const formatTimeIST = (dateString?: string) => {
   const [isLoadingSegmentContacts, setIsLoadingSegmentContacts] =
     useState(false);
   // Fetch all segments for client
+  // Lightweight fetch used only to populate the "Total views" KPI in the header
+  const fetchHeaderViews = async () => {
+    if (!effectiveUserId) return;
+    setIsLoadingHeaderViews(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/views-by-client?clientId=${effectiveUserId}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch views");
+      const data = await response.json();
+      setHeaderViews(
+        Array.isArray(data)
+          ? data.map((v: any) => ({ id: v.id, created_at: v.created_at || v.createdAt }))
+          : []
+      );
+    } catch (err) {
+      setHeaderViews([]);
+    } finally {
+      setIsLoadingHeaderViews(false);
+    }
+  };
+
   const fetchSegments = async () => {
     if (!effectiveUserId) return;
     setIsLoadingSegments(true);
@@ -2090,11 +2111,19 @@ const filterFields: any = useMemo(() => {
 
   const superListContactCount = dataFiles.find((f) => f.id === -1)?.contactCount || 0;
   const totalDataFiles = dataFiles.filter((f) => f.id !== -1).length;
+  const totalViews = headerViews.length;
 
-  const activeTabKey =
-    activeSubTab === "List" ? "lists" :
-    activeSubTab === "View" ? "views" :
-    activeSubTab === "Segment" ? "segments" : "custom";
+  // "+N this month" deltas for the header KPI cards, derived from each item's creation date
+  const isCreatedThisMonth = (dateString?: string | null) => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return false;
+    const now = new Date();
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  };
+  const listsAddedThisMonth = dataFiles.filter((f) => f.id !== -1 && isCreatedThisMonth(f.created_at)).length;
+  const viewsAddedThisMonth = headerViews.filter((v) => isCreatedThisMonth(v.created_at)).length;
+  const segmentsAddedThisMonth = segments.filter((s) => isCreatedThisMonth(s.createdAt)).length;
 
   return (
     <div className="data-campaigns-container">
@@ -2106,17 +2135,16 @@ const filterFields: any = useMemo(() => {
         <ContactsPageHeader
           totalContacts={superListContactCount}
           totalLists={totalDataFiles}
+          totalViews={totalViews}
           totalSegments={segments.length}
-          verifiedPct={94}
-          activeTab={activeTabKey}
-          showStats={true}
-          onTabChange={(t) =>
-            handleTabChange(
-              t === "lists" ? "List" :
-              t === "views" ? "View" :
-              t === "segments" ? "Segment" : "List"
-            )
+          activeTab={
+            activeSubTab === "View" ? "views" :
+            activeSubTab === "Segment" ? "segments" : "lists"
           }
+          listsDelta={`+${listsAddedThisMonth} this month`}
+          viewsDelta={`+${viewsAddedThisMonth} this month`}
+          segmentsDelta={`+${segmentsAddedThisMonth} this month`}
+          showStats={true}
           onAddContact={() => dispatch(openPanel("add-contact-modal"))}
           onImportList={() => onAddContactClick?.()}
           onCreateList={(e) => {
@@ -3188,6 +3216,19 @@ const filterFields: any = useMemo(() => {
           {!showContactPage && (
             <div className="section-wrapper">
               {segmentViewMode === "list" ? (
+                segments.length === 0 && !isLoadingSegments ? (
+                  superListContactCount === 0 ? (
+                    <ContactsEmptyState
+                      onAddContact={() => dispatch(openPanel("add-contact-modal"))}
+                      onImportList={() => onAddContactClick?.()}
+                      onCreateList={() => setShowCreateListModal(true)}
+                    />
+                  ) : (
+                    <div className="ct-rows">
+                      <div className="ct-rows__msg">No segments created yet.</div>
+                    </div>
+                  )
+                ) : (
                 <>
                   <ContactsToolbar
                     search={segmentSearchQuery}
@@ -3239,8 +3280,10 @@ const filterFields: any = useMemo(() => {
                   />
 
                 </>
+                )
               ) : (
                 // Detail view for segments
+                <div style={{ padding: "20px 32px 24px" }}>
                 <DynamicContactsTable
                   data={detailContacts}
                   isLoading={isLoadingDetail}
@@ -3670,6 +3713,7 @@ const filterFields: any = useMemo(() => {
                     </>
                   }
                 />
+                </div>
               )}
             </div>
           )}
@@ -3989,6 +4033,19 @@ const filterFields: any = useMemo(() => {
       )}
 
       <div style={{ display: activeSubTab === "View" ? "block" : "none" }}>
+        {totalViews === 0 && !isLoadingHeaderViews && !viewsDetailMode ? (
+          superListContactCount === 0 ? (
+            <ContactsEmptyState
+              onAddContact={() => dispatch(openPanel("add-contact-modal"))}
+              onImportList={() => onAddContactClick?.()}
+              onCreateList={() => setShowCreateListModal(true)}
+            />
+          ) : (
+            <div className="ct-rows">
+              <div className="ct-rows__msg">No views created yet.</div>
+            </div>
+          )
+        ) : (
         <ContactViews
           clientId={effectiveUserId}
           filterFields={filterFields}
@@ -4008,6 +4065,7 @@ const filterFields: any = useMemo(() => {
           }}
           onViewModeChange={(mode) => setViewsDetailMode(mode === "detail")}
         />
+        )}
       </div>
 
       {/* Rename Segment Modal */}

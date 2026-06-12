@@ -1,21 +1,22 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import API_BASE_URL from "../../config";
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid,
+} from "recharts";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPlayCircle,
   faCheck,
   faStar,
-  faArrowUp,
-  faArrowRight,
-  faChevronDown,
 } from "@fortawesome/free-solid-svg-icons";
 
 import CreateATemplete from "../../assets/images/icons/create-a-template.png";
 import ImportContact from "../../assets/images/icons/import-contact.png";
 import CreateACampaign from "../../assets/images/icons/create-a-campaign.png";
 import GenerateEmail from "../../assets/images/icons/generate-email.png";
-import ScheduleCampaign from "../../assets/images/icons/schedule-campaign.png";
+
 
 /* ------------------------------------------------------------------
    Types
@@ -44,19 +45,25 @@ interface KpiTileData {
   series: number[];
 }
 
-interface CampaignRow {
-  name: string;
-  status: "live" | "draft" | "done";
-  sent: string;
-  open: string;
-  reply: string;
-}
 
 interface ActivityRow {
   kind: "sent" | "import" | "blueprint" | "verify" | "gen";
   title: string;
   meta: string;
   time: string;
+}
+
+interface ContactApiRow {
+  id: number;
+  dataFileId: number;
+  full_name: string;
+  email: string;
+  company_name: string;
+  job_title: string;
+  country_or_address: string;
+  updated_at: string | null;
+  email_sent_at: string | null;
+  unsubscribe: string;
 }
 
 export interface DashboardProps {
@@ -139,18 +146,6 @@ const buildSteps = (
       ctaPath: "/main?tab=Output",
       illustration: GenerateEmail,
       videoSrc: `${VIDEO_BASE}/video/KraftEmails.mp4`,
-    },
-    {
-      id: "schedule",
-      n: 5,
-      title: "Schedule and review campaigns",
-      time: "4 minutes",
-      status: "todo",
-      body: "Add email settings, use the deliverability tools, set sending windows, then check analytics for opens, clicks and replies.",
-      cta: "Schedule & review",
-      ctaPath: "/main?tab=Mail&mailSubTab=Schedule",
-      illustration: ScheduleCampaign,
-      videoSrc: `${VIDEO_BASE}/video/Schedule_review_campaigns.mp4`,
     },
     {
       id: "explore",
@@ -457,93 +452,52 @@ const Sparkline: React.FC<{
   );
 };
 
-const KpiTile: React.FC<KpiTileData> = ({
-  label,
-  value,
-  delta,
-  deltaPos = true,
-  series,
-}) => (
+const KpiTile: React.FC<KpiTileData> = ({ label, value, series }) => (
   <div className="rounded-2xl border border-gray-200 bg-white p-5 transition hover:shadow-md">
     <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">
       {label}
     </div>
     <div className="mt-1.5 flex items-end justify-between gap-3">
-      <div>
-        <div className="text-[30px] font-bold text-gray-900 leading-none tabular-nums tracking-tight">
-          {value}
-        </div>
-        <div
-          className={`mt-2 text-[12px] font-medium flex items-center gap-1 ${
-            deltaPos ? "" : "text-red-600"
-          }`}
-          style={deltaPos ? { color: BRAND } : undefined}
-        >
-          <FontAwesomeIcon icon={faArrowUp} className="text-[10px]" /> {delta}
-        </div>
+      <div className="text-[30px] font-bold text-gray-900 leading-none tabular-nums tracking-tight">
+        {value}
       </div>
       <Sparkline data={series} />
     </div>
   </div>
 );
 
-const GenSentBars: React.FC<{
+const DualLineAreaChart: React.FC<{
   data: { label: string; gen: number; sent: number }[];
-  w?: number;
-  h?: number;
-}> = ({ data, w = 640, h = 220 }) => {
-  const pad = { l: 32, r: 12, t: 12, b: 24 };
-  const innerW = w - pad.l - pad.r;
-  const innerH = h - pad.t - pad.b;
-  const max = Math.max(...data.flatMap((d) => [d.gen, d.sent]));
-  const niceMax = Math.ceil(max / 50) * 50;
-  const groupW = innerW / data.length;
-  const barW = Math.min(12, groupW / 3);
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(t * niceMax));
+}> = ({ data }) => {
+  if (!data.length) return (
+    <div className="w-full h-full flex items-center justify-center text-[12px] text-gray-400">
+      No data for this period
+    </div>
+  );
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full">
-      {yTicks.map((v, i) => {
-        const y = pad.t + innerH - (v / niceMax) * innerH;
-        return (
-          <g key={i}>
-            <line x1={pad.l} y1={y} x2={w - pad.r} y2={y} stroke="#f3f4f6" />
-            <text x={pad.l - 8} y={y + 4} textAnchor="end" fontSize={10} fill="#9ca3af">
-              {v}
-            </text>
-          </g>
-        );
-      })}
-      {data.map((d, i) => {
-        const cx = pad.l + i * groupW + groupW / 2;
-        const genH = (d.gen / niceMax) * innerH;
-        const sentH = (d.sent / niceMax) * innerH;
-        return (
-          <g key={i}>
-            <rect
-              x={cx - barW - 1}
-              y={pad.t + innerH - genH}
-              width={barW}
-              height={genH}
-              rx={2}
-              fill={BRAND}
-            />
-            <rect
-              x={cx + 1}
-              y={pad.t + innerH - sentH}
-              width={barW}
-              height={sentH}
-              rx={2}
-              fill="#cfecd6"
-            />
-            {i % 2 === 0 && (
-              <text x={cx} y={h - 6} textAnchor="middle" fontSize={10} fill="#9ca3af">
-                {d.label}
-              </text>
-            )}
-          </g>
-        );
-      })}
-    </svg>
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 4 }}>
+        <defs>
+          <linearGradient id="dgGen" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor="#3f9f42" stopOpacity={0.22} />
+            <stop offset="95%" stopColor="#3f9f42" stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="dgSent" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.14} />
+            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="#f0f4f8" />
+        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
+        <Tooltip
+          contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", fontSize: 12 }}
+          formatter={(value: number, name: string) => [value, name === "gen" ? "Generated" : "Sent"]}
+        />
+        <Area type="monotone" dataKey="gen"  name="gen"  stroke="#3f9f42" strokeWidth={2} fill="url(#dgGen)"  dot={false} activeDot={{ r: 5 }} />
+        <Area type="monotone" dataKey="sent" name="sent" stroke="#3b82f6" strokeWidth={2} fill="url(#dgSent)" dot={false} activeDot={{ r: 5 }} />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 };
 
@@ -572,53 +526,181 @@ const ActivityItem: React.FC<ActivityRow> = ({ kind, title, meta, time }) => {
   );
 };
 
+const PAGE_SIZE = 8;
+
+type DateRange = "1d" | "7d" | "30d" | "all";
+
+const DATE_RANGE_LABELS: Record<DateRange, string> = {
+  "1d": "Today",
+  "7d": "Last 7 days",
+  "30d": "Last month",
+  "all": "All time",
+};
+
+function getFromDate(range: DateRange): Date | null {
+  if (range === "all") return null;
+  const d = new Date();
+  if (range === "1d") d.setDate(d.getDate() - 1);
+  else if (range === "7d") d.setDate(d.getDate() - 7);
+  else if (range === "30d") d.setDate(d.getDate() - 30);
+  return d;
+}
+
+function buildChartData(
+  contacts: ContactApiRow[],
+  range: DateRange
+): { label: string; gen: number; sent: number }[] {
+  if (range === "all") {
+    const map = new Map<string, { gen: number; sent: number }>();
+    contacts.forEach((c) => {
+      if (c.updated_at) {
+        const key = new Date(c.updated_at).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+        const e = map.get(key) ?? { gen: 0, sent: 0 };
+        e.gen++;
+        map.set(key, e);
+      }
+      if (c.email_sent_at) {
+        const key = new Date(c.email_sent_at).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+        const e = map.get(key) ?? { gen: 0, sent: 0 };
+        e.sent++;
+        map.set(key, e);
+      }
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => new Date("01 " + a[0]).getTime() - new Date("01 " + b[0]).getTime())
+      .map(([label, v]) => ({ label, ...v }));
+  }
+
+  const days = range === "1d" ? 1 : range === "7d" ? 7 : 30;
+  const result: { label: string; gen: number; sent: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(d);   dayEnd.setHours(23, 59, 59, 999);
+    const label = d.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
+    const gen = contacts.filter((c) => {
+      if (!c.updated_at) return false;
+      const t = new Date(c.updated_at);
+      return t >= dayStart && t <= dayEnd;
+    }).length;
+    const sent = contacts.filter((c) => {
+      if (!c.email_sent_at) return false;
+      const t = new Date(c.email_sent_at);
+      return t >= dayStart && t <= dayEnd;
+    }).length;
+    result.push({ label, gen, sent });
+  }
+  return result;
+}
+
+const ContactStatusBadge: React.FC<{ row: ContactApiRow }> = ({ row }) => {
+  if (row.email_sent_at)
+    return (
+      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#e2f1e3] text-[#3f9f42]">
+        Sent
+      </span>
+    );
+  if (row.updated_at)
+    return (
+      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+        Krafted
+      </span>
+    );
+  return (
+    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+      Pending
+    </span>
+  );
+};
+
 const PostOnboardingView: React.FC<{
   firstName: string;
   kpis: NonNullable<DashboardProps["kpis"]>;
-}> = ({ firstName, kpis }) => {
-  // TODO: replace mock series + tables with real API data
+  clientId?: number | string;
+}> = ({ firstName, kpis, clientId }) => {
+  const [contacts, setContacts] = useState<ContactApiRow[]>([]);
+  const [contactTotal, setContactTotal] = useState(0);
+  const [contactPage, setContactPage] = useState(1);
+  const [contactSearch, setContactSearch] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange>("7d");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!clientId) { setLoading(false); return; }
+    setLoading(true);
+    fetch(`${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId?clientId=${clientId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { contacts?: ContactApiRow[]; contactCount?: number } | null) => {
+        const list = Array.isArray(data?.contacts) ? data!.contacts! : [];
+        setContacts(list);
+        setContactTotal(data?.contactCount ?? list.length);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [clientId]);
+
+  const fromDate = useMemo(() => getFromDate(dateRange), [dateRange]);
+
+  const filteredByRange = useMemo(() => {
+    if (!fromDate) return contacts;
+    return contacts.filter((c) => {
+      const genDate  = c.updated_at    ? new Date(c.updated_at)    : null;
+      const sentDate = c.email_sent_at ? new Date(c.email_sent_at) : null;
+      return (genDate && genDate >= fromDate) || (sentDate && sentDate >= fromDate);
+    });
+  }, [contacts, fromDate]);
+
+  const emailsGeneratedCount = filteredByRange.filter((c) => c.updated_at != null).length;
+  const emailsSentCount      = filteredByRange.filter((c) => c.email_sent_at != null).length;
+
+  const chartData = useMemo(() => buildChartData(contacts, dateRange), [contacts, dateRange]);
+
+  if (loading) return (
+    <div className="w-full flex flex-col items-center justify-center gap-3" style={{ minHeight: "60vh" }}>
+      <div
+        className="w-10 h-10 rounded-full border-[3px] border-[#e8f5e9] border-t-[#3f9f42]"
+        style={{ animation: "spin 0.8s linear infinite" }}
+      />
+      <p className="text-[13px] text-gray-400 font-medium">Loading dashboard…</p>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+
+  const kraftRate = contactTotal > 0 ? Math.round((emailsGeneratedCount / contactTotal) * 100) : 0;
+  const sendRate  = emailsGeneratedCount > 0 ? Math.round((emailsSentCount / emailsGeneratedCount) * 100) : 0;
+
   const tiles: KpiTileData[] = [
     {
       label: "Total contacts",
-      value: kpis.totalContacts ?? "2,418",
-      delta: "+186 this week",
+      value: kpis.totalContacts ?? (contactTotal > 0 ? contactTotal.toLocaleString() : "—"),
+      delta: "",
       series: [120, 132, 128, 145, 160, 178, 196],
     },
     {
       label: "Emails generated",
-      value: kpis.emailsGenerated ?? "8,540",
-      delta: "+412 this week",
+      value: kpis.emailsGenerated ?? (contacts.length > 0 ? emailsGeneratedCount.toLocaleString() : "—"),
+      delta: "",
       series: [60, 88, 72, 110, 132, 148, 165],
     },
     {
       label: "Emails sent",
-      value: kpis.emailsSent ?? "7,206",
-      delta: "+388 this week",
+      value: kpis.emailsSent ?? (contacts.length > 0 ? emailsSentCount.toLocaleString() : "—"),
+      delta: "",
       series: [58, 76, 92, 88, 110, 138, 162],
     },
     {
-      label: "Replies",
-      value: kpis.replies ?? "342",
-      delta: "+27 this week",
-      series: [6, 9, 8, 12, 14, 18, 22],
+      label: "Kraft rate",
+      value: contacts.length > 0 ? `${kraftRate}%` : "—",
+      delta: "",
+      series: [10, 18, 24, 30, 38, 42, kraftRate],
     },
-  ];
-
-  const chartData = [
-    { label: "May 2", gen: 120, sent: 90 },
-    { label: "May 3", gen: 140, sent: 118 },
-    { label: "May 4", gen: 95, sent: 80 },
-    { label: "May 5", gen: 170, sent: 142 },
-    { label: "May 6", gen: 200, sent: 174 },
-    { label: "May 7", gen: 180, sent: 155 },
-    { label: "May 8", gen: 220, sent: 192 },
-    { label: "May 9", gen: 250, sent: 220 },
-    { label: "May 10", gen: 195, sent: 178 },
-    { label: "May 11", gen: 240, sent: 215 },
-    { label: "May 12", gen: 280, sent: 248 },
-    { label: "May 13", gen: 225, sent: 210 },
-    { label: "May 14", gen: 305, sent: 270 },
-    { label: "May 15", gen: 345, sent: 312 },
+    {
+      label: "Send rate",
+      value: contacts.length > 0 ? `${sendRate}%` : "—",
+      delta: "",
+      series: [15, 22, 30, 40, 50, 58, sendRate],
+    },
   ];
 
   const activity: ActivityRow[] = [
@@ -654,13 +736,6 @@ const PostOnboardingView: React.FC<{
     },
   ];
 
-  const campaigns: CampaignRow[] = [
-    { name: "Q3 Promo — UK", status: "live", sent: "2,418", open: "42%", reply: "5.8%" },
-    { name: "Founder outreach", status: "live", sent: "840", open: "51%", reply: "9.2%" },
-    { name: "Webinar invites", status: "draft", sent: "—", open: "—", reply: "—" },
-    { name: "Q2 newsletter", status: "done", sent: "4,210", open: "38%", reply: "3.1%" },
-  ];
-
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 12) return "Good morning";
@@ -684,18 +759,20 @@ const PostOnboardingView: React.FC<{
           <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#3f9f42] bg-[#e2f1e3] border border-[#cfecd6] px-2.5 py-1 rounded-full">
             <FontAwesomeIcon icon={faCheck} className="text-[10px]" /> Setup complete
           </span>
-          <button
-            type="button"
-            className="h-9 px-3 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
+          <select
+            value={dateRange}
+            onChange={(e) => { setDateRange(e.target.value as DateRange); setContactPage(1); }}
+            className="h-9 px-3 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-600 bg-white hover:bg-gray-50 cursor-pointer focus:outline-none focus:border-[#3f9f42]"
           >
-            Last 7 days{" "}
-            <FontAwesomeIcon icon={faChevronDown} className="text-[10px]" />
-          </button>
+            {(Object.keys(DATE_RANGE_LABELS) as DateRange[]).map((k) => (
+              <option key={k} value={k}>{DATE_RANGE_LABELS[k]}</option>
+            ))}
+          </select>
         </div>
       </div>
 
       {/* KPI tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {tiles.map((t) => (
           <KpiTile key={t.label} {...t} />
         ))}
@@ -709,7 +786,7 @@ const PostOnboardingView: React.FC<{
               <div className="text-[15px] font-semibold text-gray-900">
                 Emails generated vs sent
               </div>
-              <div className="text-[12px] text-gray-500 mt-0.5">Last 14 days</div>
+              <div className="text-[12px] text-gray-500 mt-0.5">{DATE_RANGE_LABELS[dateRange]}</div>
             </div>
             <div className="flex items-center gap-4 text-[12px] text-gray-600">
               <span className="flex items-center gap-1.5">
@@ -717,12 +794,12 @@ const PostOnboardingView: React.FC<{
                 Generated
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-[#cfecd6]" /> Sent
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#3b82f6]" /> Sent
               </span>
             </div>
           </div>
           <div className="mt-3 h-[220px]">
-            <GenSentBars data={chartData} />
+            <DualLineAreaChart data={chartData} />
           </div>
         </div>
 
@@ -744,79 +821,115 @@ const PostOnboardingView: React.FC<{
         </div>
       </div>
 
-      {/* Campaigns + Pro tip */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-8 rounded-2xl border border-gray-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <div className="text-[15px] font-semibold text-gray-900">Active campaigns</div>
-            <button
-              className="text-[12px] font-medium hover:underline"
-              style={{ color: BRAND }}
-            >
-              View all
-            </button>
+      {/* All Contacts */}
+      {contacts.length > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <div className="text-[15px] font-semibold text-gray-900">All contacts</div>
+              <div className="text-[12px] text-gray-500 mt-0.5">
+                {contactTotal.toLocaleString()} total
+              </div>
+            </div>
+            <input
+              type="text"
+              placeholder="Search name, email or company…"
+              value={contactSearch}
+              onChange={(e) => { setContactSearch(e.target.value); setContactPage(1); }}
+              className="h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#3f9f42] w-72"
+            />
           </div>
-          <table className="w-full mt-3 text-[13px]">
+
+          <table className="w-full mt-4 text-[13px]">
             <thead>
-              <tr className="text-left text-gray-400 text-[11px] uppercase tracking-wider">
-                <th className="font-medium py-2">Campaign</th>
-                <th className="font-medium py-2">Status</th>
-                <th className="font-medium py-2 text-right">Sent</th>
-                <th className="font-medium py-2 text-right">Open</th>
-                <th className="font-medium py-2 text-right">Reply</th>
+              <tr className="text-left text-gray-400 text-[11px] uppercase tracking-wider border-b border-gray-100">
+                <th className="font-medium pb-2">Name</th>
+                <th className="font-medium pb-2">Email</th>
+                <th className="font-medium pb-2">Company</th>
+                <th className="font-medium pb-2">Job title</th>
+                <th className="font-medium pb-2">Country</th>
+                <th className="font-medium pb-2">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {campaigns.map((c) => (
-                <tr key={c.name} className="hover:bg-gray-50">
-                  <td className="py-2.5 font-medium text-gray-900">{c.name}</td>
-                  <td className="py-2.5">
-                    <span
-                      className={`text-[11px] font-medium px-2 py-0.5 rounded-full
-                      ${
-                        c.status === "live"
-                          ? "bg-[#e2f1e3] text-[#3f9f42]"
-                          : c.status === "draft"
-                          ? "bg-gray-100 text-gray-500"
-                          : "bg-violet-50 text-violet-700"
-                      }`}
-                    >
-                      {c.status}
-                    </span>
-                  </td>
-                  <td className="py-2.5 text-right tabular-nums text-gray-600">{c.sent}</td>
-                  <td className="py-2.5 text-right tabular-nums text-gray-600">{c.open}</td>
-                  <td className="py-2.5 text-right tabular-nums text-gray-600">{c.reply}</td>
-                </tr>
-              ))}
+              {contacts
+                .filter((c) => {
+                  if (!contactSearch) return true;
+                  const q = contactSearch.toLowerCase();
+                  return (
+                    c.full_name?.toLowerCase().includes(q) ||
+                    c.email?.toLowerCase().includes(q) ||
+                    c.company_name?.toLowerCase().includes(q)
+                  );
+                })
+                .slice((contactPage - 1) * PAGE_SIZE, contactPage * PAGE_SIZE)
+                .map((c) => (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="py-2.5 max-w-[160px] truncate">
+                      <a
+                        href={`/#/contact-details/${c.id}?tab=DataCampaigns&subtab=List&dataFileId=${c.dataFileId}&clientId=${clientId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-gray-900 hover:text-[#3f9f42] hover:underline"
+                      >
+                        {c.full_name || "—"}
+                      </a>
+                    </td>
+                    <td className="py-2.5 text-gray-600 max-w-[180px] truncate">{c.email || "—"}</td>
+                    <td className="py-2.5 text-gray-600 max-w-[140px] truncate">{c.company_name || "—"}</td>
+                    <td className="py-2.5 text-gray-600 max-w-[140px] truncate">{c.job_title || "—"}</td>
+                    <td className="py-2.5 text-gray-600">{c.country_or_address || "—"}</td>
+                    <td className="py-2.5">
+                      <ContactStatusBadge row={c} />
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
-        </div>
 
-        <div className="lg:col-span-4 rounded-2xl border border-dashed border-[#3f9f42] bg-[#f1f8f2] p-5 flex flex-col">
-          <div
-            className="text-[11px] font-semibold uppercase tracking-wider"
-            style={{ color: BRAND }}
-          >
-            Pro tip
-          </div>
-          <div className="mt-1.5 text-[15px] font-semibold text-gray-900 leading-snug">
-            Replies up 8% when you A/B test your subject line.
-          </div>
-          <p className="text-[13px] text-gray-600 mt-2 leading-relaxed">
-            Add a B-variant to "Q3 Promo — UK" and PitchKraft will pick the winner
-            automatically.
-          </p>
-          <button
-            type="button"
-            className="mt-auto pt-4 text-[13px] font-semibold self-start hover:underline flex items-center gap-1"
-            style={{ color: BRAND }}
-          >
-            Try A/B testing{" "}
-            <FontAwesomeIcon icon={faArrowRight} className="text-[10px]" />
-          </button>
+          {/* Pagination */}
+          {(() => {
+            const filtered = contacts.filter((c) => {
+              if (!contactSearch) return true;
+              const q = contactSearch.toLowerCase();
+              return (
+                c.full_name?.toLowerCase().includes(q) ||
+                c.email?.toLowerCase().includes(q) ||
+                c.company_name?.toLowerCase().includes(q)
+              );
+            });
+            const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+            if (totalPages <= 1) return null;
+            return (
+              <div className="flex items-center justify-between mt-4 text-[12px] text-gray-500">
+                <span>
+                  {(contactPage - 1) * PAGE_SIZE + 1}–
+                  {Math.min(contactPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={contactPage === 1}
+                    onClick={() => setContactPage((p) => p - 1)}
+                    className="h-7 px-3 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    disabled={contactPage === totalPages}
+                    onClick={() => setContactPage((p) => p + 1)}
+                    className="h-7 px-3 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
-      </div>
+      )}
+
     </div>
   );
 };
@@ -847,7 +960,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       try {
         const id = clientId;
 
-        const [templatesRes, dataFilesRes, campaignsRes, scheduleRes] = await Promise.all([
+        const [templatesRes, dataFilesRes, campaignsRes] = await Promise.all([
           fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${id}`).then((r) =>
             r.ok ? r.json() : []
           ),
@@ -855,9 +968,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             r.ok ? r.json() : []
           ),
           fetch(`${API_BASE_URL}/api/auth/campaigns/client/${id}`).then((r) =>
-            r.ok ? r.json() : []
-          ),
-          fetch(`${API_BASE_URL}/api/email/get-sequence?ClientId=${id}`).then((r) =>
             r.ok ? r.json() : []
           ),
         ]);
@@ -874,57 +984,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
         const contactsDone = realFiles.length > 0;
         const campaignList = Array.isArray(campaignsRes) ? campaignsRes : [];
         const campaignDone = campaignList.length > 0;
-        const scheduleDone = Array.isArray(scheduleRes) && scheduleRes.length > 0;
-
-        // Check kraft: if there are campaigns, fetch contacts for the first one
-        // and see if any have an email generated (pitch / email_body present)
+        // Check kraft: dedicated endpoint checks if any contact for this client has been krafted
         let kraftDone = false;
         if (campaignDone) {
-          const firstCampaign = campaignList[0];
-          const campaignId =
-            firstCampaign?.id ?? firstCampaign?.campaignId ?? firstCampaign?.campaign_id;
-          const dataFileId =
-            firstCampaign?.dataFileId ??
-            firstCampaign?.data_file_id ??
-            firstCampaign?.datafileid;
-
-          if (dataFileId != null) {
-            try {
-              const contactsRes = await fetch(
-                `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${id}&dataFileId=${dataFileId}&isFollowUp=false&notKrafted=false&kraftedNotSent=false`
-              ).then((r) => (r.ok ? r.json() : []));
-              const contacts = Array.isArray(contactsRes) ? contactsRes : [];
-              kraftDone = contacts.some(
-                (c: any) =>
-                  c.pitch ||
-                  c.email_body ||
-                  c.sample_email_body ||
-                  c.isKrafted === true ||
-                  c.isKrafted === 1
-              );
-            } catch {
-              kraftDone = false;
-            }
-          } else if (campaignId != null) {
-            // Fallback: try view-contacts with campaignId
-            try {
-              const contactsRes = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ clientId: id, campaignId, notKrafted: false }),
-              }).then((r) => (r.ok ? r.json() : []));
-              const contacts = Array.isArray(contactsRes) ? contactsRes : [];
-              kraftDone = contacts.some(
-                (c: any) =>
-                  c.pitch ||
-                  c.email_body ||
-                  c.sample_email_body ||
-                  c.isKrafted === true ||
-                  c.isKrafted === 1
-              );
-            } catch {
-              kraftDone = false;
-            }
+          try {
+            const kraftRes = await fetch(
+              `${API_BASE_URL}/api/Crm/kraft-done?clientId=${id}`
+            );
+            const kraftData = kraftRes.ok ? await kraftRes.json() : {};
+            kraftDone = kraftData.kraftDone === true;
+          } catch {
+            kraftDone = false;
           }
         }
 
@@ -934,7 +1004,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             contacts: contactsDone ? "done" : blueprintDone ? "active" : "todo",
             campaign: campaignDone ? "done" : contactsDone ? "active" : "todo",
             kraft: kraftDone ? "done" : campaignDone ? "active" : "todo",
-            schedule: scheduleDone ? "done" : kraftDone ? "active" : "todo",
           });
         }
       } catch {
@@ -955,7 +1024,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const derivedComplete = useMemo(() => {
     if (typeof setupComplete === "boolean") return setupComplete;
     if (!stepStatus) return false;
-    const required = ["blueprint", "contacts", "campaign", "kraft", "schedule"];
+    const required = ["blueprint", "contacts", "campaign", "kraft"];
     return required.every((id) => stepStatus[id] === "done");
   }, [setupComplete, stepStatus]);
 
@@ -973,7 +1042,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="w-full min-h-full bg-white">
       {derivedComplete ? (
         <div className="p-6">
-          <PostOnboardingView firstName={name} kpis={kpis ?? {}} />
+          <PostOnboardingView firstName={name} kpis={kpis ?? {}} clientId={clientId} />
         </div>
       ) : (
         <div className="p-6">

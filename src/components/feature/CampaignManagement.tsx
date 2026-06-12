@@ -10,8 +10,11 @@ import "react-toastify/dist/ReactToastify.css";
 import CommonSidePanel from "../common/CommonSidePanel";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import "./blueprint/Template.new.css";
+import { BpBanner } from "./blueprint/BpBanner";
+import campaignIllustration from "../../assets/images/campaign-illustration.png";
+import campaignIllustration2 from "../../assets/images/Campgains_old_user.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlay } from "@fortawesome/free-solid-svg-icons";
+import { faPlay, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import {
   FileText,
   MoreVertical,
@@ -19,7 +22,6 @@ import {
   Plus,
   Rocket,
   Search,
-  Sparkles,
   Trash2,
   Users,
   ArrowUp,
@@ -574,21 +576,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     !campaignForm.templateId ||
     (!campaignForm.zohoViewId && !campaignForm.segmentId);
 
-  const campaignStats = [
-    { label: "Campaigns", value: campaigns.length.toString(), Icon: Rocket },
-    {
-      label: "With blueprint",
-      value: campaigns.filter((campaign) => campaign.templateId).length.toString(),
-      Icon: FileText,
-    },
-    {
-      label: "Data sources",
-      value: campaigns
-        .filter((campaign) => getDataSourceName(campaign) !== "-")
-        .length.toString(),
-      Icon: Users,
-    },
-  ];
 
   const renderSortIcon = (columnKey: string) => {
     if (columnKey !== listSortKey) return <ArrowUpDown className="h-3 w-3 text-[#cdd2da]" />;
@@ -649,27 +636,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
 
   return (
     <div className="bp-list-wrap campaign-bp-page">
-        <div className="bp-page-header">
-          <div className="bp-page-header__inner">
-            <div>
-              <div className="bp-eyebrow">Outreach</div>
-              <h1 className="bp-page-title">
-                Campaigns
-                <span className="bp-count-pill">{campaigns.length}</span>
-              </h1>
-              <p className="bp-page-sub">
-                Connect a blueprint to a list, segment, or CRM view and manage every campaign from one library.
-              </p>
-            </div>
-            <div className="bp-header-actions">
-              <button type="button" className="bp-btn-primary-dark" onClick={openCreateCampaignPanel}>
-                <Plus className="h-4 w-4" />
-                New campaign
-              </button>
-            </div>
-          </div>
-        </div>
-
         {isLoading ? (
           <div className="bp-list-body">
             <div className="bp-rows__msg">Loading campaigns...</div>
@@ -704,75 +670,48 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   </div>
                 </div>
                 <div className="bp-empty-hero__art">
-                  <Rocket style={{ width: 160, height: 160, color: "#3f9f42" }} />
+                  <img
+                    src={campaignIllustration}
+                    alt="Campaign illustration"
+                    style={{ width: 500, height: "auto", maxWidth: "100%" }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
                 </div>
               </div>
             </div>
-            <div className="bp-how-it-works">
-              <div className="bp-eyebrow" style={{ marginBottom: 16 }}>How campaigns fit in</div>
-              <div className="bp-steps">
-                {[
-                  ["STEP 01", "Add contacts", false],
-                  ["STEP 02", "Create blueprint", false],
-                  ["STEP 03", "Create campaign", true],
-                  ["STEP 04", "Kraft emails", false],
-                  ["STEP 05", "View analytics", false],
-                ].map(([step, label, active]) => (
-                  <div key={String(step)} className={`bp-step ${active ? "is-active" : ""}`}>
-                    <div className="bp-step__head">
-                      <span className="bp-step__num">{step}</span>
-                      <span className="bp-step__icon">-</span>
-                    </div>
-                    <div className="bp-step__label">{label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+
           </div>
         ) : (
           <>
-            <div className="bp-list-body">
-              <div className="bp-banner">
-                <div className="bp-banner__left">
-                  <div className="bp-banner__art">
-                    <Sparkles style={{ width: 90, height: 90, color: "#3f9f42" }} />
-                  </div>
-                  <div className="bp-banner__copy">
-                    <div className="bp-banner__title">Your campaigns are organized and ready to scale.</div>
-                    <div className="bp-banner__sub">
-                      You have created <strong>{campaigns.length}</strong> campaign{campaigns.length !== 1 ? "s" : ""}.
-                      Keep refining sources and blueprints to improve every outbound run.
-                    </div>
-                    <div className="bp-banner__actions">
-                      <button className="bp-btn-banner-primary" onClick={openCreateCampaignPanel}>
-                        <Plus className="h-4 w-4" />
-                        Create campaign
-                      </button>
-                      <button
-                        className="bp-btn-banner-ghost"
-                        type="button"
-                        onClick={() => setShowCampaignVideo(true)}
-                      >
-                        <FontAwesomeIcon icon={faPlay} />
-                        Explore best practices
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="bp-banner__features">
-                  {campaignStats.map(({ label, value, Icon }) => (
-                    <div key={label} className="bp-banner__feature">
-                      <span className="bp-banner__feature-icon">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <div className="bp-banner__feature-title">{label}</div>
-                        <div className="bp-banner__feature-desc">{value}</div>
-                      </div>
-                    </div>
-                  ))}
+            <div className="bp-page-header">
+              <div className="bp-page-header__inner">
+                <div>
+                  <h1 className="bp-page-title">
+                    Campaigns
+                    <span className="bp-count-pill">{campaigns.length}</span>
+                  </h1>
                 </div>
               </div>
+            </div>
+
+            <div className="bp-list-body">
+              <BpBanner
+                title="Create  and view your campaigns"
+                subtitle={
+                  <>
+                    You have created <strong>{campaigns.length}</strong> campaign{campaigns.length !== 1 ? "s" : ""}.
+                    Keep refining sources and blueprints to improve every outbound run.
+                  </>
+                }
+                primaryLabel="Create campaign"
+                primaryIcon={<Plus className="h-4 w-4" />}
+                onPrimaryClick={openCreateCampaignPanel}
+                secondaryLabel="Explore best practices"
+                secondaryIcon={<FontAwesomeIcon icon={faArrowUpRightFromSquare} />}
+                secondaryHref="https://www.pitchkraft.ai/campaigns/"
+                imageSrc={campaignIllustration2}
+                imageAlt="Campaign illustration"
+              />
             </div>
 
             <div className="bp-list-body">

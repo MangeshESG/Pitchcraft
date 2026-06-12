@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { MailDashboardEmptyState, MailDashboardCampaignSelectState } from "./MailDashboard.new";
 import axios from "axios";
 import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
 import DynamicContactsTable from "./DynamicContactsTable";
@@ -186,6 +187,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   // All useState hooks - Changed selectedView to selectedCampaign
   const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([]);
+  const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [dashboardTab, setDashboardTab] = useState("Overview");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -425,6 +427,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         } catch (error) {
           console.error("Dashboard: Error loading campaigns:", error);
           setAvailableCampaigns([]);
+        } finally {
+          setCampaignsLoaded(true);
         }
       });
     };
@@ -1008,6 +1012,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0 });
       setRequestCount(0);
       setDataFetchedForCampaign("");
+      setDashboardTab("Overview");
     }
   };
 
@@ -1930,90 +1935,100 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     });
   };
 
+  if (campaignsLoaded && !isLoading && availableCampaigns.length === 0) {
+    return (
+      <div className="md-root" style={{ display: isVisible ? "block" : "none" }}>
+        <MailDashboardEmptyState />
+      </div>
+    );
+  }
+
   return (
     <div className="md-root" style={{ display: isVisible ? "block" : "none" }}>
 
-      {/* ── Tab Bar ── */}
-      <div className="md-tab-bar">
-        <button
-          className={`md-tab${dashboardTab === "Overview" ? " md-tab--active" : ""}`}
-          onClick={() => handleDashboardTabChange("Overview")}
-        >
-          Overview
-        </button>
-        <button
-          className={`md-tab${dashboardTab === "Details" ? " md-tab--active" : ""}`}
-          onClick={() => handleDashboardTabChange("Details")}
-        >
-          Details
-        </button>
-      </div>
-
-      {/* ── Controls Bar ── */}
-      <div className="md-controls-bar">
-        {/* Campaign — grows to fill available space */}
-        <div className="md-control-campaign">
-          <label className="md-label">Campaign <span className="md-required">*</span></label>
-          <select
-            value={selectedCampaign}
-            onChange={handleCampaignChange}
-            className={`md-select${!selectedCampaign ? " md-select--error" : ""}`}
+      {/* ── Tab Bar (shown when campaign selected) ── */}
+      {selectedCampaign && (
+        <div className="md-tab-bar">
+          <button
+            className={`md-tab${dashboardTab === "Overview" ? " md-tab--active" : ""}`}
+            onClick={() => handleDashboardTabChange("Overview")}
           >
-            <option value="">Select a campaign</option>
-            {availableCampaigns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.campaignName}{c.dataSource === "Segment" && c.segmentName ? ` (${c.segmentName})` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Start date */}
-        <div className="md-control-group">
-          <label className="md-label">Start date</label>
-          <input type="date" value={startDate} onChange={(e) => handleDateChange("start", e.target.value)}
-            max={endDate || undefined} className="md-date-input" />
-        </div>
-
-        {/* End date */}
-        <div className="md-control-group">
-          <label className="md-label">End date</label>
-          <input type="date" value={endDate} onChange={(e) => handleDateChange("end", e.target.value)}
-            min={startDate || undefined} className="md-date-input" />
-        </div>
-
-        {/* Refresh icon button */}
-        <div className="md-control-refresh">
-          <button className="md-icon-btn" onClick={handleRefresh}
-            disabled={isRefreshing || loading} title="Refresh analytics">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 1.5A6.5 6.5 0 001.5 8a.75.75 0 01-1.5 0A8 8 0 0113.5 2.19V1.25a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zm7.25 5.75a.75.75 0 01.75.75A8 8 0 012.5 13.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/>
-            </svg>
+            Overview
+          </button>
+          <button
+            className={`md-tab${dashboardTab === "Details" ? " md-tab--active" : ""}`}
+            onClick={() => handleDashboardTabChange("Details")}
+          >
+            Details
           </button>
         </div>
+      )}
 
-        {/* Only guaranteed toggle */}
-        <div className="md-control-group">
-          <ReactTooltip anchorSelect="#md-guaranteed-label" place="top">
-            Restrict to guaranteed opens and clicks by removing any chance of bot actions. This will deflate numbers pessimistically.
-          </ReactTooltip>
-          <label className="md-label" id="md-guaranteed-label" style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            Only guaranteed
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.45, flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
-            </svg>
-          </label>
-          <div className="md-toggle-wrapper">
-            <button onClick={() => setExcludeBots(!excludeBots)}
-              className={`md-toggle${excludeBots ? " md-toggle--on" : ""}`}>
-              <span className={`md-toggle-thumb${excludeBots ? " md-toggle-thumb--on" : ""}`} />
-            </button>
-            <span className="md-toggle-label">{excludeBots ? "ON" : "OFF"}</span>
+      {/* ── Controls Bar (shown when campaign selected) ── */}
+      {selectedCampaign && (
+        <div className="md-controls-bar">
+          {/* Campaign — grows to fill available space */}
+          <div className="md-control-campaign">
+            <label className="md-label">Campaign <span className="md-required">*</span></label>
+            <select
+              value={selectedCampaign}
+              onChange={handleCampaignChange}
+              className={`md-select${!selectedCampaign ? " md-select--error" : ""}`}
+            >
+              <option value="">Select a campaign</option>
+              {availableCampaigns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.campaignName}{c.dataSource === "Segment" && c.segmentName ? ` (${c.segmentName})` : ""}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
 
-        {/* Right-side actions (shown when campaign selected) */}
-        {selectedCampaign && (
+          {/* Start date */}
+          <div className="md-control-group">
+            <label className="md-label">Start date</label>
+            <input type="date" value={startDate} onChange={(e) => handleDateChange("start", e.target.value)}
+              max={endDate || undefined} className="md-date-input" />
+          </div>
+
+          {/* End date */}
+          <div className="md-control-group">
+            <label className="md-label">End date</label>
+            <input type="date" value={endDate} onChange={(e) => handleDateChange("end", e.target.value)}
+              min={startDate || undefined} className="md-date-input" />
+          </div>
+
+          {/* Refresh icon button */}
+          <div className="md-control-refresh">
+            <button className="md-icon-btn" onClick={handleRefresh}
+              disabled={isRefreshing || loading} title="Refresh analytics">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 1.5A6.5 6.5 0 001.5 8a.75.75 0 01-1.5 0A8 8 0 0113.5 2.19V1.25a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zm7.25 5.75a.75.75 0 01.75.75A8 8 0 012.5 13.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/>
+              </svg>
+            </button>
+          </div>
+
+          {/* Only guaranteed toggle */}
+          <div className="md-control-group">
+            <ReactTooltip anchorSelect="#md-guaranteed-label" place="top">
+              Restrict to guaranteed opens and clicks by removing any chance of bot actions. This will deflate numbers pessimistically.
+            </ReactTooltip>
+            <label className="md-label" id="md-guaranteed-label" style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              Only guaranteed
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.45, flexShrink: 0 }}>
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+            </label>
+            <div className="md-toggle-wrapper">
+              <button onClick={() => setExcludeBots(!excludeBots)}
+                className={`md-toggle${excludeBots ? " md-toggle--on" : ""}`}>
+                <span className={`md-toggle-thumb${excludeBots ? " md-toggle-thumb--on" : ""}`} />
+              </button>
+              <span className="md-toggle-label">{excludeBots ? "ON" : "OFF"}</span>
+            </div>
+          </div>
+
+          {/* Right-side actions */}
           <div className="md-control-actions">
             {(startDate || endDate) && (
               <button className="md-clear-btn"
@@ -2029,11 +2044,11 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               Export Report
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── Stats Grid (v2 — icon+label row / value / sparkline) ── */}
-      <div className="md-stats-grid">
+      {selectedCampaign && <div className="md-stats-grid">
         {([
           {
             id: "sent", label: "Sent", color: "#00C49F", bg: "#e0faf3",
@@ -2099,80 +2114,16 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             )}
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* ── Overview Tab ── */}
       {dashboardTab === "Overview" && (
         !selectedCampaign ? (
-          /* ─── Empty state ─── */
-          <>
-            <div className="md-empty-state">
-              {/* Illustration */}
-              <div className="md-empty-illus">
-                <svg width="210" height="165" viewBox="0 0 210 165" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  {/* browser window */}
-                  <rect x="15" y="8" width="165" height="118" rx="9" fill="#fff" stroke="#e2e8f0" strokeWidth="1.5"/>
-                  <rect x="15" y="8" width="165" height="22" rx="9" fill="#f8fafc"/>
-                  <rect x="15" y="22" width="165" height="6" fill="#f8fafc"/>
-                  {/* dots */}
-                  <circle cx="28" cy="19" r="3" fill="#fca5a5"/>
-                  <circle cx="38" cy="19" r="3" fill="#fde68a"/>
-                  <circle cx="48" cy="19" r="3" fill="#86efac"/>
-                  {/* area chart fill */}
-                  <path d="M25 110 C45 92 65 78 85 68 C105 58 125 63 145 52 C158 44 165 48 178 43 L178 110 Z" fill="#dcfce7"/>
-                  {/* area chart line */}
-                  <path d="M25 110 C45 92 65 78 85 68 C105 58 125 63 145 52 C158 44 165 48 178 43" stroke="#3f9f42" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
-                  {/* donut chart */}
-                  <circle cx="163" cy="78" r="20" stroke="#e2e8f0" strokeWidth="7" fill="none"/>
-                  <circle cx="163" cy="78" r="20" stroke="#3f9f42" strokeWidth="7" fill="none" strokeDasharray="63 63" strokeLinecap="round" transform="rotate(-90 163 78)"/>
-                  <circle cx="163" cy="78" r="20" stroke="#f59e0b" strokeWidth="7" fill="none" strokeDasharray="31 95" strokeLinecap="round" transform="rotate(27 163 78)"/>
-                  {/* decorative plus signs */}
-                  <text x="5" y="75" fill="#3f9f42" fontSize="14" fontWeight="700" opacity="0.7">+</text>
-                  <text x="188" y="118" fill="#3f9f42" fontSize="10" fontWeight="700" opacity="0.6">+</text>
-                  {/* arrow */}
-                  <path d="M8 120 Q5 135 13 145" stroke="#3f9f42" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                  <path d="M10 143 L13 145 L11 141" stroke="#3f9f42" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <h3 className="md-empty-title">Select a campaign to view analytics</h3>
-              <p className="md-empty-sub">Choose a campaign and date range above to see performance insights like<br/>sent, opens, clicks, and more.</p>
-              <button
-                className="md-empty-cta"
-                onClick={() => {
-                  const el = document.querySelector(".md-select") as HTMLSelectElement | null;
-                  if (el) el.focus();
-                }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-                </svg>
-                Select a campaign
-              </button>
-            </div>
-
-            {/* Feature row */}
-            <div className="md-feature-row">
-              {([
-                { icon: "clock",    title: "Track performance",     desc: "Monitor key metrics and measure campaign success." },
-                { icon: "target",   title: "Optimize results",      desc: "Identify what works best and improve future campaigns." },
-                { icon: "users",    title: "Data-driven decisions",  desc: "Make informed decisions with real-time insights." },
-                { icon: "shield",   title: "Guaranteed accuracy",   desc: "Analytics reflect only guaranteed emails for reliable data." },
-              ] as const).map(f => (
-                <div key={f.title} className="md-feature-card">
-                  <div className="md-feature-icon">
-                    {f.icon === "clock"  && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
-                    {f.icon === "target" && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>}
-                    {f.icon === "users"  && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>}
-                    {f.icon === "shield" && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>}
-                  </div>
-                  <div>
-                    <p className="md-feature-title">{f.title}</p>
-                    <p className="md-feature-desc">{f.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          <MailDashboardCampaignSelectState
+            availableCampaigns={availableCampaigns}
+            selectedCampaign={selectedCampaign}
+            handleCampaignChange={handleCampaignChange}
+          />
         ) : (
           /* ─── Populated state ─── */
           <>

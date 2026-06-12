@@ -10,6 +10,7 @@ import ValidateRecordsModal from "./ValidateRecordsModal";
 import DomainAuthColumn from "./DomainAuthColumn";
 import API_BASE_URL from "../../config";
 import { closePanel, openPanel } from "../../slices/panelSlice";
+import { MailConfigurationEmptyState } from "./MailConfiguration.new";
 
 interface MailConfigurationProps {
   [key: string]: any;
@@ -98,7 +99,10 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
   appModal,
   fetchDomainData,
   showValidateModal,
-  selectedDomain,}) => {
+  selectedDomain,
+  hasMailboxConfig,
+  smtpListLoading,
+}) => {
   const [mailboxFilter, setMailboxFilter] = React.useState<
     "all" | "smtp" | "imap"
   >("all");
@@ -227,6 +231,13 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
 
   return (
         <div style={{ padding: "24px 28px" }}>
+          {!hasMailboxConfig && !smtpListLoading ? (
+            <MailConfigurationEmptyState
+              onAddMailbox={() => dispatch(openPanel("add-edit-mailbox-modal"))}
+              isDemoAccount={isDemoAccount}
+            />
+          ) : (
+          <>
           {/* --- SUB TABS --- */}
           <div className="config-tab-container" style={{ display: "flex", gap: "20px", marginBottom: "20px" }}>
             <button
@@ -517,37 +528,6 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                     pageLabel="Page:"
                   />
                 </div>
-                {/* Add/Edit Mailbox Modal */}
-                <AddMailboxModal
-                  //isOpen={openModals}
-                  isOpen={showAddEditMailBoxModal}
-                  onClose={() => {
-                    //handleModalClose("modal-add-mailbox");
-                    dispatch(closePanel());
-                    setEditingId(null);
-                  }}
-                  editingId={editingId}
-                  form={form}
-                  setForm={setForm}
-                  handleChangeSMTP={handleChangeSMTP}
-                  handleSubmitSMTP={handleSubmitSMTP}
-                  smtpLoading={smtpLoading}
-                  setEditingId={setEditingId}
-                  effectiveUserId={effectiveUserId!!}
-                  token={token}
-                  onSuccess={(message) => {
-                    setToastMessage(message);
-                    setShowSuccessToast(true);
-                    setTimeout(() => setShowSuccessToast(false), 6000);
-                    fetchSmtp();
-                    fetchInboxCredentials();
-                  }}
-                  onError={(message) => {
-                    setToastMessage(message);
-                    setShowErrorToast(true);
-                    setTimeout(() => setShowErrorToast(false), 6000);
-                  }}
-                />
 
                 <CommonSidePanel
                   isOpen={showSMTPEditModal}
@@ -759,93 +739,6 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                     </div>
                   </form>
                 </CommonSidePanel>
-
-                {/* SMTP OTP Modal */}
-                {showSmtpOtpModal && (
-                  <div
-                    style={{
-                      position: "fixed",
-                      zIndex: 99999,
-                      inset: 0,
-                      background: "rgba(0,0,0,0.6)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div
-                      style={{
-                        background: "#fff",
-                        padding: "24px",
-                        borderRadius: "8px",
-                        width: "400px",
-                        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <h3 style={{ marginBottom: 16, color: "#333" }}>Verify SMTP email</h3>
-                      <p style={{ marginBottom: 16, color: "#666" }}>
-                        Please enter the OTP sent to {smtpOtpEmail}
-                      </p>
-                      <input
-                        type="text"
-                        placeholder="Enter OTP"
-                        style={{
-                          width: "100%",
-                          padding: "8px",
-                          marginBottom: "16px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                        }}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            const otp = (e.target as HTMLInputElement).value;
-                            if (otp) {
-                              handleSmtpOtpVerify(otp);
-                            }
-                          }
-                        }}
-                      />
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                        <button
-                          className="button secondary small"
-                          onClick={() => {
-                            setShowSmtpOtpModal(false);
-                            setForm({
-                              server: "",
-                              port: "",
-                              username: "",
-                              password: "",
-                              fromEmail: "",
-                              senderName: "",
-                              usessl: "Auto",
-                              incomingServer: "",
-                              incomingPort: "",
-                              fullInboxSync: false,
-                              incomingSecurityType: "Auto",
-                            });
-                            //handleModalClose("modal-add-mailbox");
-                            dispatch(closePanel());
-                          }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          className="save-button button small"
-                          onClick={() => {
-                            const otpInput = document.querySelector('input[placeholder="Enter OTP"]') as HTMLInputElement;
-                            if (otpInput?.value) {
-                              handleSmtpOtpVerify(otpInput.value);
-                            }
-                          }}
-                          disabled={smtpOtpVerifying}
-                        >
-                          {smtpOtpVerifying ? 'Verifying...' : 'Verify'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -913,7 +806,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                         </td>
                       </tr>
                     ) : (
-                      paginatedBccEmails.map((email) => (
+                      paginatedBccEmails.map((email: any) => (
                         <tr key={email.id}>
                           <td>{email.bccEmailAddress}</td>
                           <td>
@@ -1056,7 +949,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                         </td>
                       </tr>
                     ) : sortedDomainData.length > 0 ? (
-                      sortedDomainData.map((domain, index) => (
+                      sortedDomainData.map((domain: any, index: number) => (
                         <tr key={domain.emailDomainId || index}>
                           <td>{domain.domain || "-"}</td>
                           <td>
@@ -1173,6 +1066,124 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
               </div>
             )}
           </div>
+          </>
+          )}
+
+          {/* Add/Edit Mailbox Modal - always mounted so the empty-state CTA can open it */}
+          <AddMailboxModal
+            isOpen={showAddEditMailBoxModal}
+            onClose={() => {
+              dispatch(closePanel());
+              setEditingId(null);
+            }}
+            editingId={editingId}
+            form={form}
+            setForm={setForm}
+            handleChangeSMTP={handleChangeSMTP}
+            handleSubmitSMTP={handleSubmitSMTP}
+            smtpLoading={smtpLoading}
+            setEditingId={setEditingId}
+            effectiveUserId={effectiveUserId!!}
+            token={token}
+            onSuccess={(message) => {
+              setToastMessage(message);
+              setShowSuccessToast(true);
+              setTimeout(() => setShowSuccessToast(false), 6000);
+              fetchSmtp();
+              fetchInboxCredentials();
+            }}
+            onError={(message) => {
+              setToastMessage(message);
+              setShowErrorToast(true);
+              setTimeout(() => setShowErrorToast(false), 6000);
+            }}
+          />
+
+          {/* SMTP OTP Modal */}
+          {showSmtpOtpModal && (
+            <div
+              style={{
+                position: "fixed",
+                zIndex: 99999,
+                inset: 0,
+                background: "rgba(0,0,0,0.6)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  background: "#fff",
+                  padding: "24px",
+                  borderRadius: "8px",
+                  width: "400px",
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 style={{ marginBottom: 16, color: "#333" }}>Verify SMTP email</h3>
+                <p style={{ marginBottom: 16, color: "#666" }}>
+                  Please enter the OTP sent to {smtpOtpEmail}
+                </p>
+                <input
+                  type="text"
+                  placeholder="Enter OTP"
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    marginBottom: "16px",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      const otp = (e.target as HTMLInputElement).value;
+                      if (otp) {
+                        handleSmtpOtpVerify(otp);
+                      }
+                    }
+                  }}
+                />
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                  <button
+                    className="button secondary small"
+                    onClick={() => {
+                      setShowSmtpOtpModal(false);
+                      setForm({
+                        server: "",
+                        port: "",
+                        username: "",
+                        password: "",
+                        fromEmail: "",
+                        senderName: "",
+                        usessl: "Auto",
+                        incomingServer: "",
+                        incomingPort: "",
+                        fullInboxSync: false,
+                        incomingSecurityType: "Auto",
+                      });
+                      dispatch(closePanel());
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="save-button button small"
+                    onClick={() => {
+                      const otpInput = document.querySelector('input[placeholder="Enter OTP"]') as HTMLInputElement;
+                      if (otpInput?.value) {
+                        handleSmtpOtpVerify(otpInput.value);
+                      }
+                    }}
+                    disabled={smtpOtpVerifying}
+                  >
+                    {smtpOtpVerifying ? 'Verifying...' : 'Verify'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
   );
 };

@@ -1,0 +1,127 @@
+/* ============================================================
+   MailConfiguration.new.css — Empty state styling for Mail Configuration
+   All classes prefixed mce-* to avoid collisions with existing styles
+   ============================================================ */
+
+:root {
+  --mce-ink:        #0b1220;
+  --mce-ink-soft:   #374151;
+  --mce-ink-faint:  #6b7280;
+  --mce-ink-dim:    #9ca3af;
+  --mce-line:       #eef0f3;
+  --mce-bg:         #fafbfc;
+  --mce-brand:      #3f9f42;
+  --mce-brand-d:    #2d7a30;
+  --mce-brand-200:  #e8f3e9;
+}
+
+/* ---------------------- EMPTY WRAP ---------------------- */
+.mce-empty-wrap {
+  background: var(--mce-bg);
+  min-height: calc(100vh - 120px);
+  padding: 32px;
+  border-radius: 12px;
+}
+
+/* ---------------------- HERO BANNER ---------------------- */
+.mce-empty-hero {
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid var(--mce-line);
+  background: #fff;
+  overflow: hidden;
+}
+.mce-empty-hero__bg {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+}
+.mce-empty-hero__content {
+  position: relative;
+  display: grid;
+  grid-template-columns: 7fr 5fr;
+  gap: 24px;
+  padding: 40px;
+  align-items: center;
+}
+.mce-empty-hero__copy {
+  min-width: 0;
+}
+.mce-empty-hero__art {
+  display: flex;
+  justify-content: center;
+}
+
+/* ---------------------- COPY ---------------------- */
+.mce-start-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--mce-brand-200);
+  color: var(--mce-brand-d);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.mce-empty-wrap .mce-empty-headline {
+  display: block;
+  font-size: 34px;
+  font-weight: 700;
+  color: #0b1220;
+  text-align: left;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin: 12px 0 0;
+}
+.mce-empty-body-text {
+  font-size: 15px;
+  color: var(--mce-ink-faint);
+  line-height: 1.55;
+  margin: 12px 0 0;
+  max-width: 460px;
+}
+.mce-empty-meta {
+  font-size: 12px;
+  color: var(--mce-ink-dim);
+  margin-top: 16px;
+}
+
+/* ---------------------- ACTIONS ---------------------- */
+.mce-empty-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+  flex-wrap: wrap;
+}
+.mce-btn-primary {
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 12px;
+  background: var(--mce-brand);
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 600;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mce-btn-primary:hover { background: var(--mce-brand-d); }
+
+/* ---------------------- RESPONSIVE ---------------------- */
+@media (max-width: 1024px) {
+  .mce-empty-hero__content { grid-template-columns: 1fr; }
+  .mce-empty-hero__art { order: -1; }
+  .mce-empty-wrap .mce-empty-headline { font-size: 28px; }
+}
+@media (max-width: 768px) {
+  .mce-empty-wrap { padding: 16px; }
+  .mce-empty-hero__content { padding: 24px; }
+  .mce-empty-wrap .mce-empty-headline { font-size: 24px; }
+  .mce-empty-actions { flex-direction: column; }
+}
