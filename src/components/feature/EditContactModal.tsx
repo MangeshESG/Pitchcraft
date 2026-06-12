@@ -127,6 +127,12 @@ interface PinnedEmailThread {
   messages?: PinnedEmailMessage[];
 }
 
+interface EmailEngagementStats {
+  sentCount: number;
+  openCount: number;
+  clickCount: number;
+}
+
 
 const EditContactModal: React.FC<EditContactModalProps> = ({
   isOpen,
@@ -171,6 +177,11 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
+  const [emailEngagementStats, setEmailEngagementStats] = useState<EmailEngagementStats>({
+    sentCount: 0,
+    openCount: 0,
+    clickCount: 0,
+  });
   // const [notesHistory, setNotesHistory] = useState<Note[]>([]);
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
   const location = useLocation();
@@ -768,29 +779,41 @@ case "boolean":
       // setIsLoadingHistory(false);
     }
   };
-  const emailStats = React.useMemo(() => {
-    const sent = emailTimeline.length;
 
-    const openedTrackingIds = new Set<string>();
-    const clickedTrackingIds = new Set<string>();
+  const fetchEmailEngagementStats = async (contactId: number) => {
+    if (!contactId) {
+      setEmailEngagementStats({ sentCount: 0, openCount: 0, clickCount: 0 });
+      return;
+    }
 
-    let totalClicks = 0;
-
-    emailTimeline.forEach((email: any) => {
-      email.events?.forEach((ev: any) => {
-        if (ev.eventType === "Open") {
-          openedTrackingIds.add(email.trackingId);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/contact-engagement/${contactId}`,
+        {
+          headers: {
+            accept: "*/*",
+          },
         }
+      );
 
-        if (ev.eventType === "Click") {
-          clickedTrackingIds.add(email.trackingId);
-          totalClicks++;
-        }
+      if (!response.ok) throw new Error("Failed to fetch email engagement");
+
+      const data = await response.json();
+      setEmailEngagementStats({
+        sentCount: Number(data?.sentCount || 0),
+        openCount: Number(data?.openCount || 0),
+        clickCount: Number(data?.clickCount || 0),
       });
-    });
+    } catch (err) {
+      console.error("Failed to fetch email engagement", err);
+      setEmailEngagementStats({ sentCount: 0, openCount: 0, clickCount: 0 });
+    }
+  };
 
-    const uniqueOpens = openedTrackingIds.size;
-    const uniqueClicks = clickedTrackingIds.size;
+  const emailStats = React.useMemo(() => {
+    const sent = emailEngagementStats.sentCount;
+    const uniqueOpens = emailEngagementStats.openCount;
+    const uniqueClicks = emailEngagementStats.clickCount;
 
     return {
       sent,
@@ -799,7 +822,7 @@ case "boolean":
       uniqueOpensPct: sent ? ((uniqueOpens / sent) * 100).toFixed(1) : "0.0",
       uniqueClicksPct: sent ? ((uniqueClicks / sent) * 100).toFixed(1) : "0.0",
     };
-  }, [emailTimeline]);
+  }, [emailEngagementStats]);
 
 
 
@@ -807,6 +830,9 @@ case "boolean":
   useEffect(() => {
     if (contact?.id) {
       fetchEmailTimeline(contact.id);
+      fetchEmailEngagementStats(contact.id);
+    } else {
+      setEmailEngagementStats({ sentCount: 0, openCount: 0, clickCount: 0 });
     }
   }, [contact?.id]);
 

@@ -109,6 +109,7 @@ interface InboxViewProps {
 }
 
 const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible, initialTab = 'Inbox', onTabChange, onSelectedInboxUnreadCountsChange }) => {
+  const lastSelectedInboxStorageKey = `lastSelectedInbox:${effectiveUserId || 'default'}`;
   const [inboxList, setInboxList] = useState<InboxDropdownItem[]>([]);
   const [selectedInboxId, setSelectedInboxId] = useState<number | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
@@ -150,6 +151,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [isForwarding, setIsForwarding] = useState(false);
   const [showForwardBcc, setShowForwardBcc] = useState(false);
   const [contactPanelOpen, setContactPanelOpen] = useState(false);
+  const inboxFetchRequestRef = useRef(0);
   
   useEffect(() => {
     setActiveTab(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages');
@@ -319,12 +321,29 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         );
 
         if (response.data.success && response.data.data) {
-          setInboxList(response.data.data);
-          // Auto-select first inbox if none is selected
-          if (response.data.data.length > 0 && !selectedInboxId) {
-            const firstInbox = response.data.data[0];
-            setSelectedInboxId(firstInbox.inboxId);
-            setSelectedProvider(firstInbox.provider || '');
+          const inboxes: InboxDropdownItem[] = response.data.data;
+          setInboxList(inboxes);
+
+          if (inboxes.length > 0 && !selectedInboxId) {
+            let savedInbox: { inboxId?: number; provider?: string } | null = null;
+
+            try {
+              const savedValue = localStorage.getItem(lastSelectedInboxStorageKey);
+              savedInbox = savedValue ? JSON.parse(savedValue) : null;
+            } catch {
+              savedInbox = null;
+            }
+
+            const matchingSavedInbox = savedInbox?.inboxId
+              ? inboxes.find((inbox) =>
+                  inbox.inboxId === savedInbox?.inboxId &&
+                  (!savedInbox.provider || inbox.provider === savedInbox.provider)
+                )
+              : null;
+            const inboxToSelect = matchingSavedInbox || inboxes[0];
+
+            setSelectedInboxId(inboxToSelect.inboxId);
+            setSelectedProvider(inboxToSelect.provider || '');
           }
         }
       } catch (err: any) {
@@ -339,7 +358,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     };
 
     fetchInboxList();
-  }, [effectiveUserId, token, isVisible]);
+  }, [effectiveUserId, token, isVisible, lastSelectedInboxStorageKey]);
 
   useEffect(() => {
     const fetchBlueprints = async () => {
@@ -369,6 +388,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   const fetchMails = useCallback(async (showLoader = true) => {
     if (activeTab !== 'inbox' || !selectedInboxId || !isVisible) return;
+    const requestId = ++inboxFetchRequestRef.current;
 
     if (showLoader) {
       setLoading(true);
@@ -384,10 +404,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             Pragma: 'no-cache',
             ...(token && { Authorization: `Bearer ${token}` }),
           },
+          timeout: 30000,
         }
       );
 
       const response = await fetchPage(inboxCurrentPage);
+      if (requestId !== inboxFetchRequestRef.current) return;
 
       if (response.data.success && response.data.data) {
         const pageThreads = Array.isArray(response.data.data.data) ? response.data.data.data : [];
@@ -405,6 +427,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setTimeout(() => setShowToast(false), 3000);
       }
     } catch (err: any) {
+      if (requestId !== inboxFetchRequestRef.current) return;
       console.error('Error fetching mails:', err);
       setThreads([]);
       setToastMessage(err.response?.data?.message || 'Failed to load emails. Please try again.');
@@ -412,7 +435,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       setShowToast(true);
       setTimeout(() => setShowToast(false), 5000);
     } finally {
-      if (showLoader) {
+      if (showLoader && requestId === inboxFetchRequestRef.current) {
         setLoading(false);
       }
     }
@@ -425,8 +448,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   }, [fetchMails]);
 
   const handleInboxChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const inboxId = parseInt(e.target.value);
-    const inbox = inboxList.find(i => i.inboxId === inboxId);
+    const selectedValue = e.target.value;
+    inboxFetchRequestRef.current += 1;
     
     // Clear selections immediately
     setSelectedThread(null);
@@ -434,12 +457,34 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setSelectedUnassignedThread(null);
     setSelectedSentThread(null);
     setSelectedAllMessagesThread(null);
+    setSelectedThreadIds([]);
+    setHoveredThreadId(null);
+    setShowDeleteDropdown(false);
+    setShowBulkDeleteDropdown(false);
+    setInboxCurrentPage(1);
+    setInboxTotalCount(0);
+    setInboxTotalPages(0);
     setThreads([]);
-    setLoading(true);
+
+    if (!selectedValue) {
+      setSelectedInboxId(null);
+      setSelectedProvider('');
+      localStorage.removeItem(lastSelectedInboxStorageKey);
+      setLoading(false);
+      return;
+    }
+
+    const inboxId = parseInt(selectedValue);
+    const inbox = inboxList.find(i => i.inboxId === inboxId);
     
     // Update inbox immediately - fetchMails will be triggered by useEffect
     setSelectedInboxId(inboxId);
-    setSelectedProvider(inbox?.provider || '');
+    const provider = inbox?.provider || '';
+    setSelectedProvider(provider);
+    localStorage.setItem(
+      lastSelectedInboxStorageKey,
+      JSON.stringify({ inboxId, provider })
+    );
   };
 
   const fetchDefaultSignature = useCallback(async () => {
@@ -1439,14 +1484,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         position="bottom-center"
         duration={3}
       />
-      {loading && <LoadingSpinner message="Loading..." />}
+      {loading && inboxList.length === 0 && <LoadingSpinner message="Loading..." />}
 
       {/* Email Content */}
       <div
         className="inbox-content inbox-grid"
         style={{
           opacity: loading ? 0.5 : 1,
-          pointerEvents: loading ? 'none' : 'auto',
           gridTemplateColumns: `${hasActiveThread ? '340px' : '372px'} 1fr ${contactPanelOpen && hasActiveThread ? '332px' : '0px'}`
         }}
       >
@@ -1457,7 +1501,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 <select
                   value={selectedInboxId || ''}
                   onChange={handleInboxChange}
-                  disabled={loading || inboxList.length === 0}
+                  disabled={inboxList.length === 0}
                 >
                   <option value="">Choose an inbox</option>
                   {inboxList.map((inbox) => (
