@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 
 export interface ElementsTabProps {
@@ -36,23 +36,47 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 const getCategoryIcon = (cat: string) => CATEGORY_ICONS[cat.toLowerCase()] ?? "📋";
 
-const UI_SIZE_TO_SPAN: Record<string, number> = { sm: 3, md: 4, lg: 6, xl: 12 };
-
-// Expand icon SVG
-const ExpandIcon = () => (
+// Edit (pencil) icon SVG
+const EditIcon = () => (
   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
   </svg>
 );
+
+// External link icon SVG
+const LinkIcon = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <polyline points="15 3 21 3 21 9" />
+    <line x1="10" y1="14" x2="21" y2="3" />
+  </svg>
+);
+
+const URL_REGEX = /^(https?:\/\/|www\.)\S+$/i;
+
+const stripHtml = (html: string) =>
+  html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 
 const ElementsTab: React.FC<ElementsTabProps> = ({
   groupedPlaceholders,
   formValues,
-  setFormValues,
   onExpandElement,
   saveAllPlaceholders,
-  renderPlaceholderInput,
 }) => {
+  const categories = Object.keys(groupedPlaceholders);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+
+  // Open the first category once, on initial load. After that the user is free to
+  // collapse it (expandedCategory === null) without it springing back open.
+  const didInitOpenRef = useRef(false);
+  useEffect(() => {
+    if (!didInitOpenRef.current && categories.length > 0) {
+      setExpandedCategory(categories[0]);
+      didInitOpenRef.current = true;
+    }
+  }, [categories]);
+
   const countFilledFields = (placeholders: PlaceholderDefinitionUI[]) =>
     placeholders.filter((p) => {
       const v = formValues[p.placeholderKey];
@@ -65,9 +89,25 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
       return !v || !v.trim();
     });
 
-  const isFieldFilled = (key: string) => {
-    const v = formValues[key];
-    return !!(v && v.trim().length > 0);
+  const getDisplayValue = (key: string) => {
+    const raw = formValues[key] ?? "";
+    if (!raw || !raw.trim()) return "";
+    const isHtml = /<[a-z][\s\S]*>/i.test(raw);
+    return (isHtml ? stripHtml(raw) : raw).trim();
+  };
+
+  const actionButtonStyle: React.CSSProperties = {
+    display: "flex", alignItems: "center", gap: 4,
+    padding: "4px 10px",
+    fontSize: 11, fontWeight: 600,
+    borderRadius: 6,
+    border: "1px solid #d1d5db",
+    background: "#fff",
+    color: "#6b7280",
+    cursor: "pointer",
+    flexShrink: 0,
+    whiteSpace: "nowrap",
+    lineHeight: 1.4,
   };
 
   return (
@@ -122,11 +162,11 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
           const empty = isCategoryEmpty(placeholders);
           const icon = getCategoryIcon(category);
           const allFilled = filledCount === totalCount && totalCount > 0;
+          const isOpen = expandedCategory === category;
 
           return (
-            <details
+            <div
               key={category}
-              open
               style={{
                 marginBottom: 8,
                 border: "1px solid #e5e7eb",
@@ -136,9 +176,9 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
               }}
             >
               {/* CATEGORY HEADER */}
-              <summary
+              <div
+                onClick={() => setExpandedCategory(isOpen ? null : category)}
                 style={{
-                  listStyle: "none",
                   cursor: "pointer",
                   padding: "11px 14px",
                   display: "flex",
@@ -171,45 +211,37 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                   {empty ? "EMPTY" : `${filledCount}/${totalCount}`}
                 </span>
 
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: "transform 0.15s" }}>
+                <svg
+                  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ flexShrink: 0, transition: "transform 0.15s", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                >
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
-              </summary>
+              </div>
 
-              {/* FIELDS GRID */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(12, 1fr)",
-                  gap: 10,
-                  padding: "12px 14px 16px",
-                  borderTop: "1px solid #f3f4f6",
-                }}
-              >
-                {placeholders.map((p) => {
-                  const filled = isFieldFilled(p.placeholderKey);
-                  return (
-                    <div
-                      key={p.placeholderKey}
-                      style={{
-                        gridColumn: `span ${UI_SIZE_TO_SPAN[p.uiSize || "md"]}`,
-                        background: filled ? "#f0fdf4" : "#fafafa",
-                        border: `1px solid ${filled ? "#bbf7d0" : "#e5e7eb"}`,
-                        borderRadius: 8,
-                        padding: "9px 11px 10px",
-                        transition: "border-color 0.15s, background 0.15s",
-                      }}
-                    >
-                      {/* LABEL ROW */}
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 4 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden" }}>
-                          {/* Status dot */}
-                          <span style={{
-                            width: 6, height: 6, borderRadius: "50%",
-                            background: filled ? "#22c55e" : "#d1d5db",
-                            flexShrink: 0,
-                          }} />
-                          <span style={{ fontWeight: 600, fontSize: 12, color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {/* FIELD ROWS */}
+              {isOpen && (
+                <div style={{ borderTop: "1px solid #f3f4f6" }}>
+                  {placeholders.map((p, idx) => {
+                    const displayValue = getDisplayValue(p.placeholderKey);
+                    const isUrl = !!displayValue && URL_REGEX.test(displayValue);
+                    const href = /^https?:\/\//i.test(displayValue) ? displayValue : `https://${displayValue}`;
+
+                    return (
+                      <div
+                        key={p.placeholderKey}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "minmax(160px, 260px) 1fr auto",
+                          gap: 16,
+                          alignItems: "center",
+                          padding: "11px 14px",
+                          borderBottom: idx < placeholders.length - 1 ? "1px solid #f3f4f6" : "none",
+                        }}
+                      >
+                        {/* COLUMN 1: NAME */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+                          <span style={{ fontWeight: 600, fontSize: 13, color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {p.friendlyName}
                           </span>
                           {p.helpLink && (
@@ -230,52 +262,45 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                           )}
                         </div>
 
-                        {/* Expand button */}
-                        <button
-                          onClick={() => onExpandElement(p)}
-                          title="Expand to edit or use AI chat"
-                          style={{
-                            display: "flex", alignItems: "center", gap: 3,
-                            padding: "2px 6px",
-                            fontSize: 10, fontWeight: 600,
-                            borderRadius: 4,
-                            border: "1px solid #d1d5db",
-                            background: "#fff",
-                            color: "#6b7280",
-                            cursor: "pointer",
-                            flexShrink: 0,
-                            whiteSpace: "nowrap",
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          <ExpandIcon />
-                          Expand
-                        </button>
-                      </div>
+                        {/* COLUMN 2: VALUE */}
+                        <div style={{
+                          fontSize: 13,
+                          color: displayValue ? "#111827" : "#9ca3af",
+                          fontStyle: displayValue ? "normal" : "italic",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          minWidth: 0,
+                        }}>
+                          {displayValue ? (
+                            isUrl ? (
+                              <a
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ color: "#3f9f42", textDecoration: "underline", display: "inline-flex", alignItems: "center", gap: 4 }}
+                              >
+                                <LinkIcon />
+                                {displayValue}
+                              </a>
+                            ) : displayValue
+                          ) : "Not set"}
+                        </div>
 
-                      {/* INPUT */}
-                      <div
-                        onPaste={(e) => {
-                          e.preventDefault();
-                          const pastedText = e.clipboardData.getData("text/plain");
-                          const target = e.target as HTMLInputElement | HTMLTextAreaElement;
-                          if (!target || !("selectionStart" in target)) return;
-                          const start = target.selectionStart ?? 0;
-                          const end = target.selectionEnd ?? 0;
-                          const newValue = target.value.substring(0, start) + pastedText + target.value.substring(end);
-                          setFormValues((prev) => ({ ...prev, [p.placeholderKey]: newValue }));
-                          requestAnimationFrame(() => {
-                            target.selectionStart = target.selectionEnd = start + pastedText.length;
-                          });
-                        }}
-                      >
-                        {renderPlaceholderInput({ ...p, options: p.options || [] })}
+                        {/* COLUMN 3: ACTION */}
+                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                          <button onClick={() => onExpandElement(p)} title="Edit this element or use AI chat" style={actionButtonStyle}>
+                            <EditIcon />
+                            Edit
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </details>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
