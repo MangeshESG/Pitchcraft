@@ -1160,7 +1160,7 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             {isGenerating
               ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
               : <RefreshCw size={11} />}
-            Refresh
+            Generate
           </button>
           {onCollapse && (
             <button onClick={onCollapse} title="Collapse preview"
