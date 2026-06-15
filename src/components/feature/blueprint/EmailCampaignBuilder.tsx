@@ -31,7 +31,14 @@ import toggleOff from "../../../assets/images/off-button.png";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
 import LoadingSpinner from "../../common/LoadingSpinner";
-import { AVAILABLE_AI_MODELS } from "../../../utils/aiModels";
+import { OPENAI_MODELS, isDeepSeekModel } from "../../../utils/aiModels";
+
+// The blueprint builder / instruction set must never run on a DeepSeek model.
+// Coerce any DeepSeek (or empty) value back to a safe OpenAI default so loading
+// an older definition/template that was saved with DeepSeek doesn't bring it back.
+const DEFAULT_BUILDER_MODEL = "gpt-5.1";
+const toBuilderModel = (model?: string | null): string =>
+  !model || isDeepSeekModel(model) ? DEFAULT_BUILDER_MODEL : model;
 
 
 // --- Type Definitions ---
@@ -1394,6 +1401,14 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     "campaign_selected_model",
     "gpt-5.1",
   );
+  // Self-heal: if a DeepSeek model was persisted in this session before DeepSeek
+  // was excluded from the builder, reset it to the OpenAI default on mount.
+  useEffect(() => {
+    if (isDeepSeekModel(selectedModel)) {
+      setSelectedModel(DEFAULT_BUILDER_MODEL);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [masterPromptExtensive, setMasterPromptExtensive] =
     useSessionState<string>("campaign_master_prompt_extensive", "");
 
@@ -2567,7 +2582,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       setSearchURLCount(def.searchURLCount || 1);
       setSubjectInstructions(def.subjectInstructions || "");
       setWebSearchInstructions(def.webSearchInstructions || "");
-      setSelectedModel(def.selectedModel);
+      setSelectedModel(toBuilderModel(def.selectedModel));
 
       // ✅ REQUIRED!!!
       setSelectedTemplateDefinitionId(def.id);
@@ -2709,7 +2724,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       setMasterPrompt(template.placeholderList || "");
       setMasterPromptExtensive(template.placeholderListExtensive || "");
       setPreviewText(template.masterBlueprintUnpopulated || "");
-      setSelectedModel(template.selectedModel || "gpt-5");
+      setSelectedModel(toBuilderModel(template.selectedModel));
       setSelectedTemplateDefinitionId(template.templateDefinitionId || null);
       setTemplateName(template.templateName || "");
       setSubjectInstructions(template.subjectInstructions || "");
@@ -3047,7 +3062,9 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   // ====================================================================
   // AVAILABLE MODELS
   // ====================================================================
-  const availableModels: GPTModel[] = AVAILABLE_AI_MODELS;
+  // OpenAI models only — DeepSeek is intentionally excluded from blueprint
+  // creation/editing (it's only used in the DeepSeek Search feature).
+  const availableModels: GPTModel[] = OPENAI_MODELS;
 
   // ====================================================================
   // EXTRACT PLACEHOLDERS

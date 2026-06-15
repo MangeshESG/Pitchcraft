@@ -4,6 +4,9 @@ interface RichTextEditorProps {
   value: string;
   height?: number;
   onChange: (html: string) => void;
+  /** When true the editor grows with its content (uses `height` as a minimum)
+   *  instead of being a fixed-height box with an inner scrollbar. */
+  autoGrow?: boolean;
   showActionButtons?: boolean;
   outputEmailWidth?: string;
   isCopyText?: boolean;
@@ -18,12 +21,19 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value,
   height = 400,
   onChange,
+  autoGrow = false,
 }) => {
   const editorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value || "";
+    if (!editorRef.current) return;
+    const incoming = value || "";
+    // If the value is plain text (no HTML tags) preserve its line breaks by
+    // converting newlines to <br> — otherwise innerHTML collapses them to spaces.
+    const looksLikeHtml = /<[a-z][\s\S]*>/i.test(incoming);
+    const html = looksLikeHtml ? incoming : incoming.replace(/\r\n|\r|\n/g, "<br>");
+    if (editorRef.current.innerHTML !== html) {
+      editorRef.current.innerHTML = html;
     }
   }, [value]);
 
@@ -156,11 +166,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <div
           ref={editorRef}
           contentEditable
-          className="border border-t-0 border-gray-300 p-3 outline-none overflow-auto rounded-b"
-          style={{
-            height,
-            overflowY: "auto",
-          }}
+          className={`border border-t-0 border-gray-300 p-3 outline-none rounded-b ${autoGrow ? "" : "overflow-auto"}`}
+          style={
+            autoGrow
+              ? { minHeight: height, overflowY: "visible" }
+              : { height, overflowY: "auto" }
+          }
           onInput={(e) => onChange(e.currentTarget.innerHTML)}
           onBlur={(e) => onChange(e.currentTarget.innerHTML)}
           onKeyDown={(e) => {

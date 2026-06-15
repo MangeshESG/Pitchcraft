@@ -241,25 +241,21 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
           }}
         >
           {/* ---- ACTION HEADER ---- */}
-          <div style={{ flexShrink: 0 }}>
+          {/* Negative top margin lifts the action buttons up beside the page
+              header/Back row (which are rendered by the parent above the panel).
+              pointerEvents:none lets clicks pass through the overlapping empty
+              area to the Back button beneath; the buttons re-enable pointer events. */}
+          <div style={{ flexShrink: 0, marginTop: -64, pointerEvents: "none" }}>
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
+                justifyContent: "flex-end",
                 alignItems: "center",
                 padding: "8px 0 12px",
               }}
             >
-              {/* Title */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 32, height: 32, background: "#f0fdf4", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚙️</div>
-                <div>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>Blueprint builder</span>
-                </div>
-              </div>
-
               {/* Action buttons */}
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", pointerEvents: "auto" }}>
                 <button
                   onClick={() => setChatPreviewOpen((v) => !v)}
                   style={{
@@ -480,13 +476,13 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
       <div style={{ display: "flex", flexDirection: "column", marginTop: 10 }}>
 
         {/* ---- ACTION HEADER (matches chat phase) ---- */}
-        <div style={{ flexShrink: 0 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0 12px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 32, height: 32, background: "#f0fdf4", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚙️</div>
-              <span style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>Blueprint builder</span>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        {/* Negative top margin lifts the action buttons up beside the page
+            header/Back row (rendered by the parent above the panel).
+            pointerEvents:none lets clicks pass through the overlapping empty area
+            to the Back button beneath; the buttons re-enable pointer events. */}
+        <div style={{ flexShrink: 0, marginTop: -64, pointerEvents: "none" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", padding: "8px 0 12px" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", pointerEvents: "auto" }}>
               <button
                 onClick={() => {
                   // Opening the live preview closes the element edit panel so the
@@ -557,6 +553,9 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
             // Items align to the top so the right panel can use position:sticky to
             // float in the viewport (instead of stretching to the row height).
             alignItems: "flex-start",
+            // With no panel open, the elements list occupies only the left third
+            // of the width (the rest stays empty until an edit/preview panel opens).
+            width: rightPanelOpen ? "100%" : "33.333%",
           }}
         >
           {/* LEFT: Elements accordion — full width or split */}
@@ -703,7 +702,8 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                     ) : sidePanelElement.isRichText || sidePanelElement.inputType === "richtext" ? (
                       <RichTextEditor
                         value={formValues[sidePanelElement.placeholderKey] || ""}
-                        height={300}
+                        height={160}
+                        autoGrow
                         onChange={(val) => setFormValues((prev) => ({ ...prev, [sidePanelElement!.placeholderKey]: val }))}
                       />
                     ) : (
