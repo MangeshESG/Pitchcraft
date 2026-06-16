@@ -12,6 +12,7 @@ import CommonSidePanel from "../common/CommonSidePanel";
 import FilterBuilder from "../common/FilterBuilder";
 import ContactViews from "./ContactViews";
 import BulkUpdatePanel from "./BulkUpdatePanel";
+import PopupModal from "../common/PopupModal";
 
 import { useAppData } from "../../contexts/AppDataContext";
 import { useToast } from "../../hooks/useToast";
@@ -836,6 +837,8 @@ const formatTimeIST = (dateString?: string) => {
 
     if (contactsToDelete.length === 0) return;
 
+    setShowDeleteConfirmation(false);
+
     try {
       setIsDeletingContact(true);
 
@@ -884,6 +887,8 @@ const formatTimeIST = (dateString?: string) => {
       : Array.from(selectedContacts);
 
     if (contactsToDelete.length === 0) return;
+
+    setShowDeleteConfirmation(false);
 
     try {
       setIsDeletingContact(true);
@@ -1259,6 +1264,8 @@ const formatTimeIST = (dateString?: string) => {
     Set<string>
   >(new Set());
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [deleteContactCount, setDeleteContactCount] = useState(0);
 
   // Add segment table states
   const [editingSegment, setEditingSegment] = useState<any>(null);
@@ -2550,7 +2557,10 @@ const filterFields: any = useMemo(() => {
                             )}
                             <button
                               className="button secondary"
-                              onClick={handleDeleteListContacts}
+                              onClick={() => {
+                                setDeleteContactCount(detailSelectedContacts.size);
+                                setShowDeleteConfirmation(true);
+                              }}
                               disabled={isDeletingContact}
                               style={{
                                 background: "none",
@@ -3586,7 +3596,10 @@ const filterFields: any = useMemo(() => {
                           )}
                           <button
                             className="button secondary"
-                            onClick={handleDeleteSegmentContacts}
+                            onClick={() => {
+                              setDeleteContactCount(detailSelectedContacts.size);
+                              setShowDeleteConfirmation(true);
+                            }}
                             disabled={isDeletingContact}
                             style={{
                               background: "none",
@@ -4373,6 +4386,73 @@ const filterFields: any = useMemo(() => {
           }
         }}
       />
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && (
+        <div
+          style={{
+            position: "fixed",
+            zIndex: 99999,
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              padding: 24,
+              borderRadius: 8,
+              minWidth: 320,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: 16 }}>Delete contacts</h3>
+            <p style={{ marginBottom: 20 }}>
+              Are you sure you want to delete {deleteContactCount} contact{deleteContactCount > 1 ? 's' : ''}?
+            </p>
+            <div
+              style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}
+            >
+              <button
+                onClick={() => setShowDeleteConfirmation(false)}
+                className="button secondary"
+                style={{
+                  padding: "8px 16px",
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="button primary"
+                style={{
+                  padding: "8px 16px",
+                  background: "#dc3545",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  if (activeSubTab === "Segment" || segmentViewMode === "detail") {
+                    handleDeleteSegmentContacts();
+                  } else {
+                    handleDeleteListContacts();
+                  }
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
