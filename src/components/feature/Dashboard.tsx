@@ -466,6 +466,12 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series }) => (
   </div>
 );
 
+const NonZeroChartDot = (props: any) => {
+  const { cx, cy, stroke, value } = props;
+  if (!value || cx == null || cy == null) return null;
+  return <circle cx={cx} cy={cy} r={3.5} fill={stroke} stroke="#fff" strokeWidth={1.5} />;
+};
+
 const DualLineAreaChart: React.FC<{
   data: { label: string; gen: number; sent: number }[];
 }> = ({ data }) => {
@@ -494,8 +500,8 @@ const DualLineAreaChart: React.FC<{
           contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", fontSize: 12 }}
           formatter={(value: number, name: string) => [value, name === "gen" ? "Generated" : "Sent"]}
         />
-        <Area type="monotone" dataKey="gen"  name="gen"  stroke="#3f9f42" strokeWidth={2} fill="url(#dgGen)"  dot={false} activeDot={{ r: 5 }} />
-        <Area type="monotone" dataKey="sent" name="sent" stroke="#3b82f6" strokeWidth={2} fill="url(#dgSent)" dot={false} activeDot={{ r: 5 }} />
+        <Area type="monotone" dataKey="gen"  name="gen"  stroke="#3f9f42" strokeWidth={2} fill="url(#dgGen)"  dot={<NonZeroChartDot />} activeDot={{ r: 5 }} />
+        <Area type="monotone" dataKey="sent" name="sent" stroke="#3b82f6" strokeWidth={2} fill="url(#dgSent)" dot={<NonZeroChartDot />} activeDot={{ r: 5 }} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -540,7 +546,7 @@ const DATE_RANGE_LABELS: Record<DateRange, string> = {
 function getFromDate(range: DateRange): Date | null {
   if (range === "all") return null;
   const d = new Date();
-  if (range === "1d") d.setDate(d.getDate() - 1);
+  if (range === "1d") { d.setHours(0, 0, 0, 0); return d; }
   else if (range === "7d") d.setDate(d.getDate() - 7);
   else if (range === "30d") d.setDate(d.getDate() - 30);
   return d;
@@ -571,8 +577,22 @@ function buildChartData(
       .map(([label, v]) => ({ label, ...v }));
   }
 
-  const days = range === "1d" ? 1 : range === "7d" ? 7 : 30;
+  const days = range === "7d" ? 7 : 30;
   const result: { label: string; gen: number; sent: number }[] = [];
+
+  if (range === "1d") {
+    const now = new Date();
+    for (let h = 0; h < 24; h++) {
+      const start = new Date(now); start.setHours(h, 0, 0, 0);
+      const end   = new Date(now); end.setHours(h, 59, 59, 999);
+      const label = `${String(h).padStart(2, "0")}:00`;
+      const gen  = contacts.filter((c) => { if (!c.updated_at) return false; const t = new Date(c.updated_at); return t >= start && t <= end; }).length;
+      const sent = contacts.filter((c) => { if (!c.email_sent_at) return false; const t = new Date(c.email_sent_at); return t >= start && t <= end; }).length;
+      result.push({ label, gen, sent });
+    }
+    return result;
+  }
+
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
@@ -623,7 +643,7 @@ const PostOnboardingView: React.FC<{
   const [contactTotal, setContactTotal] = useState(0);
   const [contactPage, setContactPage] = useState(1);
   const [contactSearch, setContactSearch] = useState("");
-  const [dateRange, setDateRange] = useState<DateRange>("7d");
+  const [dateRange, setDateRange] = useState<DateRange>("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -651,10 +671,15 @@ const PostOnboardingView: React.FC<{
     });
   }, [contacts, fromDate]);
 
-  const emailsGeneratedCount = filteredByRange.filter((c) => c.updated_at != null).length;
-  const emailsSentCount      = filteredByRange.filter((c) => c.email_sent_at != null).length;
-
-  const chartData = useMemo(() => buildChartData(contacts, dateRange), [contacts, dateRange]);
+  const chartData = useMemo(() => buildChartData(filteredByRange, dateRange), [filteredByRange, dateRange]);
+  const emailsGeneratedCount = useMemo(
+    () => chartData.reduce((total, point) => total + point.gen, 0),
+    [chartData]
+  );
+  const emailsSentCount = useMemo(
+    () => chartData.reduce((total, point) => total + point.sent, 0),
+    [chartData]
+  );
 
   if (loading) return (
     <div className="w-full flex flex-col items-center justify-center gap-3" style={{ minHeight: "60vh" }}>
@@ -690,16 +715,16 @@ const PostOnboardingView: React.FC<{
       series: [58, 76, 92, 88, 110, 138, 162],
     },
     {
-      label: "Kraft rate",
-      value: contacts.length > 0 ? `${kraftRate}%` : "—",
-      delta: "",
-      series: [10, 18, 24, 30, 38, 42, kraftRate],
-    },
-    {
       label: "Send rate",
       value: contacts.length > 0 ? `${sendRate}%` : "—",
       delta: "",
       series: [15, 22, 30, 40, 50, 58, sendRate],
+    },
+    {
+      label: "Kraft rate",
+      value: contacts.length > 0 ? `${kraftRate}%` : "—",
+      delta: "",
+      series: [10, 18, 24, 30, 38, 42, kraftRate],
     },
   ];
 
