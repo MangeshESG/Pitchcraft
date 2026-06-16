@@ -134,11 +134,12 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   // Chat phase: preview panel toggle
   const [chatPreviewOpen, setChatPreviewOpen] = useState(false);
 
-  // Elements phase: preview panel open/collapse
+  // Elements phase: preview panel open/collapse.
   const [previewPanelOpen, setPreviewPanelOpen] = useState(false);
 
-  // Elements phase: resizable split
-  const [splitPct, setSplitPct] = useState(52); // left panel % width
+  // Elements phase: resizable split. Default to one third so the elements list
+  // sits at 1/3 of the screen and the open edit/preview panel fills 2/3.
+  const [splitPct, setSplitPct] = useState(33.333); // left panel % width
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -156,6 +157,45 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   const [sidePanelElement, setSidePanelElement] = useState<PlaceholderDefinitionUI | null>(null);
   const [sidePanelTab, setSidePanelTab] = useState<"manual" | "chat">("manual");
   const [chatStartedForKey, setChatStartedForKey] = useState<string | null>(null);
+
+  // On first load, open the {example_output_email} element directly in the edit
+  // side panel so it's ready to view/edit on landing (instead of the live preview).
+  const didInitSidePanelRef = useRef(false);
+  useEffect(() => {
+    if (didInitSidePanelRef.current) return;
+    const example = Object.values(groupedPlaceholders)
+      .flat()
+      .find((p) => p.placeholderKey === "example_output_email");
+    if (example) {
+      setSidePanelElement(example);
+      setSidePanelTab("manual");
+      setChatStartedForKey(null);
+      didInitSidePanelRef.current = true;
+    }
+  }, [groupedPlaceholders]);
+
+  // Keep the open side-panel element in sync with the latest placeholder
+  // definitions. Placeholders load asynchronously — a generic fallback first
+  // (category "general", plain text), then the real backend data (proper
+  // category, friendly name and rich-text flag) — so a pinned object can go
+  // stale. Re-resolve by key and update only when a rendered field differs
+  // (avoids an update loop on the rebuilt-every-render groupedPlaceholders).
+  useEffect(() => {
+    if (!sidePanelElement) return;
+    const latest = Object.values(groupedPlaceholders)
+      .flat()
+      .find((p) => p.placeholderKey === sidePanelElement.placeholderKey);
+    if (
+      latest &&
+      latest !== sidePanelElement &&
+      (latest.category !== sidePanelElement.category ||
+        latest.friendlyName !== sidePanelElement.friendlyName ||
+        latest.isRichText !== sidePanelElement.isRichText ||
+        latest.inputType !== sidePanelElement.inputType)
+    ) {
+      setSidePanelElement(latest);
+    }
+  }, [groupedPlaceholders, sidePanelElement]);
 
   // Side-panel chat scroll handling (floating scroll-to-bottom arrow)
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -580,6 +620,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                 setChatStartedForKey(null);
               }}
               saveAllPlaceholders={saveAllPlaceholders}
+              activeElementKey={sidePanelElement?.placeholderKey ?? null}
               dataFiles={dataFiles}
               contacts={contacts}
               selectedDataFileId={selectedDataFileId}

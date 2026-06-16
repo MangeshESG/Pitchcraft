@@ -8,6 +8,10 @@ export interface ElementsTabProps {
   onExpandElement: (p: PlaceholderDefinitionUI) => void;
   saveAllPlaceholders: () => void;
 
+  // Key of the placeholder currently open in the edit side panel (used to
+  // highlight its row in the list). Null when no element is being edited.
+  activeElementKey?: string | null;
+
   dataFiles: any[];
   contacts: any[];
   selectedDataFileId: number | null;
@@ -164,27 +168,44 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
   formValues,
   onExpandElement,
   saveAllPlaceholders,
+  activeElementKey,
 }) => {
   const categories = Object.keys(groupedPlaceholders);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
-  // Per-row "show more / show less" toggle for long text values.
-  const [expandedValues, setExpandedValues] = useState<Record<string, boolean>>({});
-  const toggleValue = (key: string) =>
-    setExpandedValues((prev) => ({ ...prev, [key]: !prev[key] }));
-
   // Threshold (chars) beyond which a text value is clamped to a short preview.
+  // The full value is always available in the "View and edit" side panel.
   const LONG_TEXT_THRESHOLD = 140;
 
-  // Open the first category once, on initial load. After that the user is free to
-  // collapse it (expandedCategory === null) without it springing back open.
-  const didInitOpenRef = useRef(false);
+  // The section that currently holds the active element (e.g. EXAMPLE OUTPUT
+  // EMAIL opened on landing). Recomputed each render so it tracks the real
+  // category once async placeholders replace the generic "general" fallback.
+  const activeCategory = activeElementKey
+    ? Object.entries(groupedPlaceholders).find(([, items]) =>
+        items.some((p) => p.placeholderKey === activeElementKey),
+      )?.[0] ?? null
+    : null;
+
+  // Expand the active element's section, re-running only when that category
+  // string changes (so the fallback "general" upgrades to the real section).
+  // We remember what we last auto-opened so a user collapse/click afterwards is
+  // not overridden. With no active element, open the first category once.
+  const lastAutoCategoryRef = useRef<string | null>(null);
+  const didFallbackOpenRef = useRef(false);
   useEffect(() => {
-    if (!didInitOpenRef.current && categories.length > 0) {
-      setExpandedCategory(categories[0]);
-      didInitOpenRef.current = true;
+    if (categories.length === 0) return;
+    if (activeCategory) {
+      if (lastAutoCategoryRef.current !== activeCategory) {
+        setExpandedCategory(activeCategory);
+        lastAutoCategoryRef.current = activeCategory;
+      }
+      return;
     }
-  }, [categories]);
+    if (!didFallbackOpenRef.current) {
+      setExpandedCategory(categories[0]);
+      didFallbackOpenRef.current = true;
+    }
+  }, [activeCategory, categories]);
 
   const countFilledFields = (placeholders: PlaceholderDefinitionUI[]) =>
     placeholders.filter((p) => {
@@ -306,7 +327,7 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                   <CategoryIcon category={category} />
                 </div>
 
-                <span style={{ flex: 1, fontWeight: 700, fontSize: 12, color: "#374151", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <span style={{ flex: 1, fontWeight: 700, fontSize: 12, color: "#5cae60", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                   {category}
                 </span>
 
@@ -335,7 +356,7 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                     const isUrl = !!displayValue && URL_REGEX.test(displayValue);
                     const href = /^https?:\/\//i.test(displayValue) ? displayValue : `https://${displayValue}`;
                     const isLongText = !isUrl && displayValue.length > LONG_TEXT_THRESHOLD;
-                    const isValueExpanded = !!expandedValues[p.placeholderKey];
+                    const isActive = !!activeElementKey && activeElementKey === p.placeholderKey;
 
                     return (
                       <div
@@ -347,6 +368,8 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                           alignItems: "flex-start",
                           padding: "11px 14px",
                           borderBottom: idx < placeholders.length - 1 ? "1px solid #f3f4f6" : "none",
+                          // Highlight the row whose element is open in the edit side panel.
+                          background: isActive ? "#f3f4f6" : "transparent",
                         }}
                       >
                         {/* COLUMN 1: NAME */}
@@ -388,54 +411,43 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                               {displayValue}
                             </a>
                           ) : (
-                            <>
-                              <div
-                                style={{
-                                  color: "#111827",
-                                  lineHeight: 1.5,
-                                  overflowWrap: "anywhere",
-                                  whiteSpace: "pre-wrap",
-                                  ...(isLongText && !isValueExpanded
-                                    ? {
-                                        display: "-webkit-box",
-                                        WebkitLineClamp: 3,
-                                        WebkitBoxOrient: "vertical",
-                                        overflow: "hidden",
-                                      }
-                                    : {}),
-                                }}
-                              >
-                                {displayValue}
-                              </div>
-                              {isLongText && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleValue(p.placeholderKey);
-                                  }}
-                                  style={{
-                                    marginTop: 3,
-                                    padding: 0,
-                                    background: "none",
-                                    border: "none",
-                                    color: "#3f9f42",
-                                    fontSize: 12,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  {isValueExpanded ? "Show less" : "Show more"}
-                                </button>
-                              )}
-                            </>
+                            <div
+                              style={{
+                                color: "#111827",
+                                lineHeight: 1.5,
+                                overflowWrap: "anywhere",
+                                whiteSpace: "pre-wrap",
+                                ...(isLongText
+                                  ? {
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: 3,
+                                      WebkitBoxOrient: "vertical",
+                                      overflow: "hidden",
+                                    }
+                                  : {}),
+                              }}
+                            >
+                              {displayValue}
+                            </div>
                           )}
                         </div>
 
                         {/* COLUMN 3: ACTION */}
                         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                          <button onClick={() => onExpandElement(p)} title="Edit this element or use AI chat" style={actionButtonStyle}>
+                          <button
+                            onClick={() => onExpandElement(p)}
+                            title="View and edit this element or use AI chat"
+                            style={{
+                              ...actionButtonStyle,
+                              // Active row's button picks up the theme green so it
+                              // reads as the currently-open element.
+                              ...(isActive
+                                ? { borderColor: "#86efac", background: "#f0fdf4", color: "#3f9f42" }
+                                : {}),
+                            }}
+                          >
                             <EditIcon />
-                            Edit
+                            View and edit
                           </button>
                         </div>
                       </div>
