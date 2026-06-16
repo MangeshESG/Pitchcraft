@@ -103,6 +103,7 @@ export interface PlaceholderDefinitionUI {
   _rawOptions?: string;
   helpLink?: string;
   defaultValue?: string;
+  description?: string;
 
 }
 

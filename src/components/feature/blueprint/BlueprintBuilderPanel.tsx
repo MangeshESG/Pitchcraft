@@ -3,6 +3,7 @@ import ElementsTab from "./ElementsTab";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import { Loader2 } from "lucide-react";
 import RichTextEditor from "../../common/RTEEditor";
+import DOMPurify from "dompurify";
 
 export interface BlueprintBuilderPanelProps {
   activeBuildTab: "chat" | "elements";
@@ -659,9 +660,21 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 2 }}>
                     {sidePanelElement.friendlyName}
                   </div>
-                  <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    {sidePanelElement.category}
-                  </div>
+                  {sidePanelElement.description && sidePanelElement.description.trim() ? (
+                    <div
+                      className="placeholder-description"
+                      style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.5 }}
+                      dangerouslySetInnerHTML={{
+                        __html: DOMPurify.sanitize(sidePanelElement.description, {
+                          ADD_ATTR: ["target", "rel"],
+                        }),
+                      }}
+                    />
+                  ) : (
+                    <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      {sidePanelElement.category}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => setSidePanelElement(null)}
