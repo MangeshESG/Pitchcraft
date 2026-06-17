@@ -953,6 +953,19 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     getStoredActiveBlueprintId(),
   );
 
+  const openStoredBlueprintInBuilder = useCallback((templateId: number) => {
+    if (!Number.isFinite(templateId) || templateId <= 0) return;
+
+    sessionStorage.setItem("editTemplateId", templateId.toString());
+    sessionStorage.setItem("editTemplateMode", "true");
+    sessionStorage.setItem("newCampaignId", templateId.toString());
+    setActiveBlueprintId(templateId);
+    setShowCampaignBuilder(false);
+    setTimeout(() => {
+      setShowCampaignBuilder(true);
+    }, 0);
+  }, []);
+
   // Check if we should open builder directly on mount
   useEffect(() => {
     const storedId =
@@ -973,6 +986,18 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
       setShowCampaignBuilder(true);
     }
   }, []);
+
+  useEffect(() => {
+    const handleSwitchToBlueprint = (event: Event) => {
+      const templateId = Number((event as CustomEvent<{ templateId?: number }>).detail?.templateId);
+      openStoredBlueprintInBuilder(templateId);
+    };
+
+    window.addEventListener("switchToBlueprint", handleSwitchToBlueprint);
+    return () => {
+      window.removeEventListener("switchToBlueprint", handleSwitchToBlueprint);
+    };
+  }, [openStoredBlueprintInBuilder]);
 
   useEffect(() => {
     if (showCampaignBuilder && activeBlueprintId !== null) {

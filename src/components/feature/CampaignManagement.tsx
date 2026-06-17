@@ -167,6 +167,63 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       ? campaignBlueprints.find((bp) => bp.id === campaign.templateId)?.templateName || "-"
       : "-";
 
+  const handleBlueprintClick = async (campaign: Campaign) => {
+    if (!campaign.templateId) return;
+
+    const templateId = campaign.templateId.toString();
+    const fallbackName =
+      getBlueprintName(campaign) !== "-"
+        ? getBlueprintName(campaign)
+        : campaign.campaignName;
+
+    sessionStorage.setItem("editTemplateId", templateId);
+    sessionStorage.setItem("editTemplateMode", "true");
+    sessionStorage.setItem("newCampaignId", templateId);
+    sessionStorage.setItem("newCampaignName", fallbackName);
+    sessionStorage.setItem("initialExampleEmail", "");
+    window.dispatchEvent(new CustomEvent("showBlueprintLoader"));
+    window.dispatchEvent(
+      new CustomEvent("switchToBlueprint", {
+        detail: { templateId: campaign.templateId },
+      })
+    );
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`
+      );
+
+      if (response.ok) {
+        const fullTemplate = await response.json();
+        const example = fullTemplate?.placeholderValues?.example_output_email || "";
+
+        if (fullTemplate.placeholderValues) {
+          sessionStorage.setItem(
+            "campaign_placeholder_values",
+            JSON.stringify(fullTemplate.placeholderValues)
+          );
+        }
+
+        sessionStorage.setItem("newCampaignName", fullTemplate.templateName || campaign.campaignName);
+        sessionStorage.setItem("initialExampleEmail", example);
+
+        if (fullTemplate.templateDefinitionId) {
+          sessionStorage.setItem(
+            "selectedTemplateDefinitionId",
+            fullTemplate.templateDefinitionId.toString()
+          );
+        }
+      } else {
+        sessionStorage.setItem("newCampaignName", getBlueprintName(campaign) || campaign.campaignName);
+        sessionStorage.setItem("initialExampleEmail", "");
+      }
+    } catch (error) {
+      console.error("Error loading blueprint:", error);
+      sessionStorage.setItem("newCampaignName", getBlueprintName(campaign) || campaign.campaignName);
+      sessionStorage.setItem("initialExampleEmail", "");
+    }
+  };
+
   const getDataSourceName = (campaign: Campaign) => {
     if (typeof campaign.zohoViewId === "string" && campaign.zohoViewId.startsWith("view_")) {
       return (
@@ -840,7 +897,25 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                           {campaign.campaignName}
                         </button>
                       </div>
-                      <div className="bp-row__id">{getBlueprintName(campaign)}</div>
+                      <div className="bp-row__id" title={getBlueprintName(campaign)}>
+                        {campaign.templateId ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleBlueprintClick(campaign);
+                            }}
+                            className="bp-row__link"
+                            style={{ textDecoration: "underline", color: "#3f9f42" }}
+                          >
+                            {getBlueprintName(campaign) !== "-"
+                              ? getBlueprintName(campaign)
+                              : `Blueprint #${campaign.templateId}`}
+                          </button>
+                        ) : (
+                          <span>{getBlueprintName(campaign)}</span>
+                        )}
+                      </div>
                       <div className="bp-row__id" title={getDataSourceName(campaign)}>
                         {(campaign.zohoViewId || campaign.segmentId) && getDataSourceName(campaign) !== "-" ? (
                           <button
