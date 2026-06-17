@@ -138,9 +138,9 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   // Elements phase: preview panel open/collapse.
   const [previewPanelOpen, setPreviewPanelOpen] = useState(false);
 
-  // Elements phase: resizable split. Default to one third so the elements list
-  // sits at 1/3 of the screen and the open edit/preview panel fills 2/3.
-  const [splitPct, setSplitPct] = useState(33.333); // left panel % width
+  // Elements phase: resizable split. Default to 40% so the elements list sits at
+  // 40% of the screen and the open edit/preview panel fills the remaining 60%.
+  const [splitPct, setSplitPct] = useState(40); // left panel % width
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -588,24 +588,27 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
           ref={containerRef}
           style={{
             display: "flex",
-            borderRadius: 10,
-            border: "1px solid #e5e7eb",
             position: "relative",
             // Items align to the top so the right panel can use position:sticky to
             // float in the viewport (instead of stretching to the row height).
             alignItems: "flex-start",
             // With no panel open, the elements list occupies only the left third
             // of the width (the rest stays empty until an edit/preview panel opens).
-            width: rightPanelOpen ? "100%" : "33.333%",
+            width: rightPanelOpen ? "100%" : "40%",
           }}
         >
-          {/* LEFT: Elements accordion — full width or split */}
+          {/* LEFT: Elements accordion — full width or split. Its own bordered
+              card so it reads as separate from the edit/preview panel. */}
           <div
             style={{
               width: rightPanelOpen ? `${splitPct}%` : "100%",
               flexShrink: 0,
               display: "flex",
               flexDirection: "column",
+              border: "1px solid #e5e7eb",
+              borderRadius: 10,
+              background: "#fff",
+              overflow: "hidden",
             }}
           >
             <ElementsTab
@@ -633,19 +636,44 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
             />
           </div>
 
-          {/* DRAG HANDLE (only when a right panel is open) */}
+          {/* DRAG HANDLE (only when a right panel is open) — also the visible gap
+              that separates the two cards. */}
           {rightPanelOpen && (
             <div
               onMouseDown={onMouseDown}
-              style={{ width: 6, flexShrink: 0, background: "#e5e7eb", cursor: "col-resize", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s", zIndex: 10 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#3f9f42"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#e5e7eb"; }}
+              style={{ width: 22, flexShrink: 0, alignSelf: "stretch", background: "transparent", cursor: "col-resize", display: "flex", flexDirection: "column", alignItems: "center", zIndex: 10 }}
               title="Drag to resize"
             >
-              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "#9ca3af" }} />
-                ))}
+              {/* Resize affordance: ‹||› arrows in light green, near the top (just
+                  below the Save all button) so users know the two panels can be
+                  dragged wider/narrower. */}
+              <div
+                style={{
+                  marginTop: 40,
+                  width: 22, height: 34,
+                  borderRadius: 6,
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5cae60"
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="4 8 1 12 4 16" />
+                  <polyline points="20 8 23 12 20 16" />
+                  <line x1="9" y1="6" x2="9" y2="18" />
+                  <line x1="15" y1="6" x2="15" y2="18" />
+                </svg>
+              </div>
+
+              {/* Grip dots lower down, vertically centred in the remaining gap. */}
+              <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "#cbd5e1" }} />
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -653,7 +681,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
           {/* RIGHT: Element edit side panel (inline) — sticky so it floats in the
               viewport while the elements list scrolls the page behind it */}
           {sidePanelElement ? (
-            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", borderLeft: "1px solid #e5e7eb", background: "#fff", position: "sticky", top: 12, alignSelf: "flex-start", maxHeight: "calc(100vh - 24px)" }}>
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", background: "#fff", position: "sticky", top: 12, alignSelf: "flex-start", maxHeight: "calc(100vh - 24px)" }}>
               {/* Side panel header */}
               <div style={{ padding: "16px 20px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, background: "#fff" }}>
                 <div style={{ minWidth: 0 }}>
@@ -1016,7 +1044,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
               </div>
             </div>
           ) : previewPanelOpen ? (
-            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", borderLeft: "1px solid #e5e7eb", position: "sticky", top: 12, alignSelf: "flex-start", height: "calc(100vh - 24px)" }}>
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", background: "#fff", position: "sticky", top: 12, alignSelf: "flex-start", height: "calc(100vh - 24px)" }}>
               <ExampleOutputPanelComponent
                 dataFiles={dataFiles}
                 contacts={contacts}

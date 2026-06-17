@@ -314,12 +314,12 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                   alignItems: "center",
                   gap: 10,
                   userSelect: "none",
-                  background: "#fff",
+                  background: "#f0fdf4",
                 }}
               >
                 <div style={{
                   width: 28, height: 28,
-                  background: "#f0fdf4",
+                  background: "#fff",
                   borderRadius: 6,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   flexShrink: 0,
@@ -327,7 +327,7 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                   <CategoryIcon category={category} />
                 </div>
 
-                <span style={{ flex: 1, fontWeight: 700, fontSize: 12, color: "#5cae60", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <span style={{ flex: 1, fontWeight: 700, fontSize: 12, color: "#166534", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                   {category}
                 </span>
 
