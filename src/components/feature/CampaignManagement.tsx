@@ -203,22 +203,27 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         })
       );
       
-      // Navigate to View subtab
-      window.location.href = `/#/main?tab=DataCampaigns&subtab=View`;
+      // Navigate to View subtab with timestamp to force refresh
+      window.location.href = `/#/main?tab=DataCampaigns&subtab=View&t=${Date.now()}`;
       return;
     }
 
     // Check if it's a segment (check segmentId first, not zohoViewId)
     if (campaign.segmentId || campaign.dataSource === "Segment") {
-      // Add timestamp to force refresh
+      // Navigate with segmentId and timestamp to force component remount
+      const url = new URL(window.location.href.split('#')[0]);
       window.location.href = `/#/main?tab=DataCampaigns&subtab=Segment&segmentId=${campaign.segmentId}&t=${Date.now()}`;
+      // Force page reload to clear any stale state
+      setTimeout(() => window.location.reload(), 50);
       return;
     }
 
     // Check if it's a data file (list) - this should be checked last
     if (campaign.zohoViewId || campaign.dataSource === "DataFile") {
-      // Add timestamp to force refresh
+      // Navigate with dataFileId and timestamp to force refresh
       window.location.href = `/#/main?tab=DataCampaigns&subtab=List&dataFileId=${campaign.zohoViewId}&t=${Date.now()}`;
+      // Force page reload to clear any stale state
+      setTimeout(() => window.location.reload(), 50);
       return;
     }
   };
