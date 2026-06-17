@@ -778,6 +778,14 @@ const formatTimeIST = (dateString?: string) => {
     setActiveSubTab(initialTab);
   }, [initialTab]);
 
+  const viewNavigationToken = searchParams.get("t");
+
+  useEffect(() => {
+    if (activeSubTab === "View" && viewNavigationToken) {
+      setViewRefreshToken((prev) => prev + 1);
+    }
+  }, [activeSubTab, viewNavigationToken]);
+
   // Handle URL parameters for direct navigation from ContactDetailView
   useEffect(() => {
     const dataFileIdFromUrl = searchParams.get("dataFileId");

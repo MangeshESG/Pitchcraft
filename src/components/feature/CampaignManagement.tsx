@@ -199,7 +199,9 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         viewStateKey,
         JSON.stringify({
           viewId: Number(viewId),
-          viewMode: "detail"
+          viewMode: "detail",
+          source: "campaign-data-source",
+          nonce: Date.now()
         })
       );
       
