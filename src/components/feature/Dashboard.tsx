@@ -645,8 +645,9 @@ const PostOnboardingView: React.FC<{
   const [contactSearch, setContactSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  const fetchDashboardData = () => {
     if (!clientId) { setLoading(false); return; }
     setLoading(true);
     fetch(`${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId?clientId=${clientId}`)
@@ -657,7 +658,19 @@ const PostOnboardingView: React.FC<{
         setContactTotal(data?.contactCount ?? list.length);
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchDashboardData();
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
   }, [clientId]);
 
   const fromDate = useMemo(() => getFromDate(dateRange), [dateRange]);
@@ -781,6 +794,22 @@ const PostOnboardingView: React.FC<{
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="h-9 w-9 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refresh dashboard"
+          >
+            <svg 
+              width="16" 
+              height="16" 
+              viewBox="0 0 16 16" 
+              fill="#3f9f42"
+              className={refreshing ? "animate-spin" : ""}
+            >
+              <path d="M8 1.5A6.5 6.5 0 001.5 8a.75.75 0 01-1.5 0A8 8 0 0113.5 2.19V1.25a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zm7.25 5.75a.75.75 0 01.75.75A8 8 0 012.5 13.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/>
+            </svg>
+          </button>
           <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#3f9f42] bg-[#e2f1e3] border border-[#cfecd6] px-2.5 py-1 rounded-full">
             <FontAwesomeIcon icon={faCheck} className="text-[10px]" /> Setup complete
           </span>

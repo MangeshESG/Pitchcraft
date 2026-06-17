@@ -180,9 +180,47 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
 
     if (campaign.dataSource === "Segment" && campaign.segmentName) return campaign.segmentName;
     if (campaign.dataSource === "DataFile" && campaign.dataFileName) return campaign.dataFileName;
-    if (campaign.zohoViewId) return "List";
     if (campaign.segmentId) return "Segment";
+    if (campaign.zohoViewId) return "List";
     return "-";
+  };
+
+  const handleDataSourceClick = (campaign: Campaign) => {
+    // Clear any previous view state from sessionStorage
+    const viewStateKey = `crm_view_state_${effectiveUserId}`;
+    sessionStorage.removeItem(viewStateKey);
+    
+    // Check if it's a view
+    if (typeof campaign.zohoViewId === "string" && campaign.zohoViewId.startsWith("view_")) {
+      const viewId = campaign.zohoViewId.replace("view_", "");
+      
+      // Save view state to sessionStorage so ContactViews component can pick it up
+      sessionStorage.setItem(
+        viewStateKey,
+        JSON.stringify({
+          viewId: Number(viewId),
+          viewMode: "detail"
+        })
+      );
+      
+      // Navigate to View subtab
+      window.location.href = `/#/main?tab=DataCampaigns&subtab=View`;
+      return;
+    }
+
+    // Check if it's a segment (check segmentId first, not zohoViewId)
+    if (campaign.segmentId || campaign.dataSource === "Segment") {
+      // Add timestamp to force refresh
+      window.location.href = `/#/main?tab=DataCampaigns&subtab=Segment&segmentId=${campaign.segmentId}&t=${Date.now()}`;
+      return;
+    }
+
+    // Check if it's a data file (list) - this should be checked last
+    if (campaign.zohoViewId || campaign.dataSource === "DataFile") {
+      // Add timestamp to force refresh
+      window.location.href = `/#/main?tab=DataCampaigns&subtab=List&dataFileId=${campaign.zohoViewId}&t=${Date.now()}`;
+      return;
+    }
   };
 
   const resetCampaignForm = () => {
@@ -797,7 +835,21 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                       </div>
                       <div className="bp-row__id">{getBlueprintName(campaign)}</div>
                       <div className="bp-row__id" title={getDataSourceName(campaign)}>
-                        {getDataSourceName(campaign)}
+                        {(campaign.zohoViewId || campaign.segmentId) && getDataSourceName(campaign) !== "-" ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDataSourceClick(campaign);
+                            }}
+                            className="bp-row__link"
+                            style={{ textDecoration: "underline", color: "#3f9f42" }}
+                          >
+                            {getDataSourceName(campaign)}
+                          </button>
+                        ) : (
+                          <span>{getDataSourceName(campaign)}</span>
+                        )}
                       </div>
                       <div className="bp-row__id">{campaign.description || "-"}</div>
                       <div className="bp-row__date">{formatDate(getCampaignCreatedAt(campaign))}</div>
