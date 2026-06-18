@@ -3373,19 +3373,14 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
     try {
       const campaignTemplateId = getStoredCampaignId();
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/CampaignPrompt/chat`,
-        {
-          userId: effectiveUserId,
-          campaignTemplateId,
-          message: masterPrompt,
-          images: attachedImages, // 🔥 ADD THIS
-
-          systemPrompt: systemPrompt,
-          model: selectedModel, // ✅ Use selected model
-        },
-      );
-
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
+    userId: effectiveUserId,
+    campaignTemplateId,
+    message: initialUserMessage ?? masterPrompt,
+    images: attachedImages,
+    systemPrompt,
+    model: selectedModel,
+      });
       // Dispatch credit update event after successful API call
       window.dispatchEvent(
         new CustomEvent("creditUpdated", {
