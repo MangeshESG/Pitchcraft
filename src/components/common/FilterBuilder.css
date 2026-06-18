@@ -262,6 +262,59 @@
 }
 .fb-field-picker__field-btn:not(.is-active):hover { background: var(--dt-bg-2, #f4f5f7); }
 
+/* ---- View editor (name / description / sources) ---- */
+.fb-editor {
+  display: flex; flex-direction: column; gap: 14px;
+  margin-bottom: 16px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--dt-line, #eef0f3);
+}
+.fb-editor__grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+  align-items: start;
+}
+.fb-editor__label {
+  display: block; margin-bottom: 6px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--dt-ink-faint, #6b7280);
+}
+
+/* ---- Source picker (summary control + dropdown) ---- */
+.fb-sources { position: relative; }
+.fb-sources__panel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
+  width: min(420px, calc(100vw - 96px)); max-height: 320px;
+  display: flex; flex-direction: column;
+  border-radius: 10px; border: 1px solid #dadde2; background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1); overflow: hidden;
+}
+.fb-sources__search { padding: 10px; border-bottom: 1px solid var(--dt-line, #eef0f3); }
+.fb-sources__search input {
+  width: 100%; height: 34px; padding: 0 10px;
+  border: 1px solid #dadde2; border-radius: 7px;
+  background: #fff; font-size: 13px; font-family: inherit;
+  outline: none; box-sizing: border-box;
+}
+.fb-sources__search input:focus { border-color: var(--dt-brand, #3f9f42); }
+.fb-sources__list { overflow-y: auto; padding: 8px; }
+.fb-source-group-label {
+  padding: 8px 10px 4px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--dt-ink-faint, #6b7280);
+}
+.fb-source-option {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; color: var(--dt-ink-soft, #374151);
+}
+.fb-source-option:hover { background: var(--dt-bg-2, #f4f5f7); }
+.fb-source-option--all {
+  border-bottom: 1px solid var(--dt-line, #eef0f3);
+  border-radius: 0; margin-bottom: 4px; font-weight: 600;
+}
+.fb-source-empty {
+  padding: 8px 10px; font-size: 12.5px; color: var(--dt-ink-faint, #6b7280);
+}
+
 /* ---- Save view panel ---- */
 .fb-save-panel {
   margin-top: 12px; padding: 14px 16px;
