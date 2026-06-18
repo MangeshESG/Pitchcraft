@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import API_BASE_URL from "../../config";
 import DynamicContactsTable from "./DynamicContactsTable";
 import PaginationControls from "./PaginationControls";
@@ -122,7 +122,7 @@ const saveViewMetaMap = (clientId: string | number, map: Record<string, ViewMeta
 
 const loadViewState = (
   clientId: string | number
-): { viewId: number; viewMode: "detail" } | null => {
+): { viewId: number; viewMode: "detail"; source?: string; nonce?: number } | null => {
   try {
     const raw = sessionStorage.getItem(getViewStateKey(clientId));
     if (!raw) return null;
@@ -135,6 +135,8 @@ const loadViewState = (
     return {
       viewId: Number(parsed.viewId),
       viewMode: "detail",
+      source: typeof parsed.source === "string" ? parsed.source : undefined,
+      nonce: Number.isFinite(Number(parsed.nonce)) ? Number(parsed.nonce) : undefined,
     };
   } catch (error) {
     console.warn("Failed to load view state:", error);
@@ -450,6 +452,9 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [isDeletingContact, setIsDeletingContact] = useState(false);
   const [isCloningContact, setIsCloningContact] = useState(false);
   const [isUnsubscribing, setIsUnsubscribing] = useState(false);
+  const selectedViewIdRef = useRef<number | null>(null);
+  const viewContactsRequestRef = useRef(0);
+  const skipNextViewStateSaveRef = useRef(false);
 
   const activePanel = useSelector(
     (state: RootState) => state.panel.activePanel
@@ -470,6 +475,10 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   ) => {
     showToast(message, type, 3000);
   };
+
+  useEffect(() => {
+    selectedViewIdRef.current = selectedView?.id ?? null;
+  }, [selectedView?.id]);
   //------------------------------
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const handleSelectContact = (contactId: string) => {
@@ -894,6 +903,11 @@ const handleDeleteContacts = async () => {
     if (!clientId) return;
 
     if (viewMode === "detail" && selectedView?.id) {
+      if (skipNextViewStateSaveRef.current) {
+        skipNextViewStateSaveRef.current = false;
+        return;
+      }
+
       saveViewState(clientId, {
         viewId: selectedView.id,
         viewMode: "detail",
@@ -954,12 +968,48 @@ const handleDeleteContacts = async () => {
     setViewMetaMissing(false);
     setViewContactCounts({});
     setDownloadingViewId(null);
-    clearViewState(clientId);
+    const pendingViewState = loadViewState(clientId);
+    if (pendingViewState?.source !== "campaign-data-source") {
+      clearViewState(clientId);
+    }
   }, [clientId]);
 
   useEffect(() => {
     if (!clientId || isLoadingViews || views.length === 0) {
       return;
+    }
+
+    const persistedState = loadViewState(clientId);
+    if (persistedState?.viewId) {
+      const persistedView = views.find((view) => view.id === persistedState.viewId);
+
+      if (!persistedView) {
+        clearViewState(clientId);
+        return;
+      }
+
+      const shouldApplyPersistedView =
+        viewMode !== "detail" ||
+        selectedView?.id !== persistedState.viewId ||
+        persistedState.source === "campaign-data-source";
+
+      if (shouldApplyPersistedView) {
+        if (persistedState.source === "campaign-data-source") {
+          skipNextViewStateSaveRef.current = true;
+          clearViewState(clientId);
+        }
+
+        setBaseViewContacts([]);
+        setViewContacts([]);
+        setSelectedContacts(new Set());
+        setViewSearchQuery("");
+        setViewCurrentPage(1);
+        setViewMetaMissing(false);
+        setSelectedView(persistedView);
+        setViewMode("detail");
+        onViewModeChange?.("detail");
+        return;
+      }
     }
 
     if (viewMode === "detail" && selectedView?.id) {
@@ -980,21 +1030,7 @@ const handleDeleteContacts = async () => {
 
       return;
     }
-
-    const persistedState = loadViewState(clientId);
-    if (!persistedState?.viewId) {
-      return;
-    }
-
-    const persistedView = views.find((view) => view.id === persistedState.viewId);
-    if (!persistedView) {
-      clearViewState(clientId);
-      return;
-    }
-
-    setSelectedView(persistedView);
-    setViewMode("detail");
-  }, [clientId, isLoadingViews, selectedView, viewMode, views]);
+  }, [clientId, isLoadingViews, onViewModeChange, refreshToken, selectedView, viewMode, views]);
 
   const handleViewSort = (key: string) => {
     if (viewSortKey === key) {
@@ -1398,10 +1434,27 @@ const handleDeleteContacts = async () => {
   };
 
   const fetchContactsForView = async (view: ViewItem) => {
+    const requestId = viewContactsRequestRef.current + 1;
+    viewContactsRequestRef.current = requestId;
+
+    const isLatestRequest = () =>
+      viewContactsRequestRef.current === requestId &&
+      selectedViewIdRef.current === view.id;
+
+    // Force clear all previous data FIRST
+    setBaseViewContacts([]);
+    setViewContacts([]);
     setIsLoadingViewContacts(true);
     setViewMetaMissing(false);
+    
     try {
       const { contacts, metaMissing, contactCount } = await fetchViewContactsData(view);
+
+      if (!isLatestRequest()) {
+        return;
+      }
+      
+      // Only update if this is still the selected view (avoid race conditions)
       setBaseViewContacts(contacts);
       setViewContacts(contacts);
       setViewMetaMissing(metaMissing);
@@ -1409,13 +1462,19 @@ const handleDeleteContacts = async () => {
         updateViewCountCache(view.id, contactCount);
       }
     } catch (error) {
+      if (!isLatestRequest()) {
+        return;
+      }
+
       console.error("Error fetching view contacts:", error);
       setBaseViewContacts([]);
       setViewContacts([]);
       setViewMetaMissing(false);
       showContactMessage("Failed to load view contacts.", "error");
     } finally {
-      setIsLoadingViewContacts(false);
+      if (isLatestRequest()) {
+        setIsLoadingViewContacts(false);
+      }
     }
   };
 
@@ -1459,7 +1518,19 @@ const handleDeleteContacts = async () => {
 
   useEffect(() => {
     if (viewMode === "detail" && selectedView) {
-      fetchContactsForView(selectedView);
+      // Immediately clear to show loading state
+      setBaseViewContacts([]);
+      setViewContacts([]);
+      setSelectedContacts(new Set());
+      setViewSearchQuery("");
+      setIsLoadingViewContacts(true);
+      
+      // Small delay to ensure state is cleared before fetching
+      const timer = setTimeout(() => {
+        fetchContactsForView(selectedView);
+      }, 50);
+      
+      return () => clearTimeout(timer);
     }
   }, [
     viewMode,
@@ -1979,9 +2050,27 @@ const handleDeleteContacts = async () => {
               onSort={handleViewSort}
               actionsAnchor={viewActionsAnchor}
               setActionsAnchor={setViewActionsAnchor}
-              onRowClick={(file) => { const v = paginatedViews.find((x) => x.id === file.id); if (v) openView(v); }}
+              onRowClick={(file) => { 
+                const v = paginatedViews.find((x) => x.id === file.id); 
+                if (v) {
+                  // Clear previous view data immediately
+                  setBaseViewContacts([]);
+                  setViewContacts([]);
+                  setIsLoadingViewContacts(true);
+                  openView(v);
+                }
+              }}
               onRename={(file) => { const v = paginatedViews.find((x) => x.id === file.id); if (v) openEditPanel(v); }}
-              onView={(file) => { const v = paginatedViews.find((x) => x.id === file.id); if (v) openView(v); }}
+              onView={(file) => { 
+                const v = paginatedViews.find((x) => x.id === file.id); 
+                if (v) {
+                  // Clear previous view data immediately
+                  setBaseViewContacts([]);
+                  setViewContacts([]);
+                  setIsLoadingViewContacts(true);
+                  openView(v);
+                }
+              }}
               onDownload={(file) => { const v = paginatedViews.find((x) => x.id === file.id); if (v) handleDownloadView(v); }}
               onDelete={(file) => { const v = paginatedViews.find((x) => x.id === file.id); if (v) handleDeleteView(v); }}
               isDemoAccount={false}

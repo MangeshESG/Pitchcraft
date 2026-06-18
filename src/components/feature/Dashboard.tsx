@@ -468,7 +468,7 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series }) => (
 
 const NonZeroChartDot = (props: any) => {
   const { cx, cy, stroke, value } = props;
-  if (!value || cx == null || cy == null) return null;
+  if (!Number(value) || cx == null || cy == null) return null;
   return <circle cx={cx} cy={cy} r={3.5} fill={stroke} stroke="#fff" strokeWidth={1.5} />;
 };
 
@@ -500,8 +500,8 @@ const DualLineAreaChart: React.FC<{
           contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", fontSize: 12 }}
           formatter={(value: number, name: string) => [value, name === "gen" ? "Generated" : "Sent"]}
         />
-        <Area type="monotone" dataKey="gen"  name="gen"  stroke="#3f9f42" strokeWidth={2} fill="url(#dgGen)"  dot={<NonZeroChartDot />} activeDot={{ r: 5 }} />
-        <Area type="monotone" dataKey="sent" name="sent" stroke="#3b82f6" strokeWidth={2} fill="url(#dgSent)" dot={<NonZeroChartDot />} activeDot={{ r: 5 }} />
+        <Area type="monotone" dataKey="gen"  name="gen"  stroke="#3f9f42" strokeWidth={2} fill="url(#dgGen)"  dot={NonZeroChartDot} activeDot={{ r: 5 }} />
+        <Area type="monotone" dataKey="sent" name="sent" stroke="#3b82f6" strokeWidth={2} fill="url(#dgSent)" dot={NonZeroChartDot} activeDot={{ r: 5 }} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -534,23 +534,58 @@ const ActivityItem: React.FC<ActivityRow> = ({ kind, title, meta, time }) => {
 
 const PAGE_SIZE = 8;
 
-type DateRange = "1d" | "7d" | "30d" | "all";
+type DateRange = "1d" | "24h" | "yesterday" | "7d" | "30d" | "all";
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = {
   "1d": "Today",
+  "24h": "Last 24 hours",
+  "yesterday": "Yesterday",
   "7d": "Last 7 days",
   "30d": "Last month",
   "all": "All time",
 };
 
-function getFromDate(range: DateRange): Date | null {
-  if (range === "all") return null;
+function getDateWindow(range: DateRange): { from: Date | null; to: Date | null } {
+  if (range === "all") return { from: null, to: null };
   const d = new Date();
-  if (range === "1d") { d.setHours(0, 0, 0, 0); return d; }
+  if (range === "1d") {
+    const from = new Date(d);
+    from.setHours(0, 0, 0, 0);
+    return { from, to: null };
+  }
+  if (range === "24h") {
+    d.setHours(d.getHours() - 24);
+    return { from: d, to: null };
+  }
+  if (range === "yesterday") {
+    const from = new Date(d);
+    from.setDate(from.getDate() - 1);
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(from);
+    to.setHours(23, 59, 59, 999);
+    return { from, to };
+  }
   else if (range === "7d") d.setDate(d.getDate() - 7);
   else if (range === "30d") d.setDate(d.getDate() - 30);
-  return d;
+  return { from: d, to: null };
 }
+
+const toValidDate = (value: string | null | undefined): Date | null => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const countBetween = (
+  contacts: ContactApiRow[],
+  field: "updated_at" | "email_sent_at",
+  start: Date,
+  end: Date
+) =>
+  contacts.filter((c) => {
+    const t = toValidDate(c[field]);
+    return !!t && t >= start && t <= end;
+  }).length;
 
 function buildChartData(
   contacts: ContactApiRow[],
@@ -559,14 +594,16 @@ function buildChartData(
   if (range === "all") {
     const map = new Map<string, { gen: number; sent: number }>();
     contacts.forEach((c) => {
-      if (c.updated_at) {
-        const key = new Date(c.updated_at).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+      const updatedAt = toValidDate(c.updated_at);
+      const sentAt = toValidDate(c.email_sent_at);
+      if (updatedAt) {
+        const key = updatedAt.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
         const e = map.get(key) ?? { gen: 0, sent: 0 };
         e.gen++;
         map.set(key, e);
       }
-      if (c.email_sent_at) {
-        const key = new Date(c.email_sent_at).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+      if (sentAt) {
+        const key = sentAt.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
         const e = map.get(key) ?? { gen: 0, sent: 0 };
         e.sent++;
         map.set(key, e);
@@ -580,14 +617,30 @@ function buildChartData(
   const days = range === "7d" ? 7 : 30;
   const result: { label: string; gen: number; sent: number }[] = [];
 
-  if (range === "1d") {
-    const now = new Date();
+  if (range === "1d" || range === "yesterday") {
+    const day = new Date();
+    if (range === "yesterday") day.setDate(day.getDate() - 1);
     for (let h = 0; h < 24; h++) {
-      const start = new Date(now); start.setHours(h, 0, 0, 0);
-      const end   = new Date(now); end.setHours(h, 59, 59, 999);
+      const start = new Date(day); start.setHours(h, 0, 0, 0);
+      const end   = new Date(day); end.setHours(h, 59, 59, 999);
       const label = `${String(h).padStart(2, "0")}:00`;
-      const gen  = contacts.filter((c) => { if (!c.updated_at) return false; const t = new Date(c.updated_at); return t >= start && t <= end; }).length;
-      const sent = contacts.filter((c) => { if (!c.email_sent_at) return false; const t = new Date(c.email_sent_at); return t >= start && t <= end; }).length;
+      const gen  = countBetween(contacts, "updated_at", start, end);
+      const sent = countBetween(contacts, "email_sent_at", start, end);
+      result.push({ label, gen, sent });
+    }
+    return result;
+  }
+
+  if (range === "24h") {
+    const now = new Date();
+    for (let i = 23; i >= 0; i--) {
+      const start = new Date(now);
+      start.setHours(now.getHours() - i, 0, 0, 0);
+      const end = new Date(start);
+      end.setHours(start.getHours(), 59, 59, 999);
+      const label = start.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+      const gen  = countBetween(contacts, "updated_at", start, end);
+      const sent = countBetween(contacts, "email_sent_at", start, end);
       result.push({ label, gen, sent });
     }
     return result;
@@ -599,16 +652,8 @@ function buildChartData(
     const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(d);   dayEnd.setHours(23, 59, 59, 999);
     const label = d.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
-    const gen = contacts.filter((c) => {
-      if (!c.updated_at) return false;
-      const t = new Date(c.updated_at);
-      return t >= dayStart && t <= dayEnd;
-    }).length;
-    const sent = contacts.filter((c) => {
-      if (!c.email_sent_at) return false;
-      const t = new Date(c.email_sent_at);
-      return t >= dayStart && t <= dayEnd;
-    }).length;
+    const gen = countBetween(contacts, "updated_at", dayStart, dayEnd);
+    const sent = countBetween(contacts, "email_sent_at", dayStart, dayEnd);
     result.push({ label, gen, sent });
   }
   return result;
@@ -645,8 +690,9 @@ const PostOnboardingView: React.FC<{
   const [contactSearch, setContactSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  const fetchDashboardData = () => {
     if (!clientId) { setLoading(false); return; }
     setLoading(true);
     fetch(`${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId?clientId=${clientId}`)
@@ -657,19 +703,34 @@ const PostOnboardingView: React.FC<{
         setContactTotal(data?.contactCount ?? list.length);
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchDashboardData();
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
   }, [clientId]);
 
-  const fromDate = useMemo(() => getFromDate(dateRange), [dateRange]);
+  const dateWindow = useMemo(() => getDateWindow(dateRange), [dateRange]);
 
   const filteredByRange = useMemo(() => {
-    if (!fromDate) return contacts;
+    const { from, to } = dateWindow;
+    if (!from && !to) return contacts;
     return contacts.filter((c) => {
-      const genDate  = c.updated_at    ? new Date(c.updated_at)    : null;
-      const sentDate = c.email_sent_at ? new Date(c.email_sent_at) : null;
-      return (genDate && genDate >= fromDate) || (sentDate && sentDate >= fromDate);
+      const genDate = toValidDate(c.updated_at);
+      const sentDate = toValidDate(c.email_sent_at);
+      const isInWindow = (date: Date | null) =>
+        !!date && (!from || date >= from) && (!to || date <= to);
+      return isInWindow(genDate) || isInWindow(sentDate);
     });
-  }, [contacts, fromDate]);
+  }, [contacts, dateWindow]);
 
   const chartData = useMemo(() => buildChartData(filteredByRange, dateRange), [filteredByRange, dateRange]);
   const emailsGeneratedCount = useMemo(
@@ -781,6 +842,22 @@ const PostOnboardingView: React.FC<{
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="h-9 w-9 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refresh dashboard"
+          >
+            <svg 
+              width="16" 
+              height="16" 
+              viewBox="0 0 16 16" 
+              fill="#3f9f42"
+              className={refreshing ? "animate-spin" : ""}
+            >
+              <path d="M8 1.5A6.5 6.5 0 001.5 8a.75.75 0 01-1.5 0A8 8 0 0113.5 2.19V1.25a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zm7.25 5.75a.75.75 0 01.75.75A8 8 0 012.5 13.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/>
+            </svg>
+          </button>
           <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#3f9f42] bg-[#e2f1e3] border border-[#cfecd6] px-2.5 py-1 rounded-full">
             <FontAwesomeIcon icon={faCheck} className="text-[10px]" /> Setup complete
           </span>

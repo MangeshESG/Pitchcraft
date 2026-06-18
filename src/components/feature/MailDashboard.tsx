@@ -29,6 +29,7 @@ import ContactDetailView from "./contacts/ContactDetailView";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";
+import { useSearchParams } from "react-router-dom";
 
 // Interfaces
 interface DailyStats {
@@ -174,6 +175,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   token,
   isVisible,
 }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     saveFormState,
     getFormState,
@@ -255,6 +257,21 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [contactsToDelete, setContactsToDelete] = useState<number[]>([]);
   const [excludeBots, setExcludeBots] = useState(false);
+  const redirectedCampaignId = searchParams.get("campaignId");
+
+  const clearDashboardData = () => {
+    setAllEventData([]);
+    setAllEmailLogs([]);
+    setEmailLogs([]);
+    setMissingLogs([]);
+    setFilteredEventData([]);
+    setDailyStats([]);
+    setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0 });
+    setRequestCount(0);
+    setCurrentPage(1);
+    setEmailLogsCurrentPage(1);
+    setMissingLogsCurrentPage(1);
+  };
 
   const [emailColumns, setEmailColumns] = useState<ColumnConfig[]>([
     { key: "checkbox", label: "", visible: true, width: "40px" },
@@ -336,8 +353,44 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
       const savedState = getFormState(FORM_STATE_KEY);
       let campaignToLoad = selectedCampaign;
+      const redirectKey = `mail_dashboard_campaign_redirect_${effectiveUserId}`;
 
-      if (savedState && savedState.effectiveUserId === effectiveUserId) {
+      try {
+        const fallbackRedirect = sessionStorage.getItem("mail_dashboard_campaign_redirect");
+        const rawRedirect = sessionStorage.getItem(redirectKey);
+        const parsedRedirect = rawRedirect
+          ? JSON.parse(rawRedirect)
+          : fallbackRedirect
+          ? JSON.parse(fallbackRedirect)
+          : null;
+        const sessionCampaignId = parsedRedirect?.campaignId
+          ? parsedRedirect.campaignId.toString()
+          : "";
+        const requestedCampaignId =
+          redirectedCampaignId || sessionCampaignId;
+
+        if (requestedCampaignId) {
+          clearDashboardData();
+          setSelectedCampaign(requestedCampaignId);
+          setDashboardTab("Overview");
+          setDataFetchedForCampaign("");
+          campaignToLoad = requestedCampaignId;
+          saveFormState(FORM_STATE_KEY, {
+            selectedCampaign: requestedCampaignId,
+            dashboardTab: "Overview",
+            startDate,
+            endDate,
+            emailFilterType,
+            effectiveUserId,
+          });
+          sessionStorage.removeItem(redirectKey);
+          sessionStorage.removeItem("mail_dashboard_campaign_redirect");
+        }
+      } catch (error) {
+        console.warn("Failed to restore redirected campaign:", error);
+      }
+
+      if (!campaignToLoad && savedState && savedState.effectiveUserId === effectiveUserId) {
         console.log("📥 Restoring saved state:", savedState);
 
         if (savedState.selectedCampaign && savedState.selectedCampaign !== "") {
@@ -410,7 +463,25 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     };
 
     initializeComponent();
-  }, [effectiveUserId, isVisible]);
+  }, [effectiveUserId, isVisible, redirectedCampaignId]);
+
+  useEffect(() => {
+    if (!isVisible || !effectiveUserId || !redirectedCampaignId) return;
+    if (selectedCampaign === redirectedCampaignId) return;
+
+    clearDashboardData();
+    setSelectedCampaign(redirectedCampaignId);
+    setDashboardTab("Overview");
+    setDataFetchedForCampaign("");
+    saveFormState(FORM_STATE_KEY, {
+      selectedCampaign: redirectedCampaignId,
+      dashboardTab: "Overview",
+      startDate,
+      endDate,
+      emailFilterType,
+      effectiveUserId,
+    });
+  }, [effectiveUserId, isVisible, redirectedCampaignId, selectedCampaign]);
 
   // 2. Load available campaigns - Updated API endpoint
   useEffect(() => {
@@ -439,6 +510,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   // 3. Fetch data when selectedCampaign changes
   useEffect(() => {
     if (!isVisible || !effectiveUserId || !selectedCampaign) return;
+    if (campaignsLoaded && !availableCampaigns.some((campaign) => campaign.id.toString() === selectedCampaign)) return;
 
     if (dataFetchedForCampaign === selectedCampaign || loading) return;
 
@@ -486,6 +558,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     dataFetchedForCampaign,
     loading,
     getDashboardData,
+    campaignsLoaded,
+    availableCampaigns,
   ]);
 
 
@@ -743,7 +817,13 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         (c) => c.id.toString() === campaignId
       );
 
-      if (!campaign) return;
+      if (!campaign) {
+        setAllEventData([]);
+        setAllEmailLogs([]);
+        setEmailLogs([]);
+        setDataFetchedForCampaign("");
+        return;
+      }
 
       const clientId = Number(effectiveUserId);
       const campaignIdNumber = Number(campaignId);
@@ -986,6 +1066,17 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     );
 
     setSelectedCampaign(newCampaignId);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", "Mail");
+    nextParams.set("mailSubTab", "Dashboard");
+    if (newCampaignId) {
+      nextParams.set("campaignId", newCampaignId);
+      nextParams.set("t", Date.now().toString());
+    } else {
+      nextParams.delete("campaignId");
+      nextParams.delete("t");
+    }
+    setSearchParams(nextParams, { replace: true });
 
     // Save state immediately after setting new campaign
     if (newCampaignId) {

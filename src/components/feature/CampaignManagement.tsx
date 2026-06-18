@@ -91,6 +91,18 @@ interface CampaignBlueprint {
 const VIDEO_BASE = "https://app.pitchkraft.ai";
 const CAMPAIGN_VIDEO = `${VIDEO_BASE}/video/Campaigns.mp4`;
 
+const AnalyticsIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%" aria-hidden="true">
+    <g fill="none" stroke="#3f9f42" strokeWidth="36" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M 70,225 L 195,100 L 330,195 L 442,50" />
+      <rect x="54" y="375" width="58" height="72" rx="20" />
+      <rect x="168" y="255" width="62" height="192" rx="22" />
+      <rect x="284" y="300" width="60" height="147" rx="22" />
+      <rect x="400" y="155" width="60" height="292" rx="22" />
+    </g>
+  </svg>
+);
+
 const CampaignManagement: React.FC<CampaignManagementProps> = ({
   selectedClient,
 }) => {
@@ -167,6 +179,87 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       ? campaignBlueprints.find((bp) => bp.id === campaign.templateId)?.templateName || "-"
       : "-";
 
+  const openTrackingDashboard = (campaign: Campaign) => {
+    if (!campaign.id || !effectiveUserId) return;
+
+    const redirectKey = `mail_dashboard_campaign_redirect_${effectiveUserId}`;
+    sessionStorage.setItem(
+      redirectKey,
+      JSON.stringify({
+        campaignId: campaign.id.toString(),
+        dashboardTab: "Overview",
+        nonce: Date.now(),
+      })
+    );
+    sessionStorage.setItem(
+      "mail_dashboard_campaign_redirect",
+      JSON.stringify({
+        campaignId: campaign.id.toString(),
+        dashboardTab: "Overview",
+        nonce: Date.now(),
+      })
+    );
+
+    window.location.href = `/#/main?tab=Mail&mailSubTab=Dashboard&campaignId=${campaign.id}&t=${Date.now()}`;
+  };
+
+  const handleBlueprintClick = async (campaign: Campaign) => {
+    if (!campaign.templateId) return;
+
+    const templateId = campaign.templateId.toString();
+    const fallbackName =
+      getBlueprintName(campaign) !== "-"
+        ? getBlueprintName(campaign)
+        : campaign.campaignName;
+
+    sessionStorage.setItem("editTemplateId", templateId);
+    sessionStorage.setItem("editTemplateMode", "true");
+    sessionStorage.setItem("newCampaignId", templateId);
+    sessionStorage.setItem("newCampaignName", fallbackName);
+    sessionStorage.setItem("initialExampleEmail", "");
+    window.dispatchEvent(new CustomEvent("showBlueprintLoader"));
+    window.dispatchEvent(
+      new CustomEvent("switchToBlueprint", {
+        detail: { templateId: campaign.templateId },
+      })
+    );
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`
+      );
+
+      if (response.ok) {
+        const fullTemplate = await response.json();
+        const example = fullTemplate?.placeholderValues?.example_output_email || "";
+
+        if (fullTemplate.placeholderValues) {
+          sessionStorage.setItem(
+            "campaign_placeholder_values",
+            JSON.stringify(fullTemplate.placeholderValues)
+          );
+        }
+
+        sessionStorage.setItem("newCampaignName", fullTemplate.templateName || campaign.campaignName);
+        sessionStorage.setItem("initialExampleEmail", example);
+
+        if (fullTemplate.templateDefinitionId) {
+          sessionStorage.setItem(
+            "selectedTemplateDefinitionId",
+            fullTemplate.templateDefinitionId.toString()
+          );
+        }
+      } else {
+        sessionStorage.setItem("newCampaignName", getBlueprintName(campaign) || campaign.campaignName);
+        sessionStorage.setItem("initialExampleEmail", "");
+      }
+    } catch (error) {
+      console.error("Error loading blueprint:", error);
+      sessionStorage.setItem("newCampaignName", getBlueprintName(campaign) || campaign.campaignName);
+      sessionStorage.setItem("initialExampleEmail", "");
+    }
+  };
+
   const getDataSourceName = (campaign: Campaign) => {
     if (typeof campaign.zohoViewId === "string" && campaign.zohoViewId.startsWith("view_")) {
       return (
@@ -180,9 +273,54 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
 
     if (campaign.dataSource === "Segment" && campaign.segmentName) return campaign.segmentName;
     if (campaign.dataSource === "DataFile" && campaign.dataFileName) return campaign.dataFileName;
-    if (campaign.zohoViewId) return "List";
     if (campaign.segmentId) return "Segment";
+    if (campaign.zohoViewId) return "List";
     return "-";
+  };
+
+  const handleDataSourceClick = (campaign: Campaign) => {
+    // Clear any previous view state from sessionStorage
+    const viewStateKey = `crm_view_state_${effectiveUserId}`;
+    sessionStorage.removeItem(viewStateKey);
+    
+    // Check if it's a view
+    if (typeof campaign.zohoViewId === "string" && campaign.zohoViewId.startsWith("view_")) {
+      const viewId = campaign.zohoViewId.replace("view_", "");
+      
+      // Save view state to sessionStorage so ContactViews component can pick it up
+      sessionStorage.setItem(
+        viewStateKey,
+        JSON.stringify({
+          viewId: Number(viewId),
+          viewMode: "detail",
+          source: "campaign-data-source",
+          nonce: Date.now()
+        })
+      );
+      
+      // Navigate to View subtab with timestamp to force refresh
+      window.location.href = `/#/main?tab=DataCampaigns&subtab=View&t=${Date.now()}`;
+      return;
+    }
+
+    // Check if it's a segment (check segmentId first, not zohoViewId)
+    if (campaign.segmentId || campaign.dataSource === "Segment") {
+      // Navigate with segmentId and timestamp to force component remount
+      const url = new URL(window.location.href.split('#')[0]);
+      window.location.href = `/#/main?tab=DataCampaigns&subtab=Segment&segmentId=${campaign.segmentId}&t=${Date.now()}`;
+      // Force page reload to clear any stale state
+      setTimeout(() => window.location.reload(), 50);
+      return;
+    }
+
+    // Check if it's a data file (list) - this should be checked last
+    if (campaign.zohoViewId || campaign.dataSource === "DataFile") {
+      // Navigate with dataFileId and timestamp to force refresh
+      window.location.href = `/#/main?tab=DataCampaigns&subtab=List&dataFileId=${campaign.zohoViewId}&t=${Date.now()}`;
+      // Force page reload to clear any stale state
+      setTimeout(() => window.location.reload(), 50);
+      return;
+    }
   };
 
   const resetCampaignForm = () => {
@@ -754,7 +892,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               <div className="bp-rows">
                 <div
                   className="bp-rows__head"
-                  style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 130px 110px" }}
+                  style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 145px 130px 110px" }}
                 >
                   <div />
                   <div className="bp-th" onClick={() => handleListSort("campaignName")}>
@@ -770,6 +908,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   <div className="bp-th" onClick={() => handleListSort("createdAt")}>
                     Creation date {renderSortIcon("createdAt")}
                   </div>
+                  <div className="campaign-analytics-cell">Analytics</div>
                   <div />
                 </div>
 
@@ -780,7 +919,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                     <div
                       key={campaign.id}
                       className="bp-row"
-                      style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 130px 110px" }}
+                      style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 145px 130px 110px" }}
                     >
                       <div className="bp-row__rail" />
                       <div className="bp-row__name">
@@ -795,12 +934,58 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                           {campaign.campaignName}
                         </button>
                       </div>
-                      <div className="bp-row__id">{getBlueprintName(campaign)}</div>
+                      <div className="bp-row__id" title={getBlueprintName(campaign)}>
+                        {campaign.templateId ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleBlueprintClick(campaign);
+                            }}
+                            className="bp-row__link"
+                            style={{ textDecoration: "underline", color: "#3f9f42" }}
+                          >
+                            {getBlueprintName(campaign) !== "-"
+                              ? getBlueprintName(campaign)
+                              : `Blueprint #${campaign.templateId}`}
+                          </button>
+                        ) : (
+                          <span>{getBlueprintName(campaign)}</span>
+                        )}
+                      </div>
                       <div className="bp-row__id" title={getDataSourceName(campaign)}>
-                        {getDataSourceName(campaign)}
+                        {(campaign.zohoViewId || campaign.segmentId) && getDataSourceName(campaign) !== "-" ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDataSourceClick(campaign);
+                            }}
+                            className="bp-row__link"
+                            style={{ textDecoration: "underline", color: "#3f9f42" }}
+                          >
+                            {getDataSourceName(campaign)}
+                          </button>
+                        ) : (
+                          <span>{getDataSourceName(campaign)}</span>
+                        )}
                       </div>
                       <div className="bp-row__id">{campaign.description || "-"}</div>
                       <div className="bp-row__date">{formatDate(getCampaignCreatedAt(campaign))}</div>
+                      <div className="bp-row__id campaign-analytics-cell">
+                        <button
+                          type="button"
+                          aria-label={`Open analytics for ${campaign.campaignName}`}
+                          title="Open analytics"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openTrackingDashboard(campaign);
+                          }}
+                          className="campaign-analytics-button"
+                        >
+                          <AnalyticsIcon />
+                        </button>
+                      </div>
                       <div className="bp-row__actions">{renderCampaignActions(campaign)}</div>
                     </div>
                   ))
@@ -879,7 +1064,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         }
         .campaign-bp-page .bp-row,
         .campaign-bp-page .bp-rows__head {
-          grid-template-columns: 14px 1.2fr 1fr 1fr 1.2fr 130px 110px;
+          grid-template-columns: 14px 1.2fr 1fr 1fr 1.2fr 145px 130px 110px;
         }
         .campaign-bp-page .bp-row__link {
           border: 0;
@@ -890,6 +1075,34 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         }
         .campaign-bp-page .bp-row__actions {
           overflow: visible;
+        }
+        .campaign-bp-page .campaign-analytics-cell {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+        }
+        .campaign-bp-page .campaign-analytics-button {
+          width: 34px;
+          height: 34px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #d8ebda;
+          border-radius: 8px;
+          background: #f7fbf8;
+          padding: 6px;
+          cursor: pointer;
+          transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+        }
+        .campaign-bp-page .campaign-analytics-button:hover {
+          background: #eef8ef;
+          border-color: #3f9f42;
+          transform: translateY(-1px);
+        }
+        .campaign-bp-page .campaign-analytics-button:focus-visible {
+          outline: 2px solid rgba(63, 159, 66, 0.28);
+          outline-offset: 2px;
         }
         @media (max-width: 768px) {
           .campaign-bp-page .bp-row {
