@@ -55,9 +55,14 @@ interface Campaign {
   id: number;
   campaignName: string;
   promptId: number;
-  zohoViewId: string;
+  zohoViewId?: string | null;
   clientId: number;
   description?: string;
+  templateId?: number;
+  segmentId?: number | null;
+  segmentName?: string | null;
+  dataFileName?: string | null;
+  dataSource?: string;
 }
 
 const normalizeExternalUrl = (url?: string | null) => {
@@ -1540,6 +1545,49 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     console.log("Effective User ID:", effectiveUserId);
   }, [reduxUserId, effectiveUserId]);
 
+  const getCampaignSourceLabel = (campaign?: Campaign) => {
+    if (!campaign) return "Source";
+    if (campaign.dataSource === "Segment" && campaign.segmentName) return campaign.segmentName;
+    if (campaign.dataSource === "DataFile" && campaign.dataFileName) return campaign.dataFileName;
+    if (typeof campaign.zohoViewId === "string" && campaign.zohoViewId.startsWith("view_")) return "View";
+    if (campaign.segmentId) return "Segment";
+    if (campaign.zohoViewId) return "List";
+    return "Source";
+  };
+
+  const handleCampaignSourceClick = (campaign?: Campaign) => {
+    if (!campaign || !effectiveUserId) return;
+
+    const viewStateKey = `crm_view_state_${effectiveUserId}`;
+    sessionStorage.removeItem(viewStateKey);
+
+    if (typeof campaign.zohoViewId === "string" && campaign.zohoViewId.startsWith("view_")) {
+      const viewId = campaign.zohoViewId.replace("view_", "");
+      sessionStorage.setItem(
+        viewStateKey,
+        JSON.stringify({
+          viewId: Number(viewId),
+          viewMode: "detail",
+          source: "kraft-email-campaign-source",
+          nonce: Date.now(),
+        })
+      );
+      window.location.href = `/#/main?tab=DataCampaigns&subtab=View&t=${Date.now()}`;
+      return;
+    }
+
+    if (campaign.segmentId || campaign.dataSource === "Segment") {
+      window.location.href = `/#/main?tab=DataCampaigns&subtab=Segment&segmentId=${campaign.segmentId}&t=${Date.now()}`;
+      setTimeout(() => window.location.reload(), 50);
+      return;
+    }
+
+    if (campaign.zohoViewId || campaign.dataSource === "DataFile") {
+      window.location.href = `/#/main?tab=DataCampaigns&subtab=List&dataFileId=${campaign.zohoViewId}&t=${Date.now()}`;
+      setTimeout(() => window.location.reload(), 50);
+    }
+  };
+
   // Add useEffect to fetch SMTP users
   useEffect(() => {
     const fetchSmtpUsers = async () => {
@@ -2288,6 +2336,8 @@ useEffect(() => {
     return <KraftEmailEmptyState onGoToBlueprints={onGoToBlueprints} />;
   }
 
+  const selectedCampaignDetails = campaigns?.find((c) => c.id.toString() === selectedCampaign);
+
   if (!selectedCampaign) {
     return (
       <KraftCampaignSelectState
@@ -2391,7 +2441,21 @@ useEffect(() => {
                         <g fill="#3f9f42"><path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/></g>
                       </svg>
                     </button>
-                    {campaigns?.find((c) => c.id.toString() === selectedCampaign)?.templateId && (
+                    {(selectedCampaignDetails?.zohoViewId || selectedCampaignDetails?.segmentId || selectedCampaignDetails?.dataSource) && (
+                      <>
+                        <ReactTooltip anchorSelect="#go-source-tooltip" place="top">Go to {getCampaignSourceLabel(selectedCampaignDetails)}</ReactTooltip>
+                        <button
+                          id="go-source-tooltip"
+                          className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
+                          style={{ borderColor: '#e8eaee' }}
+                          onClick={() => handleCampaignSourceClick(selectedCampaignDetails)}
+                          title={`Go to ${getCampaignSourceLabel(selectedCampaignDetails)}`}
+                        >
+                          <FontAwesomeIcon icon={faCircleRight} style={{ color: "#3f9f42", fontSize: 18 }} />
+                        </button>
+                      </>
+                    )}
+                    {selectedCampaignDetails?.templateId && (
                       <>
                         <ReactTooltip anchorSelect="#edit-blueprint-tooltip" place="top">Edit this campaign's blueprint</ReactTooltip>
                         <button
@@ -2399,7 +2463,7 @@ useEffect(() => {
                           className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
                           style={{ borderColor: '#e8eaee' }}
                           onClick={async () => {
-                            const campaign = campaigns.find((c) => c.id.toString() === selectedCampaign);
+                            const campaign = selectedCampaignDetails;
                             if (campaign?.templateId) {
                               try {
                                 const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`);
@@ -2431,11 +2495,11 @@ useEffect(() => {
                       </>
                     )}
                   </>
-                )}
+                )} 
               </div>
-              {selectedCampaign && campaigns?.find((c) => c.id.toString() === selectedCampaign)?.description && (
+              {selectedCampaign && selectedCampaignDetails?.description && (
                 <small className="campaign-description mt-1 block text-[12px]" style={{ color: '#6b7280' }}>
-                  {campaigns.find((c) => c.id.toString() === selectedCampaign)?.description}
+                  {selectedCampaignDetails.description}
                 </small>
               )}
             </div>

@@ -91,6 +91,18 @@ interface CampaignBlueprint {
 const VIDEO_BASE = "https://app.pitchkraft.ai";
 const CAMPAIGN_VIDEO = `${VIDEO_BASE}/video/Campaigns.mp4`;
 
+const AnalyticsIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%" aria-hidden="true">
+    <g fill="none" stroke="#3f9f42" strokeWidth="36" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M 70,225 L 195,100 L 330,195 L 442,50" />
+      <rect x="54" y="375" width="58" height="72" rx="20" />
+      <rect x="168" y="255" width="62" height="192" rx="22" />
+      <rect x="284" y="300" width="60" height="147" rx="22" />
+      <rect x="400" y="155" width="60" height="292" rx="22" />
+    </g>
+  </svg>
+);
+
 const CampaignManagement: React.FC<CampaignManagementProps> = ({
   selectedClient,
 }) => {
@@ -166,6 +178,30 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     campaign.templateId
       ? campaignBlueprints.find((bp) => bp.id === campaign.templateId)?.templateName || "-"
       : "-";
+
+  const openTrackingDashboard = (campaign: Campaign) => {
+    if (!campaign.id || !effectiveUserId) return;
+
+    const redirectKey = `mail_dashboard_campaign_redirect_${effectiveUserId}`;
+    sessionStorage.setItem(
+      redirectKey,
+      JSON.stringify({
+        campaignId: campaign.id.toString(),
+        dashboardTab: "Overview",
+        nonce: Date.now(),
+      })
+    );
+    sessionStorage.setItem(
+      "mail_dashboard_campaign_redirect",
+      JSON.stringify({
+        campaignId: campaign.id.toString(),
+        dashboardTab: "Overview",
+        nonce: Date.now(),
+      })
+    );
+
+    window.location.href = `/#/main?tab=Mail&mailSubTab=Dashboard&campaignId=${campaign.id}&t=${Date.now()}`;
+  };
 
   const handleBlueprintClick = async (campaign: Campaign) => {
     if (!campaign.templateId) return;
@@ -856,7 +892,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               <div className="bp-rows">
                 <div
                   className="bp-rows__head"
-                  style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 130px 110px" }}
+                  style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 145px 130px 110px" }}
                 >
                   <div />
                   <div className="bp-th" onClick={() => handleListSort("campaignName")}>
@@ -872,6 +908,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   <div className="bp-th" onClick={() => handleListSort("createdAt")}>
                     Creation date {renderSortIcon("createdAt")}
                   </div>
+                  <div className="campaign-analytics-cell">Analytics</div>
                   <div />
                 </div>
 
@@ -882,7 +919,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                     <div
                       key={campaign.id}
                       className="bp-row"
-                      style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 130px 110px" }}
+                      style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 145px 130px 110px" }}
                     >
                       <div className="bp-row__rail" />
                       <div className="bp-row__name">
@@ -935,6 +972,20 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                       </div>
                       <div className="bp-row__id">{campaign.description || "-"}</div>
                       <div className="bp-row__date">{formatDate(getCampaignCreatedAt(campaign))}</div>
+                      <div className="bp-row__id campaign-analytics-cell">
+                        <button
+                          type="button"
+                          aria-label={`Open analytics for ${campaign.campaignName}`}
+                          title="Open analytics"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openTrackingDashboard(campaign);
+                          }}
+                          className="campaign-analytics-button"
+                        >
+                          <AnalyticsIcon />
+                        </button>
+                      </div>
                       <div className="bp-row__actions">{renderCampaignActions(campaign)}</div>
                     </div>
                   ))
@@ -1013,7 +1064,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         }
         .campaign-bp-page .bp-row,
         .campaign-bp-page .bp-rows__head {
-          grid-template-columns: 14px 1.2fr 1fr 1fr 1.2fr 130px 110px;
+          grid-template-columns: 14px 1.2fr 1fr 1fr 1.2fr 145px 130px 110px;
         }
         .campaign-bp-page .bp-row__link {
           border: 0;
@@ -1024,6 +1075,34 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         }
         .campaign-bp-page .bp-row__actions {
           overflow: visible;
+        }
+        .campaign-bp-page .campaign-analytics-cell {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+        }
+        .campaign-bp-page .campaign-analytics-button {
+          width: 34px;
+          height: 34px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #d8ebda;
+          border-radius: 8px;
+          background: #f7fbf8;
+          padding: 6px;
+          cursor: pointer;
+          transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+        }
+        .campaign-bp-page .campaign-analytics-button:hover {
+          background: #eef8ef;
+          border-color: #3f9f42;
+          transform: translateY(-1px);
+        }
+        .campaign-bp-page .campaign-analytics-button:focus-visible {
+          outline: 2px solid rgba(63, 159, 66, 0.28);
+          outline-offset: 2px;
         }
         @media (max-width: 768px) {
           .campaign-bp-page .bp-row {
