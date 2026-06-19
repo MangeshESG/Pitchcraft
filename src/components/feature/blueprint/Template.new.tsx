@@ -171,7 +171,7 @@ interface ListProps {
   setTemplateActionsAnchor: (v: string | null) => void;
   onView: Handler;
   onEdit: Handler;
-  onEditModel: Handler;
+  onEditModel?: Handler;
   onRename: Handler;
   onClone: Handler;
   onDelete: Handler;
@@ -338,9 +338,11 @@ export const BlueprintsList: React.FC<ListProps> = (p) => {
                       <button onClick={() => { p.onEdit(t); p.setTemplateActionsAnchor(null); }}>
                         <FontAwesomeIcon icon={faPencil} /> Edit
                       </button>
-                      <button onClick={() => { p.onEditModel(t); p.setTemplateActionsAnchor(null); }}>
-                        <FontAwesomeIcon icon={faRobot} /> Edit model
-                      </button>
+                      {p.onEditModel && (
+                        <button onClick={() => { p.onEditModel?.(t); p.setTemplateActionsAnchor(null); }}>
+                          <FontAwesomeIcon icon={faRobot} /> Edit model
+                        </button>
+                      )}
                       <button onClick={() => { p.onRename(t); p.setTemplateActionsAnchor(null); }}>
                         <FontAwesomeIcon icon={faFile} /> Rename
                       </button>
