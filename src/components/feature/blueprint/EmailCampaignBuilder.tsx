@@ -31,7 +31,14 @@ import toggleOff from "../../../assets/images/off-button.png";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
 import LoadingSpinner from "../../common/LoadingSpinner";
-import { AVAILABLE_AI_MODELS } from "../../../utils/aiModels";
+import { OPENAI_MODELS, isDeepSeekModel } from "../../../utils/aiModels";
+
+// The blueprint builder / instruction set must never run on a DeepSeek model.
+// Coerce any DeepSeek (or empty) value back to a safe OpenAI default so loading
+// an older definition/template that was saved with DeepSeek doesn't bring it back.
+const DEFAULT_BUILDER_MODEL = "gpt-5.1";
+const toBuilderModel = (model?: string | null): string =>
+  !model || isDeepSeekModel(model) ? DEFAULT_BUILDER_MODEL : model;
 
 
 // --- Type Definitions ---
@@ -96,6 +103,7 @@ export interface PlaceholderDefinitionUI {
   _rawOptions?: string;
   helpLink?: string;
   defaultValue?: string;
+  description?: string;
 
 }
 
@@ -573,64 +581,6 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
   // Derive current wizard phase (only applies to non-edit mode)
   const wizardPhase: 1 | 2 | 3 | 4 = !conversationStarted ? 1 : !isComplete ? 2 : !blueprintApproved ? 3 : 4;
 
-  // Step indicator component — compact pill style
-  const StepIndicator = () => {
-    const steps = [
-      { num: 1, label: "Choose method" },
-      { num: 2, label: "Provide input" },
-      { num: 3, label: "Review blueprint" },
-      { num: 4, label: "Example email" },
-      { num: 5, label: "Edit & preview" },
-    ];
-    const activeStep = wizardPhase;
-    return (
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "12px 20px",
-        borderBottom: "1px solid #e5e7eb",
-        background: "#fff",
-        flexWrap: "wrap",
-      }}>
-        {steps.map((step) => {
-          const done = activeStep > step.num;
-          const active = activeStep === step.num;
-          return (
-            <div
-              key={step.num}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "4px 12px 4px 5px",
-                borderRadius: 20,
-                background: done ? "#dcfce7" : active ? "#f0fdf4" : "#f3f4f6",
-                border: `1px solid ${done ? "#86efac" : active ? "#3f9f42" : "#e5e7eb"}`,
-                color: done ? "#16a34a" : active ? "#3f9f42" : "#9ca3af",
-                fontSize: 13,
-                fontWeight: done || active ? 600 : 400,
-                transition: "all 0.2s",
-              }}
-            >
-              <span style={{
-                width: 20, height: 20,
-                background: done ? "#3f9f42" : active ? "#3f9f42" : "#e5e7eb",
-                borderRadius: "50%",
-                display: "inline-flex", alignItems: "center", justifyContent: "center",
-                color: done || active ? "#fff" : "#9ca3af",
-                fontSize: 10, fontWeight: 700, flexShrink: 0,
-              }}>
-                {done ? "✓" : step.num}
-              </span>
-              {step.label}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
   // Filtered conversation placeholders for review card
   const reviewPlaceholders = Object.entries(placeholderValues || {})
     .filter(([k, v]) => !CONTACT_PLACEHOLDERS.includes(k) && k !== "example_output_email" && v && v.trim())
@@ -638,36 +588,6 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
   return (
     <div className="conversation-container" style={{ display: "flex", flexDirection: "row" }}>
-
-      {/* ---- SIDEBAR: wizard mode only ---- */}
-      {!isEditMode && (
-        <div style={{ width: 240, flexShrink: 0, borderRight: "1px solid #e5e7eb", padding: "28px 20px", background: "#fff" }}>
-          <p style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 20 }}>
-            Build your blueprint in 5 easy steps
-          </p>
-          {[
-            { num: 1, label: "Choose method", desc: "Select how you'd like to start." },
-            { num: 2, label: "Provide input", desc: "Share details about your offer and target." },
-            { num: 3, label: "Review blueprint", desc: "See AI's draft of your blueprint." },
-            { num: 4, label: "Example email", desc: "View a sample email for inspiration." },
-            { num: 5, label: "Edit & preview", desc: "Make changes and preview your final email." },
-          ].map((step) => {
-            const done = wizardPhase > step.num;
-            const active = wizardPhase === step.num;
-            return (
-              <div key={step.num} style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "flex-start" }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", background: done ? "#3f9f42" : active ? "#3f9f42" : "#e5e7eb", color: done || active ? "#fff" : "#9ca3af", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
-                  {done ? "✓" : step.num}
-                </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: active ? 700 : 500, color: active ? "#111827" : done ? "#374151" : "#6b7280" }}>{step.label}</div>
-                  <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.4, marginTop: 2 }}>{step.desc}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {/* ---- RIGHT PANEL: all phase + edit mode content ---- */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -774,9 +694,9 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
       {/* ===== PHASE 2: PROVIDE INPUT (CHAT) ===== */}
       {(isEditMode || wizardPhase === 2) && (
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 240px)", minHeight: 420 }}>
           {/* Messages */}
-          <div className="messages-area" ref={messagesContainerRef}>
+          <div className="messages-area" ref={messagesContainerRef} style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
             {isEditMode && !conversationStarted && selectedPlaceholder && (
               <div className="empty-conversation"><p>Preparing conversation…</p></div>
             )}
@@ -1248,7 +1168,7 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             {isGenerating
               ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
               : <RefreshCw size={11} />}
-            Refresh
+            Generate
           </button>
           {onCollapse && (
             <button onClick={onCollapse} title="Collapse preview"
@@ -1482,6 +1402,14 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     "campaign_selected_model",
     "gpt-5.1",
   );
+  // Self-heal: if a DeepSeek model was persisted in this session before DeepSeek
+  // was excluded from the builder, reset it to the OpenAI default on mount.
+  useEffect(() => {
+    if (isDeepSeekModel(selectedModel)) {
+      setSelectedModel(DEFAULT_BUILDER_MODEL);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [masterPromptExtensive, setMasterPromptExtensive] =
     useSessionState<string>("campaign_master_prompt_extensive", "");
 
@@ -2655,7 +2583,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       setSearchURLCount(def.searchURLCount || 1);
       setSubjectInstructions(def.subjectInstructions || "");
       setWebSearchInstructions(def.webSearchInstructions || "");
-      setSelectedModel(def.selectedModel);
+      setSelectedModel(toBuilderModel(def.selectedModel));
 
       // ✅ REQUIRED!!!
       setSelectedTemplateDefinitionId(def.id);
@@ -2797,7 +2725,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       setMasterPrompt(template.placeholderList || "");
       setMasterPromptExtensive(template.placeholderListExtensive || "");
       setPreviewText(template.masterBlueprintUnpopulated || "");
-      setSelectedModel(template.selectedModel || "gpt-5");
+      setSelectedModel(toBuilderModel(template.selectedModel));
       setSelectedTemplateDefinitionId(template.templateDefinitionId || null);
       setTemplateName(template.templateName || "");
       setSubjectInstructions(template.subjectInstructions || "");
@@ -2917,8 +2845,9 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     setMessages([]);
     setConversationStarted(true);
     setIsComplete(false);
+    // Only drive the in-panel "thinking…" indicator (isTyping). Do NOT trigger the
+    // full-screen LoadingSpinner overlay here — the side-panel chat shows its own.
     setIsTyping(true);
-    setIsLoadingTemplate(true);
 
     const currentValue = placeholderValues[placeholder] || "not set";
 
@@ -3009,7 +2938,6 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       ]);
     } finally {
       setIsTyping(false);
-      setIsLoadingTemplate(false);
     }
   };
 
@@ -3135,7 +3063,9 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   // ====================================================================
   // AVAILABLE MODELS
   // ====================================================================
-  const availableModels: GPTModel[] = AVAILABLE_AI_MODELS;
+  // OpenAI models only — DeepSeek is intentionally excluded from blueprint
+  // creation/editing (it's only used in the DeepSeek Search feature).
+  const availableModels: GPTModel[] = OPENAI_MODELS;
 
   // ====================================================================
   // EXTRACT PLACEHOLDERS
@@ -3443,19 +3373,14 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
     try {
       const campaignTemplateId = getStoredCampaignId();
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/CampaignPrompt/chat`,
-        {
-          userId: effectiveUserId,
-          campaignTemplateId,
-          message: masterPrompt,
-          images: attachedImages, // 🔥 ADD THIS
-
-          systemPrompt: systemPrompt,
-          model: selectedModel, // ✅ Use selected model
-        },
-      );
-
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
+    userId: effectiveUserId,
+    campaignTemplateId,
+    message: initialUserMessage ?? masterPrompt,
+    images: attachedImages,
+    systemPrompt,
+    model: selectedModel,
+      });
       // Dispatch credit update event after successful API call
       window.dispatchEvent(
         new CustomEvent("creditUpdated", {

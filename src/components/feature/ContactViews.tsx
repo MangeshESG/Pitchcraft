@@ -3,7 +3,7 @@ import API_BASE_URL from "../../config";
 import DynamicContactsTable from "./DynamicContactsTable";
 import PaginationControls from "./PaginationControls";
 import FilterBuilder from "../common/FilterBuilder";
-import CommonSidePanel from "../common/CommonSidePanel";
+import type { ViewEditorPayload } from "../common/FilterBuilder";
 import AppModal from "../common/AppModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import duplicateIcon from "../../assets/images/icons/duplicate.png";
@@ -443,15 +443,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [viewMetaMissing, setViewMetaMissing] = useState(false);
   const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
   const [isUpdatingView, setIsUpdatingView] = useState(false);
-  const [editingView, setEditingView] = useState<ViewItem | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editDescription, setEditDescription] = useState("");
-  const [editDataFileIds, setEditDataFileIds] = useState<number[]>([]);
-  const [editExcludedDataFileIds, setEditExcludedDataFileIds] = useState<number[]>([]);
-  const [editSegmentIds, setEditSegmentIds] = useState<number[]>([]);
-  const [editFiltersJson, setEditFiltersJson] = useState("");
-  const [editFiltersSeed, setEditFiltersSeed] = useState("");
-  const [isLoadingEditViewDetails, setIsLoadingEditViewDetails] = useState(false);
+  const [editorAutoExpand, setEditorAutoExpand] = useState(false);
   const [viewActionsAnchor, setViewActionsAnchor] = useState<string | null>(null);
   const [viewContactCounts, setViewContactCounts] = useState<Record<number, number>>({});
   const [downloadingViewId, setDownloadingViewId] = useState<number | null>(null);
@@ -467,9 +459,6 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const activePanel = useSelector(
     (state: RootState) => state.panel.activePanel
   );
-
-  const showContactViewEditModal =
-      activePanel === "contact-view-edit-modal";
 
   const showBulkUpdatePanelModal =
   activePanel === "bulk-update-panel-modal";
@@ -624,12 +613,6 @@ const handleDeleteContacts = async () => {
     [filterFields]
   );
 
-  const editHasCompleteFilters = useMemo(() => {
-    const parsedFilters = parseFiltersJson(editFiltersJson);
-    return (parsedFilters.groups || []).some((group) =>
-      (group.conditions || []).some((condition) => isCompleteCondition(condition))
-    );
-  }, [editFiltersJson]);
   const viewColumnNameMap = useMemo(
     () => ({
       ...(columnNameMap || {}),
@@ -1597,7 +1580,7 @@ const handleDeleteContacts = async () => {
     );
   };
 
-  const openView = (view: ViewItem) => {
+  const openView = async (view: ViewItem, expandEditor = false) => {
     setViewActionsAnchor(null);
     
     // Clear any existing data first to prevent showing stale data
@@ -1611,7 +1594,7 @@ const handleDeleteContacts = async () => {
     if (view.useAllDataFiles) {
       fetchSources();
     }
-    
+    setEditorAutoExpand(expandEditor);
     // Update view state
     setSelectedView(view);
     setViewMode("detail");
@@ -1646,61 +1629,41 @@ const handleDeleteContacts = async () => {
     setIsLoadingEditViewDetails(true);
 
     try {
-      const freshView = await fetchViewForEdit(view);
-      hydrateEditPanel(freshView);
+      const fresh = await fetchViewForEdit(view);
       setViews((prev) =>
-        prev.map((item) => (item.id === freshView.id ? { ...item, ...freshView } : item))
+        prev.map((item) => (item.id === fresh.id ? fresh : item))
       );
-      if (selectedView?.id === freshView.id) {
-        setSelectedView(freshView);
-      }
-    } finally {
-      setIsLoadingEditViewDetails(false);
-    }
-    dispatch(openPanel("contact-view-edit-modal"));
-  };
-
-  const toggleId = (
-    list: number[],
-    id: number,
-    updater: (next: number[]) => void
-  ) => {
-    if (list.includes(id)) {
-      updater(list.filter((entry) => entry !== id));
-    } else {
-      updater([...list, id]);
+      setSelectedView((prev) => (prev?.id === fresh.id ? fresh : prev));
+    } catch (error) {
+      console.warn("Could not refresh view on open:", error);
     }
   };
 
-  const handleUpdateView = async () => {
-    if (!editingView) return;
-    if (!editName.trim()) {
-      showContactMessage("View name is required.", "error");
-      return;
-    }
-    const parsedFilters = parseFiltersJson(editFiltersJson);
-    const completeConditions = (parsedFilters.groups || []).flatMap((group) =>
-      (group.conditions || []).filter((condition) => isCompleteCondition(condition))
-    );
-    if (completeConditions.length === 0) {
-      showContactMessage("Add at least one complete filter before saving.", "error");
-      return;
-    }
+  // Opening "Edit" from the list now opens the view detail with the inline
+  // editor expanded (the side panel has been replaced by the inline editor).
+  const openEditPanel = (view: ViewItem) => {
+    openView(view, true);
+  };
 
+  const handleSaveViewChanges = async (payload: ViewEditorPayload) => {
+    if (!selectedView) return;
     setIsUpdatingView(true);
     try {
-      const useAllDataFiles = !!editingView.useAllDataFiles;
-      const excludedDataFileIds = useAllDataFiles ? editExcludedDataFileIds : [];
+      const useAllDataFiles = payload.useAllDataFiles;
+      const dataFileIds = useAllDataFiles ? [] : payload.dataFileIds;
+      const excludedDataFileIds = useAllDataFiles
+        ? payload.excludedDataFileIds
+        : [];
       const response = await fetch(`${API_BASE_URL}/api/Crm/update-view`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          viewId: editingView.id,
-          name: editName.trim(),
-          description: editDescription.trim(),
-          filtersJson: editFiltersJson,
-          dataFileIds: useAllDataFiles ? [] : editDataFileIds,
-          segmentIds: editSegmentIds,
+          viewId: selectedView.id,
+          name: payload.name,
+          description: payload.description,
+          filtersJson: payload.filtersJson,
+          dataFileIds,
+          segmentIds: payload.segmentIds,
           useAllDataFiles,
           excludedDataFileIds,
         }),
@@ -1712,12 +1675,12 @@ const handleDeleteContacts = async () => {
       }
 
       const updatedView: ViewItem = {
-        ...editingView,
-        name: editName.trim(),
-        description: editDescription.trim(),
-        filtersJson: editFiltersJson,
-        dataFileIds: useAllDataFiles ? [] : editDataFileIds,
-        segmentIds: editSegmentIds,
+        ...selectedView,
+        name: payload.name,
+        description: payload.description,
+        filtersJson: payload.filtersJson,
+        dataFileIds,
+        segmentIds: payload.segmentIds,
         useAllDataFiles,
         excludedDataFileIds,
       };
@@ -1725,32 +1688,79 @@ const handleDeleteContacts = async () => {
       setViews((prev) =>
         prev.map((view) => (view.id === updatedView.id ? updatedView : view))
       );
-
-      if (selectedView?.id === updatedView.id) {
-        setSelectedView(updatedView);
-      }
+      setSelectedView(updatedView);
 
       const metaMap = loadViewMetaMap(clientId);
       metaMap[String(updatedView.id)] = {
-        filtersJson: editFiltersJson,
-        dataFileIds: useAllDataFiles ? [] : editDataFileIds,
-        segmentIds: editSegmentIds,
+        filtersJson: payload.filtersJson,
+        dataFileIds,
+        segmentIds: payload.segmentIds,
         useAllDataFiles,
         excludedDataFileIds,
       };
       saveViewMetaMap(clientId, metaMap);
 
       triggerRefresh();
-      if (selectedView?.id === updatedView.id) {
-        await fetchContactsForView(updatedView);
-      }
+      await fetchContactsForView(updatedView);
       showContactMessage("View updated successfully.", "success");
-      //setIsEditPanelOpen(false);
-      dispatch(closePanel());
-      setEditingView(null);
     } catch (error) {
       console.error("Error updating view:", error);
       showContactMessage("Failed to update view.", "error");
+    } finally {
+      setIsUpdatingView(false);
+    }
+  };
+
+  const handleCreateViewFromEditor = async (payload: ViewEditorPayload) => {
+    setIsUpdatingView(true);
+    try {
+      const useAllDataFiles = payload.useAllDataFiles;
+      const dataFileIds = useAllDataFiles ? [] : payload.dataFileIds;
+      const excludedDataFileIds = useAllDataFiles
+        ? payload.excludedDataFileIds
+        : [];
+      const response = await fetch(`${API_BASE_URL}/api/Crm/create-view`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: Number(clientId),
+          name: payload.name,
+          description: payload.description,
+          filtersJson: payload.filtersJson,
+          dataFileIds,
+          segmentIds: payload.segmentIds,
+          useAllDataFiles,
+          excludedDataFileIds,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to create view");
+      }
+
+      const savedView = await response.json();
+      if (savedView?.id != null) {
+        const metaMap = loadViewMetaMap(clientId);
+        metaMap[String(savedView.id)] = {
+          filtersJson: payload.filtersJson,
+          dataFileIds,
+          segmentIds: payload.segmentIds,
+          useAllDataFiles,
+          excludedDataFileIds,
+        };
+        saveViewMetaMap(clientId, metaMap);
+      }
+
+      await fetchViews();
+      triggerRefresh();
+      showContactMessage(
+        `New view "${savedView?.name || payload.name || "Untitled view"}" created successfully.`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Error creating view:", error);
+      showContactMessage("Failed to create view.", "error");
     } finally {
       setIsUpdatingView(false);
     }
@@ -1794,25 +1804,21 @@ const handleDeleteContacts = async () => {
             setViewCurrentPage(1);
             setSelectedContacts(new Set());
           }}
-          saveViewConfig={{
-            clientId,
-            dataFileIds: selectedView.useAllDataFiles
-              ? []
-              : selectedView.dataFileIds || [],
-            segmentIds: selectedView.segmentIds || [],
-            useAllDataFiles: !!selectedView.useAllDataFiles,
-            excludedDataFileIds: selectedView.excludedDataFileIds || [],
-            onSuccess: (savedView) => {
-              fetchViews();
-              triggerRefresh();
-              showContactMessage(
-                `New view "${savedView?.name || "Untitled view"}" created successfully.`,
-                "success"
-              );
-            },
-            onError: (message) => {
-              showContactMessage(message, "error");
-            },
+          viewEditor={{
+            availableDataFiles,
+            availableSegments,
+            isLoadingSources,
+            startExpanded: editorAutoExpand,
+            allowCreateNew: true,
+            isSaving: isUpdatingView,
+            initialName: selectedView.name,
+            initialDescription: selectedView.description,
+            initialDataFileIds: selectedView.dataFileIds || [],
+            initialSegmentIds: selectedView.segmentIds || [],
+            initialUseAllDataFiles: !!selectedView.useAllDataFiles,
+            initialExcludedDataFileIds: selectedView.excludedDataFileIds || [],
+            onSaveChanges: handleSaveViewChanges,
+            onCreateNew: handleCreateViewFromEditor,
           }}
         />
       </div>
@@ -2035,14 +2041,6 @@ const handleDeleteContacts = async () => {
           onClick={() => selectedView && handleDownloadView(selectedView)}
         >
           Download
-        </button>
-
-        <button
-          type="button"
-          className="button secondary"
-          onClick={() => selectedView && openEditPanel(selectedView)}
-        >
-          Edit view
         </button>
       </div>
     </div>
@@ -2304,260 +2302,6 @@ const handleDeleteContacts = async () => {
         )}
       </div>
 
-      <CommonSidePanel
-        isOpen={showContactViewEditModal}
-        onClose={() => {
-          dispatch(closePanel());
-          setIsLoadingEditViewDetails(false);
-          setEditingView(null);
-          setEditFiltersSeed("");
-          setEditExcludedDataFileIds([]);
-        }}
-        title="Edit view"
-        width="min(1120px, calc(100vw - 24px))"
-        footerContent={
-          <>
-            <button
-              onClick={() => {
-                dispatch(closePanel());
-                setIsLoadingEditViewDetails(false);
-                setEditingView(null);
-                setEditFiltersSeed("");
-                setEditExcludedDataFileIds([]);
-              }}
-              className="button secondary"
-              style={{
-                padding: "10px 32px",
-                border: "1px solid #ddd",
-                background: "#fff",
-                borderRadius: "24px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "500",
-                color: "#333",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              className="button primary"
-              onClick={handleUpdateView}
-              disabled={
-                isLoadingEditViewDetails ||
-                isUpdatingView ||
-                !editName.trim() ||
-                !editHasCompleteFilters
-              }
-              style={{
-                padding: "10px 32px",
-                background: "#fff",
-                color:
-                  editName.trim() &&
-                  !isLoadingEditViewDetails &&
-                  !isUpdatingView &&
-                  editHasCompleteFilters
-                    ? "#3f9f42"
-                    : "#ccc",
-                border: `1px solid ${
-                  editName.trim() &&
-                  !isLoadingEditViewDetails &&
-                  !isUpdatingView &&
-                  editHasCompleteFilters
-                    ? "#3f9f42"
-                    : "#ccc"
-                }`,
-                borderRadius: "24px",
-                cursor:
-                  editName.trim() &&
-                  !isLoadingEditViewDetails &&
-                  !isUpdatingView &&
-                  editHasCompleteFilters
-                    ? "pointer"
-                    : "not-allowed",
-                fontSize: "14px",
-                fontWeight: "500",
-              }}
-            >
-              {isLoadingEditViewDetails
-                ? "Loading..."
-                : isUpdatingView
-                ? "Saving..."
-                : "Save"}
-            </button>
-          </>
-        }
-      >
-        {isLoadingEditViewDetails && (
-          <div
-            style={{
-              marginBottom: 16,
-              padding: 12,
-              borderRadius: 8,
-              border: "1px solid #bfdbfe",
-              background: "#eff6ff",
-              color: "#1d4ed8",
-              fontSize: 13,
-            }}
-          >
-            Loading saved view filters...
-          </div>
-        )}
-
-        {!editFiltersSeed && (
-          <div
-            style={{
-              marginBottom: 16,
-              padding: 12,
-              borderRadius: 8,
-              border: "1px solid #fde68a",
-              background: "#fffbeb",
-              color: "#92400e",
-              fontSize: 13,
-            }}
-          >
-            Filters are not cached for this view. You can rebuild the filters
-            below, or open the original list and save the view again.
-          </div>
-        )}
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
-            View name <span style={{ color: "red" }}>*</span>
-          </label>
-          <input
-            value={editName}
-            onChange={(event) => setEditName(event.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-            }}
-            placeholder="Enter view name"
-          />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
-            Description
-          </label>
-          <textarea
-            value={editDescription}
-            onChange={(event) => setEditDescription(event.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              minHeight: "80px",
-              resize: "vertical",
-            }}
-            placeholder="Enter description"
-            rows={3}
-          />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
-            Lists
-          </label>
-          {isLoadingSources && availableDataFiles.length === 0 ? (
-            <div style={{ fontSize: 13, color: "#666" }}>Loading lists...</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {availableDataFiles.length === 0 && (
-                <div style={{ fontSize: 13, color: "#666" }}>
-                  No lists available.
-                </div>
-              )}
-              {availableDataFiles.map((file) => (
-                <label
-                  key={file.id}
-                  style={{ display: "flex", alignItems: "center", gap: 8 }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={
-                      editingView?.useAllDataFiles
-                        ? !editExcludedDataFileIds.includes(file.id)
-                        : editDataFileIds.includes(file.id)
-                    }
-                    onChange={() => {
-                      if (editingView?.useAllDataFiles) {
-                        const isExcluded = editExcludedDataFileIds.includes(file.id);
-                        setEditExcludedDataFileIds((prev) =>
-                          isExcluded
-                            ? prev.filter((entry) => entry !== file.id)
-                            : [...prev, file.id]
-                        );
-                        setEditDataFileIds((prev) =>
-                          isExcluded
-                            ? [...prev, file.id]
-                            : prev.filter((entry) => entry !== file.id)
-                        );
-                      } else {
-                        toggleId(editDataFileIds, file.id, setEditDataFileIds);
-                      }
-                    }}
-                  />
-                  <span>{file.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
-            Segments
-          </label>
-          {isLoadingSources && availableSegments.length === 0 ? (
-            <div style={{ fontSize: 13, color: "#666" }}>Loading segments...</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {availableSegments.length === 0 && (
-                <div style={{ fontSize: 13, color: "#666" }}>
-                  No segments available.
-                </div>
-              )}
-              {availableSegments.map((segment) => (
-                <label
-                  key={segment.id}
-                  style={{ display: "flex", alignItems: "center", gap: 8 }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={editSegmentIds.includes(segment.id)}
-                    onChange={() =>
-                      toggleId(editSegmentIds, segment.id, setEditSegmentIds)
-                    }
-                  />
-                  <span>{segment.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div style={{ marginBottom: 8 }}>
-          <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
-            Filters
-          </label>
-          <FilterBuilder
-            key={`${editingView?.id || "new"}-${editFiltersSeed || "empty"}`}
-            data={[]}
-            fields={normalizedFilterFields}
-            onFiltered={() => {}}
-            clientId={clientId}
-            initialFiltersJson={editFiltersSeed}
-            onFiltersJsonChange={(nextFiltersJson) =>
-              setEditFiltersJson(nextFiltersJson)
-            }
-            hideApplyButton={true}
-            
-          />
-        </div>
-      </CommonSidePanel>
       <BulkUpdatePanel
         //isOpen={showBulkUpdatePanel}
         isOpen={showBulkUpdatePanelModal}

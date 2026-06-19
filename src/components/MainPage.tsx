@@ -3881,17 +3881,10 @@ try {
   const shouldRenderTab = (tabName: string) =>
     mountedTabs[tabName] || tab === tabName;
 
-  const [showBlueprintSubmenu, setShowBlueprintSubmenu] =
-    useState<boolean>(
-      initialTab === "TestTemplate" ||
-        initialTab === "Playground" ||
-        initialTab === "DeepSeekSearch",
-    );
-  const [blueprintSubTab, setBlueprintSubTab] = useState<string>(() => {
-    if (initialTab === "Playground") return "Playground";
-    if (initialTab === "DeepSeekSearch") return "DeepSeekSearch";
-    return "List";
-  });
+  // Blueprints is now a single direct link (no submenu). The setters are kept so
+  // other menu handlers can still reset this state; the values are no longer read.
+  const [, setShowBlueprintSubmenu] = useState<boolean>(false);
+  const [, setBlueprintSubTab] = useState<string>("List");
 
   const handleSidebarNavigation = (
   e: React.MouseEvent<HTMLDivElement>
@@ -3974,31 +3967,22 @@ try {
                       </button>
                     </li>
 
-                    <li
-                      className={`${
-                        tab === "TestTemplate" ||
-                        tab === "Playground" ||
-                        tab === "DeepSeekSearch"
-                          ? "active"
-                          : ""
-                      } ${
-                        showBlueprintSubmenu
-                          ? "has-submenu submenu-open"
-                          : "has-submenu"
-                      }`}
-                    >
+                    <li className={tab === "TestTemplate" ? "active" : ""}>
                       <button
                         onClick={() => {
-                          if (tab !== "TestTemplate") {
-                            setTab("TestTemplate");
-                            setShowBlueprintSubmenu(true);
-                            setShowMailSubmenu(false);
-                            setShowContactsSubmenu(false);
-                            setShowSettingsSubmenu(false);
-                            navigate("/main?tab=TestTemplate");
-                          } else {
-                            setShowBlueprintSubmenu((prev: boolean) => !prev);
-                          }
+                          setBlueprintSubTab("List");
+                          setTab("TestTemplate");
+                          setShowBlueprintSubmenu(false);
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                          setShowSettingsSubmenu(false);
+
+                          // FIX: Delay writing to session to avoid breaking navigation
+                          setTimeout(() => {
+                            sessionStorage.setItem("campaign_activeTab", "build");
+                          }, 0);
+
+                          navigate("/main?tab=TestTemplate");
                         }}
                         className="side-menu-button"
                         title="Create and manage email blueprints"
@@ -4010,87 +3994,7 @@ try {
                           />
                         </span>
                         <span className="menu-text">Blueprints</span>
-                        <span className="submenu-arrow">
-                          <FontAwesomeIcon
-                            icon={faAngleRight}
-                            className="text-[#333333] text-lg"
-                          />
-                        </span>
                       </button>
-
-                      {/* Submenu items */}
-                      {showBlueprintSubmenu && (
-                        <ul className="submenu">
-                          {/* Normal Blueprint list */}
-                          <li
-                            className={
-                              blueprintSubTab === "List" ? "active" : ""
-                            }
-                          >
-                            <button
-                              onClick={() => {
-                                setBlueprintSubTab("List");
-                                setTab("TestTemplate");
-
-                                // FIX: Delay writing to session to avoid breaking navigation
-                                setTimeout(() => {
-                                  sessionStorage.setItem(
-                                    "campaign_activeTab",
-                                    "build",
-                                  );
-                                }, 0);
-
-                                navigate("/main?tab=TestTemplate");
-                              }}
-                              className="submenu-button"
-                            >
-                              Blueprints
-                            </button>
-                          </li>
-
-                          {/* ADMIN only Playground */}
-                          {userRole === "ADMIN" && (
-                            <>
-                              <li
-                                className={
-                                  blueprintSubTab === "Playground"
-                                    ? "active"
-                                    : ""
-                                }
-                              >
-                                {/* <button
-                                  onClick={() => {
-                                    setBlueprintSubTab("Playground");
-                                    setTab("Playground");
-                                    navigate("/main?tab=Playground");
-                                  }}
-                                  className="submenu-button"
-                                >
-                                  Playground
-                                </button> */}
-                              </li>
-                              <li
-                                className={
-                                  blueprintSubTab === "DeepSeekSearch"
-                                    ? "active"
-                                    : ""
-                                }
-                              >
-                                <button
-                                  onClick={() => {
-                                    setBlueprintSubTab("DeepSeekSearch");
-                                    setTab("DeepSeekSearch");
-                                    navigate("/main?tab=DeepSeekSearch");
-                                  }}
-                                  className="submenu-button"
-                                >
-                                  DeepSeek Search
-                                </button>
-                              </li>
-                            </>
-                          )}
-                        </ul>
-                      )}
                     </li>
 
                     <li

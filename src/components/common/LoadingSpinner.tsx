@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import logo from "../../assets/images/pitch_logo.png";
 
 interface LoadingSpinnerProps {
@@ -23,7 +24,10 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  return (
+  // Render through a portal to <body> so the overlay is always pinned to the
+  // viewport. A transformed/animated ancestor would otherwise make `position:
+  // fixed` relative to that ancestor, pushing the loader off-screen.
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -90,7 +94,8 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 };
 

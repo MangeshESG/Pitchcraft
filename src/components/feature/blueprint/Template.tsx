@@ -1717,6 +1717,26 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
       ) : (
         /* ✅ Show Campaign Builder Inline */
         <div style={{ padding: "20px" }}>
+          {/* Page header — matches the Blueprints list page */}
+          <div style={{ marginBottom: "16px" }}>
+            <h1
+              style={{
+                fontSize: "28px",
+                fontWeight: 700,
+                color: "#111827",
+                letterSpacing: "-0.02em",
+                margin: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}
+            >
+              Blueprint builder
+            </h1>
+
+          </div>
+
+          {/* Back + blueprint switcher — sits below the heading */}
           <div
             style={{
               display: "flex",
@@ -1724,8 +1744,6 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               alignItems: "center",
               marginBottom: "20px",
               marginTop: "0",
-              // borderBottom: "1px solid #e5e7eb",
-              // background: "#f9fafb"
             }}
           >
             <button

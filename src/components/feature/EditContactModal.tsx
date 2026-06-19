@@ -39,6 +39,7 @@ import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 import CommonSidePanel from '../common/CommonSidePanel';
 import { closePanel, openPanel } from '../../slices/panelSlice';
 import { pinEmail } from './inbox/inboxPin';
+import { repairAndParseJsonObject } from '../../utils/jsonRepair';
 
 interface Contact {
   id: number;
@@ -59,6 +60,8 @@ interface Contact {
   companyLinkedInURL?: string;
   notes?: string;
   linkedIninformation?: string;
+  web_search_data?: string;
+  updated_at?: string;
   customFields?: Record<string, string>;
 
 
@@ -132,6 +135,189 @@ interface EmailEngagementStats {
   openCount: number;
   clickCount: number;
 }
+
+// Company "Insights" tab: known sections of the contact's web_search_data.
+// Rendered dynamically — only sections that actually contain data are shown.
+const INSIGHT_SECTIONS: { key: string; title: string; description: string; icon: any }[] = [
+  { key: "company_overview", title: "Company overview", description: "Key facts, industry, size, and headquarters", icon: faFileAlt },
+  { key: "recent_news", title: "Recent news", description: "Latest news and announcements about the company", icon: faBullhorn },
+  { key: "search_results", title: "Search results", description: "Relevant findings gathered from the web", icon: faList },
+  { key: "funding", title: "Funding", description: "Funding and investment details", icon: faGear },
+  { key: "hiring_signals", title: "Hiring signals", description: "Recent hiring activity and openings", icon: faRobot },
+  { key: "extra_information_findings", title: "Additional insights", description: "Other relevant information", icon: faFileAlt },
+];
+
+const insightHasData = (value: any): boolean => {
+  if (value == null) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.keys(value).length > 0;
+  return String(value).trim().length > 0;
+};
+
+const formatInsightLabel = (key: string): string =>
+  key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Source values can arrive as a plain URL, a markdown link "[label](url)", or a
+// bare domain. Normalize to an absolute URL so links open externally instead of
+// being treated as a relative path inside the app.
+const extractUrl = (raw: any): string => {
+  const s = String(raw).trim();
+  // markdown "[label](https://...)" or "(https://...)"
+  const md = s.match(/\((https?:\/\/[^)]+)\)/i);
+  if (md) return md[1];
+  // first absolute URL found anywhere in the string
+  const abs = s.match(/https?:\/\/[^\s)\]]+/i);
+  if (abs) return abs[0];
+  // bare domain like "liberty-it.co.uk" → prefix protocol
+  if (/^[\w-]+(\.[\w-]+)+/.test(s)) return `https://${s.replace(/^\/+/, "")}`;
+  return s;
+};
+
+// Recursively renders a piece of the (dynamic) web_search_data JSON. Missing or
+// empty fields are skipped so partial responses still render cleanly.
+const renderInsightValue = (value: any): React.ReactNode => {
+  if (value == null || value === "") return null;
+
+  if (typeof value !== "object") {
+    const text = String(value).trim();
+    if (!text) return null;
+    if (/https?:\/\//i.test(text) || /^\[[^\]]*\]\([^)]+\)$/.test(text)) {
+      return (
+        <a href={extractUrl(text)} target="_blank" rel="noopener noreferrer" style={{ color: "#15803d", wordBreak: "break-all" }}>
+          {text}
+        </a>
+      );
+    }
+    return <span style={{ color: "#374151" }}>{text}</span>;
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return null;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {value.map((item, i) => (
+          <div key={i} style={{ padding: "10px 12px", background: "#f8fafc", borderRadius: 8, border: "1px solid #eef2f6" }}>
+            {renderInsightValue(item)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const entries = Object.entries(value).filter(([k, v]) => k !== "evidence" && insightHasData(v));
+  if (entries.length === 0) return null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {entries.map(([k, v]) => {
+        if (k === "sources") {
+          const sources = Array.isArray(v) ? v : [v];
+          return (
+            <div key={k} style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2 }}>
+              {sources.map((src: any, si: number) => (
+                <a
+                  key={si}
+                  href={extractUrl(src)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: 11.5, background: "#f0fdf4", padding: "3px 10px", borderRadius: 99, border: "1px solid #bbf7d0", color: "#15803d", textDecoration: "none", wordBreak: "break-all" }}
+                >
+                  🔗 Source
+                </a>
+              ))}
+            </div>
+          );
+        }
+
+        const child = renderInsightValue(v);
+        if (child == null) return null;
+        const isComplex = typeof v === "object" && v !== null;
+
+        return (
+          <div key={k} style={{ fontSize: 13, lineHeight: 1.55 }}>
+            <span style={{ fontWeight: 600, color: "#111827" }}>{formatInsightLabel(k)}</span>
+            {isComplex ? <div style={{ marginTop: 4 }}>{child}</div> : <span style={{ color: "#374151" }}>: {child}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Candidate field names used to pull a compact title / body out of a dynamic
+// research item (personalization_angle, key_findings, events, ...).
+const OPP_TITLE_KEYS = ["title", "heading", "name", "label", "basis", "category", "type", "opportunity"];
+const OPP_BODY_KEYS = ["angle", "description", "explanation", "finding", "detail", "details", "summary", "text", "insight", "reason"];
+
+// Normalizes any web_search_data value into a list of items to iterate over.
+const toInsightItems = (value: any): any[] => {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.filter((v) => insightHasData(v));
+  if (typeof value === "object") return Object.keys(value).length ? [value] : [];
+  return String(value).trim() ? [String(value)] : [];
+};
+
+// Renders one research item as an icon + bold title + muted description row.
+const renderOpportunityItem = (item: any, keyId: React.Key, icon: any): React.ReactNode => {
+  let title: string | undefined;
+  let body: string | undefined;
+  let sources: any[] = [];
+
+  if (typeof item === "string") {
+    body = item;
+  } else if (item && typeof item === "object") {
+    const entries = Object.entries(item).filter(([k, v]) => k !== "evidence" && insightHasData(v));
+    const titleEntry = entries.find(([k]) => OPP_TITLE_KEYS.includes(k.toLowerCase()));
+    const bodyEntry = entries.find(
+      ([k]) => OPP_BODY_KEYS.includes(k.toLowerCase()) && k !== titleEntry?.[0]
+    );
+    title = titleEntry ? String(titleEntry[1]) : undefined;
+    body = bodyEntry ? String(bodyEntry[1]) : undefined;
+    const srcEntry = entries.find(([k]) => k.toLowerCase() === "sources");
+    if (srcEntry) sources = Array.isArray(srcEntry[1]) ? srcEntry[1] : [srcEntry[1]];
+    // Fallback: nothing matched the known keys — join remaining fields.
+    if (!title && !body) {
+      body = entries
+        .filter(([k]) => k.toLowerCase() !== "sources")
+        .map(([, v]) => String(v))
+        .join(" — ");
+    }
+  }
+
+  if (!title && !body) return null;
+
+  return (
+    <div
+      key={keyId}
+      className="group flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#bbf7d0] hover:shadow-[0_6px_18px_rgba(63,159,66,0.12)]"
+    >
+      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#f0fdf4] text-[#3f9f42] ring-1 ring-[#dcfce7] transition-colors duration-200 group-hover:bg-[#3f9f42] group-hover:text-white group-hover:ring-[#3f9f42]">
+        <FontAwesomeIcon icon={icon} />
+      </span>
+      <div className="min-w-0 flex-1">
+        {title && <div className="text-sm font-semibold text-gray-900">{title}</div>}
+        {body && (
+          <div className={`text-[13px] leading-relaxed text-gray-500 ${title ? "mt-0.5" : ""}`}>{body}</div>
+        )}
+        {sources.length > 0 && (
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {sources.map((src: any, si: number) => (
+              <a
+                key={si}
+                href={extractUrl(src)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-full bg-[#f0fdf4] px-2.5 py-1 text-[11px] font-medium text-[#15803d] ring-1 ring-[#dcfce7] transition-colors hover:bg-[#dcfce7]"
+              >
+                🔗 Source
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 
 const EditContactModal: React.FC<EditContactModalProps> = ({
@@ -210,6 +396,30 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const editorRef = React.useRef<HTMLDivElement | null>(null);
   const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
   const [isLinkedInExpanded, setIsLinkedInExpanded] = useState(false);
+  const [personalTab, setPersonalTab] = useState<"information" | "professional">("information");
+  const [companyTab, setCompanyTab] = useState<"information" | "insights">("information");
+  const [researchTab, setResearchTab] = useState<"outreach" | "findings">("outreach");
+  const [expandedInsightKeys, setExpandedInsightKeys] = useState<Set<string>>(new Set());
+
+  const toggleInsight = (key: string) => {
+    setExpandedInsightKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  // Parse the contact's web_search_data (JSON string) for the Company > Insights tab.
+  const companyInsightsData = React.useMemo<Record<string, any> | null>(() => {
+    const raw = contact?.web_search_data;
+    if (!raw) return null;
+    if (typeof raw === "object") return raw;
+    return repairAndParseJsonObject(raw);
+  }, [contact]);
   const [isSavingLinkedIn, setIsSavingLinkedIn] = useState(false);
    const [showErrorToast, setShowErrorToast] = useState(false);
    const [linkedInActionsAnchor, setLinkedInActionsAnchor] = useState<boolean>(false);
@@ -406,14 +616,6 @@ const menuIconStyle = {
     const plainText = getPlainText(html);
     if (plainText.length > TRUNCATE_LENGTH) {
       return plainText.substring(0, TRUNCATE_LENGTH) + "...";
-    }
-    return plainText;
-  };
-// 🔥 Truncate LinkedIn summary to 300 characters (similar to Note)
-  const getTruncatedLinkedIn = (html: string): string => {
-    const plainText = getPlainText(html);
-    if (plainText.length > LINKEDIN_TRUNCATE_LENGTH) {
-      return plainText.substring(0, LINKEDIN_TRUNCATE_LENGTH) + "...";
     }
     return plainText;
   };
@@ -1267,6 +1469,268 @@ case "boolean":
   };
   if (!isOpen || !contact) return null;
 
+  // LinkedIn summary card shown inside Personal > Professional summary tab
+  const linkedInSummaryBlock = (
+    <div>
+      <div className="rounded-lg border border-[#e5e7eb] bg-white p-5">
+        <div className="flex items-center justify-between" style={{ position: "relative" }}>
+          <div className="flex gap-[10px] items-center">
+            <span>
+              <svg className="h-5 w-5 text-[#3f9f42]" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" /></svg>
+            </span>
+            <h3 className="text-base font-semibold text-foreground">LinkedIn summary</h3>
+          </div>
+          {/* 3-dot menu button for LinkedIn Summary */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setLinkedInActionsAnchor(!linkedInActionsAnchor);
+            }}
+            style={{
+              position: "relative",
+              border: "none",
+              background: "#ebebeb",
+              borderRadius: "50%",
+              width: 32,
+              height: 32,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <FontAwesomeIcon icon={faEllipsisV} />
+          </button>
+          {/* Action menu for LinkedIn Summary */}
+          {linkedInActionsAnchor && (
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 34,
+                background: "#fff",
+                border: "1px solid #eee",
+                borderRadius: 6,
+                boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                zIndex: 101,
+                minWidth: 160,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => {
+                  dispatch(openPanel("show-linkedin-summary-modal"));
+                  setLinkedInActionsAnchor(false);
+                }}
+                style={menuBtnStyle}
+                className="flex gap-2 items-center ml-[4px]"
+              >
+                <div style={menuIconStyle}>
+                  <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", fontSize: 19 }} />
+                </div>
+                <span className="font-[600]">Edit</span>
+              </button>
+              <button
+                onClick={() => {
+                  setShowLinkedInDeleteModal(true);
+                  setLinkedInActionsAnchor(false);
+                }}
+                style={menuBtnStyle}
+                className="flex gap-2 items-center"
+              >
+                <div style={menuIconStyle}>
+                  <FontAwesomeIcon icon={faTrashAlt} style={{ color: "#3f9f42", fontSize: 18 }} />
+                </div>
+                <span className="font-[600]">Delete</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* HTML RENDERER */}
+        {savedLinkedInSummary ? (
+          <div
+            style={{
+              fontSize: 14,
+              color: "#374151",
+              lineHeight: "1.6",
+              whiteSpace: "normal",
+              wordWrap: "break-word",
+              wordBreak: "break-word",
+              overflowWrap: "break-word",
+              maxWidth: "100%",
+              marginTop: 12,
+              maxHeight: isLinkedInExpanded ? "none" : 260,
+              overflowY: isLinkedInExpanded ? "visible" : "auto",
+            }}
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(savedLinkedInSummary),
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => dispatch(openPanel("show-linkedin-summary-modal"))}
+            style={{
+              marginTop: 12,
+              background: "transparent",
+              border: "none",
+              color: "#9ca3af",
+              cursor: "pointer",
+              fontSize: 14,
+              fontStyle: "italic",
+              padding: 0,
+              textAlign: "left",
+            }}
+          >
+            No LinkedIn summary yet. Click to add one.
+          </button>
+        )}
+      </div>
+
+      {/* View more / View less toggle below the card */}
+      {savedLinkedInSummary &&
+        getPlainText(savedLinkedInSummary).length > LINKEDIN_TRUNCATE_LENGTH && (
+          <div className="flex justify-center mt-4">
+            <button
+              type="button"
+              onClick={() => setIsLinkedInExpanded(!isLinkedInExpanded)}
+              className="flex items-center gap-1.5 text-sm font-semibold text-[#3f9f42]"
+            >
+              {isLinkedInExpanded ? "View less" : "View more"}
+              <FontAwesomeIcon icon={isLinkedInExpanded ? faAngleUp : faAngleDown} />
+            </button>
+          </div>
+        )}
+    </div>
+  );
+
+  // Company insights card list shown inside Company > Insights tab
+  const availableInsightSections = companyInsightsData
+    ? INSIGHT_SECTIONS.filter((section) => insightHasData(companyInsightsData[section.key]))
+    : [];
+
+  const companyInsightsBlock = (
+    <div>
+      {availableInsightSections.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          {availableInsightSections.map((section) => {
+            const open = expandedInsightKeys.has(section.key);
+            return (
+              <div key={section.key} className="rounded-lg border border-[#e5e7eb] bg-white overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggleInsight(section.key)}
+                  className="flex w-full items-center gap-3 p-3 text-left hover:bg-gray-50"
+                >
+                  <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-[#f0fdf4] text-[#3f9f42]">
+                    <FontAwesomeIcon icon={section.icon} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-foreground">{section.title}</span>
+                    <span className="block text-xs text-gray-500">{section.description}</span>
+                  </span>
+                  <FontAwesomeIcon
+                    icon={faAngleRight}
+                    className={`text-gray-400 transition-transform ${open ? "rotate-90" : ""}`}
+                  />
+                </button>
+                {open && (
+                  <div className="border-t border-[#eef2f6] p-4">
+                    {renderInsightValue(companyInsightsData?.[section.key])}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-sm italic text-gray-400">No company insights available yet.</p>
+      )}
+    </div>
+  );
+
+  // Research card (right column): Outreach opportunities + Key findings & events,
+  // both sourced from the contact's web_search_data.
+  const outreachItems = companyInsightsData ? toInsightItems(companyInsightsData.personalization_angle) : [];
+  const keyFindingItems = companyInsightsData ? toInsightItems(companyInsightsData.key_findings) : [];
+  const eventItems = companyInsightsData
+    ? toInsightItems(
+        companyInsightsData.events ??
+          companyInsightsData.event_insights ??
+          companyInsightsData.event_findings ??
+          companyInsightsData.events_findings
+      )
+    : [];
+  const hasResearch = outreachItems.length > 0 || keyFindingItems.length > 0 || eventItems.length > 0;
+
+  const researchOpportunitiesBlock = hasResearch ? (
+    <div className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
+      {/* Tabs */}
+      <div className="flex gap-6 border-b border-gray-200 mb-5">
+        <button
+          type="button"
+          onClick={() => setResearchTab("outreach")}
+          className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            researchTab === "outreach"
+              ? "border-[#3f9f42] text-[#3f9f42]"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Outreach opportunities
+        </button>
+        <button
+          type="button"
+          onClick={() => setResearchTab("findings")}
+          className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            researchTab === "findings"
+              ? "border-[#3f9f42] text-[#3f9f42]"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Key findings &amp; events
+        </button>
+      </div>
+
+      {/* OUTREACH OPPORTUNITIES TAB */}
+      {researchTab === "outreach" && (
+        <div className="flex flex-col gap-2.5">
+          {outreachItems.length > 0 ? (
+            outreachItems.map((item, i) => renderOpportunityItem(item, `o-${i}`, faThumbtack))
+          ) : (
+            <p className="text-sm italic text-gray-400">No outreach opportunities available yet.</p>
+          )}
+        </div>
+      )}
+
+      {/* KEY FINDINGS & EVENTS TAB */}
+      {researchTab === "findings" && (
+        <div className="flex flex-col gap-2.5">
+          {keyFindingItems.map((item, i) => renderOpportunityItem(item, `f-${i}`, faList))}
+          {eventItems.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 px-1 pt-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#3f9f42]">Events</span>
+                <span className="h-px flex-1 bg-gray-100" />
+              </div>
+              {eventItems.map((item, i) => renderOpportunityItem(item, `e-${i}`, faBullhorn))}
+            </>
+          )}
+          {keyFindingItems.length === 0 && eventItems.length === 0 && (
+            <p className="text-sm italic text-gray-400">No key findings or events available yet.</p>
+          )}
+        </div>
+      )}
+
+      {/* Footer */}
+      {contact?.updated_at && (
+        <div className="mt-5 pt-4 border-t border-gray-100">
+          <span className="text-xs text-gray-400">Researched on {formatDateTimeIST(contact.updated_at)}</span>
+        </div>
+      )}
+    </div>
+  ) : null;
+
   const content = (
     <div className={`${asPage ? "w-full" : "w-[90%] max-w-6xl"} ${!asPage && "shadow-xl rounded-lg"}`}>
       {/* Flex container for left & right */}
@@ -1304,9 +1768,37 @@ case "boolean":
                 icon={
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                 }
-                title="Personal information"
+                title="Personal"
               >
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                {/* Tabs: Information / Professional summary */}
+                <div className="flex gap-6 border-b border-gray-200 mb-6">
+                  <button
+                    type="button"
+                    onClick={() => setPersonalTab("information")}
+                    className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      personalTab === "information"
+                        ? "border-[#3f9f42] text-[#3f9f42]"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Information
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPersonalTab("professional")}
+                    className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      personalTab === "professional"
+                        ? "border-[#3f9f42] text-[#3f9f42]"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Professional summary
+                  </button>
+                </div>
+
+                {/* INFORMATION TAB */}
+                {personalTab === "information" && (
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                     <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
                       <label className={underlineLabel}>First name</label>
                       <input
@@ -1353,7 +1845,11 @@ case "boolean":
                         placeholder="Email"
                       />
                     </div>
-                </div>
+                  </div>
+                )}
+
+                {/* PROFESSIONAL SUMMARY TAB */}
+                {personalTab === "professional" && linkedInSummaryBlock}
               </AccordionSection>
 
               {/* COMPANY INFORMATION */}
@@ -1361,8 +1857,36 @@ case "boolean":
                 icon={
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                 }
-                title="Company information"
+                title="Company"
               >
+                {/* Tabs: Information / Insights */}
+                <div className="flex gap-6 border-b border-gray-200 mb-6">
+                  <button
+                    type="button"
+                    onClick={() => setCompanyTab("information")}
+                    className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      companyTab === "information"
+                        ? "border-[#3f9f42] text-[#3f9f42]"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Information
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCompanyTab("insights")}
+                    className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      companyTab === "insights"
+                        ? "border-[#3f9f42] text-[#3f9f42]"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Insights
+                  </button>
+                </div>
+
+                {/* INFORMATION TAB */}
+                {companyTab === "information" && (
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                   <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
                     <label className={underlineLabel}>Job title</label>
@@ -1431,6 +1955,10 @@ case "boolean":
                     />
                   </div>
                 </div>
+                )}
+
+                {/* INSIGHTS TAB */}
+                {companyTab === "insights" && companyInsightsBlock}
               </AccordionSection>
 
               {/* WEBSITE & SOCIAL */}
@@ -1638,6 +2166,9 @@ case "boolean":
 
 
           </div>
+
+          {/* Outreach opportunities / Key findings & events (from web_search_data) */}
+          {researchOpportunitiesBlock}
 
           {/* Pinned Notes */}
           {pinnedNotes.length > 0 && (
@@ -2022,164 +2553,7 @@ case "boolean":
             </div>
           )}
 
-          {/* LinkedIn Summary */}
-          <div
-            className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]"
-          >
-           
-            <div className="flex items-center  justify-between" style={{ position: "relative" }}>
-                <div className='flex  gap-[10px] items-center'>
-                  <span className=''>
-                    <svg className="h-5 w-5 text-[#3f9f42]" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" /></svg>
-                  </span>
-                  <h3 className="text-lg font-semibold text-foreground">LinkedIn summary</h3>
-                </div>
-                {/* <button
-                  type="button"
-                  onClick={() => setShowLinkedInSummaryPopup(true)}
-                  className="flex items-center gap-2 text-[#333333] rounded transition-colors"
-                >
-                  <FontAwesomeIcon icon={faEdit} className='20px' />
-                </button> */}
-                  {/* 3-dot menu button for LinkedIn Summary */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLinkedInActionsAnchor(!linkedInActionsAnchor);
-                  }}
-                  style={{
-                    position: "relative",
-                    border: "none",
-                    background: "#ebebeb",
-                    borderRadius: "50%",
-                    width: 32,
-                    height: 32,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <FontAwesomeIcon icon={faEllipsisV} />
-                </button>
-                {/* Action menu for LinkedIn Summary */}
-                {linkedInActionsAnchor && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: 0,
-                      top: 34,
-                      background: "#fff",
-                      border: "1px solid #eee",
-                      borderRadius: 6,
-                      boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                      zIndex: 101,
-                      minWidth: 160,
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* Edit Button */}
-                    <button
-                      onClick={() => {
-                        //setShowLinkedInSummaryPopup(true);
-                        dispatch(openPanel("show-linkedin-summary-modal"));
-                        setLinkedInActionsAnchor(false);
-                      }}
-                      style={menuBtnStyle}
-                      className="flex gap-2 items-center ml-[4px]"
-                    >
-                      <div style={menuIconStyle}>
-                        <FontAwesomeIcon
-                        icon={faEdit}
-                        style={{ color: "#3f9f42", fontSize: 19 }}
-                        />
-                        </div>
-                      <span className="font-[600]">Edit</span>
-                    </button>
-                    {/* Delete Button */}
-                    <button
-                      onClick={() => {
-                       setShowLinkedInDeleteModal(true);
-                        setLinkedInActionsAnchor(false);
-                      }}
-                      style={menuBtnStyle}
-                      className="flex gap-2 items-center"
-                    >
-                      <div style={menuIconStyle}>
-                              <FontAwesomeIcon
-                                icon={faTrashAlt}
-                                style={{ color: "#3f9f42", fontSize: 18 }}
-                              />
-                            </div>
-                      <span className="font-[600]">Delete</span>
-                    </button>
-                  </div>
-                )}
-                
-            </div>
-
-            {/* ✅ HTML RENDERER */}
-            {savedLinkedInSummary ? (
-              <>
-                <div
-                  style={{
-                    fontSize: 14,
-                    color: "#374151",
-                    lineHeight: "1.6",
-                    whiteSpace: "normal",
-                    overflow: "hidden",
-                    wordWrap: "break-word",
-                    wordBreak: "break-word",
-                    overflowWrap: "break-word",
-                    maxWidth: "100%",
-                  }}
-                  className='py-[16px]'
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(
-                      isLinkedInExpanded
-                        ? savedLinkedInSummary
-                        : `<p>${getTruncatedLinkedIn(savedLinkedInSummary)}</p>`
-                    ),
-                  }}
-                />
-                {/* 🔥 EXPAND/COLLAPSE BUTTON */}
-                {linkedInSummary && getPlainText(linkedInSummary).length > LINKEDIN_TRUNCATE_LENGTH && (
-                  <button
-                    onClick={() => setIsLinkedInExpanded(!isLinkedInExpanded)}
-                    style={{
-                      marginTop: 12,
-                      background: "transparent",
-                      border: "none",
-                      color: "#3f9f42",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      padding: 0,
-                    }}
-                  >
-                    {isLinkedInExpanded ? "Show less" : "Expand"}
-                  </button>
-                )}
-              </>
-            ) : (
-              <button
-                onClick={() => dispatch(openPanel("show-linkedin-summary-modal"))}
-                style={{
-                  marginTop: 12,
-                  background: "transparent",
-                  border: "none",
-                  color: "#9ca3af",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  fontStyle: "italic",
-                  padding: 0,
-                  textAlign: "left",
-                }}
-              >
-                No LinkedIn summary yet. Click to add one.
-              </button>
-            )}
-          </div>
+          {/* LinkedIn summary moved into Personal > Professional summary tab */}
 
         </div>
       </div>

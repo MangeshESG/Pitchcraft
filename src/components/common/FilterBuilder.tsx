@@ -25,6 +25,38 @@ interface FieldOption {
   contextType?: "campaign";
 }
 
+interface SourceOption {
+  id: number;
+  name: string;
+}
+
+export interface ViewEditorPayload {
+  name: string;
+  description: string;
+  filtersJson: string;
+  dataFileIds: number[];
+  segmentIds: number[];
+  useAllDataFiles: boolean;
+  excludedDataFileIds: number[];
+}
+
+export interface ViewEditorConfig {
+  availableDataFiles: SourceOption[];
+  availableSegments: SourceOption[];
+  isLoadingSources?: boolean;
+  startExpanded?: boolean;
+  allowCreateNew?: boolean;
+  isSaving?: boolean;
+  initialName?: string;
+  initialDescription?: string;
+  initialDataFileIds?: number[];
+  initialSegmentIds?: number[];
+  initialUseAllDataFiles?: boolean;
+  initialExcludedDataFileIds?: number[];
+  onSaveChanges?: (payload: ViewEditorPayload) => void;
+  onCreateNew?: (payload: ViewEditorPayload) => void;
+}
+
 type FieldCategoryKey = "system" | "custom" | "email";
 
 interface FieldCategory {
@@ -41,6 +73,7 @@ export interface Props<T> {
   onFiltersJsonChange?: (filtersJson: string, conditions: FilterCondition[]) => void;
   hideApplyButton?: boolean;
   clientId?: string | number;
+  viewEditor?: ViewEditorConfig;
   saveViewConfig?: {
     clientId: string | number;
     dataFileIds?: number[];
@@ -293,10 +326,14 @@ function FilterBuilder<T extends Record<string, any>>({
   onFiltersJsonChange,
   hideApplyButton = false,
   clientId,
+  viewEditor,
   saveViewConfig,
 }: Props<T>) {
+  const isViewEditor = !!viewEditor;
   const [groups, setGroups] = useState<FilterGroup[]>([createGroup()]);
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(
+    isViewEditor && viewEditor?.startExpanded ? false : true
+  );
   const [showSavePanel, setShowSavePanel] = useState(false);
   const [viewName, setViewName] = useState("");
   const [viewDescription, setViewDescription] = useState("");
@@ -312,6 +349,63 @@ function FilterBuilder<T extends Record<string, any>>({
   const [campaignOptions, setCampaignOptions] = useState<CampaignOption[]>([]);
   const fieldPickerRef = useRef<HTMLDivElement | null>(null);
   const rulesPanelId = useMemo(() => `filter-rules-${generateId()}`, []);
+
+  // ---- View editor state (opt-in via the `viewEditor` prop) ----
+  const [editorMode, setEditorMode] = useState<"edit" | "create">("edit");
+  const [editorName, setEditorName] = useState("");
+  const [editorDescription, setEditorDescription] = useState("");
+  const [editorDataFileIds, setEditorDataFileIds] = useState<number[]>([]);
+  const [editorSegmentIds, setEditorSegmentIds] = useState<number[]>([]);
+  const [editorUseAllDataFiles, setEditorUseAllDataFiles] = useState(false);
+  const [editorExcludedDataFileIds, setEditorExcludedDataFileIds] = useState<
+    number[]
+  >([]);
+  const [isSourcePickerOpen, setIsSourcePickerOpen] = useState(false);
+  const [sourceSearch, setSourceSearch] = useState("");
+  const sourcePickerRef = useRef<HTMLDivElement | null>(null);
+
+  const viewEditorSeedKey = isViewEditor
+    ? JSON.stringify({
+        n: viewEditor?.initialName ?? "",
+        d: viewEditor?.initialDescription ?? "",
+        df: viewEditor?.initialDataFileIds ?? [],
+        sg: viewEditor?.initialSegmentIds ?? [],
+        all: viewEditor?.initialUseAllDataFiles ?? false,
+        ex: viewEditor?.initialExcludedDataFileIds ?? [],
+      })
+    : "";
+
+  useEffect(() => {
+    if (!isViewEditor) {
+      return;
+    }
+    setEditorMode("edit");
+    setEditorName(viewEditor?.initialName || "");
+    setEditorDescription(viewEditor?.initialDescription || "");
+    setEditorDataFileIds(viewEditor?.initialDataFileIds || []);
+    setEditorSegmentIds(viewEditor?.initialSegmentIds || []);
+    setEditorUseAllDataFiles(!!viewEditor?.initialUseAllDataFiles);
+    setEditorExcludedDataFileIds(viewEditor?.initialExcludedDataFileIds || []);
+    setIsSourcePickerOpen(false);
+    setSourceSearch("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewEditorSeedKey, isViewEditor]);
+
+  useEffect(() => {
+    if (!isSourcePickerOpen) {
+      return;
+    }
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        sourcePickerRef.current &&
+        !sourcePickerRef.current.contains(event.target as Node)
+      ) {
+        setIsSourcePickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [isSourcePickerOpen]);
 
   const sortedFields = useMemo(() => sortByLabelAsc(fields), [fields]);
   const fieldCategories = useMemo(
@@ -788,6 +882,129 @@ function FilterBuilder<T extends Record<string, any>>({
     }
   };
 
+  const isDataFileSelected = (id: number) =>
+    editorUseAllDataFiles
+      ? !editorExcludedDataFileIds.includes(id)
+      : editorDataFileIds.includes(id);
+
+  const toggleDataFile = (id: number) => {
+    if (editorUseAllDataFiles) {
+      setEditorExcludedDataFileIds((prev) =>
+        prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]
+      );
+    } else {
+      setEditorDataFileIds((prev) =>
+        prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]
+      );
+    }
+  };
+
+  const toggleSegment = (id: number) => {
+    setEditorSegmentIds((prev) =>
+      prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]
+    );
+  };
+
+  const toggleUseAllDataFiles = (next: boolean) => {
+    setEditorUseAllDataFiles(next);
+    if (next) {
+      setEditorExcludedDataFileIds([]);
+    } else {
+      const selected = (viewEditor?.availableDataFiles || [])
+        .filter((file) => !editorExcludedDataFileIds.includes(file.id))
+        .map((file) => file.id);
+      setEditorDataFileIds(selected);
+      setEditorExcludedDataFileIds([]);
+    }
+  };
+
+  const selectedDataFileCount = editorUseAllDataFiles
+    ? Math.max(
+        (viewEditor?.availableDataFiles || []).length -
+          editorExcludedDataFileIds.length,
+        0
+      )
+    : editorDataFileIds.length;
+  const selectedSegmentCount = editorSegmentIds.length;
+
+  const sourceSummary = (() => {
+    const parts: string[] = [];
+    if (editorUseAllDataFiles) {
+      parts.push(
+        editorExcludedDataFileIds.length > 0
+          ? `All lists (−${editorExcludedDataFileIds.length})`
+          : "All lists"
+      );
+    } else if (selectedDataFileCount > 0) {
+      parts.push(
+        `${selectedDataFileCount} list${selectedDataFileCount === 1 ? "" : "s"}`
+      );
+    }
+    if (selectedSegmentCount > 0) {
+      parts.push(
+        `${selectedSegmentCount} segment${selectedSegmentCount === 1 ? "" : "s"}`
+      );
+    }
+    return parts.length > 0 ? parts.join(" · ") : "Select lists or segments…";
+  })();
+
+  const normalizedSourceSearch = sourceSearch.trim().toLowerCase();
+  const filteredSourceDataFiles = (viewEditor?.availableDataFiles || []).filter(
+    (file) =>
+      normalizedSourceSearch.length === 0 ||
+      file.name.toLowerCase().includes(normalizedSourceSearch)
+  );
+  const filteredSourceSegments = (viewEditor?.availableSegments || []).filter(
+    (segment) =>
+      normalizedSourceSearch.length === 0 ||
+      segment.name.toLowerCase().includes(normalizedSourceSearch)
+  );
+
+  const buildEditorPayload = (): ViewEditorPayload => ({
+    name: editorName.trim(),
+    description: editorDescription.trim(),
+    filtersJson,
+    dataFileIds: editorUseAllDataFiles ? [] : editorDataFileIds,
+    segmentIds: editorSegmentIds,
+    useAllDataFiles: editorUseAllDataFiles,
+    excludedDataFileIds: editorUseAllDataFiles ? editorExcludedDataFileIds : [],
+  });
+
+  const editorHasSources =
+    editorSegmentIds.length > 0 ||
+    editorUseAllDataFiles ||
+    editorDataFileIds.length > 0;
+  const canSaveEditor =
+    editorName.trim().length > 0 && completeConditions.length > 0;
+
+  const switchEditorMode = (mode: "edit" | "create") => {
+    setEditorMode(mode);
+    if (mode === "create") {
+      const base = viewEditor?.initialName?.trim();
+      setEditorName((prev) =>
+        !prev.trim() || prev === viewEditor?.initialName
+          ? base
+            ? `${base} (copy)`
+            : ""
+          : prev
+      );
+    } else {
+      setEditorName(viewEditor?.initialName || "");
+      setEditorDescription(viewEditor?.initialDescription || "");
+    }
+  };
+
+  const handleEditorSave = () => {
+    if (!canSaveEditor) {
+      return;
+    }
+    if (editorMode === "create") {
+      viewEditor?.onCreateNew?.(buildEditorPayload());
+    } else {
+      viewEditor?.onSaveChanges?.(buildEditorPayload());
+    }
+  };
+
   if (isCollapsed) {
     return (
       <button
@@ -797,7 +1014,7 @@ function FilterBuilder<T extends Record<string, any>>({
         aria-controls={rulesPanelId}
         className="fb-trigger"
       >
-        + Build view
+        {isViewEditor ? "✎ Edit view" : "+ Build view"}
       </button>
     );
   }
@@ -808,21 +1025,151 @@ function FilterBuilder<T extends Record<string, any>>({
       <div className="fb-header">
         <div className="fb-header__title">
           <span className="fb-header__dot" />
-          Filter rules
+          {isViewEditor
+            ? editorMode === "create"
+              ? "Create clone"
+              : "Edit view"
+            : "Filter rules"}
         </div>
-        <button
-          type="button"
-          onClick={() => setIsCollapsed(true)}
-          aria-expanded
-          aria-controls={rulesPanelId}
-          className="fb-collapse-btn"
-        >
-          Collapse
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {isViewEditor && viewEditor?.allowCreateNew && (
+            <div className="fb-join__toggle">
+              {(["edit", "create"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => switchEditorMode(mode)}
+                  className={`fb-join__btn${editorMode === mode ? " is-active" : ""}`}
+                  style={{ minWidth: 86 }}
+                >
+                  {mode === "edit" ? "Edit this view" : "Create clone"}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(true)}
+            aria-expanded
+            aria-controls={rulesPanelId}
+            className="fb-collapse-btn"
+          >
+            Collapse
+          </button>
+        </div>
       </div>
 
       {/* Body */}
       <div id={rulesPanelId} hidden={isCollapsed} className="fb-body">
+        {isViewEditor && (
+          <div className="fb-editor">
+            <div className="fb-editor__grid">
+              <div>
+                <label className="fb-editor__label">
+                  View name <span style={{ color: "#e11d48" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editorName}
+                  onChange={(e) => setEditorName(e.target.value)}
+                  placeholder="Enter view name"
+                  className="fb-control"
+                />
+              </div>
+              <div>
+                <label className="fb-editor__label">Description</label>
+                <input
+                  type="text"
+                  value={editorDescription}
+                  onChange={(e) => setEditorDescription(e.target.value)}
+                  placeholder="Short description"
+                  className="fb-control"
+                />
+              </div>
+
+              <div>
+                <label className="fb-editor__label">Sources (lists & segments)</label>
+              <div className="fb-sources" ref={sourcePickerRef}>
+                <button
+                  type="button"
+                  className="fb-control fb-control--field"
+                  onClick={() => setIsSourcePickerOpen((prev) => !prev)}
+                >
+                  <span
+                    className={`fb-control__label${
+                      editorHasSources ? "" : " fb-control__label--placeholder"
+                    }`}
+                  >
+                    {sourceSummary}
+                  </span>
+                  <span className="fb-control__arrow">
+                    {isSourcePickerOpen ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {isSourcePickerOpen && (
+                  <div className="fb-sources__panel">
+                    <div className="fb-sources__search">
+                      <input
+                        value={sourceSearch}
+                        onChange={(e) => setSourceSearch(e.target.value)}
+                        placeholder="Search lists & segments…"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="fb-sources__list">
+                      <label className="fb-source-option fb-source-option--all">
+                        <input
+                          type="checkbox"
+                          checked={editorUseAllDataFiles}
+                          onChange={(e) => toggleUseAllDataFiles(e.target.checked)}
+                        />
+                        <span>All lists (auto-include new lists)</span>
+                      </label>
+
+                      <div className="fb-source-group-label">Lists</div>
+                      {viewEditor?.isLoadingSources &&
+                      filteredSourceDataFiles.length === 0 ? (
+                        <div className="fb-source-empty">Loading lists…</div>
+                      ) : filteredSourceDataFiles.length === 0 ? (
+                        <div className="fb-source-empty">No lists found.</div>
+                      ) : (
+                        filteredSourceDataFiles.map((file) => (
+                          <label key={file.id} className="fb-source-option">
+                            <input
+                              type="checkbox"
+                              checked={isDataFileSelected(file.id)}
+                              onChange={() => toggleDataFile(file.id)}
+                            />
+                            <span>{file.name}</span>
+                          </label>
+                        ))
+                      )}
+
+                      <div className="fb-source-group-label">Segments</div>
+                      {filteredSourceSegments.length === 0 ? (
+                        <div className="fb-source-empty">No segments found.</div>
+                      ) : (
+                        filteredSourceSegments.map((segment) => (
+                          <label key={segment.id} className="fb-source-option">
+                            <input
+                              type="checkbox"
+                              checked={editorSegmentIds.includes(segment.id)}
+                              onChange={() => toggleSegment(segment.id)}
+                            />
+                            <span>{segment.name}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {groups.map((group, groupIndex) => (
           <div key={group.id} style={{ marginBottom: groupIndex === groups.length - 1 ? 0 : 12 }}>
             {/* Group-level AND/OR join */}
@@ -1107,6 +1454,20 @@ function FilterBuilder<T extends Record<string, any>>({
               className="fb-btn fb-btn--save"
             >
               {showSavePanel ? "Hide save panel" : "Save as view"}
+            </button>
+          )}
+          {isViewEditor && (
+            <button
+              type="button"
+              onClick={handleEditorSave}
+              disabled={!!viewEditor?.isSaving || !canSaveEditor}
+              className="fb-btn fb-btn--primary"
+            >
+              {viewEditor?.isSaving
+                ? "Saving…"
+                : editorMode === "create"
+                ? "Create clone"
+                : "Save changes"}
             </button>
           )}
           <span className="fb-rules-count">

@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from "react";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
+import RichTextEditor from "../../common/RTEEditor";
+import CommonSidePanel from "../../common/CommonSidePanel";
 import "./EmailCampaignBuilder.css";
 
 type GPTModel = { id: string; name: string; description?: string };
@@ -97,6 +99,12 @@ const InstructionSetManager: React.FC<InstructionSetManagerProps> = ({
   onDeletePlaceholderDefinition,
 }) => {
   const [instructionSubTab, setInstructionSubTab] = useState<InstructionSubTab>("ai_new");
+
+  // Placeholder whose description popup is currently open (null = closed)
+  const [descEditKey, setDescEditKey] = useState<string | null>(null);
+  const descEditPlaceholder = descEditKey
+    ? uiPlaceholders.find((p) => p.placeholderKey === descEditKey) ?? null
+    : null;
 
   const formatCategoryLabel = (category: string) =>
     category.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -378,7 +386,7 @@ const InstructionSetManager: React.FC<InstructionSetManagerProps> = ({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "2fr 2fr 2fr 2fr 2fr 2fr 1fr 1fr 60px 60px",
+                gridTemplateColumns: "2fr 2fr 2fr 2fr 2fr 2fr 1fr 1fr 90px 60px 60px",
                 gap: "10px",
                 fontWeight: 600,
                 fontSize: "13px",
@@ -394,6 +402,7 @@ const InstructionSetManager: React.FC<InstructionSetManagerProps> = ({
               <div>Help link</div>
               <div>Size</div>
               <div>Expand</div>
+              <div>Description</div>
               <div>Move</div>
               <div>Delete</div>
             </div>
@@ -436,7 +445,7 @@ const InstructionSetManager: React.FC<InstructionSetManagerProps> = ({
                       key={p.placeholderKey}
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "2fr 2fr 2fr 2fr 2fr 2fr 1fr 1fr 60px 60px",
+                        gridTemplateColumns: "2fr 2fr 2fr 2fr 2fr 2fr 1fr 1fr 90px 60px 60px",
                         gap: "10px",
                         alignItems: "center",
                         marginBottom: "10px",
@@ -672,6 +681,25 @@ const InstructionSetManager: React.FC<InstructionSetManagerProps> = ({
                         />
                       </label>
 
+                      {/* Description Button */}
+                      <div style={{ display: "flex", justifyContent: "center" }}>
+                        <button
+                          onClick={() => setDescEditKey(p.placeholderKey)}
+                          title={p.description ? "Edit description" : "Add description"}
+                          style={{
+                            padding: "6px 8px",
+                            borderRadius: "8px",
+                            border: "1px solid #d1d5db",
+                            background: p.description ? "#dcfce7" : "#f3f4f6",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {p.description ? "📝 Edit" : "＋ Add"}
+                        </button>
+                      </div>
+
                       {/* Move Buttons */}
                       <div style={{ display: "flex", gap: "6px" }}>
                         <button
@@ -738,6 +766,60 @@ const InstructionSetManager: React.FC<InstructionSetManagerProps> = ({
         )}
 
       </div>
+
+      {/* ======================================================
+          DESCRIPTION SIDE PANEL (rich text + hyperlinks, multiline)
+      ====================================================== */}
+      <CommonSidePanel
+        isOpen={!!descEditPlaceholder}
+        onClose={() => setDescEditKey(null)}
+        title={
+          descEditPlaceholder
+            ? `Description — {${descEditPlaceholder.placeholderKey}}`
+            : "Description"
+        }
+        width={560}
+        footerContent={
+          <button
+            onClick={() => setDescEditKey(null)}
+            style={{
+              marginLeft: "auto",
+              padding: "8px 18px",
+              borderRadius: "10px",
+              border: "none",
+              background: "#3f9f42",
+              color: "#fff",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Done
+          </button>
+        }
+      >
+        {descEditPlaceholder && (
+          <>
+            <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "10px" }}>
+              You can add multiple lines and hyperlinks. This text is shown to users when
+              filling this placeholder.
+            </p>
+
+            <RichTextEditor
+              value={descEditPlaceholder.description ?? ""}
+              height={320}
+              onChange={(html) =>
+                setUiPlaceholders((prev) =>
+                  prev.map((x) =>
+                    x.placeholderKey === descEditPlaceholder.placeholderKey
+                      ? { ...x, description: html }
+                      : x,
+                  ),
+                )
+              }
+            />
+          </>
+        )}
+      </CommonSidePanel>
     </div>
   );
 };
