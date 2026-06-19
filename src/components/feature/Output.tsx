@@ -2415,7 +2415,14 @@ useEffect(() => {
                 </div>
                 {selectedCampaign && (
                   <>
-                    <ReactTooltip anchorSelect="#refresh-campaign-tooltip" place="top">Refresh campaign</ReactTooltip>
+                    <ReactTooltip
+                      anchorSelect="#refresh-campaign-tooltip"
+                      place="top"
+                      positionStrategy="fixed"
+                      style={{ zIndex: 99999 }}
+                    >
+                      Refresh campaign
+                    </ReactTooltip>
                     <button
                       id="refresh-campaign-tooltip"
                       className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
@@ -2435,7 +2442,7 @@ useEffect(() => {
                           target: { value: selectedCampaign },
                         } as React.ChangeEvent<HTMLSelectElement>);
                       }}
-                      title="Refresh campaign"
+                      aria-label="Refresh campaign"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="18px" height="18px" viewBox="0 0 16 16" fill="none">
                         <g fill="#3f9f42"><path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/></g>
@@ -2443,13 +2450,20 @@ useEffect(() => {
                     </button>
                     {(selectedCampaignDetails?.zohoViewId || selectedCampaignDetails?.segmentId || selectedCampaignDetails?.dataSource) && (
                       <>
-                        <ReactTooltip anchorSelect="#go-source-tooltip" place="top">Go to {getCampaignSourceLabel(selectedCampaignDetails)}</ReactTooltip>
+                        <ReactTooltip
+                          anchorSelect="#go-source-tooltip"
+                          place="top"
+                          positionStrategy="fixed"
+                          style={{ zIndex: 99999 }}
+                        >
+                          Edit {getCampaignSourceLabel(selectedCampaignDetails)}
+                        </ReactTooltip>
                         <button
                           id="go-source-tooltip"
                           className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
                           style={{ borderColor: '#e8eaee' }}
                           onClick={() => handleCampaignSourceClick(selectedCampaignDetails)}
-                          title={`Go to ${getCampaignSourceLabel(selectedCampaignDetails)}`}
+                          aria-label={`Edit ${getCampaignSourceLabel(selectedCampaignDetails)}`}
                         >
                           <FontAwesomeIcon icon={faCircleRight} style={{ color: "#3f9f42", fontSize: 18 }} />
                         </button>
@@ -2457,7 +2471,14 @@ useEffect(() => {
                     )}
                     {selectedCampaignDetails?.templateId && (
                       <>
-                        <ReactTooltip anchorSelect="#edit-blueprint-tooltip" place="top">Edit this campaign's blueprint</ReactTooltip>
+                        <ReactTooltip
+                          anchorSelect="#edit-blueprint-tooltip"
+                          place="top"
+                          positionStrategy="fixed"
+                          style={{ zIndex: 99999 }}
+                        >
+                          Edit this campaign's blueprint
+                        </ReactTooltip>
                         <button
                           id="edit-blueprint-tooltip"
                           className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
@@ -2488,7 +2509,7 @@ useEffect(() => {
                               }
                             }
                           }}
-                          title="Edit this campaign's blueprint"
+                          aria-label="Edit this campaign's blueprint"
                         >
                           <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", fontSize: 18 }}/>
                         </button>
