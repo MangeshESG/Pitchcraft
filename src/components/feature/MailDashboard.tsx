@@ -95,6 +95,9 @@ interface MailDashboardProps {
   onDataChange?: (data: any) => void;
 }
 
+const ALL_CAMPAIGNS_VALUE = "all";
+const DETAIL_PAGE_SIZE = 10;
+
 const asArray = <T,>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[];
 
@@ -199,6 +202,15 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [allEmailLogs, setAllEmailLogs] = useState<any[]>([]);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [missingLogs, setMissingLogs] = useState<any[]>([]);
+  const [detailEventPageData, setDetailEventPageData] = useState<EventItem[]>([]);
+  const [detailEmailLogPageData, setDetailEmailLogPageData] = useState<EmailLog[]>([]);
+  const [detailMissingLogPageData, setDetailMissingLogPageData] = useState<any[]>([]);
+  const [detailTotalItems, setDetailTotalItems] = useState(0);
+  const [detailPageLoading, setDetailPageLoading] = useState(false);
+  const [detailEmailLogSummary, setDetailEmailLogSummary] = useState({
+    successCount: 0,
+    failedCount: 0,
+  });
   const [filteredEventData, setFilteredEventData] = useState<EventItem[]>([]);
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   //for fullname in contacts
@@ -264,6 +276,11 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     setAllEmailLogs([]);
     setEmailLogs([]);
     setMissingLogs([]);
+    setDetailEventPageData([]);
+    setDetailEmailLogPageData([]);
+    setDetailMissingLogPageData([]);
+    setDetailTotalItems(0);
+    setDetailEmailLogSummary({ successCount: 0, failedCount: 0 });
     setFilteredEventData([]);
     setDailyStats([]);
     setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0 });
@@ -328,6 +345,12 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     const parsed = Number(campaign.zohoViewId);
     return isNaN(parsed) ? undefined : parsed;
   };
+
+  const getDashboardCacheKey = (
+    campaignId: string,
+    fromDate = startDate,
+    toDate = endDate
+  ) => `${campaignId || "none"}|${fromDate || "none"}|${toDate || "none"}`;
 
   const appModal = useAppModal();
 
@@ -425,7 +448,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       }
 
       if (campaignToLoad) {
-        const cachedData = getDashboardData(campaignToLoad, effectiveUserId);
+        const cacheKey = getDashboardCacheKey(campaignToLoad);
+        const cachedData = getDashboardData(cacheKey, effectiveUserId);
 
         if (cachedData) {
           console.log(
@@ -444,13 +468,11 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           setAllEventData(cachedEvents);
           setAllEmailLogs(cachedAllLogs);
           setEmailLogs(cachedEmailLogs);
-          setDataFetchedForCampaign(campaignToLoad);
+          setDataFetchedForCampaign(cacheKey);
 
           processDataWithDateFilter(
             cachedEvents,
-            cachedAllLogs,
-            startDate,
-            endDate
+            cachedAllLogs
           );
 
           console.log("✅ Initialization complete with cached data");
@@ -510,11 +532,16 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   // 3. Fetch data when selectedCampaign changes
   useEffect(() => {
     if (!isVisible || !effectiveUserId || !selectedCampaign) return;
-    if (campaignsLoaded && !availableCampaigns.some((campaign) => campaign.id.toString() === selectedCampaign)) return;
+    if (
+      campaignsLoaded &&
+      selectedCampaign !== ALL_CAMPAIGNS_VALUE &&
+      !availableCampaigns.some((campaign) => campaign.id.toString() === selectedCampaign)
+    ) return;
 
-    if (dataFetchedForCampaign === selectedCampaign || loading) return;
+    const cacheKey = getDashboardCacheKey(selectedCampaign);
+    if (dataFetchedForCampaign === cacheKey || loading) return;
 
-    const cachedData = getDashboardData(selectedCampaign, effectiveUserId);
+    const cachedData = getDashboardData(cacheKey, effectiveUserId);
 
     if (cachedData) {
       console.log(
@@ -534,13 +561,11 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       setAllEventData(cachedEvents);
       setAllEmailLogs(cachedAllLogs);
       setEmailLogs(cachedEmailLogs);
-      setDataFetchedForCampaign(selectedCampaign);
+      setDataFetchedForCampaign(cacheKey);
 
       processDataWithDateFilter(
         cachedEvents,
-        cachedAllLogs,
-        startDate,
-        endDate
+        cachedAllLogs
       );
 
       console.log("✅ State updated with cached data");
@@ -560,20 +585,22 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     getDashboardData,
     campaignsLoaded,
     availableCampaigns,
+    startDate,
+    endDate,
   ]);
 
 
 
-  // 5. Process data when date filters change
+  // 5. Process data when bot filter changes. Date filtering is handled by the backend.
   useEffect(() => {
     if ((allEventData.length > 0 || allEmailLogs.length > 0) && isVisible) {
-      processDataWithDateFilter(allEventData, allEmailLogs, startDate, endDate);
+      processDataWithDateFilter(allEventData, allEmailLogs);
     }
-  }, [startDate, endDate, allEventData, allEmailLogs, isVisible, excludeBots]);
+  }, [allEventData, allEmailLogs, isVisible, excludeBots]);
 
-  // 6. Load email logs for email-logs filter type - Updated for campaigns
+ // 6. Load email logs for email-logs filter type - Updated for campaigns
  useEffect(() => {
-  if (!isVisible) return;
+  if (!isVisible || dashboardTab === "Details") return;
 
   // ================= EMAIL LOGS =================
   if (
@@ -584,12 +611,17 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     const loadEmailLogs = async () => {
       await withLoader("Loading email logs...", async () => {
         try {
-          const campaignIdNumber = Number(selectedCampaign);
+          const campaignIdNumber =
+            selectedCampaign === ALL_CAMPAIGNS_VALUE
+              ? undefined
+              : Number(selectedCampaign);
           const clientId = Number(effectiveUserId);
 
           const logs = await fetchEmailLogs(
             clientId,
-            campaignIdNumber   // ✅ ONLY campaignId
+            campaignIdNumber,
+            startDate,
+            endDate
           );
 
           setEmailLogs(asArray<EmailLog>(logs));
@@ -614,7 +646,17 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     const loadMissingLogs = async () => {
       await withLoader("Loading missing logs...", async () => {
         try {
-          const campaignIdNumber = Number(selectedCampaign);
+          const campaign = availableCampaigns.find(
+            (c) => c.id.toString() === selectedCampaign
+          );
+          const campaignIdNumber =
+            selectedCampaign === ALL_CAMPAIGNS_VALUE
+              ? undefined
+              : Number(selectedCampaign);
+          const dataFileId =
+            selectedCampaign === ALL_CAMPAIGNS_VALUE
+              ? undefined
+              : getSafeDataFileId(campaign);
 
           const response = await axios.get(
             `${API_BASE_URL}/track/missing-log-contacts`,
@@ -622,6 +664,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               params: {
                 startDate,
                 endDate,
+                clientId: Number(effectiveUserId),
+                ...(dataFileId ? { dataFileId } : {}),
                 campaignId: campaignIdNumber, // ✅ ONLY campaignId
               },
               headers: {
@@ -672,7 +716,55 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   isVisible,
   startDate,
   endDate,
+  availableCampaigns,
+  dashboardTab,
 ]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setEmailLogsCurrentPage(1);
+    setMissingLogsCurrentPage(1);
+    setDetailSelectedContacts(new Set());
+    setSelectedEmailLogs(new Set());
+    setSelectedMissingLogs(new Set());
+  }, [selectedCampaign, emailFilterType, startDate, endDate, excludeBots]);
+
+  useEffect(() => {
+    if (emailFilterType === "email-logs") {
+      setEmailLogsCurrentPage(1);
+    } else if (emailFilterType === "missing-logs") {
+      setMissingLogsCurrentPage(1);
+    } else {
+      setCurrentPage(1);
+    }
+  }, [detailSearchQuery, emailLogsSearch, missingLogsSearch, emailFilterType]);
+
+  useEffect(() => {
+    if (!isVisible || dashboardTab !== "Details" || !effectiveUserId || !selectedCampaign) return;
+
+    if (emailFilterType === "missing-logs" && (!startDate || !endDate)) {
+      setDetailMissingLogPageData([]);
+      setDetailTotalItems(0);
+      return;
+    }
+
+    fetchPagedDetails();
+  }, [
+    isVisible,
+    dashboardTab,
+    effectiveUserId,
+    selectedCampaign,
+    emailFilterType,
+    currentPage,
+    emailLogsCurrentPage,
+    missingLogsCurrentPage,
+    startDate,
+    endDate,
+    excludeBots,
+    detailSearchQuery,
+    emailLogsSearch,
+    missingLogsSearch,
+  ]);
 
   // 7. Clear cache when user changes
   useEffect(() => {
@@ -786,13 +878,23 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
 const fetchEmailLogs = async (
   clientId: number,
-  campaignId: number
+  campaignId?: number,
+  fromDate?: string,
+  toDate?: string,
+  pageNumber?: number,
+  pageSize?: number,
+  search?: string
 ) => {
   try {
     const url = new URL(`${API_BASE_URL}/api/Crm/getlogs`);
 
     url.searchParams.set("clientId", clientId.toString());
-    url.searchParams.set("campaignId", campaignId.toString());
+    if (campaignId) url.searchParams.set("campaignId", campaignId.toString());
+    if (fromDate) url.searchParams.set("startDate", fromDate);
+    if (toDate) url.searchParams.set("endDate", toDate);
+    if (pageNumber) url.searchParams.set("pageNumber", pageNumber.toString());
+    if (pageSize) url.searchParams.set("pageSize", pageSize.toString());
+    if (search) url.searchParams.set("search", search);
 
     const response = await fetch(url.toString());
 
@@ -817,7 +919,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         (c) => c.id.toString() === campaignId
       );
 
-      if (!campaign) {
+      if (campaignId !== ALL_CAMPAIGNS_VALUE && !campaign) {
         setAllEventData([]);
         setAllEmailLogs([]);
         setEmailLogs([]);
@@ -826,7 +928,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       }
 
       const clientId = Number(effectiveUserId);
-      const campaignIdNumber = Number(campaignId);
+      const campaignIdNumber =
+        campaignId === ALL_CAMPAIGNS_VALUE ? undefined : Number(campaignId);
 
       let allTrackingData: EventItem[] = [];
       let allEmailLogsData: any[] = [];
@@ -837,7 +940,9 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         {
           params: {
             clientId,
-            campaignId: campaignIdNumber,
+            ...(campaignIdNumber ? { campaignId: campaignIdNumber } : {}),
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {}),
           },
           headers: { ...(token && { Authorization: `Bearer ${token}` }) },
         }
@@ -848,7 +953,9 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       // ✅ ONLY CAMPAIGN BASED EMAIL LOGS
       allEmailLogsData = asArray<any>(await fetchEmailLogs(
         clientId,
-        campaignIdNumber
+        campaignIdNumber,
+        startDate,
+        endDate
       ));
 
       // ✅ SET STATE
@@ -857,21 +964,20 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       setEmailLogs(allEmailLogsData);
 
       // ✅ CACHE
-      saveDashboardData(campaignId, {
+      const cacheKey = getDashboardCacheKey(campaignId);
+      saveDashboardData(cacheKey, {
         allEventData: allTrackingData,
         allEmailLogs: allEmailLogsData,
         emailLogs: allEmailLogsData,
         effectiveUserId: effectiveUserId!,
       });
 
-      setDataFetchedForCampaign(campaignId);
+      setDataFetchedForCampaign(cacheKey);
 
       // ✅ PROCESS
       processDataWithDateFilter(
         allTrackingData,
-        allEmailLogsData,
-        startDate,
-        endDate
+        allEmailLogsData
       );
 
       console.log(
@@ -894,43 +1000,150 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         errors: 0,
       });
 
-      setDataFetchedForCampaign(campaignId);
+      setDataFetchedForCampaign(getDashboardCacheKey(campaignId));
     } finally {
       setLoading(false);
     }
   });
 };
-  // Process data with date filtering
+
+  const getCurrentDetailPage = () => {
+    if (emailFilterType === "email-logs") return emailLogsCurrentPage;
+    if (emailFilterType === "missing-logs") return missingLogsCurrentPage;
+    return currentPage;
+  };
+
+  const getCurrentDetailSearch = () => {
+    if (emailFilterType === "email-logs") return emailLogsSearch;
+    if (emailFilterType === "missing-logs") return missingLogsSearch;
+    return detailSearchQuery;
+  };
+
+  const getPagedResponseMeta = (data: any, fallbackCount: number) => ({
+    totalCount: Number(data?.totalCount ?? fallbackCount),
+    successCount: Number(data?.successCount ?? 0),
+    failedCount: Number(data?.failedCount ?? 0),
+  });
+
+  const fetchPagedDetails = async () => {
+    try {
+      setDetailPageLoading(true);
+
+      const clientId = Number(effectiveUserId);
+      const campaignIdNumber =
+        selectedCampaign === ALL_CAMPAIGNS_VALUE
+          ? undefined
+          : Number(selectedCampaign);
+      const pageNumber = getCurrentDetailPage();
+      const search = getCurrentDetailSearch().trim();
+
+      if (emailFilterType === "email-logs") {
+        const responseData = await fetchEmailLogs(
+          clientId,
+          campaignIdNumber,
+          startDate,
+          endDate,
+          pageNumber,
+          DETAIL_PAGE_SIZE,
+          search || undefined
+        );
+        const items = asArray<EmailLog>(responseData);
+        const meta = getPagedResponseMeta(responseData, items.length);
+        setDetailEmailLogPageData(items);
+        setDetailTotalItems(meta.totalCount);
+        setDetailEmailLogSummary({
+          successCount: meta.successCount,
+          failedCount: meta.failedCount,
+        });
+        return;
+      }
+
+      if (emailFilterType === "missing-logs") {
+        const campaign = availableCampaigns.find(
+          (c) => c.id.toString() === selectedCampaign
+        );
+        const dataFileId =
+          selectedCampaign === ALL_CAMPAIGNS_VALUE
+            ? undefined
+            : getSafeDataFileId(campaign);
+
+        const response = await axios.get(`${API_BASE_URL}/track/missing-log-contacts`, {
+          params: {
+            startDate,
+            endDate,
+            clientId,
+            pageNumber,
+            pageSize: DETAIL_PAGE_SIZE,
+            ...(search ? { search } : {}),
+            ...(dataFileId ? { dataFileId } : {}),
+            ...(campaignIdNumber ? { campaignId: campaignIdNumber } : {}),
+          },
+          headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+        });
+
+        const missingContactsData = response.data?.missingContacts
+          ? asArray<any>(response.data.missingContacts)
+          : asArray<any>(response.data);
+        const transformedData = missingContactsData.map((contact: any, index: number) => ({
+          id: contact.contactId || (pageNumber - 1) * DETAIL_PAGE_SIZE + index + 1,
+          contactId: contact.contactId,
+          first_name: contact.first_name || contact.firstName || "",
+          last_name: contact.last_name || contact.lastName || "",
+          full_name: getDisplayNameFromContact(contact),
+          email: contact.email || "-",
+          company_name: contact.company_name || "-",
+          job_title: contact.job_title || "-",
+          country_or_address: contact.country_or_address || "-",
+          email_subject: contact.email_subject || "-",
+          linkedin_url: contact.linkedin_url || "-",
+          website: contact.website || "-",
+        }));
+
+        setDetailMissingLogPageData(transformedData);
+        setDetailTotalItems(Number(response.data?.totalCount ?? transformedData.length));
+        return;
+      }
+
+      const trackingResponse = await axios.get(`${API_BASE_URL}/api/Crm/gettrackinglogs`, {
+        params: {
+          clientId,
+          pageNumber,
+          pageSize: DETAIL_PAGE_SIZE,
+          detailFilter: emailFilterType,
+          excludeBots,
+          ...(search ? { search } : {}),
+          ...(startDate ? { startDate } : {}),
+          ...(endDate ? { endDate } : {}),
+          ...(campaignIdNumber ? { campaignId: campaignIdNumber } : {}),
+        },
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      });
+
+      const items = asArray<EventItem>(trackingResponse.data);
+      setDetailEventPageData(items);
+      setDetailTotalItems(Number(trackingResponse.data?.totalCount ?? items.length));
+    } catch (error) {
+      console.error("Error loading paged details:", error);
+      setDetailEventPageData([]);
+      setDetailEmailLogPageData([]);
+      setDetailMissingLogPageData([]);
+      setDetailTotalItems(0);
+      setDetailEmailLogSummary({ successCount: 0, failedCount: 0 });
+    } finally {
+      setDetailPageLoading(false);
+    }
+  };
+
+  // Process data already filtered by the backend date range
   const processDataWithDateFilter = (
     trackingData: EventItem[],
-    emailLogs: any[],
-    startDate?: string,
-    endDate?: string
+    emailLogs: any[]
   ) => {
     trackingData = asArray<EventItem>(trackingData);
     emailLogs = asArray<any>(emailLogs);
 
-    // Apply date filtering
     let filteredTrackingData = trackingData;
     let filteredEmailLogs = emailLogs;
-
-    if (startDate || endDate) {
-      filteredTrackingData = trackingData.filter((item) => {
-        if (!item.timestamp) return false;
-        const itemDate = String(item.timestamp).split("T")[0];
-        const isAfterStart = !startDate || itemDate >= startDate;
-        const isBeforeEnd = !endDate || itemDate <= endDate;
-        return isAfterStart && isBeforeEnd;
-      });
-
-      filteredEmailLogs = emailLogs.filter((log: any) => {
-        if (!log.sentAt) return false;
-        const sentDate = String(log.sentAt).split("T")[0];
-        const isAfterStart = !startDate || sentDate >= startDate;
-        const isBeforeEnd = !endDate || sentDate <= endDate;
-        return isAfterStart && isBeforeEnd;
-      });
-    }
 
     // Track unique opens and clicks per day
     const dailyTracking: Record<
@@ -1221,19 +1434,6 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   const getFilteredEmailContacts = (): EmailContact[] => {
     let filteredEventData = allEventData;
 
-    // Apply date filters first
-    if (startDate || endDate) {
-      filteredEventData = allEventData.filter((item) => {
-        if (!item.timestamp) return false;
-        const itemDate = new Date(item.timestamp);
-        const start = startDate ? new Date(startDate) : null;
-        const end = endDate ? new Date(endDate + "T23:59:59") : null;
-        if (start && itemDate < start) return false;
-        if (end && itemDate > end) return false;
-        return true;
-      });
-    }
-
     // Filter out bot opens and clicks if excludeBots is true
     if (excludeBots) {
       console.log('Filtering bots from event data, original length:', filteredEventData.length);
@@ -1364,19 +1564,6 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           log.subject?.toLowerCase().includes(searchLower) ||
           log.process_name?.toLowerCase().includes(searchLower)
       );
-    }
-
-    // Apply date filters
-    if (startDate || endDate) {
-      filteredLogs = filteredLogs.filter((log) => {
-        if (!log.sentAt) return false;
-        const logDate = new Date(log.sentAt);
-        const start = startDate ? new Date(startDate) : null;
-        const end = endDate ? new Date(endDate + "T23:59:59") : null;
-        if (start && logDate < start) return false;
-        if (end && logDate > end) return false;
-        return true;
-      });
     }
 
     return filteredLogs;
@@ -1578,9 +1765,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   };
 
   const handleSelectAllEmailLogs = () => {
-    const currentPageLogs = transformEmailLogsForTable(
-      getFilteredEmailLogs()
-    ).slice((emailLogsCurrentPage - 1) * 20, emailLogsCurrentPage * 20);
+    const currentPageLogs = transformEmailLogsForTable(detailEmailLogPageData);
 
     setSelectedEmailLogs((prev) => {
       const newSelection = new Set(prev);
@@ -1598,10 +1783,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   };
 
   const handleSelectAllMissingLogs = () => {
-    const currentPageLogs = getFilteredMissingLogs().slice(
-      (missingLogsCurrentPage - 1) * 20,
-      missingLogsCurrentPage * 20
-    );
+    const currentPageLogs = detailMissingLogPageData;
 
     setSelectedMissingLogs((prev) => {
       const newSelection = new Set(prev);
@@ -1621,21 +1803,21 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     let contactIds: number[] = [];
 
     if (emailFilterType === "email-logs") {
-      const selectedLogs = getFilteredEmailLogs().filter((log) =>
+      const selectedLogs = detailEmailLogPageData.filter((log) =>
         selectedEmailLogs.has(log.id.toString())
       );
       contactIds = selectedLogs
         .map((log) => log.contactId)
         .filter((id): id is number => id !== null && id !== undefined);
     } else if (emailFilterType === "missing-logs") {
-      const selectedLogs = getFilteredMissingLogs().filter((log) =>
+      const selectedLogs = detailMissingLogPageData.filter((log) =>
         selectedMissingLogs.has(log.id.toString())
       );
       contactIds = selectedLogs
         .map((log) => log.contactId)
         .filter((id): id is number => id !== null && id !== undefined && id > 0);
     } else {
-      const selectedContacts = getFilteredEmailContacts().filter((contact) =>
+      const selectedContacts = transformEventDataForTable(detailEventPageData).filter((contact) =>
         detailSelectedContacts.has(contact.id.toString())
       );
       contactIds = selectedContacts
@@ -1651,21 +1833,21 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     let contactIds: number[] = [];
 
     if (emailFilterType === "email-logs") {
-      const selectedLogs = getFilteredEmailLogs().filter((log) =>
+      const selectedLogs = detailEmailLogPageData.filter((log) =>
         selectedEmailLogs.has(log.id.toString())
       );
       contactIds = selectedLogs
         .map((log) => log.contactId)
         .filter((id): id is number => id !== null && id !== undefined);
     } else if (emailFilterType === "missing-logs") {
-      const selectedLogs = getFilteredMissingLogs().filter((log) =>
+      const selectedLogs = detailMissingLogPageData.filter((log) =>
         selectedMissingLogs.has(log.id.toString())
       );
       contactIds = selectedLogs
         .map((log) => log.contactId)
         .filter((id): id is number => id !== null && id !== undefined && id > 0);
     } else {
-      const selectedContacts = getFilteredEmailContacts().filter((contact) =>
+      const selectedContacts = transformEventDataForTable(detailEventPageData).filter((contact) =>
         detailSelectedContacts.has(contact.id.toString())
       );
       contactIds = selectedContacts
@@ -1704,7 +1886,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   // Helper function for invalid contacts count
   const getInvalidContactsCount = (): number => {
     return Array.from(detailSelectedContacts).filter((id) => {
-      const contact = getFilteredEmailContacts().find(
+      const contact = transformEventDataForTable(detailEventPageData).find(
         (c) => c.id.toString() === id
       );
       return contact?.contactId === 0;
@@ -1718,7 +1900,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       return;
     }
 
-    const selectedContacts = getFilteredEmailContacts().filter((contact) =>
+    const selectedContacts = transformEventDataForTable(detailEventPageData).filter((contact) =>
       detailSelectedContacts.has(contact.id.toString())
     );
 
@@ -1777,6 +1959,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           if (selectedCampaign) {
             setDataFetchedForCampaign("");
             await fetchLogsByCampaign(selectedCampaign);
+            await fetchPagedDetails();
           }
         } else {
           appModal.showError("Failed to delete contacts. Please try again.");
@@ -1976,14 +2159,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       ? ((totalStats.clicks / requestCount) * 100).toFixed(1)
       : "0.0";
 
-  // Filter stats for chart
-  const filteredStats = dailyStats.filter((stat) => {
-    const statDate = new Date(stat.date);
-    return (
-      (!startDate || new Date(startDate) <= statDate) &&
-      (!endDate || statDate <= new Date(endDate))
-    );
-  });
+  const filteredStats = dailyStats;
 
   // Don't render if not visible
   if (!isVisible) {
@@ -2067,6 +2243,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               className={`md-select${!selectedCampaign ? " md-select--error" : ""}`}
             >
               <option value="">Select a campaign</option>
+              <option value={ALL_CAMPAIGNS_VALUE}>All campaigns</option>
               {availableCampaigns.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.campaignName}{c.dataSource === "Segment" && c.segmentName ? ` (${c.segmentName})` : ""}
@@ -2088,6 +2265,15 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             <input type="date" value={endDate} onChange={(e) => handleDateChange("end", e.target.value)}
               min={startDate || undefined} className="md-date-input" />
           </div>
+
+          {(startDate || endDate) && (
+            <div className="md-control-clear">
+              <button className="md-clear-btn"
+                onClick={() => { setStartDate(""); setEndDate(""); saveCurrentState(); }}>
+                Clear dates
+              </button>
+            </div>
+          )}
 
           {/* Refresh icon button */}
           <div className="md-control-refresh">
@@ -2121,12 +2307,6 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
           {/* Right-side actions */}
           <div className="md-control-actions">
-            {(startDate || endDate) && (
-              <button className="md-clear-btn"
-                onClick={() => { setStartDate(""); setEndDate(""); saveCurrentState(); }}>
-                Clear dates
-              </button>
-            )}
             <button className="md-export-btn" title="Export Report">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -2342,12 +2522,12 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           <DynamicContactsTable
             data={
               emailFilterType === "email-logs"
-                ? transformEmailLogsForTable(getFilteredEmailLogs())
+                ? transformEmailLogsForTable(detailEmailLogPageData)
                 : emailFilterType === "missing-logs"
-                ? getFilteredMissingLogs()
-                : getFilteredEmailContacts()
+                ? detailMissingLogPageData
+                : transformEventDataForTable(detailEventPageData)
             }
-            isLoading={isRefreshing || loading}
+            isLoading={isRefreshing || loading || detailPageLoading}
             search={
               emailFilterType === "email-logs"
                 ? emailLogsSearch
@@ -2364,6 +2544,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             }
             showCheckboxes={true}
             paginated={true}
+            serverSidePagination={true}
+            pageSize={DETAIL_PAGE_SIZE}
             currentPage={
               emailFilterType === "email-logs"
                 ? emailLogsCurrentPage
@@ -2394,11 +2576,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                 : (id: string) => toggleSelection(setDetailSelectedContacts, id)
             }
             totalItems={
-              emailFilterType === "email-logs"
-                ? getFilteredEmailLogs().length
-                : emailFilterType === "missing-logs"
-                ? getFilteredMissingLogs().length
-                : getFilteredEmailContacts().length
+              detailTotalItems
             }
             // Configuration settings
             autoGenerateColumns={false}
@@ -2712,18 +2890,18 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             <div className="md-summary-row">
               <div className="md-summary-card">
                 <span className="md-summary-label">Total emails</span>
-                <span className="md-summary-value">{getFilteredEmailLogs().length.toLocaleString()}</span>
+                <span className="md-summary-value">{detailTotalItems.toLocaleString()}</span>
               </div>
               <div className="md-summary-card md-summary-card--success">
                 <span className="md-summary-label">Successfully sent</span>
                 <span className="md-summary-value">
-                  {getFilteredEmailLogs().filter((log) => log.isSuccess).length.toLocaleString()}
+                  {detailEmailLogSummary.successCount.toLocaleString()}
                 </span>
               </div>
               <div className="md-summary-card md-summary-card--error">
                 <span className="md-summary-label">Failed</span>
                 <span className="md-summary-value">
-                  {getFilteredEmailLogs().filter((log) => !log.isSuccess).length.toLocaleString()}
+                  {detailEmailLogSummary.failedCount.toLocaleString()}
                 </span>
               </div>
             </div>

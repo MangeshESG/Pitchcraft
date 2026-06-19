@@ -35,6 +35,7 @@ interface DynamicContactsTableProps {
   paginated?: boolean;
   currentPage?: number;
   pageSize?: number | "All";
+  serverSidePagination?: boolean;
   onPageChange: (pg: number) => void;
   selectedItems?: Set<string>;
   onSelectItem?: (id: string) => void;
@@ -127,6 +128,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   showCheckboxes = false,
   paginated = false,
   currentPage = 1,
+  pageSize: pageSizeProp = 10,
+  serverSidePagination = false,
   onPageChange,
   onPageSizeChange,
   selectedItems,
@@ -155,7 +158,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 }) => {
   const [columns, setColumns]           = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
-  const [pageSize, setPageSize]         = useState<PageSize>(10);
+  const [pageSize, setPageSize]         = useState<PageSize>(pageSizeProp);
   const [sortConfig, setSortConfig]     = useState<SortConfig>({ key: null, direction: "asc" });
   const isInitializedRef                = useRef(false);
 
@@ -334,6 +337,10 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   useEffect(() => { if (data.length === 0) isInitializedRef.current = false; }, [data.length]);
 
   useEffect(() => {
+    setPageSize(pageSizeProp);
+  }, [pageSizeProp]);
+
+  useEffect(() => {
     if (persistedColumnSelection.length > 0 && columns.length > 0) {
       setColumns((prev) => prev.map((col) =>
         col.key === "checkbox" ? col : { ...col, visible: persistedColumnSelection.includes(col.key) }
@@ -345,6 +352,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
   // ---------- Search ----------
   const filteredData = useMemo(() => {
+    if (serverSidePagination) return processedData;
     if (!search.trim()) return processedData;
     const q = search.toLowerCase();
     const fields = searchFields.length > 0
@@ -356,10 +364,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         return v != null && String(v).toLowerCase().includes(q);
       })
     );
-  }, [processedData, search, searchFields, columns]);
+  }, [processedData, search, searchFields, columns, serverSidePagination]);
 
   // ---------- Sort ----------
   const handleSort = (columnKey: string) => {
+    if (serverSidePagination) return;
     setSortConfig((prev) => ({
       key: columnKey,
       direction: prev.key === columnKey && prev.direction === "asc" ? "desc" : "asc",
@@ -367,6 +376,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   };
 
   const sortedData = useMemo(() => {
+    if (serverSidePagination) return filteredData;
     if (!sortConfig.key) return filteredData;
     const k = sortConfig.key;
     return [...filteredData].sort((a, b) => {
@@ -382,10 +392,13 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       const sa = String(va).toLowerCase(), sb = String(vb).toLowerCase();
       return sortConfig.direction === "asc" ? sa.localeCompare(sb) : sb.localeCompare(sa);
     });
-  }, [filteredData, sortConfig]);
+  }, [filteredData, sortConfig, serverSidePagination]);
 
-  const totalPages = pageSize === "All" ? 1 : Math.max(1, Math.ceil(filteredData.length / (pageSize as number)));
-  const displayData = !paginated || pageSize === "All"
+  const totalRecords = serverSidePagination && typeof totalItems === "number"
+    ? totalItems
+    : filteredData.length;
+  const totalPages = pageSize === "All" ? 1 : Math.max(1, Math.ceil(totalRecords / (pageSize as number)));
+  const displayData = serverSidePagination || !paginated || pageSize === "All"
     ? sortedData
     : sortedData.slice((currentPage - 1) * (pageSize as number), currentPage * (pageSize as number));
 
@@ -552,10 +565,10 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
               />
             </div>
             <div className="dt-result-count">
-              <span className="dt-result-count__num">{filteredData.length.toLocaleString()}</span>
-              <span>{filteredData.length === 1 ? "item" : "items"}</span>
-              {search && <span className="dt-muted">· filtered from {processedData.length.toLocaleString()}</span>}
-              {totalItems !== undefined && !search && (
+              <span className="dt-result-count__num">{totalRecords.toLocaleString()}</span>
+              <span>{totalRecords === 1 ? "item" : "items"}</span>
+              {search && !serverSidePagination && <span className="dt-muted">� filtered from {processedData.length.toLocaleString()}</span>}
+              {totalItems !== undefined && !search && !serverSidePagination && (
                 <span className="dt-muted">· {totalItems.toLocaleString()} total</span>
               )}
             </div>
@@ -581,10 +594,17 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                 currentPage={currentPage}
                 totalPages={totalPages}
                 pageSize={pageSize}
-                totalRecords={filteredData.length}
+                totalRecords={totalRecords}
                 setCurrentPage={onPageChange}
-                setPageSize={(s: any) => { setPageSize(s); onPageSizeChange?.(s as number); }}
-                showPageSizeDropdown={true}
+                setPageSize={(s: any) => {
+                  if (serverSidePagination) {
+                    setPageSize(pageSizeProp);
+                    return;
+                  }
+                  setPageSize(s);
+                  onPageSizeChange?.(s as number);
+                }}
+                showPageSizeDropdown={!serverSidePagination}
                 pageLabel="Page:"
               />
             </div>
@@ -600,7 +620,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
               <tr>
                 {visibleColumns.map((column) => {
                   const isSorted = sortConfig.key === column.key;
-                  const sortable = column.key !== "checkbox" && column.sortable !== false;
+                  const sortable = !serverSidePagination && column.key !== "checkbox" && column.sortable !== false;
                   return (
                     <th
                       key={column.key}
@@ -700,16 +720,23 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         </div>
 
         {/* Bottom pagination */}
-        {paginated && filteredData.length > 0 && (
+        {paginated && totalRecords > 0 && (
           <div className="dt-pagination-bottom">
             <PaginationControls
               currentPage={currentPage}
               totalPages={totalPages}
               pageSize={pageSize}
-              totalRecords={filteredData.length}
+              totalRecords={totalRecords}
               setCurrentPage={onPageChange}
-              setPageSize={(s: any) => { setPageSize(s); onPageSizeChange?.(s as number); }}
-              showPageSizeDropdown={true}
+              setPageSize={(s: any) => {
+                if (serverSidePagination) {
+                  setPageSize(pageSizeProp);
+                  return;
+                }
+                setPageSize(s);
+                onPageSizeChange?.(s as number);
+              }}
+              showPageSizeDropdown={!serverSidePagination}
               pageLabel="Page:"
             />
           </div>

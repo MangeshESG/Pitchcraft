@@ -632,6 +632,12 @@ body {
   color: #1e293b;
 }
 
+.md-control-clear {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 1px;
+}
+
 .md-refresh-btn {
   display: flex;
   align-items: center;
