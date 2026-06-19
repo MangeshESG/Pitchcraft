@@ -2256,14 +2256,14 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           <div className="md-control-group">
             <label className="md-label">Start date</label>
             <input type="date" value={startDate} onChange={(e) => handleDateChange("start", e.target.value)}
-              max={endDate || undefined} className="md-date-input" />
+              max={endDate || undefined} className={`md-date-input${!startDate ? " md-date-input--empty" : ""}`} placeholder="" />
           </div>
 
           {/* End date */}
           <div className="md-control-group">
             <label className="md-label">End date</label>
             <input type="date" value={endDate} onChange={(e) => handleDateChange("end", e.target.value)}
-              min={startDate || undefined} className="md-date-input" />
+              min={startDate || undefined} className={`md-date-input${!endDate ? " md-date-input--empty" : ""}`} placeholder="" />
           </div>
 
           {(startDate || endDate) && (

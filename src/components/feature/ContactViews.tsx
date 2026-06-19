@@ -1622,23 +1622,6 @@ const handleDeleteContacts = async () => {
     setEditFiltersSeed(view.filtersJson || "");
   };
 
-  const openEditPanel = async (view: ViewItem) => {
-    setViewActionsAnchor(null);
-    hydrateEditPanel(view);
-    //setIsEditPanelOpen(true);
-    setIsLoadingEditViewDetails(true);
-
-    try {
-      const fresh = await fetchViewForEdit(view);
-      setViews((prev) =>
-        prev.map((item) => (item.id === fresh.id ? fresh : item))
-      );
-      setSelectedView((prev) => (prev?.id === fresh.id ? fresh : prev));
-    } catch (error) {
-      console.warn("Could not refresh view on open:", error);
-    }
-  };
-
   // Opening "Edit" from the list now opens the view detail with the inline
   // editor expanded (the side panel has been replaced by the inline editor).
   const openEditPanel = (view: ViewItem) => {
