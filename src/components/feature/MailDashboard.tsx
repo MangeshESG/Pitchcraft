@@ -25,7 +25,7 @@ import ContactsTable from "./ContactsTable";
 import API_BASE_URL from "../../config";
 import { useAppData } from "../../contexts/AppDataContext";
 import { Tooltip as ReactTooltip } from "react-tooltip";
-import ContactDetailView from "./contacts/ContactDetailView";
+import ContactDetailView from "./contact_profile/ContactDetailView";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";

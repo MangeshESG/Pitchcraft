@@ -22,7 +22,7 @@ import {
   faDownload,
 } from "@fortawesome/free-solid-svg-icons";
 import { faEdit, faTrashAlt, faSquarePlus } from "@fortawesome/free-regular-svg-icons";
-import EditContactModal from "../EditContactModal";
+import EditContactModal from "./EditContactModal";
 import { useAppModal } from "../../../hooks/useAppModal";
 import pitchLogo from "../../../assets/images/pitch_logo.png";
 import "react-quill/dist/quill.snow.css";
