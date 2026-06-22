@@ -1042,7 +1042,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               setTemplateActionsAnchor={setTemplateActionsAnchor}
               onView={handleViewCampaignTemplate}
               onEdit={handleRowEdit}
-              onEditModel={handleRowEditModel}
+              onEditModel={isAdmin ? handleRowEditModel : undefined}
               onRename={handleRowRename}
               onClone={handleRowClone}
               onDelete={handleRowDelete}

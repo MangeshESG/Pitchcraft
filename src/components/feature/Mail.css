@@ -601,6 +601,8 @@ body {
 }
 
 .md-date-input {
+  width: 145px;
+  box-sizing: border-box;
   padding: 8px 12px;
   border: 1.5px solid #e2e8f0;
   border-radius: 8px;
@@ -608,11 +610,35 @@ body {
   color: #1e293b;
   background: #fff;
   outline: none;
-  transition: border-color 0.18s;
+  transition: width 0.18s, border-color 0.18s;
 }
 .md-date-input:hover,
 .md-date-input:focus {
   border-color: #3f9f42;
+}
+
+.md-date-input--empty {
+  width: 44px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.md-date-input--empty::-webkit-datetime-edit,
+.md-date-input--empty::-webkit-datetime-edit-fields-wrapper,
+.md-date-input--empty::-webkit-datetime-edit-text,
+.md-date-input--empty::-webkit-datetime-edit-day-field,
+.md-date-input--empty::-webkit-datetime-edit-month-field,
+.md-date-input--empty::-webkit-datetime-edit-year-field {
+  color: transparent;
+}
+
+.md-date-input--empty:focus::-webkit-datetime-edit,
+.md-date-input--empty:focus::-webkit-datetime-edit-fields-wrapper,
+.md-date-input--empty:focus::-webkit-datetime-edit-text,
+.md-date-input--empty:focus::-webkit-datetime-edit-day-field,
+.md-date-input--empty:focus::-webkit-datetime-edit-month-field,
+.md-date-input--empty:focus::-webkit-datetime-edit-year-field {
+  color: transparent;
 }
 
 .md-clear-btn {
@@ -630,6 +656,12 @@ body {
 .md-clear-btn:hover {
   background: #e2e8f0;
   color: #1e293b;
+}
+
+.md-control-clear {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 1px;
 }
 
 .md-refresh-btn {

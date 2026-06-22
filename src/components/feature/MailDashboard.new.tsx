@@ -76,6 +76,7 @@ export const MailDashboardCampaignSelectState: React.FC<{
                 className={`mde-select${!selectedCampaign ? " mde-select--error" : ""}`}
               >
                 <option value="">Select a campaign</option>
+                <option value="all">All campaigns</option>
                 {Array.isArray(availableCampaigns) &&
                   availableCampaigns.map((c) => (
                     <option key={c.id} value={c.id}>

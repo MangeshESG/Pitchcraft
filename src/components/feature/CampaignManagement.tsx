@@ -892,7 +892,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               <div className="bp-rows">
                 <div
                   className="bp-rows__head"
-                  style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 145px 130px 110px" }}
+                  style={{ gridTemplateColumns: "14px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 145px 130px 110px" }}
                 >
                   <div />
                   <div className="bp-th" onClick={() => handleListSort("campaignName")}>
@@ -919,7 +919,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                     <div
                       key={campaign.id}
                       className="bp-row"
-                      style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 145px 130px 110px" }}
+                      style={{ gridTemplateColumns: "14px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 145px 130px 110px" }}
                     >
                       <div className="bp-row__rail" />
                       <div className="bp-row__name">
@@ -970,7 +970,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                           <span>{getDataSourceName(campaign)}</span>
                         )}
                       </div>
-                      <div className="bp-row__id">{campaign.description || "-"}</div>
+                      <div className="bp-row__id campaign-description-cell">{campaign.description || "-"}</div>
                       <div className="bp-row__date">{formatDate(getCampaignCreatedAt(campaign))}</div>
                       <div className="bp-row__id campaign-analytics-cell">
                         <button
@@ -1064,7 +1064,11 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         }
         .campaign-bp-page .bp-row,
         .campaign-bp-page .bp-rows__head {
-          grid-template-columns: 14px 1.2fr 1fr 1fr 1.2fr 145px 130px 110px;
+          grid-template-columns: 14px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 145px 130px 110px;
+        }
+        .campaign-bp-page .bp-row > *,
+        .campaign-bp-page .bp-rows__head > * {
+          min-width: 0;
         }
         .campaign-bp-page .bp-row__link {
           border: 0;
@@ -1072,6 +1076,25 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
           padding: 0;
           text-align: left;
           font-family: inherit;
+          max-width: 100%;
+          min-width: 0;
+        }
+        .campaign-bp-page .bp-row__name,
+        .campaign-bp-page .bp-row__id,
+        .campaign-bp-page .bp-row__date {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .campaign-bp-page .bp-row__id .bp-row__link {
+          display: inline-block;
+          vertical-align: middle;
+        }
+        .campaign-bp-page .campaign-description-cell {
+          white-space: normal;
+          overflow-wrap: anywhere;
+          line-height: 1.45;
         }
         .campaign-bp-page .bp-row__actions {
           overflow: visible;
