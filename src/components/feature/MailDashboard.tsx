@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { MailDashboardEmptyState, MailDashboardCampaignSelectState } from "./MailDashboard.new";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
 import DynamicContactsTable from "./DynamicContactsTable";
@@ -11,6 +10,9 @@ import BulkUpdatePanel from "./BulkUpdatePanel";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
+import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import mailDashboardNewUserImage from "../../assets/images/mail_dashboard_old_user.png";
+import mailDashboardSelectImage from "../../assets/images/mail_dashboard_new_user.png";
 
 import {
   AreaChart,
@@ -80,6 +82,19 @@ interface Campaign {
   dataSource: "DataFile" | "Segment";
 }
 
+interface SenderOption {
+  id: number;
+  Id?: number;
+  username?: string;
+  Username?: string;
+  email?: string;
+  Email?: string;
+  type?: string;
+  Type?: string;
+  smtpType?: string;
+  SmtpType?: string;
+}
+
 interface MailDashboardProps {
   effectiveUserId: string | null;
   token: string | null;
@@ -94,6 +109,216 @@ interface MailDashboardProps {
   };
   onDataChange?: (data: any) => void;
 }
+
+interface CampaignSelectProps {
+  availableCampaigns?: Campaign[];
+  selectedCampaign?: string;
+  onChange: (campaignId: string) => void | Promise<void>;
+  campaignEmailCounts?: Record<string, number>;
+  getCampaignLabel: (campaign: Campaign) => string;
+  variant?: "default" | "empty";
+}
+
+const CampaignSelect: React.FC<CampaignSelectProps> = ({
+  availableCampaigns,
+  selectedCampaign = "",
+  onChange,
+  campaignEmailCounts = {},
+  getCampaignLabel,
+  variant = "default",
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const getCampaignCount = (campaignId: string) => {
+    if (campaignId === ALL_CAMPAIGNS_VALUE) {
+      return Object.values(campaignEmailCounts).reduce((sum, count) => sum + count, 0);
+    }
+
+    return campaignEmailCounts[campaignId] ?? 0;
+  };
+
+  const options = [
+    { value: ALL_CAMPAIGNS_VALUE, label: "All campaigns", count: getCampaignCount(ALL_CAMPAIGNS_VALUE) },
+    ...(availableCampaigns ?? []).map((campaign) => ({
+      value: campaign.id.toString(),
+      label: getCampaignLabel(campaign),
+      count: getCampaignCount(campaign.id.toString()),
+    })),
+  ];
+
+  const selectedOption = options.find((option) => option.value === selectedCampaign);
+
+  const handleSelect = async (campaignId: string) => {
+    setIsOpen(false);
+    await onChange(campaignId);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={`md-campaign-select${variant === "empty" ? " md-campaign-select--empty" : ""}`}
+    >
+      <button
+        type="button"
+        className={`md-campaign-select__trigger${!selectedCampaign ? " md-campaign-select__trigger--error" : ""}`}
+        onClick={() => setIsOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <span className={`md-campaign-select__value${!selectedOption ? " md-campaign-select__value--placeholder" : ""}`}>
+          {selectedOption ? (
+            <>
+              <span>{selectedOption.label}</span>
+              <span className="md-campaign-select__count">({selectedOption.count.toLocaleString()})</span>
+            </>
+          ) : (
+            <span>Select a campaign</span>
+          )}
+        </span>
+        <span className={`md-campaign-select__chevron${isOpen ? " md-campaign-select__chevron--open" : ""}`}>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M5 7.5 10 12.5 15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="md-campaign-select__menu" role="listbox">
+          <button
+            type="button"
+            className="md-campaign-select__option md-campaign-select__option--placeholder"
+            onClick={() => handleSelect("")}
+          >
+            <span>Select a campaign</span>
+          </button>
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`md-campaign-select__option${selectedCampaign === option.value ? " md-campaign-select__option--active" : ""}`}
+              onClick={() => handleSelect(option.value)}
+            >
+              <span>{option.label}</span>
+              <span className="md-campaign-select__count">({option.count.toLocaleString()})</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const MailDashboardEmptyState: React.FC<{
+  onGoToCampaigns?: () => void;
+}> = ({ onGoToCampaigns }) => {
+  return (
+    <div className="mde-empty-wrap">
+      <div className="mde-empty-hero">
+        <div className="mde-empty-hero__bg" />
+        <div className="mde-empty-hero__content">
+          <div className="mde-empty-hero__copy">
+            <span className="mde-start-pill">Stats dashboard</span>
+            <div className="mde-empty-headline">Your outreach stats will appear here.</div>
+            <p className="mde-empty-body-text">
+              Once you send emails through a campaign, this dashboard starts tracking
+              sent emails, opens, clicks, and delivery performance in real time.
+            </p>
+            <div className="mde-empty-actions">
+              <button className="mde-btn-primary" onClick={onGoToCampaigns}>
+                <FontAwesomeIcon icon={faPlus} />
+                Create your first campaign
+              </button>
+            </div>
+            <div className="mde-empty-meta">
+              Stats update automatically after each send. No setup needed.
+            </div>
+          </div>
+          <div className="mde-empty-hero__art">
+            <img
+              src={mailDashboardNewUserImage}
+              alt=""
+              style={{ width: 430, height: "auto", maxWidth: "100%" }}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MailDashboardCampaignSelectState: React.FC<{
+  availableCampaigns?: Campaign[];
+  selectedCampaign?: string;
+  handleCampaignChange: (campaignId: string) => void | Promise<void>;
+  campaignEmailCounts?: Record<string, number>;
+  getCampaignLabel: (campaign: Campaign) => string;
+}> = ({
+  availableCampaigns,
+  selectedCampaign,
+  handleCampaignChange,
+  campaignEmailCounts = {},
+  getCampaignLabel,
+}) => {
+  return (
+    <div className="mde-empty-wrap">
+      <div className="mde-empty-hero">
+        <div className="mde-empty-hero__bg" />
+        <div className="mde-empty-hero__content">
+          <div className="mde-empty-hero__copy">
+            <span className="mde-start-pill">Stats dashboard</span>
+            <div className="mde-empty-headline">Select a campaign to view analytics</div>
+            <p className="mde-empty-body-text">
+              Choose a campaign and date range above to see sent, opens, clicks, and
+              other performance insights.
+            </p>
+            <div className="mde-empty-actions">
+              <div className="mde-empty-campaign-select">
+                <label className="mde-select-label">
+                  Campaign <span className="mde-required">*</span>
+                </label>
+                <CampaignSelect
+                  availableCampaigns={availableCampaigns}
+                  selectedCampaign={selectedCampaign}
+                  onChange={handleCampaignChange}
+                  campaignEmailCounts={campaignEmailCounts}
+                  getCampaignLabel={getCampaignLabel}
+                  variant="empty"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="mde-empty-hero__art">
+            <img
+              src={mailDashboardSelectImage}
+              alt=""
+              style={{ width: 430, height: "auto", maxWidth: "100%" }}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const ALL_CAMPAIGNS_VALUE = "all";
 const DETAIL_PAGE_SIZE = 10;
@@ -192,6 +417,9 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   // All useState hooks - Changed selectedView to selectedCampaign
   const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([]);
+  const [senderOptions, setSenderOptions] = useState<SenderOption[]>([]);
+  const [selectedSender, setSelectedSender] = useState("");
+  const [campaignEmailCounts, setCampaignEmailCounts] = useState<Record<string, number>>({});
   const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [dashboardTab, setDashboardTab] = useState("Overview");
   const [startDate, setStartDate] = useState("");
@@ -349,8 +577,9 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const getDashboardCacheKey = (
     campaignId: string,
     fromDate = startDate,
-    toDate = endDate
-  ) => `${campaignId || "none"}|${fromDate || "none"}|${toDate || "none"}`;
+    toDate = endDate,
+    senderId = selectedSender
+  ) => `${campaignId || "none"}|${fromDate || "none"}|${toDate || "none"}|${senderId || "all-senders"}`;
 
   const appModal = useAppModal();
 
@@ -403,6 +632,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             dashboardTab: "Overview",
             startDate,
             endDate,
+            selectedSender,
             emailFilterType,
             effectiveUserId,
           });
@@ -436,6 +666,9 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         }
         if (savedState.endDate && savedState.endDate !== endDate) {
           setEndDate(savedState.endDate);
+        }
+        if (savedState.selectedSender && savedState.selectedSender !== selectedSender) {
+          setSelectedSender(savedState.selectedSender);
         }
         if (
           savedState.emailFilterType &&
@@ -500,6 +733,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       dashboardTab: "Overview",
       startDate,
       endDate,
+      selectedSender,
       emailFilterType,
       effectiveUserId,
     });
@@ -528,6 +762,64 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
     loadAvailableCampaigns();
   }, [effectiveUserId, token, isVisible]);
+
+  useEffect(() => {
+    if (!effectiveUserId || !isVisible) return;
+
+    const fetchSenders = async () => {
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/email/get-Outboxs`,
+          {
+            params: { clientId: effectiveUserId },
+            headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+          }
+        );
+        setSenderOptions(asArray<SenderOption>(response.data?.data || response.data));
+      } catch (error) {
+        console.error("Dashboard: Error loading senders:", error);
+        setSenderOptions([]);
+      }
+    };
+
+    fetchSenders();
+  }, [effectiveUserId, token, isVisible]);
+
+  useEffect(() => {
+    if (!effectiveUserId || !isVisible || !campaignsLoaded) return;
+
+    const fetchCampaignEmailCounts = async () => {
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/Crm/campaign-email-counts`,
+          {
+            params: {
+              clientId: Number(effectiveUserId),
+              ...(startDate ? { startDate } : {}),
+              ...(endDate ? { endDate } : {}),
+              ...(selectedSender ? { outboxId: Number(selectedSender) } : {}),
+            },
+            headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+          }
+        );
+
+        const counts = asArray<{ campaignId?: number; sentCount?: number }>(response.data)
+          .reduce<Record<string, number>>((acc, item) => {
+            if (item.campaignId !== undefined && item.campaignId !== null) {
+              acc[item.campaignId.toString()] = Number(item.sentCount ?? 0);
+            }
+            return acc;
+          }, {});
+
+        setCampaignEmailCounts(counts);
+      } catch (error) {
+        console.error("Dashboard: Error loading campaign email counts:", error);
+        setCampaignEmailCounts({});
+      }
+    };
+
+    fetchCampaignEmailCounts();
+  }, [effectiveUserId, token, isVisible, campaignsLoaded, startDate, endDate, selectedSender]);
 
   // 3. Fetch data when selectedCampaign changes
   useEffect(() => {
@@ -587,6 +879,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     availableCampaigns,
     startDate,
     endDate,
+    selectedSender,
   ]);
 
 
@@ -616,12 +909,17 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               ? undefined
               : Number(selectedCampaign);
           const clientId = Number(effectiveUserId);
+          const outboxId = selectedSender ? Number(selectedSender) : undefined;
 
           const logs = await fetchEmailLogs(
             clientId,
             campaignIdNumber,
             startDate,
-            endDate
+            endDate,
+            undefined,
+            undefined,
+            undefined,
+            outboxId
           );
 
           setEmailLogs(asArray<EmailLog>(logs));
@@ -665,6 +963,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                 startDate,
                 endDate,
                 clientId: Number(effectiveUserId),
+                ...(selectedSender ? { outboxId: Number(selectedSender) } : {}),
                 ...(dataFileId ? { dataFileId } : {}),
                 campaignId: campaignIdNumber, // ✅ ONLY campaignId
               },
@@ -718,6 +1017,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   endDate,
   availableCampaigns,
   dashboardTab,
+  selectedSender,
 ]);
 
   useEffect(() => {
@@ -727,7 +1027,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     setDetailSelectedContacts(new Set());
     setSelectedEmailLogs(new Set());
     setSelectedMissingLogs(new Set());
-  }, [selectedCampaign, emailFilterType, startDate, endDate, excludeBots]);
+  }, [selectedCampaign, emailFilterType, startDate, endDate, selectedSender, excludeBots]);
 
   useEffect(() => {
     if (emailFilterType === "email-logs") {
@@ -754,6 +1054,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     dashboardTab,
     effectiveUserId,
     selectedCampaign,
+    selectedSender,
     emailFilterType,
     currentPage,
     emailLogsCurrentPage,
@@ -834,6 +1135,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     dashboardTab,
     startDate,
     endDate,
+    selectedSender,
     emailFilterType,
   ]);
 
@@ -854,6 +1156,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       dashboardTab,
       startDate,
       endDate,
+      selectedSender,
       emailFilterType,
       effectiveUserId,
     };
@@ -883,7 +1186,8 @@ const fetchEmailLogs = async (
   toDate?: string,
   pageNumber?: number,
   pageSize?: number,
-  search?: string
+  search?: string,
+  outboxId?: number
 ) => {
   try {
     const url = new URL(`${API_BASE_URL}/api/Crm/getlogs`);
@@ -895,6 +1199,7 @@ const fetchEmailLogs = async (
     if (pageNumber) url.searchParams.set("pageNumber", pageNumber.toString());
     if (pageSize) url.searchParams.set("pageSize", pageSize.toString());
     if (search) url.searchParams.set("search", search);
+    if (outboxId) url.searchParams.set("outboxId", outboxId.toString());
 
     const response = await fetch(url.toString());
 
@@ -930,6 +1235,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       const clientId = Number(effectiveUserId);
       const campaignIdNumber =
         campaignId === ALL_CAMPAIGNS_VALUE ? undefined : Number(campaignId);
+      const outboxId = selectedSender ? Number(selectedSender) : undefined;
 
       let allTrackingData: EventItem[] = [];
       let allEmailLogsData: any[] = [];
@@ -941,6 +1247,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           params: {
             clientId,
             ...(campaignIdNumber ? { campaignId: campaignIdNumber } : {}),
+            ...(outboxId ? { outboxId } : {}),
             ...(startDate ? { startDate } : {}),
             ...(endDate ? { endDate } : {}),
           },
@@ -955,7 +1262,11 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         clientId,
         campaignIdNumber,
         startDate,
-        endDate
+        endDate,
+        undefined,
+        undefined,
+        undefined,
+        outboxId
       ));
 
       // ✅ SET STATE
@@ -1036,6 +1347,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           : Number(selectedCampaign);
       const pageNumber = getCurrentDetailPage();
       const search = getCurrentDetailSearch().trim();
+      const outboxId = selectedSender ? Number(selectedSender) : undefined;
 
       if (emailFilterType === "email-logs") {
         const responseData = await fetchEmailLogs(
@@ -1045,7 +1357,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           endDate,
           pageNumber,
           DETAIL_PAGE_SIZE,
-          search || undefined
+          search || undefined,
+          outboxId
         );
         const items = asArray<EmailLog>(responseData);
         const meta = getPagedResponseMeta(responseData, items.length);
@@ -1075,6 +1388,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             pageNumber,
             pageSize: DETAIL_PAGE_SIZE,
             ...(search ? { search } : {}),
+            ...(outboxId ? { outboxId } : {}),
             ...(dataFileId ? { dataFileId } : {}),
             ...(campaignIdNumber ? { campaignId: campaignIdNumber } : {}),
           },
@@ -1114,6 +1428,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           ...(search ? { search } : {}),
           ...(startDate ? { startDate } : {}),
           ...(endDate ? { endDate } : {}),
+          ...(outboxId ? { outboxId } : {}),
           ...(campaignIdNumber ? { campaignId: campaignIdNumber } : {}),
         },
         headers: { ...(token && { Authorization: `Bearer ${token}` }) },
@@ -1265,10 +1580,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   };
 
   // Event Handlers - Updated for campaigns
-  const handleCampaignChange = async (
-    e: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    const newCampaignId = e.target.value;
+  const selectCampaign = async (newCampaignId: string) => {
     const previousCampaign = selectedCampaign;
 
     console.log(
@@ -1298,6 +1610,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         dashboardTab,
         startDate,
         endDate,
+        selectedSender,
         emailFilterType,
         effectiveUserId,
       };
@@ -1320,6 +1633,10 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     }
   };
 
+  const handleCampaignValueChange = async (campaignId: string) => {
+    await selectCampaign(campaignId);
+  };
+
   const handleDashboardTabChange = (tabName: string) => {
     setDashboardTab(tabName);
     saveCurrentState();
@@ -1332,6 +1649,30 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       setEndDate(value);
     }
     saveCurrentState();
+  };
+
+  const handleSenderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSenderId = e.target.value;
+    setSelectedSender(newSenderId);
+    setDataFetchedForCampaign("");
+    setCurrentPage(1);
+    setEmailLogsCurrentPage(1);
+    setMissingLogsCurrentPage(1);
+    setDetailSelectedContacts(new Set());
+    setSelectedEmailLogs(new Set());
+    setSelectedMissingLogs(new Set());
+
+    if (selectedCampaign) {
+      saveFormState(FORM_STATE_KEY, {
+        selectedCampaign,
+        dashboardTab,
+        startDate,
+        endDate,
+        selectedSender: newSenderId,
+        emailFilterType,
+        effectiveUserId,
+      });
+    }
   };
 
   const handleEmailFilterTypeChange = (filterType: string) => {
@@ -2185,6 +2526,15 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       : `https://${cleanUrl}`;
   };
 
+  const getCampaignLabel = (campaign: Campaign) =>
+    `${campaign.campaignName}${campaign.dataSource === "Segment" && campaign.segmentName ? ` (${campaign.segmentName})` : ""}`;
+
+  const getCampaignSentCount = (campaignId: string) => {
+    if (campaignId === ALL_CAMPAIGNS_VALUE) {
+      return Object.values(campaignEmailCounts).reduce((sum, count) => sum + count, 0);
+    }
+    return campaignEmailCounts[campaignId] ?? 0;
+  };
 
   const handleRefresh = async () => {
     if (!selectedCampaign) return;
@@ -2237,18 +2587,34 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           {/* Campaign — grows to fill available space */}
           <div className="md-control-campaign">
             <label className="md-label">Campaign <span className="md-required">*</span></label>
+            <CampaignSelect
+              availableCampaigns={availableCampaigns}
+              selectedCampaign={selectedCampaign}
+              onChange={handleCampaignValueChange}
+              campaignEmailCounts={campaignEmailCounts}
+              getCampaignLabel={getCampaignLabel}
+            />
+          </div>
+
+          <div className="md-control-group">
+            <label className="md-label">Sender</label>
             <select
-              value={selectedCampaign}
-              onChange={handleCampaignChange}
-              className={`md-select${!selectedCampaign ? " md-select--error" : ""}`}
+              value={selectedSender}
+              onChange={handleSenderChange}
+              className="md-select"
             >
-              <option value="">Select a campaign</option>
-              <option value={ALL_CAMPAIGNS_VALUE}>All campaigns</option>
-              {availableCampaigns.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.campaignName}{c.dataSource === "Segment" && c.segmentName ? ` (${c.segmentName})` : ""}
-                </option>
-              ))}
+              <option value="">All senders</option>
+              {senderOptions.map((sender) => {
+                const senderId = sender.id ?? sender.Id;
+                const senderEmail = sender.email || sender.Email || sender.username || sender.Username || "";
+                const senderType = sender.type || sender.Type || sender.smtpType || sender.SmtpType || "";
+                if (!senderId) return null;
+                return (
+                  <option key={`${senderType}-${senderId}`} value={senderId}>
+                    {senderEmail}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -2393,7 +2759,9 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           <MailDashboardCampaignSelectState
             availableCampaigns={availableCampaigns}
             selectedCampaign={selectedCampaign}
-            handleCampaignChange={handleCampaignChange}
+            handleCampaignChange={handleCampaignValueChange}
+            campaignEmailCounts={campaignEmailCounts}
+            getCampaignLabel={getCampaignLabel}
           />
         ) : (
           /* ─── Populated state ─── */
