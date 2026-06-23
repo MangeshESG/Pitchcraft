@@ -64,6 +64,7 @@ interface Contact {
   notes?: string;
   contactCreatedAt?: string;
   linkedIninformation?: string;
+  web_search_data?: string | null;
 }
 
 interface ContactDetailViewProps {
@@ -431,6 +432,11 @@ const isSaveDisabled =
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isBlueprintLoading, setIsBlueprintLoading] = useState(false);
 
+  // Campaign-driven web-search insights generation (mirrors MainPage flow)
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("");
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+
 const reduxUserId = useSelector((state: RootState) => state.auth.userId);
 
 const effectiveUserId = useMemo(() => {
@@ -455,6 +461,146 @@ useEffect(() => {
   );
   console.log("Effective Client:", effectiveUserId);
 }, [reduxUserId, effectiveUserId, searchParams]);
+
+// Load the client's campaigns for the "Generate insights" dropdown.
+useEffect(() => {
+  if (!effectiveUserId || effectiveUserId <= 0) {
+    setCampaigns([]);
+    return;
+  }
+  const fetchCampaigns = async () => {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`,
+      );
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      setCampaigns(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error fetching campaigns:", err);
+      setCampaigns([]);
+    }
+  };
+  fetchCampaigns();
+}, [effectiveUserId]);
+
+// Literal {placeholder} substitution (same approach as MainPage).
+const fillPlaceholders = (text: string, replacements: Record<string, any>) => {
+  if (!text) return "";
+  let result = text;
+  Object.entries(replacements).forEach(([key, value]) => {
+    result = result.split(`{${key}}`).join(value ?? "");
+  });
+  return result;
+};
+
+// Map the current contact's details onto the placeholder keys blueprints use.
+const buildContactReplacements = (c: any): Record<string, any> => ({
+  company_name: c?.company_name || c?.company || "",
+  company_name_friendly: c?.company_name_friendly || c?.company_name || c?.company || "",
+  job_title: c?.job_title || c?.title || "",
+  location: c?.country_or_address || c?.location || "",
+  full_name:
+    c?.full_name ||
+    [c?.first_name, c?.last_name].filter(Boolean).join(" ") ||
+    c?.name ||
+    "",
+  first_name: c?.first_name || "",
+  last_name: c?.last_name || "",
+  email: c?.email || "",
+  linkedin_url: c?.linkedin_url || c?.linkedin || "",
+  website: c?.website || "",
+  company_linkedin_url: c?.companyLinkedInURL || "",
+  company_industry: c?.companyIndustry || "",
+  notes: c?.notes || "",
+  date: new Date().toISOString().split("T")[0],
+});
+
+// Resolve the selected campaign → its blueprint's web-search instructions,
+// fill in this contact's details, run the web search, and show the insights.
+const handleGenerateInsights = async () => {
+  if (!selectedCampaign) {
+    appModal.showError("Please select a campaign first.");
+    return;
+  }
+  if (!contactId) {
+    appModal.showError("No contact selected.");
+    return;
+  }
+
+  setIsGeneratingInsights(true);
+  try {
+    // 1. Campaign → templateId (blueprint)
+    const campaignRes = await fetch(
+      `${API_BASE_URL}/api/auth/campaigns/${selectedCampaign}`,
+    );
+    if (!campaignRes.ok) throw new Error("Failed to fetch campaign details");
+    const campaignData = await campaignRes.json();
+    const templateId = campaignData.templateId;
+    if (!templateId) throw new Error("This campaign has no blueprint attached.");
+
+    // 2. Blueprint → web-search instructions + placeholder values
+    const bpRes = await fetch(
+      `${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`,
+    );
+    if (!bpRes.ok) throw new Error("Failed to fetch blueprint");
+    const bpJson = await bpRes.json();
+    const pv = bpJson.placeholderValues || {};
+    const webSearchInstructions =
+      bpJson.webSearchInstructions ||
+      bpJson.WebSearchInstructions ||
+      pv.search_objective ||
+      "";
+
+    // 3. Fill blueprint placeholders with this contact's details
+    const replacements = {
+      ...pv,
+      // alias: templates may use {hook} while blueprints store hook_search_terms
+      hook: pv.hook || pv.hook_search_terms || "",
+      ...buildContactReplacements(contact),
+    };
+    const filledInstructions = fillPlaceholders(webSearchInstructions, replacements);
+
+    if (!filledInstructions.trim()) {
+      throw new Error(
+        "The selected campaign's blueprint has no web-search instructions.",
+      );
+    }
+
+    // 4. Run the web search (backend also persists it against the contact)
+    const wsRes = await fetch(`${API_BASE_URL}/api/auth/websearch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instructions: filledInstructions,
+        contactId: Number(contactId),
+      }),
+    });
+    const wsData = await wsRes.json();
+    if (!wsRes.ok) {
+      throw new Error(wsData?.message || wsData?.Message || "Web search failed");
+    }
+
+    const webSearchData =
+      wsData?.webSearchData || wsData?.WebSearchData || wsData?.summary || "";
+
+    // 5. Reflect the fresh insights in the profile + edit views immediately
+    const nowIso = new Date().toISOString();
+    setContact((prev: any) =>
+      prev ? { ...prev, web_search_data: webSearchData, updated_at: nowIso } : prev,
+    );
+    setEditingContact((prev) =>
+      prev ? { ...prev, web_search_data: webSearchData, updated_at: nowIso } : prev,
+    );
+
+    appModal.showSuccess("Insights generated successfully.");
+  } catch (err: any) {
+    console.error("Generate insights failed:", err);
+    appModal.showError(err?.message || "Failed to generate insights.");
+  } finally {
+    setIsGeneratingInsights(false);
+  }
+};
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
@@ -2125,6 +2271,96 @@ dispatch(closePanel());
                     <FontAwesomeIcon icon={faPaperclip} style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
                     Add attachment
                   </button>
+
+                  {/* Campaign-driven web-search insights generation */}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "row-reverse",
+                      alignItems: "center",
+                      gap: 10,
+                      marginLeft: "auto",
+                      padding: "8px 10px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 10,
+                      background: "#ffffff",
+                      boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                    }}
+                  >
+                    <select
+                      value={selectedCampaign}
+                      onChange={(e) => setSelectedCampaign(e.target.value)}
+                      disabled={isGeneratingInsights}
+                      style={{
+                        padding: "8px 12px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: 8,
+                        fontSize: 14,
+                        color: "#374151",
+                        background: "#ffffff",
+                        cursor: isGeneratingInsights ? "not-allowed" : "pointer",
+                        minWidth: 170,
+                      }}
+                    >
+                      <option value="">Select campaign</option>
+                      {[...campaigns]
+                        .map((campaign) => ({
+                          campaign,
+                          label:
+                            (campaign.description || "").trim() ||
+                            campaign.campaignName ||
+                            "",
+                        }))
+                        .sort((a, b) =>
+                          a.label.toLowerCase().localeCompare(b.label.toLowerCase()),
+                        )
+                        .map(({ campaign, label }) => (
+                          <option key={campaign.id} value={campaign.id.toString()}>
+                            {label}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      onClick={handleGenerateInsights}
+                      disabled={isGeneratingInsights || !selectedCampaign}
+                      style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px 16px",
+                        border: "1px solid #3f9f42",
+                        borderRadius: 8,
+                        background: "#3f9f42",
+                        color: "#ffffff",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor:
+                          isGeneratingInsights || !selectedCampaign
+                            ? "not-allowed"
+                            : "pointer",
+                        opacity: isGeneratingInsights || !selectedCampaign ? 0.6 : 1,
+                      }}
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M12 3l1.9 4.9L18.8 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z"
+                          fill="#ffffff"
+                        />
+                        <path
+                          d="M18.5 14.5l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8.8-2.1z"
+                          fill="#ffffff"
+                        />
+                      </svg>
+                      {isGeneratingInsights ? "Generating..." : "Generate insights"}
+                    </button>
+                  </div>
                 </div>
               </div>
 

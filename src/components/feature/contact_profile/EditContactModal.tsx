@@ -60,7 +60,7 @@ interface Contact {
   companyLinkedInURL?: string;
   notes?: string;
   linkedIninformation?: string;
-  web_search_data?: string;
+  web_search_data?: string | null;
   updated_at?: string | null;
   customFields?: Record<string, string>;
 
@@ -402,20 +402,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [openSection, setOpenSection] = useState<"personal" | "company" | "custom" | null>("personal");
   const toggleSection = (section: "personal" | "company" | "custom") =>
     setOpenSection((prev) => (prev === section ? null : section));
-  const [researchTab, setResearchTab] = useState<"outreach" | "findings">("outreach");
-  const [expandedInsightKeys, setExpandedInsightKeys] = useState<Set<string>>(new Set());
-
-  const toggleInsight = (key: string) => {
-    setExpandedInsightKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
+  // "outreach" | "findings" | a dynamic INSIGHT_SECTIONS key (e.g. "recent_news")
+  const [researchTab, setResearchTab] = useState<string>("outreach");
 
   // Parse the contact's web_search_data (JSON string) for the Company > Insights tab.
   const companyInsightsData = React.useMemo<Record<string, any> | null>(() => {
@@ -1609,44 +1597,45 @@ case "boolean":
     </div>
   );
 
-  // Company insights card list shown inside Company > Insights tab
+  // Company > Insights tab (left column) shows ONLY the company overview.
   const availableInsightSections = companyInsightsData
-    ? INSIGHT_SECTIONS.filter((section) => insightHasData(companyInsightsData[section.key]))
+    ? INSIGHT_SECTIONS.filter(
+        (section) =>
+          section.key === "company_overview" &&
+          insightHasData(companyInsightsData[section.key]),
+      )
+    : [];
+
+  // The remaining insight sections (news, search results, hiring signals, etc.)
+  // are surfaced as tabs in the right-column research card instead.
+  const sideInsightSections = companyInsightsData
+    ? INSIGHT_SECTIONS.filter(
+        (section) =>
+          section.key !== "company_overview" &&
+          insightHasData(companyInsightsData[section.key]),
+      )
     : [];
 
   const companyInsightsBlock = (
     <div>
       {availableInsightSections.length > 0 ? (
         <div className="flex flex-col gap-3">
-          {availableInsightSections.map((section) => {
-            const open = expandedInsightKeys.has(section.key);
-            return (
-              <div key={section.key} className="rounded-lg border border-[#e5e7eb] bg-white overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => toggleInsight(section.key)}
-                  className="flex w-full items-center gap-3 p-3 text-left hover:bg-gray-50"
-                >
-                  <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-[#f0fdf4] text-[#3f9f42]">
-                    <FontAwesomeIcon icon={section.icon} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-foreground">{section.title}</span>
-                    <span className="block text-xs text-gray-500">{section.description}</span>
-                  </span>
-                  <FontAwesomeIcon
-                    icon={faAngleRight}
-                    className={`text-gray-400 transition-transform ${open ? "rotate-90" : ""}`}
-                  />
-                </button>
-                {open && (
-                  <div className="border-t border-[#eef2f6] p-4">
-                    {renderInsightValue(companyInsightsData?.[section.key])}
-                  </div>
-                )}
+          {availableInsightSections.map((section) => (
+            <div key={section.key} className="rounded-lg border border-[#e5e7eb] bg-white overflow-hidden">
+              <div className="flex items-center gap-3 p-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-[#f0fdf4] text-[#3f9f42]">
+                  <FontAwesomeIcon icon={section.icon} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-foreground">{section.title}</span>
+                  <span className="block text-xs text-gray-500">{section.description}</span>
+                </span>
               </div>
-            );
-          })}
+              <div className="border-t border-[#eef2f6] p-4">
+                {renderInsightValue(companyInsightsData?.[section.key])}
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <p className="text-sm italic text-gray-400">No company insights available yet.</p>
@@ -1666,12 +1655,16 @@ case "boolean":
           companyInsightsData.events_findings
       )
     : [];
-  const hasResearch = outreachItems.length > 0 || keyFindingItems.length > 0 || eventItems.length > 0;
+  const hasResearch =
+    outreachItems.length > 0 ||
+    keyFindingItems.length > 0 ||
+    eventItems.length > 0 ||
+    sideInsightSections.length > 0;
 
   const researchOpportunitiesBlock = hasResearch ? (
     <div className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
       {/* Tabs */}
-      <div className="flex gap-6 border-b border-gray-200 mb-5">
+      <div className="flex flex-wrap gap-x-6 gap-y-1 border-b border-gray-200 mb-5">
         <button
           type="button"
           onClick={() => setResearchTab("outreach")}
@@ -1694,6 +1687,20 @@ case "boolean":
         >
           Key findings &amp; events
         </button>
+        {sideInsightSections.map((section) => (
+          <button
+            key={section.key}
+            type="button"
+            onClick={() => setResearchTab(section.key)}
+            className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+              researchTab === section.key
+                ? "border-[#3f9f42] text-[#3f9f42]"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {section.title}
+          </button>
+        ))}
       </div>
 
       {/* OUTREACH OPPORTUNITIES TAB */}
@@ -1724,6 +1731,16 @@ case "boolean":
             <p className="text-sm italic text-gray-400">No key findings or events available yet.</p>
           )}
         </div>
+      )}
+
+      {/* MOVED INSIGHT SECTIONS (news, search results, hiring signals, etc.) */}
+      {sideInsightSections.map(
+        (section) =>
+          researchTab === section.key && (
+            <div key={section.key}>
+              {renderInsightValue(companyInsightsData?.[section.key])}
+            </div>
+          ),
       )}
 
       {/* Footer */}
