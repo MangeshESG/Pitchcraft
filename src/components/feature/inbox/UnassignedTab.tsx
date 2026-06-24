@@ -378,6 +378,13 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
   };
 
   const formatEmailBody = (body: string): string => {
+    const containsActualHtml = /<\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(body);
+    const containsEncodedHtml = /&lt;\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(body);
+
+    if (containsActualHtml || !containsEncodedHtml) {
+      return body;
+    }
+
     let formatted = body
       .replace(/&gt;/g, '>')
       .replace(/&lt;/g, '<')

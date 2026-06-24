@@ -1171,14 +1171,22 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const formatEmailBody = (body: string): string => {
-    // Decode HTML entities
+    const containsActualHtml = /<\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(body);
+    const containsEncodedHtml = /&lt;\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(body);
+
+    // If the backend already returned real HTML, keep entities like
+    // &lt;aamir@mail.com&gt; intact so email addresses don't turn into tags.
+    if (containsActualHtml || !containsEncodedHtml) {
+      return body;
+    }
+
     let formatted = body
       .replace(/&gt;/g, '>')
       .replace(/&lt;/g, '<')
       .replace(/&amp;/g, '&')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'");
-    
+
     return formatted;
   };
 
@@ -1227,7 +1235,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const replyTrailSeparator = '<hr style="border:0;border-top:1px solid #d1d5db;margin:16px 0;width:100%;" />';
 
   const buildCollapsedReplyTrail = (formattedTrail: string): string => {
-    return `<details ${replyTrailMarker} style="margin:0;padding:0;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35;text-align:left;"><summary style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;list-style:none;color:#3f9f42;background:#eaf5ea;border:1px solid #cfe7d0;border-radius:999px;font-weight:700;font-size:18px;line-height:1;width:34px;height:22px;padding:0;margin:0 0 10px 0;">...</summary><div>${replyTrailSeparator}${formattedTrail}</div></details>`;
+    return `<details ${replyTrailMarker} style="margin:0;padding:0;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35;text-align:left;"><summary style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;list-style:none;color:#3f9f42;background:#eaf5ea;border:1px solid #cfe7d0;border-radius:999px;font-weight:700;font-size:18px;line-height:1;width:34px;height:22px;padding:0;margin:0 0 10px 0;">...</summary><style>details[data-reply-email-trail][open] > summary{display:none;}</style><div>${replyTrailSeparator}${formattedTrail}</div></details>`;
   };
 
   const replaceReplyDraftContent = (nextDraftHtml: string) => {
@@ -1256,8 +1264,21 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const formatReplyTrailHeader = (headerText: string): string => {
-    // Header text is already decoded, don't escape again
-    const headerRows = headerText
+    // Recursively decode HTML entities until fully decoded
+    const fullyDecode = (text: string): string => {
+      const textarea = document.createElement('textarea');
+      textarea.innerHTML = text;
+      const decoded = textarea.value;
+      // If still contains entities, decode again
+      if (decoded !== text && /&(?:quot|lt|gt|amp);/.test(decoded)) {
+        return fullyDecode(decoded);
+      }
+      return decoded;
+    };
+
+    const decodedHeader = fullyDecode(headerText);
+
+    const headerRows = decodedHeader
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
@@ -1265,10 +1286,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         const match = line.match(/^([^:]+):\s*(.*)$/);
 
         if (!match) {
-          return `<div style="margin:0 0 8px 0;">${line}</div>`;
+          return `<div style="margin:0 0 8px 0;">${escapeHtml(line)}</div>`;
         }
 
-        return `<div style="margin:0 0 8px 0;text-align:left;"><strong style="font-weight:700;">${match[1]}:</strong> <span style="font-weight:400;">${match[2]}</span></div>`;
+        const fieldName = escapeHtml(match[1]);
+        const fieldValue = escapeHtml(match[2]);
+
+        return `<div style="margin:0 0 8px 0;text-align:left;"><strong style="font-weight:700;">${fieldName}:</strong> <span style="font-weight:400;">${fieldValue}</span></div>`;
       })
       .join('');
 
@@ -1276,6 +1300,53 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const formatReplyEmailTrail = (trail: string): string => {
+    const findFirstHtmlTagIndex = (value: string): number => {
+      const htmlTagMatch = value.match(/<\/?[a-z][a-z0-9-]*(?:\s[^<>]*)?>/i);
+      return htmlTagMatch?.index ?? -1;
+    };
+
+    const formatPlainTextAsHtml = (value: string): string =>
+      escapeHtml(value).replace(/\r\n|\r|\n/g, '<br>');
+
+    const stripEmailShellLines = (value: string): string => value
+      .split(/\r\n|\r|\n/)
+      .filter((line) => {
+        const trimmedLine = line.trim();
+
+        if (!trimmedLine) {
+          return true;
+        }
+
+        return !/^<!doctype\b/i.test(trimmedLine)
+          && !/^<\/?(?:html|head|body)\b[^>]*>$/i.test(trimmedLine)
+          && !/^<meta\b[^>]*>$/i.test(trimmedLine)
+          && !/^<link\b[^>]*>$/i.test(trimmedLine)
+          && !/^<base\b[^>]*>$/i.test(trimmedLine)
+          && !/^<style\b[^>]*>[\s\S]*<\/style>$/i.test(trimmedLine)
+          && !/^<\/style>$/i.test(trimmedLine);
+      })
+      .join('\n');
+
+    const stripEmailShellTags = (value: string): string => value
+      .replace(/<!doctype[^>]*>/gi, '')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<head[\s\S]*?<\/head>/gi, '')
+      .replace(/<\/?(?:html|body|head)\b[^>]*>/gi, '')
+      .replace(/<(?:meta|style|link|base)\b[^>]*>([\s\S]*?<\/style>)?/gi, '')
+      .trim();
+
+    const normalizeTrailBodyContent = (value: string): string => {
+      const trimmedValue = stripEmailShellLines(stripEmailShellTags(value)).trim();
+
+      if (!trimmedValue) {
+        return '';
+      }
+
+      return findFirstHtmlTagIndex(trimmedValue) === -1
+        ? formatPlainTextAsHtml(trimmedValue)
+        : trimmedValue;
+    };
+
     // Recursively decode HTML entities until fully decoded
     const decodeHtmlEntities = (html: string): string => {
       const textarea = document.createElement('textarea');
@@ -1289,23 +1360,30 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     };
 
     const decodedTrail = decodeHtmlEntities(trail);
-    
     const htmlStart = decodedTrail.search(/<html[\s>]/i);
     const bodyOpen = decodedTrail.search(/<body[^>]*>/i);
     const bodyClose = decodedTrail.search(/<\/body>/i);
-    const headerText = htmlStart > 0 ? decodedTrail.slice(0, htmlStart).trim() : '';
-    
-    // Get body content - it's already decoded, don't escape it again
+    const firstHtmlTagIndex = findFirstHtmlTagIndex(decodedTrail);
+    const htmlBodyWithoutShell = htmlStart > -1
+      ? stripEmailShellTags(decodedTrail.slice(htmlStart))
+      : '';
+
+    const headerText = htmlStart > 0
+      ? decodedTrail.slice(0, htmlStart).trim()
+      : firstHtmlTagIndex > 0
+        ? decodedTrail.slice(0, firstHtmlTagIndex).trim()
+        : bodyOpen > 0
+          ? decodedTrail.slice(0, bodyOpen).trim()
+          : '';
+
     const bodyContent = bodyOpen !== -1 && bodyClose !== -1 && bodyClose > bodyOpen
-      ? decodedTrail.slice(decodedTrail.indexOf('>', bodyOpen) + 1, bodyClose)
+      ? normalizeTrailBodyContent(decodedTrail.slice(decodedTrail.indexOf('>', bodyOpen) + 1, bodyClose))
       : htmlStart > -1
-        ? decodedTrail
-            .slice(htmlStart)
-            .replace(/<head[\s\S]*?<\/head>/gi, '')
-            .replace(/<\/?html[^>]*>/gi, '')
-            .replace(/<\/?body[^>]*>/gi, '')
-        : decodedTrail.replace(/\r\n|\r|\n/g, '<br>');  // Don't escape, just add line breaks
-    
+        ? normalizeTrailBodyContent(htmlBodyWithoutShell)
+        : firstHtmlTagIndex > -1
+          ? normalizeTrailBodyContent(decodedTrail.slice(firstHtmlTagIndex))
+          : formatPlainTextAsHtml(decodedTrail);
+
     const normalizedBodyContent = bodyContent.replace(/<hr\b[^>]*>/gi, replyTrailSeparator);
     const compiledHeader = headerText ? formatReplyTrailHeader(headerText) : '';
 
