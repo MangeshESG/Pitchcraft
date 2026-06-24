@@ -225,6 +225,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [pinningThreadId, setPinningThreadId] = useState<string | null>(null);
   const [activeActionThreadId, setActiveActionThreadId] = useState<string | null>(null);
   const [pendingDeleteThreadId, setPendingDeleteThreadId] = useState<string | null>(null);
+  const replyTrailMarker = 'data-reply-email-trail="true"';
+  const replyTrailTrackingId = activeTab === 'inbox'
+    ? selectedThread?.trackingId
+    : activeTab === 'sent'
+      ? selectedSentThread?.trackingId
+      : activeTab === 'unassigned'
+        ? selectedUnassignedThread?.trackingId
+        : selectedAllMessagesThread?.trackingId;
 
   useEffect(() => {
     setShowForwardSection(false);
@@ -240,6 +248,56 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     selectedUnassignedThread?.trackingId,
     selectedAllMessagesThread?.trackingId
   ]);
+
+  useEffect(() => {
+    if (!showReplySection || !replyTrailTrackingId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchEmailTrail = async () => {
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/Inbox/email-trail?trackingId=${encodeURIComponent(replyTrailTrackingId)}`,
+          {
+            headers: {
+              accept: '*/*',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+
+        if (!isCancelled) {
+          const emailTrail = response.data?.emailTrail || '';
+          console.log('=== RAW EMAIL TRAIL DATA ===');
+          console.log(emailTrail);
+          console.log('=== END RAW DATA ===');
+          
+          if (emailTrail) {
+            const formattedTrail = formatReplyEmailTrail(emailTrail);
+            console.log('=== FORMATTED EMAIL TRAIL ===');
+            console.log(formattedTrail);
+            console.log('=== END FORMATTED ===');
+            
+            setReplyText((currentReplyText) => {
+              return appendReplyTrail(currentReplyText, formattedTrail);
+            });
+          }
+        }
+      } catch (err: any) {
+        if (!isCancelled) {
+          console.error('Error fetching email trail:', err);
+        }
+      }
+    };
+
+    fetchEmailTrail();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [showReplySection, replyTrailTrackingId, token]);
 
   // Auto-open contact panel when a thread is selected
   useEffect(() => {
@@ -517,8 +575,17 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setSelectedUnassignedEmail(null);
     setSelectedUnassignedThread(null);
     
-    // Start all messages expanded
-    setCollapsedEmails({});
+    // Start with all messages collapsed
+    const collapsed: { [key: string]: boolean } = {};
+    const sortedMessages = [...thread.messages].sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    sortedMessages.forEach((message, index) => {
+      const uniqueKey = `${message.messageId}-${index}`;
+      // Collapse all messages initially
+      collapsed[uniqueKey] = true;
+    });
+    setCollapsedEmails(collapsed);
     
     // Mark thread as read
     if (thread.hasUnread) {
@@ -763,7 +830,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       );
 
       if (response.data.success && response.data.emailBody) {
-        setReplyText(response.data.emailBody);
+        replaceReplyDraftContent(response.data.emailBody);
       } else {
         setError('Failed to generate email');
       }
@@ -776,10 +843,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const sendReplyEmail = (trackingId: string) => {
+    const sendableReplyBody = getSendableReplyBody(replyText);
     const formData = new FormData();
     formData.append('TrackingId', trackingId);
     formData.append('ClientId', String(parseInt(effectiveUserId)));
-    formData.append('ReplyBody', replyText);
+    formData.append('ReplyBody', sendableReplyBody);
     formData.append('Outboxid', String(selectedInboxId || 0));
     formData.append('CC', replyCc);
     formData.append('BCC', replyBcc);
@@ -987,7 +1055,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           type: 'Reply',
           messageId: `temp-${Date.now()}`,
           subject: `Re: ${selectedThread.subject}`,
-          body: replyText,
+          body: getSendableReplyBody(replyText),
           fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
           toEmail: selectedThread.contactEmail,
           date: new Date().toISOString(),
@@ -1112,6 +1180,136 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       .replace(/&#39;/g, "'");
     
     return formatted;
+  };
+
+  const escapeHtml = (value: string): string =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const splitReplyTrail = (html: string): { draftHtml: string; trailHtml: string } => {
+    const markerIndex = html.indexOf(replyTrailMarker);
+
+    if (markerIndex === -1) {
+      return { draftHtml: html, trailHtml: '' };
+    }
+
+    const detailsStart = html.lastIndexOf('<details', markerIndex);
+    const divStart = html.lastIndexOf('<div', markerIndex);
+    const trailTagStart = Math.max(detailsStart, divStart);
+
+    if (trailTagStart === -1) {
+      return { draftHtml: html, trailHtml: '' };
+    }
+
+    const separatorStart = html.lastIndexOf('<br/><br/>', trailTagStart);
+    const trailStart = separatorStart === -1 ? trailTagStart : separatorStart;
+
+    return {
+      draftHtml: html.slice(0, trailStart),
+      trailHtml: html.slice(trailStart),
+    };
+  };
+
+  const appendReplyTrail = (draftHtml: string, formattedTrail: string): string => {
+    const { draftHtml: currentDraftHtml, trailHtml } = splitReplyTrail(draftHtml || '');
+
+    if (trailHtml) {
+      return `${currentDraftHtml}<br/><br/>${buildCollapsedReplyTrail(formattedTrail)}`;
+    }
+
+    return `${currentDraftHtml}<br/><br/>${buildCollapsedReplyTrail(formattedTrail)}`;
+  };
+
+  const replyTrailSeparator = '<hr style="border:0;border-top:1px solid #d1d5db;margin:16px 0;width:100%;" />';
+
+  const buildCollapsedReplyTrail = (formattedTrail: string): string => {
+    return `<details ${replyTrailMarker} style="margin:0;padding:0;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35;text-align:left;"><summary style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;list-style:none;color:#3f9f42;background:#eaf5ea;border:1px solid #cfe7d0;border-radius:999px;font-weight:700;font-size:18px;line-height:1;width:34px;height:22px;padding:0;margin:0 0 10px 0;">...</summary><div>${replyTrailSeparator}${formattedTrail}</div></details>`;
+  };
+
+  const replaceReplyDraftContent = (nextDraftHtml: string) => {
+    setReplyText((currentReplyText) => {
+      const { trailHtml } = splitReplyTrail(currentReplyText);
+      return `${nextDraftHtml || ''}${trailHtml}`;
+    });
+  };
+
+  const getSendableReplyBody = (html: string): string => {
+    if (!html.includes(replyTrailMarker)) {
+      return html;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+
+    wrapper.querySelectorAll('details[data-reply-email-trail]').forEach((details) => {
+      const trailContent = document.createElement('div');
+      trailContent.innerHTML = details.innerHTML;
+      trailContent.querySelector('summary')?.remove();
+      details.replaceWith(...Array.from(trailContent.childNodes));
+    });
+
+    return wrapper.innerHTML;
+  };
+
+  const formatReplyTrailHeader = (headerText: string): string => {
+    // Header text is already decoded, don't escape again
+    const headerRows = headerText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const match = line.match(/^([^:]+):\s*(.*)$/);
+
+        if (!match) {
+          return `<div style="margin:0 0 8px 0;">${line}</div>`;
+        }
+
+        return `<div style="margin:0 0 8px 0;text-align:left;"><strong style="font-weight:700;">${match[1]}:</strong> <span style="font-weight:400;">${match[2]}</span></div>`;
+      })
+      .join('');
+
+    return `<div style="margin:0 0 14px 0;padding:0;background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35;text-align:left;">${headerRows}</div>`;
+  };
+
+  const formatReplyEmailTrail = (trail: string): string => {
+    // Recursively decode HTML entities until fully decoded
+    const decodeHtmlEntities = (html: string): string => {
+      const textarea = document.createElement('textarea');
+      textarea.innerHTML = html;
+      const decoded = textarea.value;
+      // If still contains encoded entities, decode again
+      if (decoded !== html && (decoded.includes('&lt;') || decoded.includes('&gt;') || decoded.includes('&quot;') || decoded.includes('&amp;'))) {
+        return decodeHtmlEntities(decoded);
+      }
+      return decoded;
+    };
+
+    const decodedTrail = decodeHtmlEntities(trail);
+    
+    const htmlStart = decodedTrail.search(/<html[\s>]/i);
+    const bodyOpen = decodedTrail.search(/<body[^>]*>/i);
+    const bodyClose = decodedTrail.search(/<\/body>/i);
+    const headerText = htmlStart > 0 ? decodedTrail.slice(0, htmlStart).trim() : '';
+    
+    // Get body content - it's already decoded, don't escape it again
+    const bodyContent = bodyOpen !== -1 && bodyClose !== -1 && bodyClose > bodyOpen
+      ? decodedTrail.slice(decodedTrail.indexOf('>', bodyOpen) + 1, bodyClose)
+      : htmlStart > -1
+        ? decodedTrail
+            .slice(htmlStart)
+            .replace(/<head[\s\S]*?<\/head>/gi, '')
+            .replace(/<\/?html[^>]*>/gi, '')
+            .replace(/<\/?body[^>]*>/gi, '')
+        : decodedTrail.replace(/\r\n|\r|\n/g, '<br>');  // Don't escape, just add line breaks
+    
+    const normalizedBodyContent = bodyContent.replace(/<hr\b[^>]*>/gi, replyTrailSeparator);
+    const compiledHeader = headerText ? formatReplyTrailHeader(headerText) : '';
+
+    return `${compiledHeader}${normalizedBodyContent}`;
   };
 
   const copyToClipboardHandler = async () => {
@@ -1368,7 +1566,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           contactId: contactId,
           gptGenerate: false,
           emailSubject: null,
-          emailBody: replyText
+          emailBody: getSendableReplyBody(replyText)
         },
         {
           headers: {
@@ -3228,7 +3426,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             );
 
                             if (response.data.success && response.data.emailBody) {
-                              setReplyText(response.data.emailBody);
+                              replaceReplyDraftContent(response.data.emailBody);
                             } else {
                               setError('Failed to generate email');
                             }
@@ -3459,7 +3657,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               type: 'Reply',
                               messageId: `temp-${Date.now()}`,
                               subject: `Re: ${selectedUnassignedThread.subject}`,
-                              body: replyText,
+                              body: getSendableReplyBody(replyText),
                               fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
                               toEmail: selectedUnassignedThread.contactEmail,
                               date: new Date().toISOString(),
@@ -3882,7 +4080,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             );
 
                             if (response.data.success && response.data.emailBody) {
-                              setReplyText(response.data.emailBody);
+                              replaceReplyDraftContent(response.data.emailBody);
                             } else {
                               setError('Failed to generate email');
                             }
@@ -4055,7 +4253,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               type: 'Reply',
                               messageId: `temp-${Date.now()}`,
                               subject: `Re: ${selectedAllMessagesThread.subject}`,
-                              body: replyText,
+                              body: getSendableReplyBody(replyText),
                               fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
                               toEmail: selectedAllMessagesThread.contactEmail,
                               date: new Date().toISOString(),

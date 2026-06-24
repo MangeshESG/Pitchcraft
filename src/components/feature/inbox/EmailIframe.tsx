@@ -23,21 +23,35 @@ interface EmailIframeProps {
  *   Inline styles on the table/td elements are safe to keep.
  */
 function buildEmailDocument(raw: string): string {
+  // Recursively decode HTML entities until fully decoded
+  const decodeHtmlEntities = (html: string): string => {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = html;
+    const decoded = textarea.value;
+    // If still contains encoded entities, decode again
+    if (decoded !== html && (decoded.includes('&lt;') || decoded.includes('&gt;') || decoded.includes('&quot;') || decoded.includes('&amp;'))) {
+      return decodeHtmlEntities(decoded);
+    }
+    return decoded;
+  };
+
+  const decodedRaw = decodeHtmlEntities(raw);
+  
   // Some emails have a malformed tracking fragment prepended before the
   // real DOCTYPE/html/body.  Find the LAST <body ...> tag to get the
   // proper email body.
-  const bodyOpen = raw.search(/<body[^>]*>/i);
-  const bodyClose = raw.search(/<\/body>/i);
+  const bodyOpen = decodedRaw.search(/<body[^>]*>/i);
+  const bodyClose = decodedRaw.search(/<\/body>/i);
 
   let bodyContent: string;
 
   if (bodyOpen !== -1 && bodyClose !== -1 && bodyClose > bodyOpen) {
     // Extract inner content between <body> and </body>
-    const innerStart = raw.indexOf('>', bodyOpen) + 1;
-    bodyContent = raw.slice(innerStart, bodyClose);
+    const innerStart = decodedRaw.indexOf('>', bodyOpen) + 1;
+    bodyContent = decodedRaw.slice(innerStart, bodyClose);
   } else {
     // Fallback: strip all outer HTML scaffolding
-    bodyContent = raw
+    bodyContent = decodedRaw
       .replace(/<head[\s\S]*?<\/head>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<script[\s\S]*?<\/script>/gi, '')
