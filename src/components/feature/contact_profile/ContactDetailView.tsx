@@ -484,6 +484,36 @@ useEffect(() => {
   fetchCampaigns();
 }, [effectiveUserId]);
 
+// IDs of the campaigns this contact already belongs to (from the Lists tab data),
+// so the insights dropdown can list those first.
+const contactCampaignIdSet = useMemo(() => {
+  const ids = (contactDetails?.campaigns || [])
+    .map((c: any) => String(c?.campaignId ?? c?.id ?? ""))
+    .filter(Boolean);
+  return new Set<string>(ids);
+}, [contactDetails]);
+
+// Split campaigns into "this contact's campaigns" (shown first) and the rest,
+// each sorted by their display label.
+const groupedCampaigns = useMemo(() => {
+  const decorated = [...campaigns]
+    .map((campaign) => ({
+      campaign,
+      label:
+        (campaign.description || "").trim() || campaign.campaignName || "",
+    }))
+    .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+
+  return {
+    contactCampaigns: decorated.filter((x) =>
+      contactCampaignIdSet.has(String(x.campaign.id)),
+    ),
+    otherCampaigns: decorated.filter(
+      (x) => !contactCampaignIdSet.has(String(x.campaign.id)),
+    ),
+  };
+}, [campaigns, contactCampaignIdSet]);
+
 // Literal {placeholder} substitution (same approach as MainPage).
 const fillPlaceholders = (text: string, replacements: Record<string, any>) => {
   if (!text) return "";
@@ -1296,6 +1326,16 @@ const handleGenerateInsights = async () => {
       setIsLoadingDetails(false);
     }
   };
+
+  // Load contact details up front so the insights dropdown can group by the
+  // campaigns this contact belongs to (not only when the Lists tab is opened).
+  useEffect(() => {
+    if (contactId && !contactDetails) {
+      fetchContactDetails();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactId]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -2177,7 +2217,8 @@ dispatch(closePanel());
               >
                 {/* LEFT: PROFILE / HISTORY */}
                 <div style={{ display: "flex", gap: 24 }}>
-                  {["profile", "history", "lists", "qa", "insights"].map((tab) => (
+                  {/* "insights" tab hidden — research is shown in the right panel. To restore, add "insights" back to the array below. */}
+                  {["profile", "history", "lists", "qa" /*, "insights" */].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => {
@@ -2303,22 +2344,24 @@ dispatch(closePanel());
                       }}
                     >
                       <option value="">Select campaign</option>
-                      {[...campaigns]
-                        .map((campaign) => ({
-                          campaign,
-                          label:
-                            (campaign.description || "").trim() ||
-                            campaign.campaignName ||
-                            "",
-                        }))
-                        .sort((a, b) =>
-                          a.label.toLowerCase().localeCompare(b.label.toLowerCase()),
-                        )
-                        .map(({ campaign, label }) => (
-                          <option key={campaign.id} value={campaign.id.toString()}>
-                            {label}
-                          </option>
-                        ))}
+                      {groupedCampaigns.contactCampaigns.length > 0 && (
+                        <optgroup label="This contact's campaigns">
+                          {groupedCampaigns.contactCampaigns.map(({ campaign, label }) => (
+                            <option key={campaign.id} value={campaign.id.toString()}>
+                              {label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {groupedCampaigns.otherCampaigns.length > 0 && (
+                        <optgroup label="Other campaigns">
+                          {groupedCampaigns.otherCampaigns.map(({ campaign, label }) => (
+                            <option key={campaign.id} value={campaign.id.toString()}>
+                              {label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                     <button
                       onClick={handleGenerateInsights}

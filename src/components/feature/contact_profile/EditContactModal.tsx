@@ -397,11 +397,19 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
   const [isLinkedInExpanded, setIsLinkedInExpanded] = useState(false);
   const [personalTab, setPersonalTab] = useState<"information" | "professional">("information");
-  const [companyTab, setCompanyTab] = useState<"information" | "insights">("information");
+  // "insights" is the Overview tab (shown by default when the Company section opens)
+  const [companyTab, setCompanyTab] = useState<"information" | "insights">("insights");
   // Only one accordion section open at a time; opening one closes the others.
   const [openSection, setOpenSection] = useState<"personal" | "company" | "custom" | null>("personal");
   const toggleSection = (section: "personal" | "company" | "custom") =>
     setOpenSection((prev) => (prev === section ? null : section));
+
+  // Whenever the Company section is opened, default it to the Overview tab.
+  useEffect(() => {
+    if (openSection === "company") {
+      setCompanyTab("insights");
+    }
+  }, [openSection]);
   // "outreach" | "findings" | a dynamic INSIGHT_SECTIONS key (e.g. "recent_news")
   const [researchTab, setResearchTab] = useState<string>("outreach");
 
@@ -1762,7 +1770,11 @@ case "boolean":
           {/* Header */}
           <div className="mb-3 flex justify-between">
             <div className='flex flex-col'>
-              <h1 className="text-xl font-[600] text-gray-900">Edit contact</h1>
+              <h1 className="text-xl font-[600] text-gray-900">
+                {[formData.firstName, formData.lastName].filter(Boolean).join(" ").trim() ||
+                  formData.fullName ||
+                  "Edit contact"}
+              </h1>
               <p className="text-sm text-gray-500 mt-1">Update contact information and details</p>
             </div>
              {/* Buttons */}
@@ -1951,7 +1963,7 @@ case "boolean":
                         : "border-transparent text-gray-500 hover:text-gray-700"
                     }`}
                   >
-                    Insights
+                    Overview
                   </button>
                 </div>
 
