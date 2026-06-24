@@ -183,7 +183,9 @@ const CampaignSelect: React.FC<CampaignSelectProps> = ({
           {selectedOption ? (
             <>
               <span>{selectedOption.label}</span>
-              <span className="md-campaign-select__count">({selectedOption.count.toLocaleString()})</span>
+              {selectedOption.count > 0 && (
+                <span className="md-campaign-select__count">({selectedOption.count.toLocaleString()})</span>
+              )}
             </>
           ) : (
             <span>Select a campaign</span>
@@ -213,7 +215,9 @@ const CampaignSelect: React.FC<CampaignSelectProps> = ({
               onClick={() => handleSelect(option.value)}
             >
               <span>{option.label}</span>
-              <span className="md-campaign-select__count">({option.count.toLocaleString()})</span>
+              {option.count > 0 && (
+                <span className="md-campaign-select__count">({option.count.toLocaleString()})</span>
+              )}
             </button>
           ))}
         </div>
@@ -1473,7 +1477,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     filteredEmailLogs.forEach((log: any) => {
       if (log.isSuccess) {
         if (!log.sentAt) return;
-        const date = String(log.sentAt).split("T")[0];
+        const date = getDateKey(log.sentAt);
         if (!dailyTracking[date]) {
           dailyTracking[date] = {
             uniqueOpens: new Set(),
@@ -1492,7 +1496,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     // Process opens and clicks
     filteredTrackingData.forEach((item) => {
       if (!item.timestamp) return;
-      const date = String(item.timestamp).split("T")[0];
+      const date = getDateKey(item.timestamp);
       if (!dailyTracking[date]) {
         dailyTracking[date] = {
           uniqueOpens: new Set(),
@@ -1524,20 +1528,74 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       }
     });
 
-    // Create stats for graph
-    const statsMap: Record<string, DailyStats> = {};
-    Object.keys(dailyTracking).forEach((date) => {
-      statsMap[date] = {
-        date,
-        sent: dailyTracking[date].sentCount,
-        opens: dailyTracking[date].uniqueOpens.size,
-        clicks: dailyTracking[date].uniqueClicks.size,
-      };
-    });
+    const selectedStartKey = getDateKey(startDate);
+    const selectedEndKey = getDateKey(endDate);
+    const selectedSingleDay =
+      selectedStartKey && selectedEndKey && selectedStartKey === selectedEndKey
+        ? selectedStartKey
+        : "";
+    const trackedDates = Object.keys(dailyTracking).filter(Boolean);
+    const dataSingleDay =
+      trackedDates.length === 1 && (!selectedSingleDay || trackedDates[0] === selectedSingleDay)
+        ? trackedDates[0]
+        : "";
+    const graphSingleDay = selectedSingleDay || dataSingleDay;
 
-    const sortedStats = Object.values(statsMap).sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
+    let sortedStats: DailyStats[];
+
+    if (graphSingleDay) {
+      const hourlyTracking = Array.from({ length: 24 }, () => ({
+        uniqueOpens: new Set<string>(),
+        uniqueClicks: new Set<string>(),
+        sentCount: 0,
+      }));
+
+      filteredEmailLogs.forEach((log: any) => {
+        if (!log.isSuccess || getDateKey(log.sentAt) !== graphSingleDay) return;
+        const hour = getGraphHour(log.sentAt);
+        if (hour >= 0 && hour < 24) {
+          hourlyTracking[hour].sentCount++;
+        }
+      });
+
+      filteredTrackingData.forEach((item) => {
+        if (!item.timestamp || getDateKey(item.timestamp) !== graphSingleDay) return;
+        const hour = getGraphHour(item.timestamp);
+        if (hour < 0 || hour >= 24) return;
+
+        if (item.eventType === "Open") {
+          if (!excludeBots || !item.isBot) {
+            hourlyTracking[hour].uniqueOpens.add(item.email);
+          }
+        } else if (item.eventType === "Click") {
+          if (!excludeBots || !item.isBot) {
+            hourlyTracking[hour].uniqueClicks.add(item.email);
+          }
+        }
+      });
+
+      sortedStats = hourlyTracking.map((hourData, hour) => ({
+        date: `${String(hour).padStart(2, "0")}:00`,
+        sent: hourData.sentCount,
+        opens: hourData.uniqueOpens.size,
+        clicks: hourData.uniqueClicks.size,
+      }));
+    } else {
+      // Create stats for graph
+      const statsMap: Record<string, DailyStats> = {};
+      Object.keys(dailyTracking).forEach((date) => {
+        statsMap[date] = {
+          date,
+          sent: dailyTracking[date].sentCount,
+          opens: dailyTracking[date].uniqueOpens.size,
+          clicks: dailyTracking[date].uniqueClicks.size,
+        };
+      });
+
+      sortedStats = Object.values(statsMap).sort((a, b) =>
+        a.date.localeCompare(b.date)
+      );
+    }
 
     setDailyStats(sortedStats);
 
@@ -1682,6 +1740,43 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
 
   // Helper Functions
+  const getDateKey = (value: string | undefined | null) => {
+    if (!value) return "";
+    const rawValue = String(value).trim();
+    const isoMatch = rawValue.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoMatch) return isoMatch[1];
+
+    const slashMatch = rawValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slashMatch) {
+      const first = Number(slashMatch[1]);
+      const second = Number(slashMatch[2]);
+      const year = slashMatch[3];
+      const month = first > 12 ? second : first;
+      const day = first > 12 ? first : second;
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+
+    const parsed = new Date(rawValue);
+    if (Number.isNaN(parsed.getTime())) return rawValue;
+
+    return [
+      parsed.getFullYear(),
+      String(parsed.getMonth() + 1).padStart(2, "0"),
+      String(parsed.getDate()).padStart(2, "0"),
+    ].join("-");
+  };
+
+  const getGraphHour = (value: string | undefined | null) => {
+    if (!value) return -1;
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.getHours();
+    }
+
+    const hourMatch = String(value).match(/T(\d{2}):/);
+    return hourMatch ? Number(hourMatch[1]) : -1;
+  };
+
   const formatMailTimestamp = (input: string): string => {
     if (!input) return "";
 
@@ -2500,7 +2595,21 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       ? ((totalStats.clicks / requestCount) * 100).toFixed(1)
       : "0.0";
 
-  const filteredStats = dailyStats;
+  const filteredStats = (() => {
+    const selectedStartKey = getDateKey(startDate);
+    const selectedEndKey = getDateKey(endDate);
+    const selectedSingleDay =
+      selectedStartKey && selectedEndKey && selectedStartKey === selectedEndKey
+        ? selectedStartKey
+        : "";
+    const singleDailyPoint =
+      dailyStats.length === 1 && /^\d{4}-\d{2}-\d{2}$/.test(dailyStats[0].date)
+        ? dailyStats[0].date
+        : "";
+    const hourlyDay = selectedSingleDay || singleDailyPoint;
+
+    return hourlyDay ? buildHourlyStatsForDay(hourlyDay) : dailyStats;
+  })();
 
   // Don't render if not visible
   if (!isVisible) {
@@ -2535,6 +2644,49 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     }
     return campaignEmailCounts[campaignId] ?? 0;
   };
+
+  function buildHourlyStatsForDay(
+    dayKey: string,
+    trackingData: EventItem[] = allEventData,
+    logsData: any[] = allEmailLogs
+  ): DailyStats[] {
+    const hourlyTracking = Array.from({ length: 24 }, () => ({
+      uniqueOpens: new Set<string>(),
+      uniqueClicks: new Set<string>(),
+      sentCount: 0,
+    }));
+
+    asArray<any>(logsData).forEach((log: any) => {
+      if (!log?.isSuccess || getDateKey(log.sentAt) !== dayKey) return;
+      const hour = getGraphHour(log.sentAt);
+      if (hour >= 0 && hour < 24) {
+        hourlyTracking[hour].sentCount++;
+      }
+    });
+
+    asArray<EventItem>(trackingData).forEach((item) => {
+      if (!item?.timestamp || getDateKey(item.timestamp) !== dayKey) return;
+      const hour = getGraphHour(item.timestamp);
+      if (hour < 0 || hour >= 24) return;
+
+      if (item.eventType === "Open") {
+        if (!excludeBots || !item.isBot) {
+          hourlyTracking[hour].uniqueOpens.add(item.email);
+        }
+      } else if (item.eventType === "Click") {
+        if (!excludeBots || !item.isBot) {
+          hourlyTracking[hour].uniqueClicks.add(item.email);
+        }
+      }
+    });
+
+    return hourlyTracking.map((hourData, hour) => ({
+      date: `${String(hour).padStart(2, "0")}:00`,
+      sent: hourData.sentCount,
+      opens: hourData.uniqueOpens.size,
+      clicks: hourData.uniqueClicks.size,
+    }));
+  }
 
   const handleRefresh = async () => {
     if (!selectedCampaign) return;

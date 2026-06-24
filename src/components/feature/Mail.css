@@ -651,7 +651,7 @@ body {
 }
 
 .md-campaign-select__count {
-  color: #ef4444;
+  color: #3f9f42;
   font-weight: 700;
 }
 
@@ -1057,17 +1057,20 @@ body {
   border-radius: 16px;
   border: 1px solid var(--mde-line);
   background: #fff;
-  overflow: hidden;
+  overflow: visible;
+  z-index: 1;
 }
 
 .mde-empty-hero__bg {
   position: absolute;
   inset: 0;
   background: #fff;
+  border-radius: inherit;
 }
 
 .mde-empty-hero__content {
   position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 7fr 5fr;
   gap: 24px;
@@ -1132,6 +1135,8 @@ body {
 }
 
 .mde-empty-campaign-select {
+  position: relative;
+  z-index: 20;
   width: 280px;
   max-width: 100%;
   text-align: left;
@@ -1154,6 +1159,10 @@ body {
 .mde-empty-campaign-select .md-campaign-select {
   width: 100%;
   min-width: 0;
+}
+
+.mde-empty-campaign-select .md-campaign-select__menu {
+  z-index: 1000;
 }
 
 .mde-btn-primary {
