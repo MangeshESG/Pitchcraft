@@ -2340,7 +2340,12 @@ dispatch(closePanel());
                         color: "#374151",
                         background: "#ffffff",
                         cursor: isGeneratingInsights ? "not-allowed" : "pointer",
-                        minWidth: 170,
+                        width: 200,
+                        maxWidth: 200,
+                        flexShrink: 0,
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
                       }}
                     >
                       <option value="">Select campaign</option>
