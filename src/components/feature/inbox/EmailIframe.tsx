@@ -23,21 +23,44 @@ interface EmailIframeProps {
  *   Inline styles on the table/td elements are safe to keep.
  */
 function buildEmailDocument(raw: string): string {
+  const containsActualHtml = (value: string): boolean =>
+    /<\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(value);
+
+  const containsEncodedHtml = (value: string): boolean =>
+    /&lt;\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(value);
+
+  // Decode only when the backend sent fully encoded markup.
+  const decodeEncodedMarkup = (html: string): string => {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = html;
+    const decoded = textarea.value;
+
+    if (decoded !== html && containsEncodedHtml(decoded) && !containsActualHtml(decoded)) {
+      return decodeEncodedMarkup(decoded);
+    }
+
+    return decoded;
+  };
+
+  const normalizedRaw = containsActualHtml(raw) || !containsEncodedHtml(raw)
+    ? raw
+    : decodeEncodedMarkup(raw);
+  
   // Some emails have a malformed tracking fragment prepended before the
   // real DOCTYPE/html/body.  Find the LAST <body ...> tag to get the
   // proper email body.
-  const bodyOpen = raw.search(/<body[^>]*>/i);
-  const bodyClose = raw.search(/<\/body>/i);
+  const bodyOpen = normalizedRaw.search(/<body[^>]*>/i);
+  const bodyClose = normalizedRaw.search(/<\/body>/i);
 
   let bodyContent: string;
 
   if (bodyOpen !== -1 && bodyClose !== -1 && bodyClose > bodyOpen) {
     // Extract inner content between <body> and </body>
-    const innerStart = raw.indexOf('>', bodyOpen) + 1;
-    bodyContent = raw.slice(innerStart, bodyClose);
+    const innerStart = normalizedRaw.indexOf('>', bodyOpen) + 1;
+    bodyContent = normalizedRaw.slice(innerStart, bodyClose);
   } else {
     // Fallback: strip all outer HTML scaffolding
-    bodyContent = raw
+    bodyContent = normalizedRaw
       .replace(/<head[\s\S]*?<\/head>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<script[\s\S]*?<\/script>/gi, '')

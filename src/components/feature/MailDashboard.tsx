@@ -773,9 +773,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     const fetchSenders = async () => {
       try {
         const response = await axios.get(
-          `${API_BASE_URL}/api/email/get-Outboxs`,
+          `${API_BASE_URL}/api/email/campaign-outboxs`,
           {
-            params: { clientId: effectiveUserId },
+            params: {
+              clientId: effectiveUserId,
+              ...(selectedCampaign && selectedCampaign !== ALL_CAMPAIGNS_VALUE
+                ? { campaignId: Number(selectedCampaign) }
+                : {}),
+            },
             headers: { ...(token && { Authorization: `Bearer ${token}` }) },
           }
         );
@@ -787,7 +792,26 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     };
 
     fetchSenders();
-  }, [effectiveUserId, token, isVisible]);
+  }, [effectiveUserId, token, isVisible, selectedCampaign]);
+
+  useEffect(() => {
+    if (!selectedSender) return;
+
+    const senderStillAvailable = senderOptions.some(
+      (sender) => String(sender.id ?? sender.Id ?? "").trim() === selectedSender
+    );
+
+    if (!senderStillAvailable) {
+      setSelectedSender("");
+      setDataFetchedForCampaign("");
+      setCurrentPage(1);
+      setEmailLogsCurrentPage(1);
+      setMissingLogsCurrentPage(1);
+      setDetailSelectedContacts(new Set());
+      setSelectedEmailLogs(new Set());
+      setSelectedMissingLogs(new Set());
+    }
+  }, [selectedSender, senderOptions]);
 
   useEffect(() => {
     if (!effectiveUserId || !isVisible || !campaignsLoaded) return;
@@ -1640,6 +1664,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   // Event Handlers - Updated for campaigns
   const selectCampaign = async (newCampaignId: string) => {
     const previousCampaign = selectedCampaign;
+    const nextSelectedSender =
+      previousCampaign && previousCampaign !== newCampaignId ? "" : selectedSender;
 
     console.log(
       "🔄 Campaign changing from",
@@ -1649,6 +1675,9 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     );
 
     setSelectedCampaign(newCampaignId);
+    if (nextSelectedSender !== selectedSender) {
+      setSelectedSender(nextSelectedSender);
+    }
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("tab", "Mail");
     nextParams.set("mailSubTab", "Dashboard");
@@ -1668,7 +1697,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         dashboardTab,
         startDate,
         endDate,
-        selectedSender,
+        selectedSender: nextSelectedSender,
         emailFilterType,
         effectiveUserId,
       };

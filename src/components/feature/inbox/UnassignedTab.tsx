@@ -189,8 +189,17 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
       }
     }
     
-    // Start all messages expanded
-    onInitializeCollapsedEmails({});
+    // Start with all messages collapsed
+    const collapsed: { [key: string]: boolean } = {};
+    const sortedMessages = [...thread.messages].sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    sortedMessages.forEach((message, index) => {
+      const uniqueKey = `unassigned-${message.messageId}-${index}`;
+      // Collapse all messages initially
+      collapsed[uniqueKey] = true;
+    });
+    onInitializeCollapsedEmails(collapsed);
     
     const firstMessage = thread.messages[0];
     const unassignedEmail: UnassignedEmail = {
@@ -369,6 +378,13 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
   };
 
   const formatEmailBody = (body: string): string => {
+    const containsActualHtml = /<\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(body);
+    const containsEncodedHtml = /&lt;\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(body);
+
+    if (containsActualHtml || !containsEncodedHtml) {
+      return body;
+    }
+
     let formatted = body
       .replace(/&gt;/g, '>')
       .replace(/&lt;/g, '<')

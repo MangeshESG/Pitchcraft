@@ -168,8 +168,17 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
       }
     }
     
-    // Start all messages expanded
-    onInitializeCollapsedEmails({});
+    // Start with all messages collapsed
+    const collapsed: { [key: string]: boolean } = {};
+    const sortedMessages = [...thread.messages].sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    sortedMessages.forEach((message, index) => {
+      const uniqueKey = `all-${message.messageId}-${index}`;
+      // Collapse all messages initially
+      collapsed[uniqueKey] = true;
+    });
+    onInitializeCollapsedEmails(collapsed);
     
     // Mark thread as read
     if (thread.hasUnread) {

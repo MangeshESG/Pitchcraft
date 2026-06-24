@@ -730,6 +730,13 @@
 .reply-pill-button:hover { background: var(--green-dark); }
 .reply-pill-icon { font-size: 14px; }
 
+details[data-reply-email-trail] > summary::-webkit-details-marker {
+  display: none;
+}
+details[data-reply-email-trail] > summary::marker {
+  content: "";
+}
+
 /* ============ CONTACT PANE ============ */
 .contact-pane {
   border-left: 1px solid var(--line);

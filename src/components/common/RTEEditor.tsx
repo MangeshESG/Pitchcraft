@@ -174,6 +174,17 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           }
           onInput={(e) => onChange(e.currentTarget.innerHTML)}
           onBlur={(e) => onChange(e.currentTarget.innerHTML)}
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            const summary = target.closest('summary');
+            const details = summary?.closest('details');
+
+            if (details?.hasAttribute('data-reply-email-trail')) {
+              e.preventDefault();
+              details.open = !details.open;
+              onChange(e.currentTarget.innerHTML);
+            }
+          }}
           onKeyDown={(e) => {
             if (e.key === "Tab") {
               e.preventDefault();
