@@ -3967,36 +3967,6 @@ try {
                       </button>
                     </li>
 
-                    <li className={tab === "TestTemplate" ? "active" : ""}>
-                      <button
-                        onClick={() => {
-                          setBlueprintSubTab("List");
-                          setTab("TestTemplate");
-                          setShowBlueprintSubmenu(false);
-                          setShowMailSubmenu(false);
-                          setShowContactsSubmenu(false);
-                          setShowSettingsSubmenu(false);
-
-                          // FIX: Delay writing to session to avoid breaking navigation
-                          setTimeout(() => {
-                            sessionStorage.setItem("campaign_activeTab", "build");
-                          }, 0);
-
-                          navigate("/main?tab=TestTemplate");
-                        }}
-                        className="side-menu-button"
-                        title="Create and manage email blueprints"
-                      >
-                        <span className="menu-icon">
-                          <FontAwesomeIcon
-                            icon={faFileAlt}
-                            className="text-[#333333] text-lg"
-                          />
-                        </span>
-                        <span className="menu-text">Blueprints</span>
-                      </button>
-                    </li>
-
                     <li
                       className={`${tab === "DataCampaigns" || tab === "CustomFields" ? "active" : ""} ${
                         showContactsSubmenu
@@ -4107,6 +4077,36 @@ try {
 
                         </ul>
                       )}
+                    </li>
+
+                    <li className={tab === "TestTemplate" ? "active" : ""}>
+                      <button
+                        onClick={() => {
+                          setBlueprintSubTab("List");
+                          setTab("TestTemplate");
+                          setShowBlueprintSubmenu(false);
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                          setShowSettingsSubmenu(false);
+
+                          // FIX: Delay writing to session to avoid breaking navigation
+                          setTimeout(() => {
+                            sessionStorage.setItem("campaign_activeTab", "build");
+                          }, 0);
+
+                          navigate("/main?tab=TestTemplate");
+                        }}
+                        className="side-menu-button"
+                        title="Create and manage email blueprints"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faFileAlt}
+                            className="text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Blueprints</span>
+                      </button>
                     </li>
 
                     <li className={tab === "Campaigns" ? "active" : ""}>

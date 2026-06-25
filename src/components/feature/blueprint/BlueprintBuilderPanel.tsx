@@ -40,6 +40,7 @@ export interface BlueprintBuilderPanelProps {
   setFormValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   renderPlaceholderInput: (p: PlaceholderDefinitionUI) => React.ReactNode;
   saveAllPlaceholders: () => Promise<void>;
+  isSavingElements?: boolean;
 
   exampleOutput: string;
   editableExampleOutput: string;
@@ -48,6 +49,7 @@ export interface BlueprintBuilderPanelProps {
   isPreviewLoading: boolean;
   regenerateExampleOutput: () => Promise<void>;
   saveExampleEmail: () => Promise<void>;
+  exampleSaveStatus?: "idle" | "saving" | "saved";
   isPreviewAllowed: boolean;
 
   dataFiles: any[];
@@ -127,6 +129,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   setFormValues,
   renderPlaceholderInput,
   saveAllPlaceholders,
+  isSavingElements = false,
   exampleOutput,
   editableExampleOutput,
   setEditableExampleOutput,
@@ -134,6 +137,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   isPreviewLoading,
   regenerateExampleOutput,
   saveExampleEmail,
+  exampleSaveStatus = "idle",
   isPreviewAllowed,
   dataFiles,
   contacts,
@@ -508,6 +512,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                   editableExampleOutput={editableExampleOutput}
                   setEditableExampleOutput={setEditableExampleOutput}
                   saveExampleEmail={saveExampleEmail}
+                  exampleSaveStatus={exampleSaveStatus}
                   isGenerating={isPreviewLoading}
                   regenerateExampleOutput={regenerateExampleOutput}
                   currentPage={currentPage}
@@ -654,6 +659,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                 setChatStartedForKey(null);
               }}
               saveAllPlaceholders={saveAllPlaceholders}
+              isSaving={isSavingElements}
               activeElementKey={sidePanelElement?.placeholderKey ?? null}
               dataFiles={dataFiles}
               contacts={contacts}
@@ -1089,6 +1095,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                 editableExampleOutput={editableExampleOutput}
                 setEditableExampleOutput={setEditableExampleOutput}
                 saveExampleEmail={saveExampleEmail}
+                exampleSaveStatus={exampleSaveStatus}
                 isGenerating={isPreviewLoading}
                 regenerateExampleOutput={regenerateExampleOutput}
                 currentPage={currentPage}

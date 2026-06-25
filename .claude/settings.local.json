@@ -56,7 +56,10 @@
       "Bash(echo \"EXIT:$?\")",
       "Bash(claude mcp *)",
       "Bash(grep -vE \"Cannot find module '\\\\.\\\\./\\\\.\\\\./|\\\\.png'|\\\\.mp3'|\\\\.css'|aiModels\")",
-      "Bash(./node_modules/.bin/tsc -p tsconfig.json --moduleResolution node --noEmit)"
+      "Bash(./node_modules/.bin/tsc -p tsconfig.json --moduleResolution node --noEmit)",
+      "WebFetch(domain:cdn.signalzen.com)",
+      "PowerShell(npx tsc --noEmit -p tsconfig.json 2>&1)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.scripts,null,2\\)\\)\")"
     ]
   }
 }

@@ -100,20 +100,8 @@ const buildSteps = (
 ): OnboardingStep[] => {
   const base: OnboardingStep[] = [
     {
-      id: "blueprint",
-      n: 1,
-      title: "Create a blueprint",
-      time: "8 minutes",
-      status: "done",
-      body: "Similar to a template — your blueprint is the recipe for every campaign email. The most important step, and PitchKraft walks you through it.",
-      cta: "Create blueprint",
-      ctaPath: "/main?tab=TestTemplate",
-      illustration: CreateATemplete,
-      videoSrc: `${VIDEO_BASE}/video/BlueprintsGuide1.mp4`,
-    },
-    {
       id: "contacts",
-      n: 2,
+      n: 1,
       title: "Import contacts",
       time: "2 minutes",
       status: "active",
@@ -122,6 +110,18 @@ const buildSteps = (
       ctaPath: "/main?tab=DataCampaigns&subtab=List",
       illustration: ImportContact,
       videoSrc: `${VIDEO_BASE}/video/ImportContacts.mp4`,
+    },
+    {
+      id: "blueprint",
+      n: 2,
+      title: "Create a blueprint",
+      time: "8 minutes",
+      status: "done",
+      body: "Similar to a template — your blueprint is the recipe for every campaign email. The most important step, and PitchKraft walks you through it.",
+      cta: "Create blueprint",
+      ctaPath: "/main?tab=TestTemplate",
+      illustration: CreateATemplete,
+      videoSrc: `${VIDEO_BASE}/video/BlueprintsGuide1.mp4`,
     },
     {
       id: "campaign",
@@ -466,9 +466,9 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series }) => (
   </div>
 );
 
-const NonZeroChartDot = (props: any) => {
+const NonZeroChartDot = (props: any): React.ReactElement<SVGElement> => {
   const { cx, cy, stroke, value } = props;
-  if (!Number(value) || cx == null || cy == null) return null;
+  if (!Number(value) || cx == null || cy == null) return <g />;
   return <circle cx={cx} cy={cy} r={3.5} fill={stroke} stroke="#fff" strokeWidth={1.5} />;
 };
 
