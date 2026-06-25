@@ -46,13 +46,6 @@ interface KpiTileData {
 }
 
 
-interface ActivityRow {
-  kind: "sent" | "import" | "blueprint" | "verify" | "gen";
-  title: string;
-  meta: string;
-  time: string;
-}
-
 interface ContactApiRow {
   id: number;
   dataFileId: number;
@@ -507,31 +500,6 @@ const DualLineAreaChart: React.FC<{
   );
 };
 
-const ActivityItem: React.FC<ActivityRow> = ({ kind, title, meta, time }) => {
-  const palette: Record<string, { bg: string; fg: string; emoji: string }> = {
-    sent: { bg: "bg-[#e2f1e3]", fg: "text-[#3f9f42]", emoji: "✉" },
-    import: { bg: "bg-blue-50", fg: "text-blue-700", emoji: "👥" },
-    blueprint: { bg: "bg-amber-50", fg: "text-amber-700", emoji: "📐" },
-    verify: { bg: "bg-violet-50", fg: "text-violet-700", emoji: "✓" },
-    gen: { bg: "bg-[#f1f8f2]", fg: "text-[#3f9f42]", emoji: "⚡" },
-  };
-  const p = palette[kind];
-  return (
-    <div className="flex items-start gap-3 py-3">
-      <div
-        className={`shrink-0 w-9 h-9 rounded-lg ${p.bg} ${p.fg} flex items-center justify-center text-[15px]`}
-      >
-        {p.emoji}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[13px] font-medium text-gray-900 leading-tight">{title}</div>
-        <div className="text-[12px] text-gray-500 mt-0.5">{meta}</div>
-      </div>
-      <div className="text-[11px] text-gray-400 shrink-0 mt-1 tabular-nums">{time}</div>
-    </div>
-  );
-};
-
 const PAGE_SIZE = 8;
 
 type DateRange = "1d" | "24h" | "yesterday" | "7d" | "30d" | "all";
@@ -789,39 +757,6 @@ const PostOnboardingView: React.FC<{
     },
   ];
 
-  const activity: ActivityRow[] = [
-    {
-      kind: "sent",
-      title: 'Campaign "Q3 Promo — UK" sent',
-      meta: "2,418 recipients",
-      time: "2h ago",
-    },
-    {
-      kind: "import",
-      title: "Imported 186 contacts",
-      meta: "from Salesforce",
-      time: "1d",
-    },
-    {
-      kind: "gen",
-      title: "Krafted 412 emails",
-      meta: 'Blueprint "Outbound v1"',
-      time: "1d",
-    },
-    {
-      kind: "blueprint",
-      title: 'Blueprint "Outbound v1" edited',
-      meta: "3 sections updated",
-      time: "3d",
-    },
-    {
-      kind: "verify",
-      title: "Domain pitchkraft.ai verified",
-      meta: "DKIM + SPF aligned",
-      time: "3d",
-    },
-  ];
-
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 12) return "Good morning";
@@ -880,46 +815,27 @@ const PostOnboardingView: React.FC<{
         ))}
       </div>
 
-      {/* Chart + activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-8 rounded-2xl border border-gray-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[15px] font-semibold text-gray-900">
-                Emails generated vs sent
-              </div>
-              <div className="text-[12px] text-gray-500 mt-0.5">{DATE_RANGE_LABELS[dateRange]}</div>
+      {/* Chart */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[15px] font-semibold text-gray-900">
+              Emails generated vs sent
             </div>
-            <div className="flex items-center gap-4 text-[12px] text-gray-600">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm" style={{ background: BRAND }} />{" "}
-                Generated
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-[#3b82f6]" /> Sent
-              </span>
-            </div>
+            <div className="text-[12px] text-gray-500 mt-0.5">{DATE_RANGE_LABELS[dateRange]}</div>
           </div>
-          <div className="mt-3 h-[220px]">
-            <DualLineAreaChart data={chartData} />
+          <div className="flex items-center gap-4 text-[12px] text-gray-600">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: BRAND }} />{" "}
+              Generated
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#3b82f6]" /> Sent
+            </span>
           </div>
         </div>
-
-        <div className="lg:col-span-4 rounded-2xl border border-gray-200 bg-white p-5 flex flex-col">
-          <div className="flex items-center justify-between">
-            <div className="text-[15px] font-semibold text-gray-900">Recent activity</div>
-            <button
-              className="text-[12px] font-medium hover:underline"
-              style={{ color: BRAND }}
-            >
-              View all
-            </button>
-          </div>
-          <div className="mt-1 divide-y divide-gray-100">
-            {activity.map((a, i) => (
-              <ActivityItem key={i} {...a} />
-            ))}
-          </div>
+        <div className="mt-3 h-[220px]">
+          <DualLineAreaChart data={chartData} />
         </div>
       </div>
 
