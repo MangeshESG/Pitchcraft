@@ -74,6 +74,36 @@ export interface BlueprintBuilderPanelProps {
   ExampleOutputPanelComponent: React.ComponentType<any>;
 }
 
+// Decode HTML entities (e.g. "&lt;div&gt;") back into real markup. Used when the
+// model returns entity-encoded HTML so it renders instead of showing as tags.
+const decodeHtmlEntities = (str: string): string => {
+  if (typeof document === "undefined" || !/&(?:lt|gt|amp|quot|#\d+);/i.test(str)) return str;
+  const el = document.createElement("textarea");
+  el.innerHTML = str;
+  return el.value;
+};
+
+// Prepare a bot message for rendering. Strips internal placeholder/status blocks,
+// unwraps markdown ```html code fences, and decodes entity-encoded HTML so the
+// chat shows formatted HTML rather than literal source.
+const prepareChatContent = (raw: string): { content: string; isHtml: boolean } => {
+  let content = (raw || "")
+    .replace(/==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g, "")
+    .replace(/\{\s*"status"[\s\S]*?\}/g, "")
+    .trim();
+
+  // Unwrap fenced code blocks (```html … ``` or ``` … ```) — keep the inner body
+  // so the HTML it contains renders instead of displaying the fence + tags.
+  content = content.replace(/```(?:html|xml)?\s*\n?([\s\S]*?)```/gi, (_m, inner) => String(inner).trim());
+
+  // If it looks entity-encoded rather than real markup, decode it.
+  if (!/<[a-z][\s\S]*>/i.test(content) && /&lt;[a-z/]/i.test(content)) {
+    content = decodeHtmlEntities(content);
+  }
+
+  return { content, isHtml: /<[a-z][\s\S]*>/i.test(content) };
+};
+
 const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   activeBuildTab,
   setActiveBuildTab: _setActiveBuildTab,
@@ -872,11 +902,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                         <div ref={chatScrollRef} onScroll={handleChatScroll} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 16px" }}>
                           {messages.map((msg: any, idx: number) => {
                             const raw: string = msg.content || "";
-                            const content = raw
-                              .replace(/==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g, "")
-                              .replace(/\{\s*"status"[\s\S]*?\}/g, "")
-                              .trim();
-                            const isHtml = /<[a-z][\s\S]*>/i.test(content);
+                            const { content, isHtml } = prepareChatContent(raw);
 
                             return (
                               <div
@@ -918,8 +944,14 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                                   lineHeight: 1.55,
                                 }}>
                                   {isHtml
-                                    ? <div dangerouslySetInnerHTML={{ __html: content }} />
-                                    : <p style={{ margin: 0 }}>{content}</p>
+                                    ? <div
+                                        className="rendered-html-content"
+                                        style={{ overflowWrap: "anywhere", maxWidth: "100%" }}
+                                        dangerouslySetInnerHTML={{
+                                          __html: DOMPurify.sanitize(content, { ADD_ATTR: ["target", "rel"] }),
+                                        }}
+                                      />
+                                    : <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{content}</p>
                                   }
                                   <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: "right" }}>
                                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

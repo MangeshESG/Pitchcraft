@@ -3,21 +3,33 @@ const AccordionSection = ({
   icon,
   title,
   defaultOpen = false,
+  open: controlledOpen,
+  onToggle,
   children,
 }: {
   icon: React.ReactNode;
   title: string;
   defaultOpen?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
   children: React.ReactNode;
 }) => {
-  const [open, setOpen] = useState(defaultOpen);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  // Controlled mode (parent passes `open`/`onToggle`) lets a group of sections
+  // enforce "only one open at a time"; otherwise fall back to internal state.
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
   return (
     <div className="border-b border-[#cccccc] py-6 px-3">
       <button
         onClick={(e) => {
           e.preventDefault()
-          setOpen(!open)}
-        }
+          if (isControlled) {
+            onToggle?.();
+          } else {
+            setInternalOpen(!internalOpen);
+          }
+        }}
 
         className="flex w-full items-center justify-between text-left"
       >

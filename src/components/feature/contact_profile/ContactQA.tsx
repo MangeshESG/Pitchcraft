@@ -78,6 +78,9 @@ interface ContactQAProps {
 const CONTACT_QA_STORAGE_PREFIX = "contact_qa_messages";
 const CONTACT_QA_USAGE_STORAGE_PREFIX = "contact_qa_usage";
 
+// Model used to answer contact Q&A questions (surfaced in the UI and sent to the API).
+const CONTACT_QA_MODEL = "gpt-4o-mini";
+
 const SUGGESTED_QUESTIONS = [
   "What questions has this contact already been asked in previous emails?",
   "Summarize this contact's profile, notes, and outreach history.",
@@ -110,7 +113,26 @@ const STANDARD_CONTACT_KEYS = new Set([
   "contactCreatedAt",
   "linkedIninformation",
   "linkedin_info",
+  "web_search_data",
+  "web_searched_data",
 ]);
+
+// web_search_data is stored as a JSON string; parse it so the model receives
+// structured research. Falls back to the raw text if it isn't valid JSON.
+const parseWebResearch = (raw: unknown): unknown => {
+  if (!raw) return null;
+  if (typeof raw === "object") return raw;
+  if (typeof raw !== "string") return null;
+
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
+};
 
 const decodeHtmlEntities = (value?: string) => {
   if (!value) return "";
@@ -403,6 +425,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
 
   const contactContext = useMemo(() => {
     const resolvedContact = contact || {};
+    const webResearch = parseWebResearch(resolvedContact.web_search_data);
     const fullName =
       resolvedContact.full_name ||
       [resolvedContact.first_name, resolvedContact.last_name]
@@ -505,6 +528,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
         "A single question may require evidence from multiple notes, emails, replies, or profile fields.",
         "Treat every note, email, reply, and activity event as a separate source record.",
         "When two records support the same answer, keep both records in mind together instead of choosing only one.",
+        "The webResearch record holds insights gathered from public web sources (company overview, recent news, hiring signals, key findings, etc.). Use it for company/market context.",
       ],
       sourceCounts: {
         notes: notes.length,
@@ -514,8 +538,18 @@ const ContactQA: React.FC<ContactQAProps> = ({
           0,
         ),
         customFields: customFields.length,
+        webResearch: webResearch ? 1 : 0,
       },
       contact: normalizedContact,
+      webResearch: webResearch
+        ? {
+            sourceType: "WebResearch",
+            sourceId: "WEBRESEARCH-1",
+            description:
+              "Insights gathered from public web sources to help personalize outreach.",
+            data: webResearch,
+          }
+        : null,
       linkedin: {
         sourceType: "LinkedIn",
         sourceId: "LINKEDIN-1",
@@ -569,6 +603,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
       contact: normalizedContact,
       notes,
       emails,
+      hasWebResearch: Boolean(webResearch),
       contextPacket,
       contextSummary: buildContextSummary(contextPacket),
     };
@@ -586,6 +621,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
       replyCount,
       customFieldCount: contactContext.contact.customFields.length,
       hasLinkedInSummary: Boolean(contactContext.contact.linkedinSummary),
+      hasWebResearch: contactContext.hasWebResearch,
     };
   }, [contactContext]);
 
@@ -655,7 +691,8 @@ const ContactQA: React.FC<ContactQAProps> = ({
       contactContext.notes.length ||
       contactContext.emails.length ||
       contactContext.contact.linkedinSummary ||
-      contactContext.contact.customFields.length,
+      contactContext.contact.customFields.length ||
+      contactContext.hasWebResearch,
   );
 
   const handleReset = () => {
@@ -694,7 +731,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
         body: JSON.stringify({
           clientId,
           contactId: Number(contactId),
-          modelName: "gpt-4o-mini",
+          modelName: CONTACT_QA_MODEL,
           question: prompt,
           messages: messages.map(({ role, content }) => ({ role, content })),
 
@@ -798,6 +835,9 @@ const ContactQA: React.FC<ContactQAProps> = ({
             </span>
             <span className="contact-qa-badge">
               LinkedIn: {contextStats.hasLinkedInSummary ? "Included" : "Not available"}
+            </span>
+            <span className="contact-qa-badge">
+              Insights: {contextStats.hasWebResearch ? "Included" : "Not available"}
             </span>
           </div>
         </div>

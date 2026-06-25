@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import API_BASE_URL from '../../config';
+import API_BASE_URL from '../../../config';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../../Redux/store';
+import { RootState } from '../../../Redux/store';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -26,20 +26,20 @@ import {
   faThumbtack, // Add this for Campaign Builder
   faAngleDown,
 } from "@fortawesome/free-solid-svg-icons"
-import { useAppModal } from '../../hooks/useAppModal';
-import RichTextEditor from './../common/RTEEditor';
-import AccordionSection from '../common/accordion/Accordion';
-import AppModal from '../common/AppModal';
-import deleteIcon from "../../assets/images/deleteiconn.png";
-import gpsPin from "../../assets/images/Unpin.png";
-import pinimage from "../../assets/images/pin.png";
+import { useAppModal } from '../../../hooks/useAppModal';
+import RichTextEditor from '../../common/RTEEditor';
+import AccordionSection from '../../common/accordion/Accordion';
+import AppModal from '../../common/AppModal';
+import deleteIcon from "../../../assets/images/deleteiconn.png";
+import gpsPin from "../../../assets/images/Unpin.png";
+import pinimage from "../../../assets/images/pin.png";
 import { Slash } from "lucide-react";
 import { Pin, PinOff } from 'lucide-react';
-import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
-import CommonSidePanel from '../common/CommonSidePanel';
-import { closePanel, openPanel } from '../../slices/panelSlice';
-import { pinEmail } from './inbox/inboxPin';
-import { repairAndParseJsonObject } from '../../utils/jsonRepair';
+import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
+import CommonSidePanel from '../../common/CommonSidePanel';
+import { closePanel, openPanel } from '../../../slices/panelSlice';
+import { pinEmail } from '../inbox/inboxPin';
+import { repairAndParseJsonObject } from '../../../utils/jsonRepair';
 
 interface Contact {
   id: number;
@@ -60,8 +60,8 @@ interface Contact {
   companyLinkedInURL?: string;
   notes?: string;
   linkedIninformation?: string;
-  web_search_data?: string;
-  updated_at?: string;
+  web_search_data?: string | null;
+  updated_at?: string | null;
   customFields?: Record<string, string>;
 
 
@@ -397,21 +397,21 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
   const [isLinkedInExpanded, setIsLinkedInExpanded] = useState(false);
   const [personalTab, setPersonalTab] = useState<"information" | "professional">("information");
-  const [companyTab, setCompanyTab] = useState<"information" | "insights">("information");
-  const [researchTab, setResearchTab] = useState<"outreach" | "findings">("outreach");
-  const [expandedInsightKeys, setExpandedInsightKeys] = useState<Set<string>>(new Set());
+  // "insights" is the Overview tab (shown by default when the Company section opens)
+  const [companyTab, setCompanyTab] = useState<"information" | "insights">("insights");
+  // Only one accordion section open at a time; opening one closes the others.
+  const [openSection, setOpenSection] = useState<"personal" | "company" | "custom" | null>("personal");
+  const toggleSection = (section: "personal" | "company" | "custom") =>
+    setOpenSection((prev) => (prev === section ? null : section));
 
-  const toggleInsight = (key: string) => {
-    setExpandedInsightKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
+  // Whenever the Company section is opened, default it to the Overview tab.
+  useEffect(() => {
+    if (openSection === "company") {
+      setCompanyTab("insights");
+    }
+  }, [openSection]);
+  // "outreach" | "findings" | a dynamic INSIGHT_SECTIONS key (e.g. "recent_news")
+  const [researchTab, setResearchTab] = useState<string>("outreach");
 
   // Parse the contact's web_search_data (JSON string) for the Company > Insights tab.
   const companyInsightsData = React.useMemo<Record<string, any> | null>(() => {
@@ -1605,44 +1605,45 @@ case "boolean":
     </div>
   );
 
-  // Company insights card list shown inside Company > Insights tab
+  // Company > Insights tab (left column) shows ONLY the company overview.
   const availableInsightSections = companyInsightsData
-    ? INSIGHT_SECTIONS.filter((section) => insightHasData(companyInsightsData[section.key]))
+    ? INSIGHT_SECTIONS.filter(
+        (section) =>
+          section.key === "company_overview" &&
+          insightHasData(companyInsightsData[section.key]),
+      )
+    : [];
+
+  // The remaining insight sections (news, search results, hiring signals, etc.)
+  // are surfaced as tabs in the right-column research card instead.
+  const sideInsightSections = companyInsightsData
+    ? INSIGHT_SECTIONS.filter(
+        (section) =>
+          section.key !== "company_overview" &&
+          insightHasData(companyInsightsData[section.key]),
+      )
     : [];
 
   const companyInsightsBlock = (
     <div>
       {availableInsightSections.length > 0 ? (
         <div className="flex flex-col gap-3">
-          {availableInsightSections.map((section) => {
-            const open = expandedInsightKeys.has(section.key);
-            return (
-              <div key={section.key} className="rounded-lg border border-[#e5e7eb] bg-white overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => toggleInsight(section.key)}
-                  className="flex w-full items-center gap-3 p-3 text-left hover:bg-gray-50"
-                >
-                  <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-[#f0fdf4] text-[#3f9f42]">
-                    <FontAwesomeIcon icon={section.icon} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-foreground">{section.title}</span>
-                    <span className="block text-xs text-gray-500">{section.description}</span>
-                  </span>
-                  <FontAwesomeIcon
-                    icon={faAngleRight}
-                    className={`text-gray-400 transition-transform ${open ? "rotate-90" : ""}`}
-                  />
-                </button>
-                {open && (
-                  <div className="border-t border-[#eef2f6] p-4">
-                    {renderInsightValue(companyInsightsData?.[section.key])}
-                  </div>
-                )}
+          {availableInsightSections.map((section) => (
+            <div key={section.key} className="rounded-lg border border-[#e5e7eb] bg-white overflow-hidden">
+              <div className="flex items-center gap-3 p-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-[#f0fdf4] text-[#3f9f42]">
+                  <FontAwesomeIcon icon={section.icon} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-foreground">{section.title}</span>
+                  <span className="block text-xs text-gray-500">{section.description}</span>
+                </span>
               </div>
-            );
-          })}
+              <div className="border-t border-[#eef2f6] p-4">
+                {renderInsightValue(companyInsightsData?.[section.key])}
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <p className="text-sm italic text-gray-400">No company insights available yet.</p>
@@ -1662,12 +1663,16 @@ case "boolean":
           companyInsightsData.events_findings
       )
     : [];
-  const hasResearch = outreachItems.length > 0 || keyFindingItems.length > 0 || eventItems.length > 0;
+  const hasResearch =
+    outreachItems.length > 0 ||
+    keyFindingItems.length > 0 ||
+    eventItems.length > 0 ||
+    sideInsightSections.length > 0;
 
   const researchOpportunitiesBlock = hasResearch ? (
     <div className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
       {/* Tabs */}
-      <div className="flex gap-6 border-b border-gray-200 mb-5">
+      <div className="flex flex-wrap gap-x-6 gap-y-1 border-b border-gray-200 mb-5">
         <button
           type="button"
           onClick={() => setResearchTab("outreach")}
@@ -1690,6 +1695,20 @@ case "boolean":
         >
           Key findings &amp; events
         </button>
+        {sideInsightSections.map((section) => (
+          <button
+            key={section.key}
+            type="button"
+            onClick={() => setResearchTab(section.key)}
+            className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+              researchTab === section.key
+                ? "border-[#3f9f42] text-[#3f9f42]"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {section.title}
+          </button>
+        ))}
       </div>
 
       {/* OUTREACH OPPORTUNITIES TAB */}
@@ -1722,6 +1741,16 @@ case "boolean":
         </div>
       )}
 
+      {/* MOVED INSIGHT SECTIONS (news, search results, hiring signals, etc.) */}
+      {sideInsightSections.map(
+        (section) =>
+          researchTab === section.key && (
+            <div key={section.key}>
+              {renderInsightValue(companyInsightsData?.[section.key])}
+            </div>
+          ),
+      )}
+
       {/* Footer */}
       {contact?.updated_at && (
         <div className="mt-5 pt-4 border-t border-gray-100">
@@ -1741,7 +1770,11 @@ case "boolean":
           {/* Header */}
           <div className="mb-3 flex justify-between">
             <div className='flex flex-col'>
-              <h1 className="text-xl font-[600] text-gray-900">Edit contact</h1>
+              <h1 className="text-xl font-[600] text-gray-900">
+                {[formData.firstName, formData.lastName].filter(Boolean).join(" ").trim() ||
+                  formData.fullName ||
+                  "Edit contact"}
+              </h1>
               <p className="text-sm text-gray-500 mt-1">Update contact information and details</p>
             </div>
              {/* Buttons */}
@@ -1764,7 +1797,8 @@ case "boolean":
             <div className="space-y- border border-[#cccccc] rounded-lg bg-white shadow-sm border-b-0">
               {/* PERSONAL INFORMATION */}
               <AccordionSection
-                defaultOpen
+                open={openSection === "personal"}
+                onToggle={() => toggleSection("personal")}
                 icon={
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                 }
@@ -1845,6 +1879,52 @@ case "boolean":
                         placeholder="Email"
                       />
                     </div>
+                    <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                      <label className={underlineLabel}>LinkedIn URL</label>
+                      <div className="flex items-center gap-2">
+                        {/* LinkedIn Icon - Outside and to the left */}
+                        {formData.linkedInUrl && (
+                          <span
+                            className="cursor-pointer flex-shrink-0"
+                            onClick={() => {
+                              const url = formData.linkedInUrl.startsWith("http")
+                                ? formData.linkedInUrl
+                                : `https://${formData.linkedInUrl}`;
+                              window.open(url, "_blank");
+                            }}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="20px"
+                              height="22px"
+                              viewBox="0 0 24 24"
+                              fill="#333333"
+                            >
+                              <path
+                                d="M6.5 8C7.32843 8 8 7.32843 8 6.5C8 5.67157 7.32843 5 6.5 5C5.67157 5 5 5.67157 5 6.5C5 7.32843 5.67157 8 6.5 8Z"
+                                fill="#3f9f42"
+                              ></path>
+                              <path
+                                d="M5 10C5 9.44772 5.44772 9 6 9H7C7.55228 9 8 9.44771 8 10V18C8 18.5523 7.55228 19 7 19H6C5.44772 19 5 18.5523 5 18V10Z"
+                                fill="#3f9f42"
+                              ></path>
+                              <path
+                                d="M11 19H12C12.5523 19 13 18.5523 13 18V13.5C13 12 16 11 16 13V18.0004C16 18.5527 16.4477 19 17 19H18C18.5523 19 19 18.5523 19 18V12C19 10 17.5 9 15.5 9C13.5 9 13 10.5 13 10.5V10C13 9.44771 12.5523 9 12 9H11C10.4477 9 10 9.44772 10 10V18C10 18.5523 10.4477 19 11 19Z"
+                                fill="#3f9f42"
+                              ></path>
+                              <path
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                d="M20 1C21.6569 1 23 2.34315 23 4V20C23 21.6569 21.6569 23 20 23H4C2.34315 23 1 21.6569 1 20V4C1 2.34315 2.34315 1 4 1H20ZM20 3C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3H20Z"
+                                fill="#3f9f42"
+                              ></path>
+                            </svg>
+                          </span>
+                        )}
+                        <input type="text" name="linkedInUrl" value={formData.linkedInUrl} onChange={handleInputChange} placeholder="Enter LinkedIn URL" className={underlineInput}
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1854,6 +1934,8 @@ case "boolean":
 
               {/* COMPANY INFORMATION */}
               <AccordionSection
+                open={openSection === "company"}
+                onToggle={() => toggleSection("company")}
                 icon={
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                 }
@@ -1881,7 +1963,7 @@ case "boolean":
                         : "border-transparent text-gray-500 hover:text-gray-700"
                     }`}
                   >
-                    Insights
+                    Overview
                   </button>
                 </div>
 
@@ -1954,88 +2036,58 @@ case "boolean":
                       className={underlineInput}
                     />
                   </div>
-                </div>
-                )}
-
-                {/* INSIGHTS TAB */}
-                {companyTab === "insights" && companyInsightsBlock}
-              </AccordionSection>
-
-              {/* WEBSITE & SOCIAL */}
-              <AccordionSection
-                icon={
-                  <svg
-          width="24px"
-          height="24px"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            fillRule="evenodd"
-            clipRule="evenodd"
-             d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z"
-             fill="#3f9f42"
-          />
-        </svg>
-                }
-                title="Website & social"
-              >
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-
                   <div className="flex flex-col gap-[5px] form-group !mb-[0]">
-  <label className={underlineLabel}>Website</label>
-
-  <div className="flex items-center gap-2">
-    {/* Globe Icon - Outside and to the left */}
-    {formData.website && (
-      <span
-        className="cursor-pointer flex-shrink-0"
-        onClick={() => {
-          const url = formData.website.startsWith("http")
-            ? formData.website
-            : `https://${formData.website}`;
-          window.open(url, "_blank");
-        }}
-      >
-      <svg
-          width="24px"
-          height="24px"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            fillRule="evenodd"
-            clipRule="evenodd"
-             d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z"
-             fill="#3f9f42"
-          />
-        </svg>
-      </span>
-    )}
-    {/* Website Input - Non-clickable, but editable */}
-    <input
-      type="text"
-      name="website"
-      value={formData.website}
-      onChange={handleInputChange}
-      placeholder="Enter website"
-      className={underlineInput}
-    />
-  </div>
-</div>
-                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
-                    <label className={underlineLabel}>LinkedIn URL</label>
-                     <div className="flex items-center gap-2">
-                      {/* LinkedIn Icon - Outside and to the left */}
-                      {formData.linkedInUrl && (
+                    <label className={underlineLabel}>Website</label>
+                    <div className="flex items-center gap-2">
+                      {/* Globe Icon - Outside and to the left */}
+                      {formData.website && (
                         <span
                           className="cursor-pointer flex-shrink-0"
                           onClick={() => {
-                            const url = formData.linkedInUrl.startsWith("http")
-                              ? formData.linkedInUrl
-                              : `https://${formData.linkedInUrl}`;
+                            const url = formData.website.startsWith("http")
+                              ? formData.website
+                              : `https://${formData.website}`;
+                            window.open(url, "_blank");
+                          }}
+                        >
+                          <svg
+                            width="24px"
+                            height="24px"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              clipRule="evenodd"
+                              d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z"
+                              fill="#3f9f42"
+                            />
+                          </svg>
+                        </span>
+                      )}
+                      {/* Website Input - Non-clickable, but editable */}
+                      <input
+                        type="text"
+                        name="website"
+                        value={formData.website}
+                        onChange={handleInputChange}
+                        placeholder="Enter website"
+                        className={underlineInput}
+                      />
+                    </div>
+                  </div>
+                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <label className={underlineLabel}>Company LinkedIn URL</label>
+                    <div className="flex items-center gap-2">
+                      {/* LinkedIn Icon - Outside and to the left */}
+                      {formData.companyLinkedInURL && (
+                        <span
+                          className="cursor-pointer flex-shrink-0"
+                          onClick={() => {
+                            const url = formData.companyLinkedInURL.startsWith("http")
+                              ? formData.companyLinkedInURL
+                              : `https://${formData.companyLinkedInURL}`;
                             window.open(url, "_blank");
                           }}
                         >
@@ -2067,27 +2119,27 @@ case "boolean":
                           </svg>
                         </span>
                       )}
-                    <input type="text" name="linkedInUrl" value={formData.linkedInUrl} onChange={handleInputChange} placeholder="Enter LinkedIn URL" className={underlineInput}
-                    />
-                     </div>
+                      <input
+                        type="text"
+                        name="companyLinkedInURL"
+                        value={formData.companyLinkedInURL}
+                        onChange={handleInputChange}
+                        placeholder="Company LinkedIn URL"
+                        className={underlineInput}
+                      />
+                    </div>
                   </div>
-                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
-                    <label className={underlineLabel}>Company linkedIn URL</label>
-                    <input
-                      type="text"
-                      name="companyLinkedInURL"
-                      value={formData.companyLinkedInURL}
-                      onChange={handleInputChange}
-                      placeholder="Company LinkedIn URL"
-                      className={underlineInput}
-                    />
-                  </div>
-
                 </div>
+                )}
+
+                {/* INSIGHTS TAB */}
+                {companyTab === "insights" && companyInsightsBlock}
               </AccordionSection>
 
               {/* CUSTOM FIELDS */}
   <AccordionSection
+    open={openSection === "custom"}
+    onToggle={() => toggleSection("custom")}
     icon={
       <svg
         xmlns="http://www.w3.org/2000/svg"

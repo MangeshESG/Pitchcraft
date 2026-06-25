@@ -5,7 +5,7 @@ import "./ContactList.css";
 import DynamicContactsTable from "./DynamicContactsTable";
 import ToastMessage from "../common/ToastMessage";
 import AddContactModal from "./AddContactModal";
-import EditContactModal from "./EditContactModal";
+import EditContactModal from "./contact_profile/EditContactModal";
 import CreateListModal from "./CreateListModal";
 import SegmentModal from "../common/SegmentModal";
 import CommonSidePanel from "../common/CommonSidePanel";

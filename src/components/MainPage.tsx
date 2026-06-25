@@ -51,7 +51,7 @@ import { useSoundAlert } from "./common/useSoundAlert";
 import { link } from "node:fs";
 import LoadingSpinner from "./common/LoadingSpinner";
 import CustomFieldSettings from "./feature/CustomFieldSettings";
-import ContactDetailView from "./feature/contacts/ContactDetailView";
+import ContactDetailView from "./feature/contact_profile/ContactDetailView";
 import { closePanel } from "../slices/panelSlice";
 
 const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";

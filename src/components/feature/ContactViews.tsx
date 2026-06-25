@@ -1582,44 +1582,31 @@ const handleDeleteContacts = async () => {
 
   const openView = async (view: ViewItem, expandEditor = false) => {
     setViewActionsAnchor(null);
-    
-    // Clear any existing data first to prevent showing stale data
-    setBaseViewContacts([]);
-    setViewContacts([]);
-    setSelectedContacts(new Set());
-    setViewSearchQuery("");
-    setViewCurrentPage(1);
-    setViewMetaMissing(false);
-    
-    if (view.useAllDataFiles) {
-      fetchSources();
-    }
     setEditorAutoExpand(expandEditor);
-    // Update view state
     setSelectedView(view);
     setViewMode("detail");
     onViewModeChange?.("detail");
-  };
+    setSelectedContacts(new Set());
+    setViewSearchQuery("");
+    setViewCurrentPage(1);
 
-  const hydrateEditPanel = (view: ViewItem) => {
-    setEditingView(view);
-    setEditName(view.name || "");
-    setEditDescription(view.description || "");
-    if (view.useAllDataFiles) {
-      if (availableDataFiles.length === 0) {
-        fetchSources();
-      }
-      const excludedIds = view.excludedDataFileIds || [];
-      const allIds = availableDataFiles.map((file) => file.id);
-      setEditExcludedDataFileIds(excludedIds);
-      setEditDataFileIds(allIds.filter((id) => !excludedIds.includes(id)));
-    } else {
-      setEditExcludedDataFileIds([]);
-      setEditDataFileIds(view.dataFileIds || []);
+    // Always refresh the source list so "all lists" views immediately reflect
+    // newly added lists.
+    fetchSources();
+
+    // Fetch the authoritative view config (useAllDataFiles / excluded / filters).
+    // The list endpoint does not reliably return useAllDataFiles, which caused
+    // "all lists" views to show only the originally-saved lists until the user
+    // opened the edit panel. Refreshing here keeps the detail view correct.
+    try {
+      const fresh = await fetchViewForEdit(view);
+      setViews((prev) =>
+        prev.map((item) => (item.id === fresh.id ? fresh : item))
+      );
+      setSelectedView((prev) => (prev?.id === fresh.id ? fresh : prev));
+    } catch (error) {
+      console.warn("Could not refresh view on open:", error);
     }
-    setEditSegmentIds(view.segmentIds || []);
-    setEditFiltersJson(view.filtersJson || "");
-    setEditFiltersSeed(view.filtersJson || "");
   };
 
   // Opening "Edit" from the list now opens the view detail with the inline
