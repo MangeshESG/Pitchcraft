@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../../config';
 import LoadingSpinner from '../../common/LoadingSpinner';
+import CreditCheckModal from '../../common/CreditCheckModal';
+import { useCreditCheck } from '../../../hooks/useCreditCheck';
+import { useSoundAlert } from '../../common/useSoundAlert';
 import RichTextEditor from '../../common/RTEEditor';
 import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
@@ -152,6 +155,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showForwardBcc, setShowForwardBcc] = useState(false);
   const [contactPanelOpen, setContactPanelOpen] = useState(false);
   const inboxFetchRequestRef = useRef(0);
+  const { credits, showCreditModal, checkUserCredits, closeCreditModal, handleSkipModal } = useCreditCheck();
+  const isDemoAccount = sessionStorage.getItem('isDemoAccount') === 'true';
+  const { playSound } = useSoundAlert();
   
   useEffect(() => {
     setActiveTab(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages');
@@ -808,7 +814,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   const handleKraftEmail = async () => {
     if (!selectedBlueprint || !selectedThread) return;
-    
+
+    if (!isDemoAccount) {
+      const currentCredits = await checkUserCredits(effectiveUserId);
+      if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
+        return;
+      }
+    }
+
     setIsKrafting(true);
     setError('');
     try {
@@ -831,6 +844,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
       if (response.data.success && response.data.emailBody) {
         replaceReplyDraftContent(response.data.emailBody);
+        playSound();
+        window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
       } else {
         setError('Failed to generate email');
       }
@@ -3482,7 +3497,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       <button
                         onClick={async () => {
                           if (!selectedBlueprint || !selectedUnassignedThread.contactId) return;
-                          
+
+                          if (!isDemoAccount) {
+                            const currentCredits = await checkUserCredits(effectiveUserId);
+                            if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
+                              return;
+                            }
+                          }
+
                           setIsKrafting(true);
                           setError('');
                           try {
@@ -3505,6 +3527,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
                             if (response.data.success && response.data.emailBody) {
                               replaceReplyDraftContent(response.data.emailBody);
+                              playSound();
+                              window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
                             } else {
                               setError('Failed to generate email');
                             }
@@ -4137,6 +4161,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         onClick={async () => {
                           if (!selectedBlueprint || !selectedAllMessagesThread.contactId) return;
 
+                          if (!isDemoAccount) {
+                            const currentCredits = await checkUserCredits(effectiveUserId);
+                            if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
+                              return;
+                            }
+                          }
+
                           setIsKrafting(true);
                           setError('');
                           try {
@@ -4159,6 +4190,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
                             if (response.data.success && response.data.emailBody) {
                               replaceReplyDraftContent(response.data.emailBody);
+                              playSound();
+                              window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
                             } else {
                               setError('Failed to generate email');
                             }
@@ -4447,6 +4480,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           </button>
         )}
 
+      <CreditCheckModal
+        isOpen={showCreditModal}
+        onClose={closeCreditModal}
+        onSkip={handleSkipModal}
+        credits={credits}
+        setTab={() => { window.location.hash = '/main?tab=MyPlan'; }}
+      />
       <DeleteConfirmationModal
         isOpen={showDeleteModal}
         deleteMode={pendingDeleteMode}

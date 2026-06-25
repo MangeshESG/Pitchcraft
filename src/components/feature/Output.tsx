@@ -98,7 +98,7 @@ interface OutputInterface {
       nextPageToken?: string | null;
       prevPageToken?: string | null;
     },
-  ) => void;
+  ) => void | Promise<void>;
 
   outputFormHandler: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   setOutputForm: React.Dispatch<
@@ -3955,12 +3955,15 @@ useEffect(() => {
                                     setIsRegenerating(true);
                                     setRegenerationTargetId(currentContact.id);
 
-                                    onRegenerateContact("Output", {
-                                      regenerate: true,
-                                      regenerateIndex: currentIndex,
-                                    });
-
-                                    setTimeout(() => setIsRegenerating(false), 2500);
+                                    try {
+                                      await onRegenerateContact("Output", {
+                                        regenerate: true,
+                                        regenerateIndex: currentIndex,
+                                      });
+                                    } finally {
+                                      setIsRegenerating(false);
+                                      setRegenerationTargetId(null);
+                                    }
                                   }}
                                   disabled={
                                     !combinedResponses[currentIndex] ||

@@ -141,7 +141,7 @@ interface OutputInterface {
       nextPageToken?: string | null;
       prevPageToken?: string | null;
     },
-  ) => void;
+  ) => void | Promise<void>;
 
   outputFormHandler: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   setOutputForm: React.Dispatch<
@@ -2320,6 +2320,8 @@ const resolvePromptSafely = async () => {
             GPTGenerate: true,
             emailSubject: subjectLine,
             emailBody: pitchData.response.content,
+            campaignId: selectedCampaign ? parseInt(selectedCampaign) : null,
+            blueprintId: safePrompt?.id ?? null,
           }),
         });
 
@@ -2345,6 +2347,26 @@ const resolvePromptSafely = async () => {
             )}] Updated pitch in database for ${full_name}.</span><br/>`
             + prev.generatedContent,
         }));
+
+        try {
+          const userCreditResponse = await fetch(
+            `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`,
+          );
+          if (!userCreditResponse.ok) {
+            throw new Error("Failed to fetch user credit");
+          }
+
+          const userCreditData = await userCreditResponse.json();
+          dispatch(saveUserCredit(userCreditData));
+
+          window.dispatchEvent(
+            new CustomEvent("creditUpdated", {
+              detail: { clientId: effectiveUserId },
+            }),
+          );
+        } catch (creditError) {
+          console.error("User credit API error:", creditError);
+        }
       }
 
 
@@ -3087,6 +3109,8 @@ totalEmailCostRef.current += subjectCost;
                 GPTGenerate: true,
                 emailSubject: subjectLine,
                 emailBody: pitchData.response.content,
+                campaignId: selectedCampaign ? parseInt(selectedCampaign) : null,
+                blueprintId: promptForRun?.id ?? null,
               };
 
               // Add segmentId or dataFileId based on priority
