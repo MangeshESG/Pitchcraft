@@ -137,6 +137,7 @@ interface TemplateTabProps {
 
 interface EmailCampaignBuilderProps {
   selectedClient: string | null;
+  onBeforeAiChatOpen?: () => Promise<boolean>;
 }
 
 interface ConversationTabProps {
@@ -1329,6 +1330,7 @@ const RichTextInput: React.FC<{
 // ====================================================================
 const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   selectedClient,
+  onBeforeAiChatOpen,
 }) => {
   // --- State Management ---
   const [currentAnswer, setCurrentAnswer] = useState("");
@@ -2152,6 +2154,11 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   // ====================================================================
   const regenerateExampleOutput = async () => {
     // if (isGenerating) return;
+    const canGeneratePreview = await onBeforeAiChatOpen?.();
+    if (canGeneratePreview === false) {
+      return;
+    }
+
     try {
       setIsPreviewLoading(true);
       console.log("🚀 Manual regenerate button clicked");
@@ -2804,6 +2811,11 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       return;
     }
 
+    const canUseAiChat = await onBeforeAiChatOpen?.();
+    if (canUseAiChat === false) {
+      return;
+    }
+
     // Prefer in-memory editTemplateId, fall back to session keys (newCampaignId or editTemplateId)
     const storedNewCampaignId = sessionStorage.getItem("newCampaignId");
     const storedEditTemplateId = sessionStorage.getItem("editTemplateId");
@@ -3339,6 +3351,11 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
       return;
     }
 
+    const canUseAiChat = await onBeforeAiChatOpen?.();
+    if (canUseAiChat === false) {
+      return;
+    }
+
     if (systemPrompt.trim() === "" || masterPrompt.trim() === "") {
       console.log("⏳ Template not ready yet — skipping manual alert.");
       return;
@@ -3495,6 +3512,11 @@ const parsePlaceholdersSafe = (block: string) => {
       !effectiveUserId ||
       (answerText === "" && attachedImages.length === 0)
     ) {
+      return;
+    }
+
+    const canUseAiChat = await onBeforeAiChatOpen?.();
+    if (canUseAiChat === false) {
       return;
     }
 
@@ -4087,6 +4109,7 @@ const parsePlaceholdersSafe = (block: string) => {
               handleImageUpload={uploadImage}
               activeBuildTab={activeBuildTab}
               setActiveBuildTab={setActiveBuildTab}
+              onBeforeAiChatOpen={onBeforeAiChatOpen}
               onApprove={() => { setWizardCompleted(true); setActiveBuildTab("elements"); }}
               onStartConversation={(method, msg) => startConversation(msg)}
               isTemplateLoading={isPreparingAutoStart}

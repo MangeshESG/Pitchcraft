@@ -130,6 +130,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [blueprints, setBlueprints] = useState<BlueprintTemplate[]>([]);
   const [selectedBlueprint, setSelectedBlueprint] = useState<number | null>(null);
   const [isKrafting, setIsKrafting] = useState(false);
+  const kraftInFlightRef = useRef(false);
+  const [forceShowCreditModal, setForceShowCreditModal] = useState(false);
   const [isCopyText, setIsCopyText] = useState(false);
   const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
   const [outputEmailWidth, setOutputEmailWidth] = useState<string>('');
@@ -158,6 +160,34 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const { credits, showCreditModal, checkUserCredits, closeCreditModal, handleSkipModal } = useCreditCheck();
   const isDemoAccount = sessionStorage.getItem('isDemoAccount') === 'true';
   const { playSound } = useSoundAlert();
+
+  const canGenerateFromCreditResponse = (creditResponse: any) => {
+    if (typeof creditResponse === 'number') {
+      return creditResponse > 0;
+    }
+
+    if (creditResponse && typeof creditResponse === 'object') {
+      const totalCredits = Number(creditResponse.total ?? 0);
+      return creditResponse.canGenerate !== false && totalCredits > 0;
+    }
+
+    return false;
+  };
+
+  const ensureCanKraft = async () => {
+    if (isDemoAccount) {
+      return true;
+    }
+
+    const currentCredits = await checkUserCredits(effectiveUserId);
+    const canKraft = canGenerateFromCreditResponse(currentCredits);
+
+    if (!canKraft) {
+      setForceShowCreditModal(true);
+    }
+
+    return canKraft;
+  };
   
   useEffect(() => {
     setActiveTab(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages');
@@ -815,11 +845,16 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const handleKraftEmail = async () => {
     if (!selectedBlueprint || !selectedThread) return;
 
-    if (!isDemoAccount) {
-      const currentCredits = await checkUserCredits(effectiveUserId);
-      if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
-        return;
-      }
+    if (kraftInFlightRef.current) {
+      return;
+    }
+
+    kraftInFlightRef.current = true;
+
+    const canKraft = await ensureCanKraft();
+    if (!canKraft) {
+      kraftInFlightRef.current = false;
+      return;
     }
 
     setIsKrafting(true);
@@ -854,6 +889,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       setError(err.response?.data?.message || 'Failed to generate email');
     } finally {
       setIsKrafting(false);
+      kraftInFlightRef.current = false;
     }
   };
 
@@ -4161,11 +4197,16 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         onClick={async () => {
                           if (!selectedBlueprint || !selectedAllMessagesThread.contactId) return;
 
-                          if (!isDemoAccount) {
-                            const currentCredits = await checkUserCredits(effectiveUserId);
-                            if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
-                              return;
-                            }
+                          if (kraftInFlightRef.current) {
+                            return;
+                          }
+
+                          kraftInFlightRef.current = true;
+
+                          const canKraft = await ensureCanKraft();
+                          if (!canKraft) {
+                            kraftInFlightRef.current = false;
+                            return;
                           }
 
                           setIsKrafting(true);
@@ -4200,6 +4241,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             setError(err.response?.data?.message || 'Failed to generate email');
                           } finally {
                             setIsKrafting(false);
+                            kraftInFlightRef.current = false;
                           }
                         }}
                         disabled={!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId}
@@ -4481,9 +4523,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         )}
 
       <CreditCheckModal
-        isOpen={showCreditModal}
-        onClose={closeCreditModal}
-        onSkip={handleSkipModal}
+        isOpen={showCreditModal || forceShowCreditModal}
+        onClose={() => {
+          setForceShowCreditModal(false);
+          closeCreditModal();
+        }}
+        onSkip={() => {
+          setForceShowCreditModal(false);
+          handleSkipModal();
+        }}
         credits={credits}
         setTab={() => { window.location.hash = '/main?tab=MyPlan'; }}
       />

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import './AppModal.css';
 
 interface AppModalProps {
@@ -96,7 +97,7 @@ const AppModal: React.FC<AppModalProps> = ({
 
   // Render loader type
   if (type === 'loader') {
-    return (
+    const loaderModal = (
       <div 
         className={`app-modal-overlay ${isOpen ? 'open' : ''}`}
         onClick={handleOverlayClick}
@@ -107,9 +108,11 @@ const AppModal: React.FC<AppModalProps> = ({
         </div>
       </div>
     );
+
+    return createPortal(loaderModal, document.body);
   }
 
-  return (
+  const modal = (
     <div 
       className={`app-modal-overlay ${isOpen ? 'open' : ''}`}
       onClick={handleOverlayClick}
@@ -150,6 +153,8 @@ const AppModal: React.FC<AppModalProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 };
 
 export default AppModal;

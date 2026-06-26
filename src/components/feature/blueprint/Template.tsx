@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { openPanel, closePanel } from "../../../slices/panelSlice";
 import { RootState } from "../../../Redux/store";
@@ -192,6 +192,8 @@ const Template: React.FC<TemplateProps> = ({
     handleSkipModal,
     credits,
   } = useCreditCheck();
+  const [forceShowCreditModal, setForceShowCreditModal] = useState(false);
+  const createCampaignClickInFlightRef = useRef(false);
   const DEFAULT_USER_TEMPLATE_ID = 65;
   const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL 2.0";
   const isAdmin = userRole?.toUpperCase() === "ADMIN";
@@ -215,6 +217,19 @@ const Template: React.FC<TemplateProps> = ({
     : loggedInClientId;
 
   const BLUEPRINT_BUILDER_SESSION_KEY = "blueprintBuilderOpen";
+
+  const canGenerateFromCreditResponse = (creditResponse: any) => {
+    if (typeof creditResponse === "number") {
+      return creditResponse > 0;
+    }
+
+    if (creditResponse && typeof creditResponse === "object") {
+      const totalCredits = Number(creditResponse.total ?? 0);
+      return creditResponse.canGenerate !== false && totalCredits > 0;
+    }
+
+    return false;
+  };
 
   const getStoredActiveBlueprintId = () => {
     const storedId =
@@ -354,35 +369,69 @@ const Template: React.FC<TemplateProps> = ({
 
   // ✅ NEW: Handle create campaign button click
   const handleCreateCampaignClick = async () => {
+    if (createCampaignClickInFlightRef.current) {
+      return;
+    }
+
+    createCampaignClickInFlightRef.current = true;
+
     if (!effectiveUserId) {
       appModal.showError(
         isAdmin
           ? "Please select a client or log in again to use the admin account."
           : "Client ID missing. Please log in again.",
       );
+      createCampaignClickInFlightRef.current = false;
       return;
     }
 
-    // Check credits before allowing blueprint creation
-    if (sessionStorage.getItem("isDemoAccount") !== "true" && effectiveUserId) {
-      const currentCredits = await checkUserCredits(effectiveUserId);
-
-      if (currentCredits && !currentCredits.canGenerate) {
-        return; // Stop execution if can't generate
-      }
-    }
-
-    setIsPreparingCreateCampaign(true);
-    dispatch(openPanel("template-name"));
-    setTemplateNameInput("");
-    setSelectedTemplateDefinitionId(null);
-    setTemplateDefinitions([]);
-
     try {
+      // Check credits before allowing blueprint creation
+      if (sessionStorage.getItem("isDemoAccount") !== "true" && effectiveUserId) {
+        const currentCredits = await checkUserCredits(effectiveUserId);
+
+        if (!canGenerateFromCreditResponse(currentCredits)) {
+          setForceShowCreditModal(true);
+          return; // Stop execution if can't generate
+        }
+      }
+
+      setIsPreparingCreateCampaign(true);
+      dispatch(openPanel("template-name"));
+      setTemplateNameInput("");
+      setSelectedTemplateDefinitionId(null);
+      setTemplateDefinitions([]);
+
       await fetchTemplateDefinitions();
     } finally {
       setIsPreparingCreateCampaign(false);
+      createCampaignClickInFlightRef.current = false;
     }
+  };
+
+  const ensureCanOpenAiChat = async () => {
+    if (sessionStorage.getItem("isDemoAccount") === "true") {
+      return true;
+    }
+
+    if (!effectiveUserId) {
+      appModal.showError(
+        isAdmin
+          ? "Please select a client or log in again to use the admin account."
+          : "Client ID missing. Please log in again.",
+      );
+      return false;
+    }
+
+    const currentCredits = await checkUserCredits(effectiveUserId);
+
+    const canOpenChat = canGenerateFromCreditResponse(currentCredits);
+
+    if (!canOpenChat) {
+      setForceShowCreditModal(true);
+    }
+
+    return canOpenChat;
   };
 
   // ✅ NEW: Handle template name submission
@@ -1800,15 +1849,24 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
             {/* <h2 className="font-[600]">{sessionStorage.getItem("newCampaignName") || "Blueprint"}</h2> */}
           </div>
 
-          <EmailCampaignBuilder selectedClient={effectiveUserId} />
+          <EmailCampaignBuilder
+            selectedClient={effectiveUserId}
+            onBeforeAiChatOpen={ensureCanOpenAiChat}
+          />
         </div>
       )}
 
       {/* Credit Check Modal */}
       <CreditCheckModal
-        isOpen={showCreditModal}
-        onClose={closeCreditModal}
-        onSkip={handleSkipModal}
+        isOpen={showCreditModal || forceShowCreditModal}
+        onClose={() => {
+          setForceShowCreditModal(false);
+          closeCreditModal();
+        }}
+        onSkip={() => {
+          setForceShowCreditModal(false);
+          handleSkipModal();
+        }}
         credits={credits || 0}
         setTab={() => {}} // Not needed in this context
       />

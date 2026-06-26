@@ -579,6 +579,7 @@ const Output: React.FC<OutputInterface> = ({
 }) => {
   const appModal = useAppModal();
   const [loading, setLoading] = useState(true);
+  const safeCampaigns = Array.isArray(campaigns) ? campaigns : [];
 
 
 
@@ -1230,6 +1231,8 @@ useEffect(() => {
   const [regenerationTargetId, setRegenerationTargetId] = useState<
     string | number | null
   >(null);
+  const regenerateClickInFlightRef = useRef(false);
+  const kraftStartClickInFlightRef = useRef(false);
 
   // Add this at the top of your component:
   useEffect(() => {
@@ -1970,8 +1973,8 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
   useEffect(() => {
     // This will trigger when campaigns are created/updated/deleted
-    console.log("Campaigns updated in Output component:", campaigns?.length);
-  }, [campaigns, refreshTrigger]); // Add refreshTrigger dependency
+    console.log("Campaigns updated in Output component:", safeCampaigns.length);
+  }, [safeCampaigns.length, refreshTrigger]); // Add refreshTrigger dependency
 
 
  //-----------------------------------------bulk email sending logic------------------//
@@ -2332,16 +2335,16 @@ useEffect(() => {
 
 
 
-  if (Array.isArray(campaigns) && campaigns.length === 0) {
+  if (safeCampaigns.length === 0) {
     return <KraftEmailEmptyState onGoToBlueprints={onGoToBlueprints} />;
   }
 
-  const selectedCampaignDetails = campaigns?.find((c) => c.id.toString() === selectedCampaign);
+  const selectedCampaignDetails = safeCampaigns.find((c) => String(c?.id) === selectedCampaign);
 
   if (!selectedCampaign) {
     return (
       <KraftCampaignSelectState
-        campaigns={campaigns}
+        campaigns={safeCampaigns}
         selectedCampaign={selectedCampaign}
         handleCampaignChange={handleCampaignChange}
       />
@@ -2400,11 +2403,15 @@ useEffect(() => {
                     className="w-full"
                   >
                     <option value="">Campaign</option>
-                    {Array.isArray(campaigns) && campaigns
+                    {safeCampaigns
                       .slice()
-                      .sort((a, b) => a.campaignName.toLowerCase().localeCompare(b.campaignName.toLowerCase()))
+                      .sort((a, b) =>
+                        String(a?.campaignName ?? "").toLowerCase().localeCompare(
+                          String(b?.campaignName ?? "").toLowerCase(),
+                        ),
+                      )
                       .map((campaign) => (
-                      <option key={campaign.id} value={campaign.id.toString()}>
+                      <option key={campaign.id} value={String(campaign.id)}>
                         {campaign.campaignName}
                       </option>
                     ))}
@@ -2642,25 +2649,36 @@ useEffect(() => {
           if (showCreditModal) {
             return;
           }
-
-          if (
-            sessionStorage.getItem("isDemoAccount") !== "true"
-          ) {
-            const effectiveUserId =
-              selectedClient !== "" ? selectedClient : userId;
-            const currentCredits =
-              await checkUserCredits?.(effectiveUserId);
-            if (
-              currentCredits &&
-              typeof currentCredits === "object" &&
-              !currentCredits.canGenerate
-            ) {
-              return;
-            }
+          if (kraftStartClickInFlightRef.current) {
+            return;
           }
 
-          const startIdx = kraftEnableIndexRange && kraftStartIndex ? parseInt(kraftStartIndex) - 1 : currentIndex;
-          handleStart?.(startIdx);
+          kraftStartClickInFlightRef.current = true;
+
+          try {
+            if (
+              sessionStorage.getItem("isDemoAccount") !== "true"
+            ) {
+              const effectiveUserId =
+                selectedClient !== "" ? selectedClient : userId;
+              const currentCredits =
+                await checkUserCredits?.(effectiveUserId);
+              const canGenerate =
+                typeof currentCredits === "number"
+                  ? currentCredits > 0
+                  : currentCredits && typeof currentCredits === "object"
+                    ? currentCredits.canGenerate !== false && Number((currentCredits as any).total ?? 0) > 0
+                    : false;
+              if (!canGenerate) {
+                return;
+              }
+            }
+
+            const startIdx = kraftEnableIndexRange && kraftStartIndex ? parseInt(kraftStartIndex) - 1 : undefined;
+            await handleStart?.(startIdx);
+          } finally {
+            kraftStartClickInFlightRef.current = false;
+          }
         }}
         onStop={handleStop}
         isResetEnabled={isResetEnabled}
@@ -3933,21 +3951,32 @@ useEffect(() => {
                                   id="regenerate-email-body-tooltip"
                                   onClick={async () => {
                                     if (showCreditModal) return;
+                                    if (regenerateClickInFlightRef.current) return;
+                                    regenerateClickInFlightRef.current = true;
 
                                     const currentContact = combinedResponses[currentIndex];
                                     if (!currentContact) {
                                       alert("No contact selected to regenerate pitch for.");
+                                      regenerateClickInFlightRef.current = false;
                                       return;
                                     }
                                     if (!onRegenerateContact) {
                                       alert("Regenerate logic not wired up! Consult admin.");
+                                      regenerateClickInFlightRef.current = false;
                                       return;
                                     }
 
                                     if (sessionStorage.getItem("isDemoAccount") !== "true") {
                                       const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
                                       const currentCredits = await checkUserCredits?.(effectiveUserId);
-                                      if (currentCredits && typeof currentCredits === "object" && !currentCredits.canGenerate) {
+                                      const canGenerate =
+                                        typeof currentCredits === "number"
+                                          ? currentCredits > 0
+                                          : currentCredits && typeof currentCredits === "object"
+                                            ? currentCredits.canGenerate !== false && Number((currentCredits as any).total ?? 0) > 0
+                                            : false;
+                                      if (!canGenerate) {
+                                        regenerateClickInFlightRef.current = false;
                                         return;
                                       }
                                     }
@@ -3963,6 +3992,7 @@ useEffect(() => {
                                     } finally {
                                       setIsRegenerating(false);
                                       setRegenerationTargetId(null);
+                                      regenerateClickInFlightRef.current = false;
                                     }
                                   }}
                                   disabled={
