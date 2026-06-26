@@ -667,8 +667,8 @@
   font-weight: 700;
 }
 .mail-body {
-  padding: 20px 24px;
-  line-height: 1.75;
+  padding: 12px 24px;
+  line-height: 1.4;
   color: var(--ink-2);
   font-size: 14.5px;
   word-wrap: break-word;
@@ -676,13 +676,13 @@
   max-width: 100%;
   overflow-x: auto;
 }
-.mail-body p  { margin: 0 0 12px; }
-.mail-body ul { margin: 0 0 12px 24px; padding: 0; }
-.mail-body li { margin: 0 0 6px; }
+.mail-body p  { margin: 0 0 6px; }
+.mail-body ul { margin: 0 0 8px 24px; padding: 0; }
+.mail-body li { margin: 0 0 4px; }
 .mail-body .quoted-text { color: var(--muted); border-left: 3px solid var(--line); padding-left: 12px; margin: 4px 0; }
 .mail-body table { border-collapse: collapse; width: 100%; max-width: 100%; }
 .mail-body td { padding: 0; vertical-align: top; }
-.mail-body pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; font-size: 14.5px; line-height: 1.75; color: var(--ink-2); margin: 0; }
+.mail-body pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; font-size: 14.5px; line-height: 1.4; color: var(--ink-2); margin: 0; }
 
 /* Collapsed message preview */
 .mail-body-preview {

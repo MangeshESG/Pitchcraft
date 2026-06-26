@@ -8,6 +8,7 @@ import DOMPurify from "dompurify";
 export interface BlueprintBuilderPanelProps {
   activeBuildTab: "chat" | "elements";
   setActiveBuildTab: (v: "chat" | "elements") => void;
+  onBeforeAiChatOpen?: () => Promise<boolean>;
 
   onApprove?: () => void;
   onStartConversation?: (method: "reference" | "description", initialMessage: string) => void;
@@ -109,6 +110,7 @@ const prepareChatContent = (raw: string): { content: string; isHtml: boolean } =
 const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   activeBuildTab,
   setActiveBuildTab: _setActiveBuildTab,
+  onBeforeAiChatOpen,
   isTemplateLoading = false,
   conversationStarted,
   messages,
@@ -192,6 +194,20 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   const [sidePanelElement, setSidePanelElement] = useState<PlaceholderDefinitionUI | null>(null);
   const [sidePanelTab, setSidePanelTab] = useState<"manual" | "chat">("manual");
   const [chatStartedForKey, setChatStartedForKey] = useState<string | null>(null);
+  const handleOpenSidePanelTab = async (tab: "manual" | "chat") => {
+    if (!sidePanelElement) return;
+
+    if (tab === "chat") {
+      const canOpen = await onBeforeAiChatOpen?.();
+      if (canOpen === false) return;
+    }
+
+    setSidePanelTab(tab);
+    if (tab === "chat" && chatStartedForKey !== sidePanelElement.placeholderKey) {
+      onPlaceholderSelect(sidePanelElement.placeholderKey);
+      setChatStartedForKey(sidePanelElement.placeholderKey);
+    }
+  };
 
   // On first load, open the {example_output_email} element directly in the edit
   // side panel so it's ready to view/edit on landing (instead of the live preview).
@@ -758,11 +774,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                   <button
                     key={tab}
                     onClick={() => {
-                      setSidePanelTab(tab);
-                      if (tab === "chat" && chatStartedForKey !== sidePanelElement.placeholderKey) {
-                        onPlaceholderSelect(sidePanelElement.placeholderKey);
-                        setChatStartedForKey(sidePanelElement.placeholderKey);
-                      }
+                      void handleOpenSidePanelTab(tab);
                     }}
                     style={{
                       flex: 1, padding: "12px 14px",
@@ -869,7 +881,10 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                           </div>
                         </div>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
+                            const canOpen = await onBeforeAiChatOpen?.();
+                            if (canOpen === false) return;
+
                             onPlaceholderSelect(sidePanelElement.placeholderKey);
                             setChatStartedForKey(sidePanelElement.placeholderKey);
                           }}

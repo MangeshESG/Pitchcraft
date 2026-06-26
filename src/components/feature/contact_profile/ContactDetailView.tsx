@@ -29,6 +29,8 @@ import "react-quill/dist/quill.snow.css";
 import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
 import RichTextEditor from '../../common/RTEEditor';
 import LoadingSpinner from '../../common/LoadingSpinner';
+import CreditCheckModal from "../../common/CreditCheckModal";
+import { useCreditCheck } from "../../../hooks/useCreditCheck";
 
 import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
 import { Pin, PinOff } from 'lucide-react';
@@ -37,6 +39,7 @@ import CommonSidePanel from '../../common/CommonSidePanel';
 import ContactQA from "./ContactQA";
 import { pinEmail } from "../inbox/inboxPin";
 import { repairAndParseJsonObject } from "../../../utils/jsonRepair";
+import { saveUserCredit } from "../../../slices/authSLice";
 
 
 interface Contact {
@@ -199,6 +202,14 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const appModal = useAppModal();
+  const {
+    credits,
+    showCreditModal,
+    checkUserCredits,
+    closeCreditModal,
+    handleSkipModal,
+  } = useCreditCheck();
+  const [forceShowCreditModal, setForceShowCreditModal] = useState(false);
   const [tab, setTab] = useState("Dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showBlueprintSubmenu, setShowBlueprintSubmenu] = useState(false);
@@ -218,6 +229,21 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
     marginBottom: 6,
   };
   const navigate = useNavigate();
+  const handleCreditModalTabChange = (nextTab: string) => {
+    if (nextTab === "MyPlan") {
+      sessionStorage.setItem("forceMyPlanRedirect", "true");
+      const appBaseUrl = window.location.href.split("#")[0];
+      window.location.href = `${appBaseUrl}#/main?tab=MyPlan`;
+      return;
+    }
+
+    if (embedded) {
+      navigate(`/main?tab=${nextTab}`);
+      return;
+    }
+
+    setTab(nextTab);
+  };
   // const [isNoteOpen, setIsNoteOpen] = useState(false);
   const dispatch = useDispatch();
   const activePanel = useSelector((state: RootState) => state.panel.activePanel);
@@ -451,6 +477,59 @@ const effectiveUserId = useMemo(() => {
 
   return Number(reduxUserId);
 }, [reduxUserId, searchParams]);
+
+const canGenerateFromCreditResponse = (creditResponse: any) => {
+  if (typeof creditResponse === "number") {
+    return creditResponse > 0;
+  }
+
+  if (!creditResponse || typeof creditResponse !== "object") {
+    return false;
+  }
+
+  return (
+    creditResponse.canGenerate !== false &&
+    Number(creditResponse.total ?? creditResponse.credits ?? 0) > 0
+  );
+};
+
+const refreshCreditsAfterDeduction = async () => {
+  try {
+    const userCreditResponse = await fetch(
+      `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`,
+    );
+    if (!userCreditResponse.ok) {
+      throw new Error("Failed to fetch user credit");
+    }
+
+    const userCreditData = await userCreditResponse.json();
+    dispatch(saveUserCredit(userCreditData));
+
+    window.dispatchEvent(
+      new CustomEvent("creditUpdated", {
+        detail: { clientId: effectiveUserId },
+      }),
+    );
+  } catch (creditError) {
+    console.error("User credit API error:", creditError);
+  }
+};
+
+const ensureCanDeductCredit = async () => {
+  if (sessionStorage.getItem("isDemoAccount") === "true") {
+    return true;
+  }
+
+  const currentCredits = await checkUserCredits(effectiveUserId);
+  const canGenerate = canGenerateFromCreditResponse(currentCredits);
+
+  if (!canGenerate) {
+    setForceShowCreditModal(true);
+  }
+
+  return canGenerate;
+};
+
 useEffect(() => {
   console.log("Redux User:", reduxUserId);
   console.log(
@@ -558,6 +637,9 @@ const handleGenerateInsights = async () => {
     return;
   }
 
+  const canGenerate = await ensureCanDeductCredit();
+  if (!canGenerate) return;
+
   setIsGeneratingInsights(true);
   try {
     // 1. Campaign → templateId (blueprint)
@@ -604,6 +686,7 @@ const handleGenerateInsights = async () => {
       body: JSON.stringify({
         instructions: filledInstructions,
         contactId: Number(contactId),
+        clientId: effectiveUserId,
       }),
     });
     const wsData = await wsRes.json();
@@ -622,6 +705,8 @@ const handleGenerateInsights = async () => {
     setEditingContact((prev) =>
       prev ? { ...prev, web_search_data: webSearchData, updated_at: nowIso } : prev,
     );
+
+    await refreshCreditsAfterDeduction();
 
     appModal.showSuccess("Insights generated successfully.");
   } catch (err: any) {
@@ -3742,6 +3827,8 @@ dispatch(closePanel());
                   notesHistory={notesHistory}
                   emailTimeline={emailTimeline}
                   loading={loading || isLoadingHistory}
+                  onBeforeQuestion={ensureCanDeductCredit}
+                  onQuestionSuccess={refreshCreditsAfterDeduction}
                 />
               )}
 
@@ -4322,6 +4409,19 @@ dispatch(closePanel());
         }
       />
     )}
+    <CreditCheckModal
+      isOpen={showCreditModal || forceShowCreditModal}
+      onClose={() => {
+        setForceShowCreditModal(false);
+        closeCreditModal();
+      }}
+      onSkip={() => {
+        setForceShowCreditModal(false);
+        handleSkipModal();
+      }}
+      credits={credits}
+      setTab={handleCreditModalTabChange}
+    />
     </>
   );
 };

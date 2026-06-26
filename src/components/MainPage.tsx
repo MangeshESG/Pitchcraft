@@ -122,6 +122,13 @@ interface Campaign {
   description?: string;
 }
 
+const normalizeCampaigns = (data: any): Campaign[] => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.campaigns)) return data.campaigns;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+};
+
 interface OutputInterface {
   outputForm: {
     generatedContent: string;
@@ -141,7 +148,7 @@ interface OutputInterface {
       nextPageToken?: string | null;
       prevPageToken?: string | null;
     },
-  ) => void;
+  ) => void | Promise<void>;
 
   outputFormHandler: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   setOutputForm: React.Dispatch<
@@ -277,6 +284,39 @@ const MainPage: React.FC = () => {
     closeCreditModal,
     handleSkipModal,
   } = useCreditCheck();
+  const [forceShowCreditModal, setForceShowCreditModal] = useState(false);
+
+  const canGenerateFromCreditResponse = (creditResponse: any) => {
+    if (typeof creditResponse === "number") {
+      return creditResponse > 0;
+    }
+
+    if (!creditResponse || typeof creditResponse !== "object") {
+      return false;
+    }
+
+    return (
+      creditResponse.canGenerate !== false &&
+      Number(creditResponse.total ?? creditResponse.credits ?? 0) > 0
+    );
+  };
+
+  const ensureCanGenerateWithCredits = async (
+    clientId?: string | number | null,
+  ) => {
+    if (sessionStorage.getItem("isDemoAccount") === "true") {
+      return true;
+    }
+
+    const currentCredits = await checkUserCredits(clientId);
+    const canGenerate = canGenerateFromCreditResponse(currentCredits);
+
+    if (!canGenerate) {
+      setForceShowCreditModal(true);
+    }
+
+    return canGenerate;
+  };
 
   // Listen for credit modal event from login
   useEffect(() => {
@@ -365,6 +405,7 @@ const MainPage: React.FC = () => {
   );
 
   const stopRef = useRef(false);
+  const kraftResumeIndexRef = useRef<number | null>(null);
   const [isStarted, setIsStarted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPitchUpdateCompleted, setIsPitchUpdateCompleted] = useState(false);
@@ -541,6 +582,13 @@ const MainPage: React.FC = () => {
   ]);
 
   useEffect(() => {
+    const forceMyPlanRedirect =
+      sessionStorage.getItem("forceMyPlanRedirect") === "true";
+
+    if (forceMyPlanRedirect && initialTab === "MyPlan" && tab !== "MyPlan") {
+      return;
+    }
+
     const params = new URLSearchParams(latestLocationSearchRef.current);
     let nextSearch = "";
 
@@ -577,6 +625,42 @@ const MainPage: React.FC = () => {
       navigate(nextSearch ? `/main?${nextSearch}` : "/main", { replace: true });
     }
   }, [tab, contactsSubTab, mailSubTab, navigate]);
+
+  useEffect(() => {
+    if (sessionStorage.getItem("forceMyPlanRedirect") !== "true") {
+      return;
+    }
+
+    const params = new URLSearchParams(location.search);
+    const isOnMyPlanRoute =
+      location.pathname === "/main" && params.get("tab") === "MyPlan";
+
+    if (!isOnMyPlanRoute) {
+      navigate("/main?tab=MyPlan", { replace: true });
+    }
+
+    if (tab !== "MyPlan") {
+      setTab("MyPlan");
+    }
+
+    setShowContactsSubmenu(false);
+    setShowMailSubmenu(false);
+
+    const timer = window.setTimeout(() => {
+      sessionStorage.removeItem("forceMyPlanRedirect");
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, location.search, navigate, tab]);
+
+  const goToMyPlan = () => {
+    sessionStorage.setItem("forceMyPlanRedirect", "true");
+    setTab("MyPlan");
+    if (isContactDetailPage) {
+      const appBaseUrl = window.location.href.split("#")[0];
+      window.location.href = `${appBaseUrl}#/main?tab=MyPlan`;
+    }
+  };
 
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
   const [mountedTabs, setMountedTabs] = useState<Record<string, boolean>>(() => ({
@@ -657,7 +741,7 @@ const MainPage: React.FC = () => {
 
         const data = await response.json();
         console.log("data", data);
-        setCampaigns(data);
+        setCampaigns(normalizeCampaigns(data));
         //  setCampaigns(data.campaigns || []);
       } catch (error) {
         console.error("Error fetching campaigns:", error);
@@ -1733,8 +1817,8 @@ const resolvePromptSafely = async () => {
       !options?.regenerate &&
       sessionStorage.getItem("isDemoAccount") !== "true"
     ) {
-      const currentCredits = await checkUserCredits(tempEffectiveUserId);
-      if (currentCredits && !currentCredits.canGenerate) {
+      const canGenerate = await ensureCanGenerateWithCredits(tempEffectiveUserId);
+      if (!canGenerate) {
         return; // Stop execution if can't generate
       }
     }
@@ -2320,6 +2404,8 @@ const resolvePromptSafely = async () => {
             GPTGenerate: true,
             emailSubject: subjectLine,
             emailBody: pitchData.response.content,
+            campaignId: selectedCampaign ? parseInt(selectedCampaign) : null,
+            blueprintId: safePrompt?.id ?? null,
           }),
         });
 
@@ -2345,6 +2431,26 @@ const resolvePromptSafely = async () => {
             )}] Updated pitch in database for ${full_name}.</span><br/>`
             + prev.generatedContent,
         }));
+
+        try {
+          const userCreditResponse = await fetch(
+            `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`,
+          );
+          if (!userCreditResponse.ok) {
+            throw new Error("Failed to fetch user credit");
+          }
+
+          const userCreditData = await userCreditResponse.json();
+          dispatch(saveUserCredit(userCreditData));
+
+          window.dispatchEvent(
+            new CustomEvent("creditUpdated", {
+              detail: { clientId: effectiveUserId },
+            }),
+          );
+        } catch (creditError) {
+          console.error("User credit API error:", creditError);
+        }
       }
 
 
@@ -2558,6 +2664,8 @@ const resolvePromptSafely = async () => {
               viewId: viewId ? parseInt(viewId) : null,
             };
 
+            kraftResumeIndexRef.current =
+              responseIndex + 1 < contacts.length ? responseIndex + 1 : null;
             setAllResponses((prevResponses) => {
               const updated = [...prevResponses];
 
@@ -2660,6 +2768,27 @@ const resolvePromptSafely = async () => {
 
               break;
             }
+          }
+
+          const hasCreditsForThisEmail = await ensureCanGenerateWithCredits(
+            effectiveUserId,
+          );
+
+          if (!hasCreditsForThisEmail) {
+            kraftResumeIndexRef.current = i;
+            setCurrentIndex(i);
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              generatedContent:
+                `<span style="color: orange">[${formatDateTime(
+                  new Date(),
+                )}] Credit limit reached. Processing paused before crafting ${full_name || entry.email}.</span><br/>` +
+                prevOutputForm.generatedContent,
+            }));
+
+            moreRecords = false;
+            stopRef.current = true;
+            break;
           }
 
           // Step 1: Scrape Website with caching
@@ -3075,6 +3204,8 @@ totalEmailCostRef.current += subjectCost;
             return updated;
           });
 
+          kraftResumeIndexRef.current =
+            responseIndex + 1 < contacts.length ? responseIndex + 1 : null;
           setCurrentIndex(responseIndex);
           setRecentlyAddedOrUpdatedId(newResponse.id);
 
@@ -3087,6 +3218,8 @@ totalEmailCostRef.current += subjectCost;
                 GPTGenerate: true,
                 emailSubject: subjectLine,
                 emailBody: pitchData.response.content,
+                campaignId: selectedCampaign ? parseInt(selectedCampaign) : null,
+                blueprintId: promptForRun?.id ?? null,
               };
 
               // Add segmentId or dataFileId based on priority
@@ -3205,6 +3338,7 @@ totalEmailCostRef.current += subjectCost;
       if (!stopRef.current) {
         // Reset all tracking variables
 
+        kraftResumeIndexRef.current = null;
         stopRef.current = false;
         setIsPaused(true);
       }
@@ -3463,8 +3597,11 @@ totalEmailCostRef.current += subjectCost;
   const handleStart = async (startIndex?: number) => {
     if (!selectedPrompt) return;
 
-    // Use the passed startIndex or current index, don't clear all data
-    const indexToStart = startIndex !== undefined ? startIndex : currentIndex;
+    // Use explicit range starts first; otherwise resume from the next pending contact.
+    const indexToStart =
+      startIndex !== undefined
+        ? startIndex
+        : kraftResumeIndexRef.current ?? currentIndex;
 
     setAllRecordsProcessed(false);
     setIsStarted(true);
@@ -3582,6 +3719,7 @@ const lastPitch =
     if (!isPaused) return;
     // Stop any ongoing generation process
     stopRef.current = true;
+    kraftResumeIndexRef.current = null;
 
     // Reset all state variables
     setIsStarted(false);
@@ -3710,7 +3848,7 @@ const lastPitch =
           `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`,
         );
         const data = await response.json();
-        setCampaigns(data);
+        setCampaigns(normalizeCampaigns(data));
         // setCampaigns(data.campaigns || []);
       } catch (err) {
         console.error("Error fetching campaigns", err);
@@ -3724,6 +3862,7 @@ const handleCampaignChange = async (
   const campaignId = event.target.value;
 
   setSelectedCampaign(campaignId);
+  kraftResumeIndexRef.current = null;
 
   if (!campaignId) {
     setSelectionMode("manual");
@@ -3744,7 +3883,7 @@ const handleCampaignChange = async (
   setSelectedPrompt(null);
   setCurrentIndex(0);
 
-  const campaign = campaigns.find(c => c.id.toString() === campaignId);
+  const campaign = normalizeCampaigns(campaigns).find(c => String(c?.id) === campaignId);
   if (!campaign) return;
 
 try {
@@ -3783,6 +3922,7 @@ try {
 
   const handleClearAll = () => {
     stopRef.current = true;
+    kraftResumeIndexRef.current = null;
 
     processCacheRef.current = {};
     setAllRecordsProcessed(false);
@@ -3896,7 +4036,7 @@ try {
     }
   };
 
-  <Header onUpgradeClick={() => setTab("MyPlan")} connectTo={true} />;
+  <Header onUpgradeClick={goToMyPlan} connectTo={true} />;
 
   return (
     // <div className="login-container pitch-page flex-col d-flex">
@@ -4349,7 +4489,7 @@ try {
             handleClientChange={handleClientChange}
             clientNames={clientNames}
             userRole={userRole}
-            onUpgradeClick={() => setTab("MyPlan")}
+            onUpgradeClick={goToMyPlan}
           />
         </header>
 
@@ -4625,11 +4765,24 @@ try {
         <LoadingSpinner message="Loading blueprint..." />
       )}
       <CreditCheckModal
-        isOpen={showCreditModal}
-        onClose={closeCreditModal}
-        onSkip={handleSkipModal}
+        isOpen={showCreditModal || forceShowCreditModal}
+        onClose={() => {
+          setForceShowCreditModal(false);
+          closeCreditModal();
+        }}
+        onSkip={() => {
+          setForceShowCreditModal(false);
+          handleSkipModal();
+        }}
         credits={credits}
-        setTab={setTab}
+        setTab={(nextTab) => {
+          if (nextTab === "MyPlan") {
+            goToMyPlan();
+            return;
+          }
+
+          setTab(nextTab);
+        }}
       />
     </div>
   );

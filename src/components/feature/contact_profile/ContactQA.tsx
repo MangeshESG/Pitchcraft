@@ -73,6 +73,8 @@ interface ContactQAProps {
   notesHistory?: any[];
   emailTimeline?: any[];
   loading?: boolean;
+  onBeforeQuestion?: () => Promise<boolean>;
+  onQuestionSuccess?: () => Promise<void>;
 }
 
 const CONTACT_QA_STORAGE_PREFIX = "contact_qa_messages";
@@ -397,6 +399,8 @@ const ContactQA: React.FC<ContactQAProps> = ({
   notesHistory = [],
   emailTimeline = [],
   loading = false,
+  onBeforeQuestion,
+  onQuestionSuccess,
 }) => {
   const storageKey = useMemo(
     () => buildStorageKey(clientId, contactId),
@@ -422,6 +426,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
   const latestAssistantMessageRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const previousMessageCountRef = useRef(messages.length);
+  const questionInFlightRef = useRef(false);
 
   const contactContext = useMemo(() => {
     const resolvedContact = contact || {};
@@ -706,7 +711,22 @@ const ContactQA: React.FC<ContactQAProps> = ({
 
   const sendQuestion = async (overrideQuestion?: string) => {
     const prompt = (overrideQuestion ?? question).trim();
-    if (!prompt || isSending || !hasContext) return;
+    if (!prompt || isSending || !hasContext || questionInFlightRef.current) return;
+    questionInFlightRef.current = true;
+
+    if (onBeforeQuestion) {
+      let canAsk = false;
+      try {
+        canAsk = await onBeforeQuestion();
+      } catch (creditError) {
+        console.error("Contact Q&A credit check failed:", creditError);
+      }
+
+      if (!canAsk) {
+        questionInFlightRef.current = false;
+        return;
+      }
+    }
 
     const userMessage: ContactQAMessage = {
       id: `${Date.now()}-user`,
@@ -778,6 +798,8 @@ const ContactQA: React.FC<ContactQAProps> = ({
           cost: prev.total.cost + usage.cost,
         },
       }));
+
+      await onQuestionSuccess?.();
     } catch (requestError: any) {
       console.error("Contact Q&A request failed:", requestError);
       setError(
@@ -787,6 +809,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
       setMessages((prev) => prev.filter((message) => message.id !== userMessage.id));
       setQuestion(prompt);
     } finally {
+      questionInFlightRef.current = false;
       setIsSending(false);
     }
   };
