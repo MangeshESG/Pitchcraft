@@ -582,6 +582,13 @@ const MainPage: React.FC = () => {
   ]);
 
   useEffect(() => {
+    const forceMyPlanRedirect =
+      sessionStorage.getItem("forceMyPlanRedirect") === "true";
+
+    if (forceMyPlanRedirect && initialTab === "MyPlan" && tab !== "MyPlan") {
+      return;
+    }
+
     const params = new URLSearchParams(latestLocationSearchRef.current);
     let nextSearch = "";
 
@@ -618,6 +625,42 @@ const MainPage: React.FC = () => {
       navigate(nextSearch ? `/main?${nextSearch}` : "/main", { replace: true });
     }
   }, [tab, contactsSubTab, mailSubTab, navigate]);
+
+  useEffect(() => {
+    if (sessionStorage.getItem("forceMyPlanRedirect") !== "true") {
+      return;
+    }
+
+    const params = new URLSearchParams(location.search);
+    const isOnMyPlanRoute =
+      location.pathname === "/main" && params.get("tab") === "MyPlan";
+
+    if (!isOnMyPlanRoute) {
+      navigate("/main?tab=MyPlan", { replace: true });
+    }
+
+    if (tab !== "MyPlan") {
+      setTab("MyPlan");
+    }
+
+    setShowContactsSubmenu(false);
+    setShowMailSubmenu(false);
+
+    const timer = window.setTimeout(() => {
+      sessionStorage.removeItem("forceMyPlanRedirect");
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, location.search, navigate, tab]);
+
+  const goToMyPlan = () => {
+    sessionStorage.setItem("forceMyPlanRedirect", "true");
+    setTab("MyPlan");
+    if (isContactDetailPage) {
+      const appBaseUrl = window.location.href.split("#")[0];
+      window.location.href = `${appBaseUrl}#/main?tab=MyPlan`;
+    }
+  };
 
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
   const [mountedTabs, setMountedTabs] = useState<Record<string, boolean>>(() => ({
@@ -3993,7 +4036,7 @@ try {
     }
   };
 
-  <Header onUpgradeClick={() => setTab("MyPlan")} connectTo={true} />;
+  <Header onUpgradeClick={goToMyPlan} connectTo={true} />;
 
   return (
     // <div className="login-container pitch-page flex-col d-flex">
@@ -4446,7 +4489,7 @@ try {
             handleClientChange={handleClientChange}
             clientNames={clientNames}
             userRole={userRole}
-            onUpgradeClick={() => setTab("MyPlan")}
+            onUpgradeClick={goToMyPlan}
           />
         </header>
 
@@ -4732,7 +4775,14 @@ try {
           handleSkipModal();
         }}
         credits={credits}
-        setTab={setTab}
+        setTab={(nextTab) => {
+          if (nextTab === "MyPlan") {
+            goToMyPlan();
+            return;
+          }
+
+          setTab(nextTab);
+        }}
       />
     </div>
   );

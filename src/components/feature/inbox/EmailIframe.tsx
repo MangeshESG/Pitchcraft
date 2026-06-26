@@ -71,13 +71,20 @@ function buildEmailDocument(raw: string): string {
       .replace(/<\/body>/gi, '');
   }
 
+  bodyContent = bodyContent
+    .replace(/(?:<br\s*\/?>\s*){3,}/gi, '<br><br>')
+    .replace(/<(?:p|div)\b[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/(?:p|div)>/gi, '')
+    .trim();
+
   return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  body { margin: 0; padding: 8px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1a1d21; }
+  body { margin: 0; padding: 4px 8px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.35; color: #1a1d21; }
+  p, div { margin-top: 0; }
+  p { margin-bottom: 6px; }
   img  { max-width: 100%; height: auto; }
   *    { box-sizing: border-box; }
   a    { color: #2563eb; }
@@ -109,7 +116,7 @@ const EmailIframe: React.FC<EmailIframeProps> = ({ html }) => {
         // sized to the 600px placeholder it never reports a smaller
         // value. <body> has no explicit height, so it always reflects
         // the actual content height.
-        const h = Math.max(doc.body.scrollHeight, doc.body.offsetHeight, 80);
+        const h = Math.max(doc.body.scrollHeight, doc.body.offsetHeight, 24);
         frame.style.height = h + 'px';
       } catch { /* cross-origin guard */ }
     };
@@ -127,7 +134,7 @@ const EmailIframe: React.FC<EmailIframeProps> = ({ html }) => {
       srcDoc={buildEmailDocument(html)}
       onLoad={handleLoad}
       title="Email content"
-      style={{ width: '100%', border: 'none', display: 'block', minHeight: 80 }}
+      style={{ width: '100%', border: 'none', display: 'block', minHeight: 24 }}
       sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
     />
   );

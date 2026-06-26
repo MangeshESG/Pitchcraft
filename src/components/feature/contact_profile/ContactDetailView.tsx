@@ -230,6 +230,13 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   };
   const navigate = useNavigate();
   const handleCreditModalTabChange = (nextTab: string) => {
+    if (nextTab === "MyPlan") {
+      sessionStorage.setItem("forceMyPlanRedirect", "true");
+      const appBaseUrl = window.location.href.split("#")[0];
+      window.location.href = `${appBaseUrl}#/main?tab=MyPlan`;
+      return;
+    }
+
     if (embedded) {
       navigate(`/main?tab=${nextTab}`);
       return;

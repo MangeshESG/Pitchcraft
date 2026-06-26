@@ -193,6 +193,13 @@ const Template: React.FC<TemplateProps> = ({
     credits,
   } = useCreditCheck();
   const [forceShowCreditModal, setForceShowCreditModal] = useState(false);
+  const handleCreditModalTabChange = (nextTab: string) => {
+    if (nextTab === "MyPlan") {
+      sessionStorage.setItem("forceMyPlanRedirect", "true");
+      const appBaseUrl = window.location.href.split("#")[0];
+      window.location.href = `${appBaseUrl}#/main?tab=MyPlan`;
+    }
+  };
   const createCampaignClickInFlightRef = useRef(false);
   const DEFAULT_USER_TEMPLATE_ID = 65;
   const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL 2.0";
@@ -1868,7 +1875,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
           handleSkipModal();
         }}
         credits={credits || 0}
-        setTab={() => {}} // Not needed in this context
+        setTab={handleCreditModalTabChange}
       />
     </div>
   );
