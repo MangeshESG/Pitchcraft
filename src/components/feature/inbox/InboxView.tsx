@@ -13,7 +13,7 @@ import Modal from '../../common/Modal';
 import ToastMessage from '../../common/ToastMessage';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
-import { faEllipsisV, faPaperclip, faReply, faShare } from '@fortawesome/free-solid-svg-icons';
+import { faCaretDown, faEllipsisV, faFloppyDisk, faPaperclip, faReply, faShare } from '@fortawesome/free-solid-svg-icons';
 import { Pin, PinOff } from 'lucide-react';
 import UnassignedTab from './UnassignedTab';
 import SentTab from './SentTab';
@@ -1314,6 +1314,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     return wrapper.innerHTML;
   };
 
+  const getDraftReplyBody = (html: string): string => {
+    const { draftHtml } = splitReplyTrail(html || '');
+    return draftHtml;
+  };
+
   const formatReplyTrailHeader = (headerText: string): string => {
     // Recursively decode HTML entities until fully decoded
     const fullyDecode = (text: string): string => {
@@ -1695,7 +1700,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           contactId: contactId,
           gptGenerate: false,
           emailSubject: null,
-          emailBody: getSendableReplyBody(replyText)
+          emailBody: getDraftReplyBody(replyText)
         },
         {
           headers: {
@@ -2884,21 +2889,24 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     </button>
 
                     <button 
-                      className="button square-40 justify-center" 
+                      type="button"
+                      className="button square-40 justify-center"
+                      title={isSavingDraft ? 'Saving draft' : 'Save draft'}
+                      aria-label={isSavingDraft ? 'Saving draft' : 'Save draft'}
                       style={{ 
                         background: isSavingDraft || !replyText.trim() ? '#ccc' : '#3f9f42', 
                         color: '#fff',
                         fontWeight: '500',
-                        fontSize: '13px',
-                        padding: '0 16px',
-                        width: 'auto',
-                        minWidth: '70px',
+                        fontSize: '16px',
+                        padding: 0,
+                        width: '40px',
+                        minWidth: '40px',
                         cursor: isSavingDraft || !replyText.trim() ? 'not-allowed' : 'pointer'
                       }}
                       onClick={handleSaveDraft}
                       disabled={isSavingDraft || !replyText.trim()}
                     >
-                      {isSavingDraft ? 'Saving...' : 'Save'}
+                      <FontAwesomeIcon icon={faFloppyDisk} />
                     </button>
                   </div>
                 </div>
@@ -3737,21 +3745,24 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </button>
 
                       <button 
-                        className="button square-40 justify-center" 
+                        type="button"
+                        className="button square-40 justify-center"
+                        title={isSavingDraft ? 'Saving draft' : 'Save draft'}
+                        aria-label={isSavingDraft ? 'Saving draft' : 'Save draft'}
                         style={{ 
                           background: isSavingDraft || !replyText.trim() || !selectedUnassignedThread.contactId ? '#ccc' : '#3f9f42', 
                           color: '#fff',
                           fontWeight: '500',
-                          fontSize: '13px',
-                          padding: '0 16px',
-                          width: 'auto',
-                          minWidth: '70px',
+                          fontSize: '16px',
+                          padding: 0,
+                          width: '40px',
+                          minWidth: '40px',
                           cursor: isSavingDraft || !replyText.trim() || !selectedUnassignedThread.contactId ? 'not-allowed' : 'pointer'
                         }}
                         onClick={handleSaveDraft}
                         disabled={isSavingDraft || !replyText.trim() || !selectedUnassignedThread.contactId}
                       >
-                        {isSavingDraft ? 'Saving...' : 'Save'}
+                        <FontAwesomeIcon icon={faFloppyDisk} />
                       </button>
                     </div>
                   </div>
@@ -4017,6 +4028,63 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
                             {extractEmailAddress(message.fromEmail)}
                           </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                            <span style={{ color: '#6b7280', fontSize: '13px' }}>To:</span>
+                            <span style={{ color: '#2563eb', fontSize: '13px' }}>
+                              {extractEmailAddress(message.toEmail || selectedAllMessagesThread.contactEmail)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleMessageExpand(uniqueKey);
+                              }}
+                              aria-label={expandedMessages[uniqueKey] ? 'Hide email details' : 'Show email details'}
+                              aria-expanded={Boolean(expandedMessages[uniqueKey])}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '2px 4px',
+                                color: '#6b7280',
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginLeft: '4px'
+                              }}
+                            >
+                              <FontAwesomeIcon
+                                icon={faCaretDown}
+                                style={{
+                                  transform: expandedMessages[uniqueKey] ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  transition: 'transform 0.2s',
+                                  fontSize: '11px'
+                                }}
+                              />
+                            </button>
+                          </div>
+                          {expandedMessages[uniqueKey] && (
+                            <div style={{
+                              marginTop: '8px',
+                              padding: '8px 0',
+                              fontSize: '13px',
+                              lineHeight: '1.8',
+                              color: '#6b7280',
+                              borderTop: '1px solid #e5e7eb'
+                            }}>
+                              <div>
+                                <strong style={{ color: '#374151' }}>From:</strong> {message.contactName || extractSenderName(message.fromEmail)} &lt;{extractEmailAddress(message.fromEmail)}&gt;
+                              </div>
+                              <div>
+                                <strong style={{ color: '#374151' }}>To:</strong> {extractEmailAddress(message.toEmail || selectedAllMessagesThread.contactEmail)}
+                              </div>
+                              <div>
+                                <strong style={{ color: '#374151' }}>Date:</strong> {formatFullDate(message.date)}
+                              </div>
+                              <div>
+                                <strong style={{ color: '#374151' }}>Subject:</strong> {message.subject}
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <button
@@ -4349,21 +4417,24 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </button>
 
                       <button
+                        type="button"
                         className="button square-40 justify-center"
+                        title={isSavingDraft ? 'Saving draft' : 'Save draft'}
+                        aria-label={isSavingDraft ? 'Saving draft' : 'Save draft'}
                         style={{
                           background: isSavingDraft || !replyText.trim() || !selectedAllMessagesThread.contactId ? '#ccc' : '#3f9f42',
                           color: '#fff',
                           fontWeight: '500',
-                          fontSize: '13px',
-                          padding: '0 16px',
-                          width: 'auto',
-                          minWidth: '70px',
+                          fontSize: '16px',
+                          padding: 0,
+                          width: '40px',
+                          minWidth: '40px',
                           cursor: isSavingDraft || !replyText.trim() || !selectedAllMessagesThread.contactId ? 'not-allowed' : 'pointer'
                         }}
                         onClick={handleSaveDraft}
                         disabled={isSavingDraft || !replyText.trim() || !selectedAllMessagesThread.contactId}
                       >
-                        {isSavingDraft ? 'Saving...' : 'Save'}
+                        <FontAwesomeIcon icon={faFloppyDisk} />
                       </button>
                     </div>
                   </div>
