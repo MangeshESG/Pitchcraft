@@ -18,24 +18,75 @@ const UserComp = lazy(() => import("./components/User") as any);
 
 const App: React.FC = () => {
   useEffect(() => {
-    // Add the chatbot script
+    // SignalZen live chat — mirrors the official embed snippet.
+    // Position (left/right) is configured in the SignalZen dashboard.
+    const _sz = ((window as any)._sz = (window as any)._sz || {});
+    _sz.appId = "239f3c3e";
+
     const script = document.createElement("script");
     script.src = "https://cdn.signalzen.com/signalzen.js";
-    script.async = true;
-    document.body.appendChild(script);
+    script.setAttribute("async", "true");
+    document.documentElement.firstChild?.appendChild(script);
 
     const interval = setInterval(() => {
       if (typeof (window as any).SignalZen !== "undefined") {
         clearInterval(interval);
-        new (window as any).SignalZen({ appId: "239f3c3e" }).load();
+        new (window as any).SignalZen(_sz).load();
       }
     }, 10);
+
+    // Force the SignalZen widget to the bottom-left.
+    // The dashboard "position" setting isn't taking effect, so we override the
+    // inline "left: <px> !important" that SignalZen writes on #signalzen_widget__root
+    // (and the chat window). An inline !important can only be beaten by another
+    // inline write, re-asserted via a MutationObserver (fires before paint → no flicker).
+    const CHAT_LEFT = "20px";
+    const pinChatLeft = () => {
+      // Collect every SignalZen-owned root (launcher + chat window may live on
+      // separate roots), plus their descendants, wherever SignalZen mounts them.
+      const roots = document.querySelectorAll<HTMLElement>(
+        '[id^="signal_zen" i],[id^="signalzen" i]'
+      );
+      if (!roots.length) return;
+      const candidates = new Set<HTMLElement>();
+      roots.forEach((r) => {
+        candidates.add(r);
+        r.querySelectorAll<HTMLElement>("*").forEach((c) => candidates.add(c));
+      });
+      candidates.forEach((el) => {
+        // Target the fixed-positioned roots SignalZen anchors via an inline
+        // "left" (launcher + chat window). The launcher root can be a 0-size
+        // anchor, so we key off the inline left it sets, not element size.
+        // Inner position:absolute bits are excluded by the fixed check.
+        if (
+          window.getComputedStyle(el).position === "fixed" &&
+          el.style.left &&
+          el.style.left !== CHAT_LEFT
+        ) {
+          el.style.setProperty("left", CHAT_LEFT, "important");
+          el.style.setProperty("right", "auto", "important");
+        }
+      });
+    };
+
+    // Re-assert position whenever SignalZen mounts the widget, swaps nodes
+    // (open/close), or rewrites its inline style (resize). Observer callbacks
+    // run before paint, so the right-side position is never visible.
+    const observer = new MutationObserver(pinChatLeft);
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style"],
+    });
+    pinChatLeft();
 
     return () => {
       // Clean up the interval and script if it exists
       clearInterval(interval);
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
+      observer.disconnect();
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
       }
     };
   }, []); // Empty dependency array to run once on mount

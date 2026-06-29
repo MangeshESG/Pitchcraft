@@ -7,6 +7,9 @@ export interface ElementsTabProps {
   setFormValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   onExpandElement: (p: PlaceholderDefinitionUI) => void;
   saveAllPlaceholders: () => void;
+  // True while the "Save all" request is in flight. Used to show an inline
+  // spinner on the button instead of a full-screen loader overlay.
+  isSaving?: boolean;
 
   // Key of the placeholder currently open in the edit side panel (used to
   // highlight its row in the list). Null when no element is being edited.
@@ -169,6 +172,7 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
   onExpandElement,
   saveAllPlaceholders,
   activeElementKey,
+  isSaving = false,
 }) => {
   const categories = Object.keys(groupedPlaceholders);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -260,6 +264,7 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
         </div>
         <button
           onClick={saveAllPlaceholders}
+          disabled={isSaving}
           style={{
             padding: "7px 16px",
             fontSize: 13,
@@ -268,19 +273,34 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
             border: "none",
             background: "#3f9f42",
             color: "#fff",
-            cursor: "pointer",
+            cursor: isSaving ? "not-allowed" : "pointer",
+            opacity: isSaving ? 0.75 : 1,
             display: "flex",
             alignItems: "center",
             gap: 6,
             flexShrink: 0,
           }}
         >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-            <polyline points="17 21 17 13 7 13 7 21" />
-            <polyline points="7 3 7 8 15 8" />
-          </svg>
-          Save all
+          {isSaving ? (
+            <>
+              <svg
+                width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ animation: "campaign-builder-spin 1s linear infinite" }}
+              >
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              </svg>
+              Saving…
+            </>
+          ) : (
+            <>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+              Save all
+            </>
+          )}
         </button>
       </div>
 

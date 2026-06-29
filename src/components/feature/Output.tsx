@@ -2352,7 +2352,7 @@ useEffect(() => {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#f3f4f6' }}>
+    <div className="min-h-screen" style={{ background: '#ffffff' }}>
       {/* PAGE HEADER */}
       <div className="flex items-start justify-between pt-4 pb-4 px-6">
         <div>

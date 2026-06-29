@@ -191,8 +191,8 @@ export const ContactsPageHeader: React.FC<PageHeaderProps> = ({
               <FontAwesomeIcon icon={faUpload} style={{ color: "#6b7280" }} />
               Import list
             </button>
-            <button className="ct-btn-primary-dark" onClick={onCreateList}>
-              <FontAwesomeIcon icon={faPlus} />
+            <button className="ct-btn-tertiary" onClick={onCreateList}>
+              <FontAwesomeIcon icon={faPlus} style={{ color: "#3f9f42" }} />
               Create a list
             </button>
           </div>

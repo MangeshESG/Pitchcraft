@@ -1221,7 +1221,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
 
                 <div className="form-group" style={{ marginBottom: "20px" }}>
                   <label htmlFor="templateName" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
-                    Campaign name <span style={{ color: "red" }}>*</span>
+                    Blueprint name <span style={{ color: "red" }}>*</span>
                   </label>
                   <input
                     id="templateName"

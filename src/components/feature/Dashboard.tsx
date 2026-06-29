@@ -9,13 +9,12 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPlayCircle,
   faCheck,
-  faStar,
 } from "@fortawesome/free-solid-svg-icons";
 
-import CreateATemplete from "../../assets/images/icons/create-a-template.png";
-import ImportContact from "../../assets/images/icons/import-contact.png";
-import CreateACampaign from "../../assets/images/icons/create-a-campaign.png";
-import GenerateEmail from "../../assets/images/icons/generate-email.png";
+import CreateATemplete from "../../assets/images/Dashboard-blueprint.jpg";
+import ImportContact from "../../assets/images/Dashboard-contact.jpg";
+import CreateACampaign from "../../assets/images/Dashboard-campgain.jpg";
+import GenerateEmail from "../../assets/images/Dashboard-kraft-email.jpg";
 
 
 /* ------------------------------------------------------------------
@@ -35,6 +34,7 @@ interface OnboardingStep {
   ctaPath?: string;
   illustration?: string;
   videoSrc?: string;
+  tipsUrl?: string;
 }
 
 interface KpiTileData {
@@ -45,13 +45,6 @@ interface KpiTileData {
   series: number[];
 }
 
-
-interface ActivityRow {
-  kind: "sent" | "import" | "blueprint" | "verify" | "gen";
-  title: string;
-  meta: string;
-  time: string;
-}
 
 interface ContactApiRow {
   id: number;
@@ -89,7 +82,6 @@ export interface DashboardProps {
 ------------------------------------------------------------------- */
 
 const BRAND = "#3f9f42";
-const VIDEO_BASE = "https://app.pitchkraft.ai";
 
 /* ------------------------------------------------------------------
    Onboarding view helpers
@@ -103,37 +95,40 @@ const buildSteps = (
       id: "blueprint",
       n: 1,
       title: "Create a blueprint",
-      time: "8 minutes",
-      status: "done",
-      body: "Similar to a template — your blueprint is the recipe for every campaign email. The most important step, and PitchKraft walks you through it.",
+      time: "10 minutes",
+      status: "active",
+      body: "Similar to a template, but so much more. A blueprint is the recipe to personalize the emails in a campaign. This is the most important part of the process but only takes 10 minutes. PitchKraft will talk you through it.",
       cta: "Create blueprint",
       ctaPath: "/main?tab=TestTemplate",
       illustration: CreateATemplete,
-      videoSrc: `${VIDEO_BASE}/video/BlueprintsGuide1.mp4`,
+      videoSrc: "https://www.youtube.com/embed/eVNMhPXB3eU",
+      tipsUrl: "https://www.pitchkraft.ai/blueprints/",
     },
     {
       id: "contacts",
       n: 2,
       title: "Import contacts",
-      time: "2 minutes",
-      status: "active",
-      body: "Add your contacts from your CRM, Excel, or other tools. We'll help you map the fields and keep your data safe.",
+      time: "5 minutes",
+      status: "todo",
+      body: "Add your contacts. Import from a spreadsheet, and the columns will be mapped automatically. You can also add them individually. You'll need contacts to send your beautifully personalized emails to.",
       cta: "Import contacts",
       ctaPath: "/main?tab=DataCampaigns&subtab=List",
       illustration: ImportContact,
-      videoSrc: `${VIDEO_BASE}/video/ImportContacts.mp4`,
+      videoSrc: "https://www.youtube.com/embed/pYhwq2rwtmo",
+      tipsUrl: "https://www.pitchkraft.ai/contacts",
     },
     {
       id: "campaign",
       n: 3,
       title: "Create a campaign",
-      time: "4 minutes",
+      time: "1 minute",
       status: "todo",
-      body: "Connect your blueprint and contacts to form an email campaign. Takes a second.",
+      body: "Connect your blueprint and contacts to form an email campaign. This takes a minute at most.",
       cta: "New campaign",
       ctaPath: "/main?tab=Campaigns",
       illustration: CreateACampaign,
-      videoSrc: `${VIDEO_BASE}/video/Campaigns.mp4`,
+      videoSrc: "https://www.youtube.com/embed/nko6bc9T_xo",
+      tipsUrl: "https://www.pitchkraft.ai/campaigns",
     },
     {
       id: "kraft",
@@ -141,20 +136,12 @@ const buildSteps = (
       title: "Kraft emails",
       time: "5 minutes",
       status: "todo",
-      body: "This is where the magic happens. Hit 'Kraft emails' and watch every message get written, one-by-one.",
+      body: "This is where the magic happens. You've done all the work now, so all you have to do is click the 'Kraft emails' button and watch the emails being krafted, one-by-one, hypnotically. Prepare to be amazed.",
       cta: "Kraft emails",
       ctaPath: "/main?tab=Output",
       illustration: GenerateEmail,
-      videoSrc: `${VIDEO_BASE}/video/KraftEmails.mp4`,
-    },
-    {
-      id: "explore",
-      n: "★",
-      title: "Explore more",
-      time: "Optional",
-      status: "optional",
-      body: "Load a safe demo workspace you can delete anytime — includes sample templates, dummy contacts, and a sample campaign.",
-      cta: "Coming soon",
+      videoSrc: "https://www.youtube.com/embed/C9xqxoc6Rwg",
+      tipsUrl: "https://www.pitchkraft.ai/kraft-email/",
     },
   ];
 
@@ -177,13 +164,12 @@ const StepRow: React.FC<{
   onClick: () => void;
 }> = ({ step, active, onClick }) => {
   const isDone = step.status === "done";
-  const isOptional = step.status === "optional";
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left flex items-center justify-between gap-3 rounded-xl px-4 py-3 border transition
+      className={`w-full text-left flex items-center justify-between gap-3 rounded-xl px-4 py-3.5 border transition
         ${
           active
             ? "border-[#3f9f42] bg-[#f1f8f2]"
@@ -197,32 +183,28 @@ const StepRow: React.FC<{
     >
       <div className="flex items-center gap-3 min-w-0">
         <span
-          className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-semibold
+          className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-[15px] font-semibold
             ${
               isDone
                 ? "text-white"
                 : active
                 ? "bg-white text-[#3f9f42] border-2 border-[#3f9f42]"
-                : isOptional
-                ? "bg-white border border-gray-200 text-gray-400"
                 : "bg-white border border-gray-200 text-gray-600"
             }`}
           style={isDone ? { background: BRAND } : undefined}
         >
           {isDone ? (
-            <FontAwesomeIcon icon={faCheck} className="text-[12px]" />
-          ) : isOptional ? (
-            <FontAwesomeIcon icon={faStar} className="text-[12px]" />
+            <FontAwesomeIcon icon={faCheck} className="text-[14px]" />
           ) : (
             step.n
           )}
         </span>
         <div className="min-w-0">
-          <div className="text-[14px] font-semibold text-gray-900 truncate">
+          <div className="text-[16px] font-semibold text-gray-900 truncate">
             {step.title}
           </div>
           <div
-            className={`text-[12px] mt-0.5 ${isDone ? "font-medium" : "text-gray-500"}`}
+            className={`text-[13px] mt-0.5 ${isDone ? "font-medium" : "text-gray-500"}`}
             style={isDone ? { color: BRAND } : undefined}
           >
             {isDone ? "Done" : step.time}
@@ -231,10 +213,10 @@ const StepRow: React.FC<{
       </div>
       {!isDone && (
         <span
-          className={`shrink-0 text-[12px] font-medium px-2.5 py-1 rounded-full
+          className={`shrink-0 text-[13px] font-medium px-2.5 py-1 rounded-full
             ${active ? "bg-[#e2f1e3] text-[#3f9f42]" : "bg-gray-50 text-gray-500"}`}
         >
-          {isOptional ? "Optional" : step.time}
+          {step.time}
         </span>
       )}
     </button>
@@ -253,41 +235,46 @@ const StepDetail: React.FC<{
       <div aria-hidden className="absolute top-12 left-6 w-2 h-2 rounded-full bg-[#52b056]/30" />
 
       <div className="flex-1 min-w-0 relative z-10">
-        <div className="text-[22px] font-bold text-gray-900 leading-tight">
+        <div className="text-[26px] font-bold text-gray-900 leading-tight">
           {step.title}
         </div>
-        <p className="text-[14px] text-gray-600 mt-2 leading-relaxed max-w-[42ch]">
+        <div className="text-[14px] font-medium text-gray-500 mt-1">
+          {step.time}
+        </div>
+        <p className="text-[16px] text-gray-600 mt-3 leading-relaxed max-w-[46ch]">
           {step.body}
         </p>
-        <div className="flex items-center gap-4 mt-5">
+        <div className="flex items-center gap-4 mt-6">
           <button
             type="button"
             onClick={() => step.ctaPath && navigate(step.ctaPath)}
             disabled={!step.ctaPath}
-            className={`h-10 px-5 rounded-lg text-white text-[14px] font-semibold transition
-              ${step.ctaPath ? "hover:opacity-90" : "opacity-60 cursor-not-allowed"}`}
-            style={{ background: BRAND }}
+            className={`h-11 px-5 rounded-lg text-[15px] font-semibold border transition
+              ${step.ctaPath ? "hover:bg-[#d6ecd9]" : "opacity-60 cursor-not-allowed"}`}
+            style={{ background: "#e2f1e3", color: BRAND, borderColor: "#cfecd6" }}
           >
             {step.cta}
           </button>
-          {step.status !== "optional" && step.status !== "done" && (
-            <button
-              type="button"
-              className="text-[14px] font-semibold hover:underline"
+          {step.tipsUrl && (
+            <a
+              href={step.tipsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[15px] font-semibold hover:underline"
               style={{ color: BRAND }}
             >
-              Skip
-            </button>
+              Tips
+            </a>
           )}
           {step.videoSrc && (
             <button
               type="button"
               onClick={onPlay}
-              className="text-[13px] text-gray-500 hover:text-gray-700 flex items-center gap-1.5"
+              className="text-[14px] text-gray-500 hover:text-gray-700 flex items-center gap-1.5"
             >
               <FontAwesomeIcon
                 icon={faPlayCircle}
-                className="text-[16px]"
+                className="text-[17px]"
                 style={{ color: BRAND }}
               />
               Watch intro
@@ -297,12 +284,12 @@ const StepDetail: React.FC<{
       </div>
 
       {step.illustration && (
-        <div className="w-[200px] shrink-0 relative z-10 flex items-center justify-center">
-          <div className="w-[180px] h-[180px] rounded-2xl bg-[#f1f8f2] flex items-center justify-center">
+        <div className="w-[340px] shrink-0 relative z-10 flex items-center justify-center">
+          <div className="w-[320px] h-[260px] rounded-2xl bg-[#f1f8f2] overflow-hidden flex items-center justify-center">
             <img
               src={step.illustration}
-              alt=""
-              className="max-w-[120px] max-h-[120px] object-contain"
+              alt={step.title}
+              className="w-full h-full object-cover"
             />
           </div>
         </div>
@@ -346,7 +333,16 @@ const VideoModal: React.FC<{ src: string | null; onClose: () => void }> = ({
         <button onClick={onClose} style={{ float: "right", fontSize: "16px" }}>
           Close
         </button>
-        <video width="100%" height="auto" controls autoPlay src={src} />
+        <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", marginTop: "8px" }}>
+          <iframe
+            src={`${src}?autoplay=1&rel=0`}
+            title="PitchKraft intro video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0, borderRadius: "8px" }}
+          />
+        </div>
       </div>
     </div>
   );
@@ -369,14 +365,16 @@ const OnboardingView: React.FC<{
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-7 shadow-[0_1px_3px_rgba(16,24,40,0.06)]">
       <div>
-        <h1 className="text-[26px] font-bold text-gray-900 tracking-tight">
+        <h1 className="text-[32px] font-bold text-gray-900 tracking-tight">
           Welcome to PitchKraft{firstName !== "there" ? `, ${firstName}` : ""}!
         </h1>
-        <p className="text-[14px] text-gray-600 mt-1">
-          You're {pct}% closer to running your first successful campaign.
+        <p className="text-[16px] text-gray-600 mt-1.5">
+          {pct === 0
+            ? "You're on your way to running your first successful campaign."
+            : `You're ${pct}% closer to running your first successful campaign.`}
         </p>
-        <div className="flex items-center gap-3 mt-4">
-          <span className="text-[13px] font-medium text-gray-600 whitespace-nowrap tabular-nums">
+        <div className="flex items-center gap-3 mt-5">
+          <span className="text-[15px] font-medium text-gray-600 whitespace-nowrap tabular-nums">
             {completed} of {required.length} complete
           </span>
           <ProgressBar pct={pct} />
@@ -466,9 +464,9 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series }) => (
   </div>
 );
 
-const NonZeroChartDot = (props: any) => {
+const NonZeroChartDot = (props: any): React.ReactElement<SVGElement> => {
   const { cx, cy, stroke, value } = props;
-  if (!Number(value) || cx == null || cy == null) return null;
+  if (!Number(value) || cx == null || cy == null) return <g />;
   return <circle cx={cx} cy={cy} r={3.5} fill={stroke} stroke="#fff" strokeWidth={1.5} />;
 };
 
@@ -504,31 +502,6 @@ const DualLineAreaChart: React.FC<{
         <Area type="monotone" dataKey="sent" name="sent" stroke="#3b82f6" strokeWidth={2} fill="url(#dgSent)" dot={NonZeroChartDot} activeDot={{ r: 5 }} />
       </AreaChart>
     </ResponsiveContainer>
-  );
-};
-
-const ActivityItem: React.FC<ActivityRow> = ({ kind, title, meta, time }) => {
-  const palette: Record<string, { bg: string; fg: string; emoji: string }> = {
-    sent: { bg: "bg-[#e2f1e3]", fg: "text-[#3f9f42]", emoji: "✉" },
-    import: { bg: "bg-blue-50", fg: "text-blue-700", emoji: "👥" },
-    blueprint: { bg: "bg-amber-50", fg: "text-amber-700", emoji: "📐" },
-    verify: { bg: "bg-violet-50", fg: "text-violet-700", emoji: "✓" },
-    gen: { bg: "bg-[#f1f8f2]", fg: "text-[#3f9f42]", emoji: "⚡" },
-  };
-  const p = palette[kind];
-  return (
-    <div className="flex items-start gap-3 py-3">
-      <div
-        className={`shrink-0 w-9 h-9 rounded-lg ${p.bg} ${p.fg} flex items-center justify-center text-[15px]`}
-      >
-        {p.emoji}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[13px] font-medium text-gray-900 leading-tight">{title}</div>
-        <div className="text-[12px] text-gray-500 mt-0.5">{meta}</div>
-      </div>
-      <div className="text-[11px] text-gray-400 shrink-0 mt-1 tabular-nums">{time}</div>
-    </div>
   );
 };
 
@@ -688,7 +661,7 @@ const PostOnboardingView: React.FC<{
   const [contactTotal, setContactTotal] = useState(0);
   const [contactPage, setContactPage] = useState(1);
   const [contactSearch, setContactSearch] = useState("");
-  const [dateRange, setDateRange] = useState<DateRange>("all");
+  const [dateRange, setDateRange] = useState<DateRange>("1d");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -742,14 +715,63 @@ const PostOnboardingView: React.FC<{
     [chartData]
   );
 
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 18) return "Good afternoon";
+    return "Good evening";
+  })();
+
   if (loading) return (
-    <div className="w-full flex flex-col items-center justify-center gap-3" style={{ minHeight: "60vh" }}>
-      <div
-        className="w-10 h-10 rounded-full border-[3px] border-[#e8f5e9] border-t-[#3f9f42]"
-        style={{ animation: "spin 0.8s linear infinite" }}
-      />
-      <p className="text-[13px] text-gray-400 font-medium">Loading dashboard…</p>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div className="flex flex-col gap-5">
+      {/* Greeting */}
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-[26px] font-bold text-gray-900 tracking-tight">
+            {greeting}{firstName !== "there" ? `, ${firstName}` : ""}
+          </h1>
+          <p className="text-[14px] text-gray-600 mt-1">
+            Here's how PitchKraft is performing this week.
+          </p>
+        </div>
+      </div>
+
+      {/* KPI skeleton tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {["Total contacts", "Emails generated", "Emails sent", "Send rate", "Kraft rate"].map((label) => (
+          <div key={label} className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">
+              {label}
+            </div>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <div className="h-7 w-20 rounded-md bg-gray-100 animate-pulse" />
+              <div className="h-[52px] w-[120px] rounded-md bg-gray-50 animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Chart skeleton */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[15px] font-semibold text-gray-900">
+              Emails generated vs sent
+            </div>
+            <div className="text-[12px] text-gray-500 mt-0.5">Loading…</div>
+          </div>
+        </div>
+        <div className="mt-3 h-[220px] rounded-xl bg-gray-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div
+              className="w-8 h-8 rounded-full border-[3px] border-[#e8f5e9] border-t-[#3f9f42]"
+              style={{ animation: "spin 0.8s linear infinite" }}
+            />
+            <p className="text-[12px] text-gray-400 font-medium">Loading data…</p>
+          </div>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
     </div>
   );
 
@@ -788,46 +810,6 @@ const PostOnboardingView: React.FC<{
       series: [10, 18, 24, 30, 38, 42, kraftRate],
     },
   ];
-
-  const activity: ActivityRow[] = [
-    {
-      kind: "sent",
-      title: 'Campaign "Q3 Promo — UK" sent',
-      meta: "2,418 recipients",
-      time: "2h ago",
-    },
-    {
-      kind: "import",
-      title: "Imported 186 contacts",
-      meta: "from Salesforce",
-      time: "1d",
-    },
-    {
-      kind: "gen",
-      title: "Krafted 412 emails",
-      meta: 'Blueprint "Outbound v1"',
-      time: "1d",
-    },
-    {
-      kind: "blueprint",
-      title: 'Blueprint "Outbound v1" edited',
-      meta: "3 sections updated",
-      time: "3d",
-    },
-    {
-      kind: "verify",
-      title: "Domain pitchkraft.ai verified",
-      meta: "DKIM + SPF aligned",
-      time: "3d",
-    },
-  ];
-
-  const greeting = (() => {
-    const h = new Date().getHours();
-    if (h < 12) return "Good morning";
-    if (h < 18) return "Good afternoon";
-    return "Good evening";
-  })();
 
   return (
     <div className="flex flex-col gap-5">
@@ -880,46 +862,27 @@ const PostOnboardingView: React.FC<{
         ))}
       </div>
 
-      {/* Chart + activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-8 rounded-2xl border border-gray-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[15px] font-semibold text-gray-900">
-                Emails generated vs sent
-              </div>
-              <div className="text-[12px] text-gray-500 mt-0.5">{DATE_RANGE_LABELS[dateRange]}</div>
+      {/* Chart */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[15px] font-semibold text-gray-900">
+              Emails generated vs sent
             </div>
-            <div className="flex items-center gap-4 text-[12px] text-gray-600">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm" style={{ background: BRAND }} />{" "}
-                Generated
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-[#3b82f6]" /> Sent
-              </span>
-            </div>
+            <div className="text-[12px] text-gray-500 mt-0.5">{DATE_RANGE_LABELS[dateRange]}</div>
           </div>
-          <div className="mt-3 h-[220px]">
-            <DualLineAreaChart data={chartData} />
+          <div className="flex items-center gap-4 text-[12px] text-gray-600">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: BRAND }} />{" "}
+              Generated
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#3b82f6]" /> Sent
+            </span>
           </div>
         </div>
-
-        <div className="lg:col-span-4 rounded-2xl border border-gray-200 bg-white p-5 flex flex-col">
-          <div className="flex items-center justify-between">
-            <div className="text-[15px] font-semibold text-gray-900">Recent activity</div>
-            <button
-              className="text-[12px] font-medium hover:underline"
-              style={{ color: BRAND }}
-            >
-              View all
-            </button>
-          </div>
-          <div className="mt-1 divide-y divide-gray-100">
-            {activity.map((a, i) => (
-              <ActivityItem key={i} {...a} />
-            ))}
-          </div>
+        <div className="mt-3 h-[220px]">
+          <DualLineAreaChart data={chartData} />
         </div>
       </div>
 
@@ -1141,7 +1104,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }
 
   return (
-    <div className="w-full min-h-full bg-white">
+    <div className="w-full min-h-full bg-gray-50">
       {derivedComplete ? (
         <div className="p-6">
           <PostOnboardingView firstName={name} kpis={kpis ?? {}} clientId={clientId} />

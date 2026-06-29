@@ -134,7 +134,7 @@ export const BlueprintsHeroBanner: React.FC<{
     <BpBanner
       title={`You have so far created ${totalCount} blueprint${totalCount !== 1 ? "s" : ""} 🎉`}
       subtitle="Keep adding and refining your blueprints to create even more impactful emails."
-      primaryLabel="Create campaign blueprint"
+      primaryLabel="Create blueprint"
       primaryIcon={<FontAwesomeIcon icon={faPlus} />}
       onPrimaryClick={onCreateClick}
       secondaryLabel="Explore blueprint best practices"

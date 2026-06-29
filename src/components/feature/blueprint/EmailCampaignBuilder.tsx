@@ -1065,6 +1065,7 @@ interface ExampleOutputPanelProps {
   editableExampleOutput: string;
   setEditableExampleOutput: (v: string) => void;
   saveExampleEmail: () => Promise<void>;
+  exampleSaveStatus?: "idle" | "saving" | "saved";
 
   // contact + data file
   dataFiles: any[];
@@ -1117,6 +1118,7 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   editableExampleOutput,
   setEditableExampleOutput,
   saveExampleEmail,
+  exampleSaveStatus = "idle",
   isGenerating,
   regenerateExampleOutput,
   activeMainTab,
@@ -1257,8 +1259,28 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
         </div>
         {activeMainTab === "output" && editableExampleOutput && (
           <button onClick={saveExampleEmail}
-            style={{ fontSize: 12, padding: "3px 12px", background: "#3f9f42", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
-            Save email
+            disabled={exampleSaveStatus === "saving"}
+            style={{
+              fontSize: 12, padding: "3px 12px",
+              background: exampleSaveStatus === "saved" ? "#16a34a" : "#3f9f42",
+              color: "#fff", border: "none", borderRadius: 6,
+              cursor: exampleSaveStatus === "saving" ? "not-allowed" : "pointer",
+              fontWeight: 600, display: "flex", alignItems: "center", gap: 5,
+              minWidth: 92, justifyContent: "center",
+            }}>
+            {exampleSaveStatus === "saving" ? (
+              <>
+                <Loader2 size={12} style={{ animation: "campaign-builder-spin 1s linear infinite" }} />
+                Saving…
+              </>
+            ) : exampleSaveStatus === "saved" ? (
+              <>
+                <CheckCircle size={12} />
+                Saved
+              </>
+            ) : (
+              "Save email"
+            )}
           </button>
         )}
       </div>
@@ -1529,6 +1551,9 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
 
   const [editableExampleOutput, setEditableExampleOutput] = useState("");
   const [isSavingElements, setIsSavingElements] = useState(false);
+  // Tracks the example-email save so its button can show Saving… / Saved
+  // inline instead of relying solely on the toast.
+  const [exampleSaveStatus, setExampleSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [activeMainTab, setActiveMainTab] = useState<MainTab>("build");
   const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>("chat");
 
@@ -1581,6 +1606,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
         return;
       }
 
+      setExampleSaveStatus("saving");
+
       await axios.post(
         `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
         {
@@ -1598,11 +1625,14 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       }));
 
       // showModal("Success", "✅ Example email saved successfully!");
+      setExampleSaveStatus("saved");
+      setTimeout(() => setExampleSaveStatus("idle"), 2500);
       setToastMessage("Example email has been saved");
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 5000);
     } catch (error) {
       console.error("❌ Save example output failed:", error);
+      setExampleSaveStatus("idle");
       //showModal("Error", "Failed to save example email.");
       setToastMessage("Failed to save example email.");
       setShowErrorToast(true);
@@ -4049,7 +4079,6 @@ const parsePlaceholdersSafe = (block: string) => {
       {/* ================= LOADING OVERLAYS ================= */}
       {isLoadingTemplate && <LoadingSpinner message="Loading template for editing..." />}
       {isLoadingDefinitions && <LoadingSpinner message="Loading blueprint definitions..." />}
-      {isSavingElements && <LoadingSpinner message="Saving elements..." />}
 
       {/* ================= MAIN CONTAINER ================= */}
       <div className="campaign-builder-container !p-[0]">
@@ -4083,6 +4112,7 @@ const parsePlaceholdersSafe = (block: string) => {
               setFormValues={setFormValues}
               renderPlaceholderInput={renderPlaceholderInput}
               saveAllPlaceholders={saveAllPlaceholders}
+              isSavingElements={isSavingElements}
               exampleOutput={exampleOutput}
               editableExampleOutput={editableExampleOutput}
               setEditableExampleOutput={setEditableExampleOutput}
@@ -4090,6 +4120,7 @@ const parsePlaceholdersSafe = (block: string) => {
               isPreviewLoading={isPreviewLoading}
               regenerateExampleOutput={regenerateExampleOutput}
               saveExampleEmail={saveExampleEmail}
+              exampleSaveStatus={exampleSaveStatus}
               isPreviewAllowed={isPreviewAllowed}
               dataFiles={dataFiles}
               contacts={contacts}
