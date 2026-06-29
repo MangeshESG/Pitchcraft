@@ -43,6 +43,7 @@ interface KpiTileData {
   delta: string;
   deltaPos?: boolean;
   series: number[];
+  onClick?: () => void;
 }
 
 
@@ -92,30 +93,30 @@ const buildSteps = (
 ): OnboardingStep[] => {
   const base: OnboardingStep[] = [
     {
-      id: "blueprint",
-      n: 1,
-      title: "Create a blueprint",
-      time: "10 minutes",
-      status: "active",
-      body: "Similar to a template, but so much more. A blueprint is the recipe to personalize the emails in a campaign. This is the most important part of the process but only takes 10 minutes. PitchKraft will talk you through it.",
-      cta: "Create blueprint",
-      ctaPath: "/main?tab=TestTemplate",
-      illustration: CreateATemplete,
-      videoSrc: "https://www.youtube.com/embed/eVNMhPXB3eU",
-      tipsUrl: "https://www.pitchkraft.ai/blueprints/",
-    },
-    {
       id: "contacts",
-      n: 2,
+      n: 1,
       title: "Import contacts",
       time: "5 minutes",
-      status: "todo",
+      status: "active",
       body: "Add your contacts. Import from a spreadsheet, and the columns will be mapped automatically. You can also add them individually. You'll need contacts to send your beautifully personalized emails to.",
       cta: "Import contacts",
       ctaPath: "/main?tab=DataCampaigns&subtab=List",
       illustration: ImportContact,
       videoSrc: "https://www.youtube.com/embed/pYhwq2rwtmo",
       tipsUrl: "https://www.pitchkraft.ai/contacts",
+    },
+    {
+      id: "blueprint",
+      n: 2,
+      title: "Create a blueprint",
+      time: "10 minutes",
+      status: "todo",
+      body: "Similar to a template, but so much more. A blueprint is the recipe to personalize the emails in a campaign. This is the most important part of the process but only takes 10 minutes. PitchKraft will talk you through it.",
+      cta: "Create blueprint",
+      ctaPath: "/main?tab=TestTemplate",
+      illustration: CreateATemplete,
+      videoSrc: "https://www.youtube.com/embed/eVNMhPXB3eU",
+      tipsUrl: "https://www.pitchkraft.ai/blueprints/",
     },
     {
       id: "campaign",
@@ -223,10 +224,13 @@ const StepRow: React.FC<{
   );
 };
 
+/** Convert a YouTube embed URL to a regular watch URL for opening in a new tab. */
+const toYouTubeWatchUrl = (embedUrl: string): string =>
+  embedUrl.replace("/embed/", "/watch?v=");
+
 const StepDetail: React.FC<{
   step: OnboardingStep;
-  onPlay: () => void;
-}> = ({ step, onPlay }) => {
+}> = ({ step }) => {
   const navigate = useNavigate();
   return (
     <div className="h-full rounded-2xl border border-gray-200 bg-white p-7 flex items-center gap-6 relative overflow-hidden">
@@ -267,9 +271,10 @@ const StepDetail: React.FC<{
             </a>
           )}
           {step.videoSrc && (
-            <button
-              type="button"
-              onClick={onPlay}
+            <a
+              href={toYouTubeWatchUrl(step.videoSrc)}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-[14px] text-gray-500 hover:text-gray-700 flex items-center gap-1.5"
             >
               <FontAwesomeIcon
@@ -278,7 +283,7 @@ const StepDetail: React.FC<{
                 style={{ color: BRAND }}
               />
               Watch intro
-            </button>
+            </a>
           )}
         </div>
       </div>
@@ -298,56 +303,6 @@ const StepDetail: React.FC<{
   );
 };
 
-const VideoModal: React.FC<{ src: string | null; onClose: () => void }> = ({
-  src,
-  onClose,
-}) => {
-  if (!src) return null;
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        backgroundColor: "rgba(0,0,0,0.5)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          backgroundColor: "#fff",
-          padding: "20px",
-          borderRadius: "10px",
-          maxWidth: "800px",
-          width: "90%",
-          zIndex: 2000,
-        }}
-      >
-        <button onClick={onClose} style={{ float: "right", fontSize: "16px" }}>
-          Close
-        </button>
-        <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", marginTop: "8px" }}>
-          <iframe
-            src={`${src}?autoplay=1&rel=0`}
-            title="PitchKraft intro video"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allowFullScreen
-            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0, borderRadius: "8px" }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const OnboardingView: React.FC<{
   firstName: string;
   stepStatus?: Partial<Record<string, StepStatus>>;
@@ -355,7 +310,6 @@ const OnboardingView: React.FC<{
   const steps = useMemo(() => buildSteps(stepStatus), [stepStatus]);
   const firstActive = steps.find((s) => s.status === "active") || steps[0];
   const [activeId, setActiveId] = useState<string>(firstActive.id);
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
 
   const active = steps.find((s) => s.id === activeId) || firstActive;
   const required = steps.filter((s) => s.status !== "optional");
@@ -393,14 +347,9 @@ const OnboardingView: React.FC<{
           ))}
         </div>
         <div className="col-span-12 lg:col-span-7">
-          <StepDetail
-            step={active}
-            onPlay={() => active.videoSrc && setVideoSrc(active.videoSrc)}
-          />
+          <StepDetail step={active} />
         </div>
       </div>
-
-      <VideoModal src={videoSrc} onClose={() => setVideoSrc(null)} />
     </div>
   );
 };
@@ -450,19 +399,42 @@ const Sparkline: React.FC<{
   );
 };
 
-const KpiTile: React.FC<KpiTileData> = ({ label, value, series }) => (
-  <div className="rounded-2xl border border-gray-200 bg-white p-5 transition hover:shadow-md">
-    <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">
-      {label}
-    </div>
-    <div className="mt-1.5 flex items-end justify-between gap-3">
-      <div className="text-[30px] font-bold text-gray-900 leading-none tabular-nums tracking-tight">
-        {value}
+const KpiTile: React.FC<KpiTileData> = ({ label, value, series, onClick }) => {
+  const clickable = typeof onClick === "function";
+  return (
+    <div
+      onClick={onClick}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick!();
+              }
+            }
+          : undefined
+      }
+      title={clickable ? `View ${label.toLowerCase()}` : undefined}
+      className={`rounded-2xl border border-gray-200 bg-white p-5 transition hover:shadow-md ${
+        clickable
+          ? "cursor-pointer hover:border-[#3f9f42] focus:outline-none focus:ring-2 focus:ring-[#3f9f42]/40"
+          : ""
+      }`}
+    >
+      <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">
+        {label}
       </div>
-      <Sparkline data={series} />
+      <div className="mt-1.5 flex items-end justify-between gap-3">
+        <div className="text-[30px] font-bold text-gray-900 leading-none tabular-nums tracking-tight">
+          {value}
+        </div>
+        <Sparkline data={series} />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const NonZeroChartDot = (props: any): React.ReactElement<SVGElement> => {
   const { cx, cy, stroke, value } = props;
@@ -483,12 +455,12 @@ const DualLineAreaChart: React.FC<{
       <AreaChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 4 }}>
         <defs>
           <linearGradient id="dgGen" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#3f9f42" stopOpacity={0.22} />
-            <stop offset="95%" stopColor="#3f9f42" stopOpacity={0} />
+            <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.18} />
+            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
           </linearGradient>
           <linearGradient id="dgSent" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.14} />
-            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+            <stop offset="5%"  stopColor="#3f9f42" stopOpacity={0.22} />
+            <stop offset="95%" stopColor="#3f9f42" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#f0f4f8" />
@@ -496,10 +468,10 @@ const DualLineAreaChart: React.FC<{
         <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
         <Tooltip
           contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", fontSize: 12 }}
-          formatter={(value: number, name: string) => [value, name === "gen" ? "Generated" : "Sent"]}
+          formatter={(value: number, name: string) => [value, name === "gen" ? "Krafted" : "Sent"]}
         />
-        <Area type="monotone" dataKey="gen"  name="gen"  stroke="#3f9f42" strokeWidth={2} fill="url(#dgGen)"  dot={NonZeroChartDot} activeDot={{ r: 5 }} />
-        <Area type="monotone" dataKey="sent" name="sent" stroke="#3b82f6" strokeWidth={2} fill="url(#dgSent)" dot={NonZeroChartDot} activeDot={{ r: 5 }} />
+        <Area type="monotone" dataKey="gen"  name="gen"  stroke="#3b82f6" strokeWidth={2} fill="url(#dgGen)"  dot={NonZeroChartDot} activeDot={{ r: 5 }} />
+        <Area type="monotone" dataKey="sent" name="sent" stroke="#3f9f42" strokeWidth={2} fill="url(#dgSent)" dot={NonZeroChartDot} activeDot={{ r: 5 }} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -657,6 +629,7 @@ const PostOnboardingView: React.FC<{
   kpis: NonNullable<DashboardProps["kpis"]>;
   clientId?: number | string;
 }> = ({ firstName, kpis, clientId }) => {
+  const navigate = useNavigate();
   const [contacts, setContacts] = useState<ContactApiRow[]>([]);
   const [contactTotal, setContactTotal] = useState(0);
   const [contactPage, setContactPage] = useState(1);
@@ -731,14 +704,14 @@ const PostOnboardingView: React.FC<{
             {greeting}{firstName !== "there" ? `, ${firstName}` : ""}
           </h1>
           <p className="text-[14px] text-gray-600 mt-1">
-            Here's how PitchKraft is performing this week.
+            Here's how PitchKraft is performing
           </p>
         </div>
       </div>
 
       {/* KPI skeleton tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {["Total contacts", "Emails generated", "Emails sent", "Send rate", "Kraft rate"].map((label) => (
+        {["Total contacts", "Emails krafted", "Emails sent", "Send rate", "Kraft rate"].map((label) => (
           <div key={label} className="rounded-2xl border border-gray-200 bg-white p-5">
             <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">
               {label}
@@ -756,7 +729,7 @@ const PostOnboardingView: React.FC<{
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[15px] font-semibold text-gray-900">
-              Emails generated vs sent
+              Emails krafted vs sent
             </div>
             <div className="text-[12px] text-gray-500 mt-0.5">Loading…</div>
           </div>
@@ -784,9 +757,10 @@ const PostOnboardingView: React.FC<{
       value: kpis.totalContacts ?? (contactTotal > 0 ? contactTotal.toLocaleString() : "—"),
       delta: "",
       series: [120, 132, 128, 145, 160, 178, 196],
+      onClick: () => navigate("/main?tab=DataCampaigns&subtab=List&dataFileId=-1"),
     },
     {
-      label: "Emails generated",
+      label: "Emails krafted",
       value: kpis.emailsGenerated ?? (contacts.length > 0 ? emailsGeneratedCount.toLocaleString() : "—"),
       delta: "",
       series: [60, 88, 72, 110, 132, 148, 165],
@@ -796,6 +770,7 @@ const PostOnboardingView: React.FC<{
       value: kpis.emailsSent ?? (contacts.length > 0 ? emailsSentCount.toLocaleString() : "—"),
       delta: "",
       series: [58, 76, 92, 88, 110, 138, 162],
+      onClick: () => navigate("/main?tab=Mail&mailSubTab=Dashboard"),
     },
     {
       label: "Send rate",
@@ -840,7 +815,7 @@ const PostOnboardingView: React.FC<{
               <path d="M8 1.5A6.5 6.5 0 001.5 8a.75.75 0 01-1.5 0A8 8 0 0113.5 2.19V1.25a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zm7.25 5.75a.75.75 0 01.75.75A8 8 0 012.5 13.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/>
             </svg>
           </button>
-          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#3f9f42] bg-[#e2f1e3] border border-[#cfecd6] px-2.5 py-1 rounded-full">
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#3f9f42] bg-white border border-[#cfecd6] px-2.5 py-1 rounded-full">
             <FontAwesomeIcon icon={faCheck} className="text-[10px]" /> Setup complete
           </span>
           <select
@@ -867,17 +842,17 @@ const PostOnboardingView: React.FC<{
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[15px] font-semibold text-gray-900">
-              Emails generated vs sent
+              Emails krafted vs sent
             </div>
             <div className="text-[12px] text-gray-500 mt-0.5">{DATE_RANGE_LABELS[dateRange]}</div>
           </div>
           <div className="flex items-center gap-4 text-[12px] text-gray-600">
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: BRAND }} />{" "}
-              Generated
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#3b82f6]" /> Krafted
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-[#3b82f6]" /> Sent
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: BRAND }} />{" "}
+              Sent
             </span>
           </div>
         </div>
@@ -1065,9 +1040,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         if (!cancelled) {
           setDetectedStatus({
-            blueprint: blueprintDone ? "done" : "active",
-            contacts: contactsDone ? "done" : blueprintDone ? "active" : "todo",
-            campaign: campaignDone ? "done" : contactsDone ? "active" : "todo",
+            contacts: contactsDone ? "done" : "active",
+            blueprint: blueprintDone ? "done" : contactsDone ? "active" : "todo",
+            campaign: campaignDone ? "done" : blueprintDone ? "active" : "todo",
             kraft: kraftDone ? "done" : campaignDone ? "active" : "todo",
           });
         }
