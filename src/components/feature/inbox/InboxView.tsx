@@ -2768,38 +2768,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       })()}
                     </div>
                   ) : (
-                    <div>
+                    <div 
+                      onClick={() => toggleEmailCollapse(uniqueKey)} 
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
                         <EmailIframe
                           html={formatEmailBody(message.body)}
                           onBodyClick={() => toggleEmailCollapse(uniqueKey)}
                         />
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 24px' }}>
-                        <button
-                          onClick={() => toggleEmailCollapse(uniqueKey)}
-                          style={{
-                            padding: '6px 16px',
-                            background: '#f3f4f6',
-                            color: '#6b7280',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '500',
-                            transition: 'all 0.2s'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#e5e7eb';
-                            e.currentTarget.style.color = '#374151';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = '#f3f4f6';
-                            e.currentTarget.style.color = '#6b7280';
-                          }}
-                        >
-                          Collapse
-                        </button>
                       </div>
                     </div>
                   )}
@@ -2861,8 +2838,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       disabled={!selectedBlueprint || isKrafting}
                       style={{
                         padding: '6px 16px',
-                        background: (!selectedBlueprint || isKrafting) ? '#ccc' : '#3b82f6',
-                        color: '#fff',
+                        background: (!selectedBlueprint || isKrafting) ? '#ccc' : '#e2f1e3',
+                        color: '#3f9f42',
                         border: 'none',
                         borderRadius: '6px',
                         cursor: (!selectedBlueprint || isKrafting) ? 'not-allowed' : 'pointer',
@@ -3652,8 +3629,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         disabled={!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId}
                         style={{
                           padding: '6px 16px',
-                          background: (!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId) ? '#ccc' : '#3b82f6',
-                          color: '#fff',
+                          background: (!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId) ? '#ccc' : '#e2f1e3',
+                          color: '#3f9f42',
                           border: 'none',
                           borderRadius: '6px',
                           cursor: (!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId) ? 'not-allowed' : 'pointer',
@@ -4313,8 +4290,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         disabled={!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId}
                         style={{
                           padding: '6px 16px',
-                          background: (!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId) ? '#ccc' : '#3b82f6',
-                          color: '#fff',
+                          background: (!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId) ? '#ccc' : '#e2f1e3',
+                          color: '#3f9f42',
                           border: 'none',
                           borderRadius: '6px',
                           cursor: (!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId) ? 'not-allowed' : 'pointer',
