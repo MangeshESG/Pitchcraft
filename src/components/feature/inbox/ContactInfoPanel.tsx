@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import DOMPurify from 'dompurify';
 import API_BASE_URL from '../../../config';
 
 interface ContactInfoPanelProps {
@@ -26,7 +27,6 @@ const ContactInfoPanel: React.FC<ContactInfoPanelProps> = ({ contactId, token })
   const [note, setNote] = useState<NoteData | null>(null);
   const [loading, setLoading] = useState(false);
   const [editedContact, setEditedContact] = useState<ContactData | null>(null);
-  const [editedNote, setEditedNote] = useState('');
 
   useEffect(() => {
     if (contactId) {
@@ -34,6 +34,7 @@ const ContactInfoPanel: React.FC<ContactInfoPanelProps> = ({ contactId, token })
     } else {
       setContact(null);
       setEditedContact(null);
+      setNote(null);
     }
   }, [contactId]);
 
@@ -49,7 +50,6 @@ const ContactInfoPanel: React.FC<ContactInfoPanelProps> = ({ contactId, token })
         setContact(response.data.data.contact);
         setEditedContact(response.data.data.contact);
         setNote(response.data.data.note);
-        setEditedNote(response.data.data.note?.note || '');
       }
     } catch (err) {
       console.error('Error fetching contact data:', err);
@@ -73,7 +73,7 @@ const ContactInfoPanel: React.FC<ContactInfoPanelProps> = ({ contactId, token })
   if (loading) {
     return (
       <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9aa1ab', fontSize: '14px' }}>
-        Loading…
+        Loading...
       </div>
     );
   }
@@ -88,7 +88,6 @@ const ContactInfoPanel: React.FC<ContactInfoPanelProps> = ({ contactId, token })
 
   return (
     <div style={{ paddingTop: '48px' }}>
-      {/* Avatar + name */}
       <div style={{ textAlign: 'center', padding: '0 24px 20px', borderBottom: '1px solid #f0f1f3' }}>
         <div style={{
           width: 72, height: 72, borderRadius: '50%',
@@ -107,11 +106,10 @@ const ContactInfoPanel: React.FC<ContactInfoPanelProps> = ({ contactId, token })
           rel="noopener noreferrer"
           style={{ fontSize: 13, color: '#2f7d33', textDecoration: 'none', fontWeight: 600 }}
         >
-          Open contact details →
+          Open contact details -&gt;
         </a>
       </div>
 
-      {/* Fields */}
       <div style={{ padding: '20px 24px' }}>
         {contact.first_name && contact.last_name ? (
           <>
@@ -133,14 +131,7 @@ const ContactInfoPanel: React.FC<ContactInfoPanelProps> = ({ contactId, token })
         <Field label="Email">
           <input type="email" value={editedContact?.email || ''} onChange={e => handleInputChange('email', e.target.value)} />
         </Field>
-        <Field label="Notes">
-          <textarea
-            value={editedNote}
-            onChange={e => setEditedNote(e.target.value)}
-            rows={4}
-            placeholder="Add a note…"
-          />
-        </Field>
+        <RenderedNote label="Last pinned note" html={note?.note || ''} />
       </div>
 
       <div style={{ height: 1, background: '#f0f1f3', margin: '0 24px' }} />
@@ -162,14 +153,18 @@ const fieldInputStyle: React.CSSProperties = {
   transition: 'border-color 0.15s',
 };
 
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: '0.5px',
+  color: '#9aa1ab',
+  marginBottom: 6
+};
+
 const Field: React.FC<{ label: string; children: React.ReactElement }> = ({ label, children }) => (
   <div style={{ marginBottom: 14 }}>
-    <label style={{
-      display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.5px',
-      textTransform: 'uppercase', color: '#9aa1ab', marginBottom: 6
-    }}>
-      {label}
-    </label>
+    <label style={labelStyle}>{label}</label>
     {React.cloneElement(children, {
       style: {
         ...fieldInputStyle,
@@ -186,5 +181,38 @@ const Field: React.FC<{ label: string; children: React.ReactElement }> = ({ labe
     })}
   </div>
 );
+
+const RenderedNote: React.FC<{ label: string; html: string }> = ({ label, html }) => (
+  <div style={{ marginBottom: 14 }}>
+    <label style={labelStyle}>{label}</label>
+    <div
+      style={{
+        width: '100%',
+        minHeight: 80,
+        padding: '9px 11px',
+        border: '1px solid #e8eaed',
+        borderRadius: 8,
+        fontSize: 14,
+        color: '#1a1d21',
+        background: '#fff',
+        fontFamily: 'inherit',
+        boxSizing: 'border-box',
+        lineHeight: 1.5,
+        overflowWrap: 'break-word'
+      }}
+      dangerouslySetInnerHTML={{
+        __html: DOMPurify.sanitize(decodeHtml(html) || '<p>No pinned note</p>')
+      }}
+    />
+  </div>
+);
+
+const decodeHtml = (value: string): string => {
+  if (!value) return '';
+
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = value;
+  return textarea.value;
+};
 
 export default ContactInfoPanel;

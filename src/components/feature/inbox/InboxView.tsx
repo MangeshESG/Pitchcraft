@@ -1926,7 +1926,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     try {
       // Call the refresh API
       const response = await axios.post(
-        `${API_BASE_URL}/api/Inbox/RefreshInbox?inboxId=${selectedInboxId}&provider=${selectedProvider}`,
+        `${API_BASE_URL}/api/Inbox/RefreshInbox?inboxId=${selectedInboxId}&clientId=${effectiveUserId}&provider=${selectedProvider}`,
         {},
         {
           headers: {
@@ -2210,7 +2210,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         </div>
                       )}
                       <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                        Page {inboxCurrentPage} of {inboxTotalPages}
+                        Page {inboxCurrentPage} of {inboxTotalPages} | {inboxTotalCount} {inboxTotalCount === 1 ? 'email' : 'emails'}
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -2221,10 +2221,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           padding: '4px 8px',
                           border: '1px solid #d1d5db',
                           borderRadius: '4px',
-                          background: inboxCurrentPage === 1 ? '#f3f4f6' : '#fff',
+                          background: inboxCurrentPage === 1 ? '#f3f4f6' : '#e2f1e3',
                           cursor: inboxCurrentPage === 1 ? 'not-allowed' : 'pointer',
                           fontSize: '18px',
-                          color: inboxCurrentPage === 1 ? '#9ca3af' : '#374151'
+                          color: inboxCurrentPage === 1 ? '#9ca3af' : '#3f9f42'
                         }}
                       >
                         ‹
@@ -2236,10 +2236,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           padding: '4px 8px',
                           border: '1px solid #d1d5db',
                           borderRadius: '4px',
-                          background: inboxCurrentPage === inboxTotalPages ? '#f3f4f6' : '#fff',
+                          background: inboxCurrentPage === inboxTotalPages ? '#f3f4f6' : '#e2f1e3',
                           cursor: inboxCurrentPage === inboxTotalPages ? 'not-allowed' : 'pointer',
                           fontSize: '18px',
-                          color: inboxCurrentPage === inboxTotalPages ? '#9ca3af' : '#374151'
+                          color: inboxCurrentPage === inboxTotalPages ? '#9ca3af' : '#3f9f42'
                         }}
                       >
                         ›

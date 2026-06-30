@@ -509,7 +509,7 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
             </div>
           )}
           <span style={{ fontSize: '14px', color: '#6b7280' }}>
-            Page {currentPage} of {totalPages} ({totalCount} total)
+            Page {currentPage} of {totalPages} | {totalCount} {totalCount === 1 ? 'email' : 'emails'}
           </span>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -520,10 +520,10 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
               padding: '4px 8px',
               border: '1px solid #d1d5db',
               borderRadius: '4px',
-              background: currentPage === 1 ? '#f3f4f6' : '#fff',
+              background: currentPage === 1 ? '#f3f4f6' : '#e2f1e3',
               cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
               fontSize: '18px',
-              color: currentPage === 1 ? '#9ca3af' : '#374151'
+              color: currentPage === 1 ? '#9ca3af' : '#3f9f42'
             }}
           >
             ‹
@@ -535,10 +535,10 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
               padding: '4px 8px',
               border: '1px solid #d1d5db',
               borderRadius: '4px',
-              background: currentPage === totalPages ? '#f3f4f6' : '#fff',
+              background: currentPage === totalPages ? '#f3f4f6' : '#e2f1e3',
               cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
               fontSize: '18px',
-              color: currentPage === totalPages ? '#9ca3af' : '#374151'
+              color: currentPage === totalPages ? '#9ca3af' : '#3f9f42'
             }}
           >
             ›

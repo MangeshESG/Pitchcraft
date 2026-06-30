@@ -506,8 +506,8 @@
   height: 40px;
   border-radius: 50%;
   border: none;
-  background: var(--green);
-  color: #fff;
+  background: #e2f1e3;
+  color: #3f9f42;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -517,7 +517,7 @@
   transition: background 0.15s ease, transform 0.15s ease;
 }
 .scroll-to-bottom-btn:hover {
-  background: var(--green-dark);
+  background: #e2f1e3;
   transform: translateY(-2px);
 }
 
