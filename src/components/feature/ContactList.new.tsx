@@ -125,6 +125,7 @@ import {
   faFilter,
   faPencil,
   faEye,
+  faDatabase,
 } from "@fortawesome/free-solid-svg-icons";
 import { faTrashAlt, faFileLines } from "@fortawesome/free-regular-svg-icons";
 import contactNewUserImage from "../../assets/images/contcat_new_user.png";
@@ -183,13 +184,13 @@ export const ContactsPageHeader: React.FC<PageHeaderProps> = ({
             </h1>
           </div>
           <div className="ct-header-actions">
+            <button className="ct-btn-tertiary-default" onClick={onImportList}>
+              <FontAwesomeIcon icon={faUpload} style={{ color: "#3f9f42" }} />
+              Import list
+            </button>
             <button className="ct-btn-tertiary" onClick={onAddContact}>
               <FontAwesomeIcon icon={faUser} style={{ color: "#3f9f42" }} />
               Add contact
-            </button>
-            <button className="ct-btn-tertiary" onClick={onImportList}>
-              <FontAwesomeIcon icon={faUpload} style={{ color: "#6b7280" }} />
-              Import list
             </button>
             <button className="ct-btn-tertiary" onClick={onCreateList}>
               <FontAwesomeIcon icon={faPlus} style={{ color: "#3f9f42" }} />
@@ -234,28 +235,27 @@ export const ContactsEmptyState: React.FC<{
     <div className="ct-empty-hero">
       <div className="ct-empty-hero__content">
         <div className="ct-empty-hero__copy">
-          <span className="ct-start-pill">⚡ Start here</span>
+          <span className="ct-start-pill">Start here</span>
           <h2 className="ct-empty-headline">Build your audience.</h2>
           <p className="ct-empty-text">
-            Add contacts one at a time, import a CSV, or build a list manually.
-            Then segment them into views to power every future campaign.
+           Add contacts one at a time or import a list*. You can optionally segment them into views to power every future campaign.
           </p>
           <div className="ct-empty-actions">
-            <button className="ct-btn-primary" onClick={onAddContact}>
-              <FontAwesomeIcon icon={faPlus} />
-              Add your first contact
-            </button>
-            <button className="ct-btn-secondary" onClick={onImportList}>
-              <FontAwesomeIcon icon={faUpload} />
+            <button className="ct-btn-default" onClick={onImportList}>
+              <FontAwesomeIcon icon={faUpload} style={{ color: "#3f9f42" }} />
               Import list
             </button>
-            <button className="ct-btn-secondary" onClick={onCreateList}>
-              <FontAwesomeIcon icon={faPlus} style={{ color: "#3f9f42" }} />
+            <button className="ct-btn-muted" onClick={onAddContact}>
+              <FontAwesomeIcon icon={faPlus} style={{ color: "#374151" }} />
+              Add your first contact
+            </button>
+            <button className="ct-btn-muted" onClick={onCreateList}>
+              <FontAwesomeIcon icon={faPlus} style={{ color: "#374151" }} />
               Create a list
             </button>
           </div>
           <div className="ct-empty-meta">
-            CSV, Excel, or paste from any spreadsheet — we'll map the fields for you.
+            * Import a CSV, Excel file or any spreadsheet — we'll map the fields for you.
           </div>
         </div>
         <div className="ct-empty-hero__art">
@@ -311,6 +311,23 @@ export const ContactsToolbar: React.FC<ToolbarProps> = (p) => {
         <span>
           Showing <strong>{from}–{to}</strong> of <strong>{p.totalRecords}</strong>
         </span>
+        <div className="ct-pagination__size">
+          <select
+            value={p.pageSize as any}
+            onChange={(e) => {
+              const v = e.target.value;
+              p.onPageSizeChange(v === "All" ? "All" : Number(v));
+              p.onPageChange(1);
+            }}
+          >
+            {[10, 20, 30, 40, 50, 100, 200, "All"].map((s) => (
+              <option key={String(s)} value={s as any}>
+                {s} / page
+              </option>
+            ))}
+          </select>
+          <FontAwesomeIcon icon={faChevronDown} className="ct-pagination__size-caret" />
+        </div>
         <div className="ct-pagination__nav">
           <button onClick={() => p.onPageChange(1)} disabled={p.currentPage === 1}>
             <FontAwesomeIcon icon={faAnglesLeft} />
@@ -390,9 +407,22 @@ export const ContactsListsRows: React.FC<RowsProps> = (p) => (
     ) : p.data.length === 0 ? (
       <div className="ct-rows__msg">No lists found.</div>
     ) : (
-      p.data.map((file) => (
+      p.data.map((file) => {
+        const isSystemList =
+          file.id === -1 ||
+          file.name === "All contacts" ||
+          file.name === "All manually added contacts";
+        return (
         <div key={file.id} className="ct-row">
-          <div className="ct-row__rail" />
+          {isSystemList ? (
+            <FontAwesomeIcon
+              icon={faDatabase}
+              className="ct-row__sysicon"
+              title="System list"
+            />
+          ) : (
+            <div className="ct-row__rail" />
+          )}
           <a className="ct-row__link" onClick={() => p.onRowClick(file)}>
             {file.name}
           </a>
@@ -437,7 +467,8 @@ export const ContactsListsRows: React.FC<RowsProps> = (p) => (
             )}
           </div>
         </div>
-      ))
+        );
+      })
     )}
   </div>
 );

@@ -236,13 +236,13 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
                     Custom fields let you store any extra information about contacts — industry, deal size, lead source, or anything your team tracks.
                   </p>
                   <div className="bp-empty-actions">
-                    <button className="bp-btn-primary" onClick={openCreatePanel}>
+                    <button className="bp-btn-default" onClick={openCreatePanel}>
                       <Plus className="h-4 w-4" />
                       Add your first field
                     </button>
                   </div>
                   <div className="bp-empty-meta">
-                    Fields appear on every contact record and can be used in segments.
+                     Custom attributes are available on every contact record and can be used to create views
                   </div>
                 </div>
                 <div className="bp-empty-hero__art">

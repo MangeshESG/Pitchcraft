@@ -126,15 +126,13 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
           <button onClick={() => goTo(1)} disabled={prevDisabled} title="First page" className="pc-icon-only">
             <Icon.chevsL />
           </button>
-          <button onClick={() => goTo(currentPage - 1)} disabled={prevDisabled} title="Previous page">
+          <button onClick={() => goTo(currentPage - 1)} disabled={prevDisabled} title="Previous page" className="pc-icon-only">
             <Icon.chevL />
-            <span className="pc-btn-label">Prev</span>
           </button>
           <div className="pc-nav-page">
             {currentPage} <span className="pc-nav-page__slash">/</span> {Math.max(effectiveTotalPages, 1)}
           </div>
-          <button onClick={() => goTo(currentPage + 1)} disabled={nextDisabled} title="Next page">
-            <span className="pc-btn-label">Next</span>
+          <button onClick={() => goTo(currentPage + 1)} disabled={nextDisabled} title="Next page" className="pc-icon-only">
             <Icon.chevR />
           </button>
           <button onClick={() => goTo(effectiveTotalPages)} disabled={nextDisabled} title="Last page" className="pc-icon-only">

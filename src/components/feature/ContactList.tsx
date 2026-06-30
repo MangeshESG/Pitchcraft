@@ -13,6 +13,7 @@ import FilterBuilder from "../common/FilterBuilder";
 import ContactViews from "./ContactViews";
 import BulkUpdatePanel from "./BulkUpdatePanel";
 import PopupModal from "../common/PopupModal";
+import WebsiteGlobeIcon from "../common/WebsiteGlobeIcon";
 
 import { useAppData } from "../../contexts/AppDataContext";
 import { useToast } from "../../hooks/useToast";
@@ -786,6 +787,21 @@ const formatTimeIST = (dateString?: string) => {
     }
   }, [activeSubTab, viewNavigationToken]);
 
+  // Clicking "Lists" in the sidebar should always return to the lists grid,
+  // not the previously opened list detail. The nav token (?t=) lets us detect
+  // the click even when the subtab is already "List". Skip when the URL points
+  // at a specific list (dataFileId) so deep links still open the detail view.
+  useEffect(() => {
+    if (
+      activeSubTab === "List" &&
+      viewNavigationToken &&
+      !searchParams.get("dataFileId")
+    ) {
+      setViewMode("list");
+      setSelectedDataFileForView(null);
+    }
+  }, [activeSubTab, viewNavigationToken]);
+
   // Handle URL parameters for direct navigation from ContactDetailView
   useEffect(() => {
     const dataFileIdFromUrl = searchParams.get("dataFileId");
@@ -935,6 +951,14 @@ const formatTimeIST = (dateString?: string) => {
     } finally {
       setIsDeletingContact(false);
     }
+  };
+
+  // Open a contact's profile in a new tab (used by the name link and by the
+  // dedicated profile-icon column shown when the "Full name" column is hidden).
+  const openContactProfile = (row: any) => {
+    const dataFileId = row.dataFileId || selectedDataFileForView?.id;
+    const contactDetailsUrl = `/#/contact-details/${row.id}?tab=DataCampaigns&subtab=List&dataFileId=${dataFileId}&clientId=${effectiveUserId}`;
+    window.open(contactDetailsUrl, "_blank");
   };
 
   // Unsubscribe contacts
@@ -2181,7 +2205,7 @@ const filterFields: any = useMemo(() => {
                     <ContactsEmptyState
                       onAddContact={() => dispatch(openPanel("add-contact-modal"))}
                       onImportList={() => onAddContactClick?.()}
-                      onCreateList={() => setShowCreateListModal(true)}
+                      onCreateList={() => dispatch(openPanel("create-list-modal"))}
                     />
                   ) : (
                     <>
@@ -2251,6 +2275,7 @@ const filterFields: any = useMemo(() => {
                   currentPage={detailCurrentPage}
                   pageSize={detailPageSize}
                   onPageChange={setDetailCurrentPage}
+                  onOpenProfile={openContactProfile}
                   selectedItems={detailSelectedContacts}
                   onSelectItem={handleDetailSelectContact}
                   totalItems={detailTotalContacts}
@@ -2295,17 +2320,7 @@ const filterFields: any = useMemo(() => {
                           }}
                           onClick={(e) => {
                            e.stopPropagation();
-                           // Use row.dataFileId if available (from All Contacts), otherwise use selectedDataFileForView.id
-                           const dataFileId = row.dataFileId || selectedDataFileForView?.id;
-                           
-                           console.log("[ContactList] Opening contact:", {
-                             contactId: row.id,
-                             dataFileId: dataFileId,
-                             rowData: row
-                           });
-
-                           const contactDetailsUrl = `/#/contact-details/${row.id}?tab=DataCampaigns&subtab=List&dataFileId=${dataFileId}&clientId=${effectiveUserId}`;
-                           window.open(contactDetailsUrl, "_blank");
+                           openContactProfile(row);
                           }}
                         >
                           {displayName}
@@ -2330,14 +2345,14 @@ const filterFields: any = useMemo(() => {
                           rel="noopener noreferrer"
                           title={value}
                           style={{
+                            display: "inline-flex",
                             color: "#3f9f42",
                             textDecoration: "none",
                             cursor: "pointer",
-                            fontSize: "16px"
                           }}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          🌐
+                          <WebsiteGlobeIcon />
                         </a>
                       );
                     },
@@ -3239,7 +3254,7 @@ const filterFields: any = useMemo(() => {
                     <ContactsEmptyState
                       onAddContact={() => dispatch(openPanel("add-contact-modal"))}
                       onImportList={() => onAddContactClick?.()}
-                      onCreateList={() => setShowCreateListModal(true)}
+                      onCreateList={() => dispatch(openPanel("create-list-modal"))}
                     />
                   ) : (
                     <div className="ct-rows">
@@ -3312,6 +3327,7 @@ const filterFields: any = useMemo(() => {
                   currentPage={detailCurrentPage}
                   pageSize={detailPageSize}
                   onPageChange={setDetailCurrentPage}
+                  onOpenProfile={openContactProfile}
                   selectedItems={detailSelectedContacts}
                   onSelectItem={handleDetailSelectContact}
                   totalItems={detailTotalContacts}
@@ -3388,14 +3404,14 @@ const filterFields: any = useMemo(() => {
                           rel="noopener noreferrer"
                           title={value}
                           style={{
+                            display: "inline-flex",
                             color: "#3f9f42",
                             textDecoration: "none",
                             cursor: "pointer",
-                            fontSize: "16px"
                           }}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          🌐
+                          <WebsiteGlobeIcon />
                         </a>
                       );
                     },
@@ -4059,7 +4075,7 @@ const filterFields: any = useMemo(() => {
             <ContactsEmptyState
               onAddContact={() => dispatch(openPanel("add-contact-modal"))}
               onImportList={() => onAddContactClick?.()}
-              onCreateList={() => setShowCreateListModal(true)}
+              onCreateList={() => dispatch(openPanel("create-list-modal"))}
             />
           ) : (
             <div className="ct-rows">
@@ -4419,7 +4435,7 @@ const filterFields: any = useMemo(() => {
           >
             <h3 style={{ marginTop: 0, marginBottom: 16 }}>Delete contacts</h3>
             <p style={{ marginBottom: 20 }}>
-              Are you sure you want to delete {deleteContactCount} contact{deleteContactCount > 1 ? 's' : ''}?
+              Are you sure you want to delete this {deleteContactCount} contact{deleteContactCount > 1 ? 's' : ''}?
             </p>
             <div
               style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}

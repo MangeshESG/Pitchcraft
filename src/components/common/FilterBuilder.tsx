@@ -311,11 +311,20 @@ const getRowValue = <T extends Record<string, any>>(row: T, fieldKey: string) =>
   return directValue;
 };
 
+const isConditionValuePresent = (condition: FilterCondition) => {
+  if (isValueOptionalOperator(condition.operator)) {
+    return true;
+  }
+  if (Array.isArray(condition.value)) {
+    return condition.value.length > 0;
+  }
+  return String(condition.value ?? "").trim() !== "";
+};
+
 const isCompleteCondition = (condition: FilterCondition) =>
   condition.field.trim() &&
   condition.operator.trim() &&
-  (isValueOptionalOperator(condition.operator) ||
-    String(condition.value ?? "").trim() !== "") &&
+  isConditionValuePresent(condition) &&
   hasRequiredConditionContext(condition);
 
 function FilterBuilder<T extends Record<string, any>>({
@@ -348,6 +357,12 @@ function FilterBuilder<T extends Record<string, any>>({
     useState<FieldCategoryKey>("system");
   const [campaignOptions, setCampaignOptions] = useState<CampaignOption[]>([]);
   const fieldPickerRef = useRef<HTMLDivElement | null>(null);
+  const [activeValuePicker, setActiveValuePicker] = useState<{
+    groupId: string;
+    conditionId: string;
+  } | null>(null);
+  const [valueSearchTerm, setValueSearchTerm] = useState("");
+  const valuePickerRef = useRef<HTMLDivElement | null>(null);
   const rulesPanelId = useMemo(() => `filter-rules-${generateId()}`, []);
 
   // ---- View editor state (opt-in via the `viewEditor` prop) ----
@@ -512,8 +527,29 @@ function FilterBuilder<T extends Record<string, any>>({
   }, [activeFieldPicker]);
 
   useEffect(() => {
+    if (!activeValuePicker) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        valuePickerRef.current &&
+        !valuePickerRef.current.contains(event.target as Node)
+      ) {
+        setActiveValuePicker(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [activeValuePicker]);
+
+  useEffect(() => {
     if (isCollapsed) {
       setActiveFieldPicker(null);
+      setActiveValuePicker(null);
     }
   }, [isCollapsed]);
 
@@ -710,17 +746,25 @@ function FilterBuilder<T extends Record<string, any>>({
           .toLowerCase()
           .includes(String(condition.value).toLowerCase());
 
-      case "equals":
-        if (normalizedFieldType === "boolean") {
-          return String(value).toLowerCase() === String(condition.value).toLowerCase();
+      case "equals": {
+        if (Array.isArray(condition.value)) {
+          if (condition.value.length === 0) return true;
+          return condition.value.some(
+            (entry) => String(value).toLowerCase() === String(entry).toLowerCase()
+          );
         }
         return String(value).toLowerCase() === String(condition.value).toLowerCase();
+      }
 
-      case "notEquals":
-        if (normalizedFieldType === "boolean") {
-          return String(value).toLowerCase() !== String(condition.value).toLowerCase();
+      case "notEquals": {
+        if (Array.isArray(condition.value)) {
+          if (condition.value.length === 0) return true;
+          return condition.value.every(
+            (entry) => String(value).toLowerCase() !== String(entry).toLowerCase()
+          );
         }
         return String(value).toLowerCase() !== String(condition.value).toLowerCase();
+      }
 
       case "startsWith":
         return String(value)
@@ -1033,7 +1077,7 @@ function FilterBuilder<T extends Record<string, any>>({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {isViewEditor && viewEditor?.allowCreateNew && (
-            <div className="fb-join__toggle">
+            <div className="fb-join__toggle fb-mode-toggle">
               {(["edit", "create"] as const).map((mode) => (
                 <button
                   key={mode}
@@ -1220,6 +1264,27 @@ function FilterBuilder<T extends Record<string, any>>({
                   ? sortedFieldOptions.get(field.key) || sortStringsAsc(field.options)
                   : [];
                 const isValueOptional = isValueOptionalOperator(condition.operator);
+                const isValuePickerOpen =
+                  activeValuePicker?.groupId === group.id &&
+                  activeValuePicker?.conditionId === condition.id;
+                const selectedValues: string[] = Array.isArray(condition.value)
+                  ? condition.value
+                  : condition.value
+                  ? [String(condition.value)]
+                  : [];
+                const toggleValue = (option: string) => {
+                  const next = selectedValues.includes(option)
+                    ? selectedValues.filter((entry) => entry !== option)
+                    : [...selectedValues, option];
+                  updateCondition(group.id, condition.id, "value", next);
+                };
+                const valueSearchLower = valueSearchTerm.trim().toLowerCase();
+                const filteredDropdownOptions =
+                  valueSearchLower.length === 0
+                    ? dropdownOptions
+                    : dropdownOptions.filter((opt) =>
+                        opt.toLowerCase().includes(valueSearchLower)
+                      );
                 const visibleFieldCategories = filteredFieldCategories;
                 const selectedFieldCategory =
                   visibleFieldCategories.find((c) => c.key === activeFieldCategory) ||
@@ -1230,10 +1295,10 @@ function FilterBuilder<T extends Record<string, any>>({
                     key={condition.id}
                     style={{
                       marginBottom: index === group.conditions.length - 1
-                        ? isFieldPickerOpen ? 390 : 0
-                        : isFieldPickerOpen ? 406 : 8,
+                        ? isFieldPickerOpen ? 390 : isValuePickerOpen ? 250 : 0
+                        : isFieldPickerOpen ? 406 : isValuePickerOpen ? 266 : 8,
                       position: "relative",
-                      zIndex: isFieldPickerOpen ? 5 : 1,
+                      zIndex: isFieldPickerOpen || isValuePickerOpen ? 5 : 1,
                     }}
                   >
                     {/* Condition-level AND/OR join */}
@@ -1356,16 +1421,81 @@ function FilterBuilder<T extends Record<string, any>>({
                           className="fb-control fb-control--disabled"
                         />
                       ) : normalizedFieldType === "dropdown" ? (
-                        <select
-                          value={condition.value}
-                          onChange={(e) => updateCondition(group.id, condition.id, "value", e.target.value)}
-                          className="fb-control"
+                        <div
+                          style={{ position: "relative", minWidth: 0 }}
+                          ref={isValuePickerOpen ? valuePickerRef : null}
                         >
-                          <option value="">Select value</option>
-                          {dropdownOptions.map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              isValuePickerOpen
+                                ? setActiveValuePicker(null)
+                                : (setActiveValuePicker({
+                                    groupId: group.id,
+                                    conditionId: condition.id,
+                                  }),
+                                  setValueSearchTerm(""))
+                            }
+                            className="fb-control fb-control--field fb-multi__control"
+                          >
+                            <span className="fb-multi__chips">
+                              {selectedValues.length === 0 ? (
+                                <span className="fb-control__label fb-control__label--placeholder">
+                                  Select value(s)
+                                </span>
+                              ) : (
+                                selectedValues.map((val) => (
+                                  <span key={val} className="fb-multi__chip">
+                                    {val}
+                                    <span
+                                      className="fb-multi__chip-x"
+                                      role="button"
+                                      aria-label={`Remove ${val}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleValue(val);
+                                      }}
+                                    >
+                                      ×
+                                    </span>
+                                  </span>
+                                ))
+                              )}
+                            </span>
+                            <span className="fb-control__arrow">
+                              {isValuePickerOpen ? "▲" : "▼"}
+                            </span>
+                          </button>
+
+                          {isValuePickerOpen && (
+                            <div className="fb-multi__panel">
+                              <div className="fb-multi__search">
+                                <input
+                                  value={valueSearchTerm}
+                                  onChange={(e) => setValueSearchTerm(e.target.value)}
+                                  placeholder="Search values…"
+                                  autoFocus
+                                />
+                              </div>
+                              <div className="fb-multi__list">
+                                {filteredDropdownOptions.length === 0 ? (
+                                  <div className="fb-source-empty">No values found.</div>
+                                ) : (
+                                  filteredDropdownOptions.map((opt) => (
+                                    <label key={opt} className="fb-source-option">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedValues.includes(opt)}
+                                        onChange={() => toggleValue(opt)}
+                                      />
+                                      <span>{opt}</span>
+                                    </label>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       ) : normalizedFieldType === "boolean" ? (
                         <select
                           value={condition.value}
@@ -1442,7 +1572,7 @@ function FilterBuilder<T extends Record<string, any>>({
               type="button"
               onClick={applyFilters}
               disabled={isApplyingFilters}
-              className="fb-btn fb-btn--primary"
+              className="fb-btn fb-btn--muted"
             >
               {isApplyingFilters ? "Applying…" : "Apply filters"}
             </button>
@@ -1451,7 +1581,7 @@ function FilterBuilder<T extends Record<string, any>>({
             <button
               type="button"
               onClick={() => setShowSavePanel((prev) => !prev)}
-              className="fb-btn fb-btn--save"
+              className="fb-btn fb-btn--muted"
             >
               {showSavePanel ? "Hide save panel" : "Save as view"}
             </button>

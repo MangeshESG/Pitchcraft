@@ -6,6 +6,8 @@ export interface FilterConditionContext {
   campaignName?: string;
 }
 
+// `value` holds a string for single-value operators, or a string[] for
+// multi-select dropdown conditions (matches if the row equals ANY selected value).
 export interface FilterCondition {
   id: string;
   field: string;
