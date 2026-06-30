@@ -27,12 +27,12 @@ const Modal: React.FC<ModalProps> = ({
         className={`modal-content ${
           !size || dynamicSize.width ? "" : size // only apply class if not numeric
         }`}
-        style={dynamicSize}
+        style={{ ...dynamicSize, position: "relative" }}
       >
         {children}
          {buttonLabel && (
           <button
-            className="absolute top-31 right-36 px-4 py-1 rounded-md"
+            className="absolute top-3 right-10 px-4 py-1 rounded-md"
             style={{
               background: "#e2f1e3",
               color: "#3f9f42",
