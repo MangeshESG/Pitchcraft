@@ -678,7 +678,7 @@ const menuIconStyle = {
     case "longtext":
       return (
         <textarea
-          className={underlineInput}
+          className={`${underlineInput} resize-y min-h-[80px]`}
           rows={3}
           value={value}
           onChange={(e) =>
@@ -1775,14 +1775,19 @@ case "boolean":
                   formData.fullName ||
                   "Edit contact"}
               </h1>
-              <p className="text-sm text-gray-500 mt-1">Update contact information and details</p>
+             
             </div>
              {/* Buttons */}
               <div className="flex items-center justify-end gap-3">
-                <button type='button' className="rounded-lg border border-border bg-white px-5 py-2.5 text-sm font-medium text-foreground hover:bg-muted">Cancel</button>
+                <button
+                  type='button'
+                  className="rounded-lg bg-[#f8fafc] border-[1.5px] border-[#e2e8f0] px-3.5 py-2 text-[13px] font-medium text-[#374151] transition-all duration-150 hover:bg-[#f1f5f9] hover:border-[#cbd5e1]"
+                >
+                  Cancel
+                </button>
                 <button
                   type='submit'
-                  className="rounded-lg bg-[#3f9f42] px-5 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:bg-gray-300"
+                  className="rounded-lg bg-[#e2f1e3] border border-[#cfecd6] px-5 py-2.5 text-[15px] font-semibold text-[#3f9f42] transition hover:bg-[#d6ecd9] disabled:opacity-60 disabled:cursor-not-allowed"
                   disabled={isSubmitting || !formData.email?.trim()}
                   onClick={handleSubmit}
                 >
@@ -2195,7 +2200,7 @@ case "boolean":
               <h3 className="text-lg font-semibold text-foreground">Email campaign</h3>
             </div>
             <div className="grid grid-cols-3 gap-4">
-              <Stat label="Sent" value={emailStats.sent} color="#333" bgClass='bg-gray-80' />
+              <Stat label="Sent" value={emailStats.sent} color="#1b5e20" bgClass='bg-green-50' />
 
               <Stat
                 label="Unique opens"
@@ -2209,8 +2214,8 @@ case "boolean":
                 label="Unique clicks"
                 value={emailStats.uniqueClicks}
                 percentage={emailStats.uniqueClicksPct}
-                color="#3f9f42"
-                bgClass='bg-green-50'
+                color="#7c3aed"
+                bgClass='bg-purple-50'
               />
             </div>
 
@@ -2706,7 +2711,7 @@ case "boolean":
                   value={formData.notes || ""}
                   onChange={handleInputChange}
                   rows={15}
-                  className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#3f9f42]"
+                  className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#3f9f42] resize-y min-h-[120px]"
                 />
               </div>
             </div>
