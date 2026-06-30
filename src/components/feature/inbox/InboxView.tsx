@@ -2767,12 +2767,38 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       })()}
                     </div>
                   ) : (
-                    <div 
-                      onClick={() => toggleEmailCollapse(uniqueKey)} 
-                      style={{ cursor: 'pointer' }}
-                    >
+                    <div>
                       <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
-                        <EmailIframe html={formatEmailBody(message.body)} />
+                        <EmailIframe
+                          html={formatEmailBody(message.body)}
+                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 24px' }}>
+                        <button
+                          onClick={() => toggleEmailCollapse(uniqueKey)}
+                          style={{
+                            padding: '6px 16px',
+                            background: '#f3f4f6',
+                            color: '#6b7280',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#e5e7eb';
+                            e.currentTarget.style.color = '#374151';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#f3f4f6';
+                            e.currentTarget.style.color = '#6b7280';
+                          }}
+                        >
+                          Collapse
+                        </button>
                       </div>
                     </div>
                   )}
@@ -3234,7 +3260,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         style={{ cursor: 'pointer' }}
                       >
                         <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
-                        <EmailIframe html={formatEmailBody(message.body)} />
+                        <EmailIframe
+                          html={formatEmailBody(message.body)}
+                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
+                        />
                       </div>
                       </div>
                     )}
@@ -3513,7 +3542,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         style={{ cursor: 'pointer' }}
                       >
                         <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
-                        <EmailIframe html={formatEmailBody(message.body)} />
+                        <EmailIframe
+                          html={formatEmailBody(message.body)}
+                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
+                        />
                       </div>
                       </div>
                     )}
@@ -4165,7 +4197,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         style={{ cursor: 'pointer' }}
                       >
                         <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
-                        <EmailIframe html={formatEmailBody(message.body)} />
+                        <EmailIframe
+                          html={formatEmailBody(message.body)}
+                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
+                        />
                       </div>
                       </div>
                     )}
