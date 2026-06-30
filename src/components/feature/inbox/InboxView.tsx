@@ -932,37 +932,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const renderReplyAttachments = () => (
-    <div style={{ marginBottom: '12px', display: 'grid', gap: '8px' }}>
-      <label
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 'fit-content',
-          padding: '8px 14px',
-          border: '1px solid #d1d5db',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: '500',
-          color: '#374151',
-          background: '#fff'
-        }}
-      >
-        Attach file
-        <input
-          type="file"
-          multiple
-          onChange={(e) => {
-            const files = Array.from(e.target.files || []);
-            setReplyAttachments((prev) => [...prev, ...files]);
-            e.target.value = '';
-          }}
-          style={{ display: 'none' }}
-        />
-      </label>
+    <>
       {replyAttachments.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ marginBottom: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           {replyAttachments.map((file, index) => (
             <span
               key={`${file.name}-${file.lastModified}-${index}`}
@@ -970,7 +942,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '6px 10px',
+                padding: '9px 10px',
                 border: '1px solid #e5e7eb',
                 borderRadius: '999px',
                 fontSize: '12px',
@@ -1000,7 +972,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 
   const getAttachmentUrl = (attachment: InboxAttachment) => {
@@ -1564,6 +1536,35 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           BCC
         </button>
       )}
+      <label
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '9px 12px',
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '13px',
+          fontWeight: '500',
+          color: '#374151',
+          background: '#fff',
+          gap: '6px',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        <FontAwesomeIcon icon={faPaperclip} style={{ color: '#3f9f42' }} />
+        <input
+          type="file"
+          multiple
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            setReplyAttachments((prev) => [...prev, ...files]);
+            e.target.value = '';
+          }}
+          style={{ display: 'none' }}
+        />
+      </label>
     </>
   );
 

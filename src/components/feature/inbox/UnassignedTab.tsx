@@ -708,7 +708,6 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                 </span>
               </div>
               <div className="mail-subject">
-                {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
                 {attachmentCount > 0 && (
                   <span
                     title={`${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`}
@@ -717,6 +716,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                     <FontAwesomeIcon icon={faPaperclip} />
                   </span>
                 )}
+                {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
                 {thread.subject}
               </div>
               <div className="mail-preview">
