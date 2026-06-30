@@ -52,7 +52,7 @@ interface AllMessagesTabProps {
   selectedProvider: string;
   isActive: boolean;
   selectedThread: InboxThread | null;
-  onThreadSelect: (thread: InboxThread) => void;
+  onThreadSelect: (thread: InboxThread | null) => void;
   onInitializeCollapsedEmails: (collapsed: { [key: string]: boolean }) => void;
   onReplyReset: () => void;
   onUnreadCountsRefresh?: () => Promise<void> | void;
@@ -230,8 +230,8 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
     );
   };
 
-  const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
-    const trackingIdsToDelete = pendingDeleteThreadId ? [pendingDeleteThreadId] : selectedThreadIds;
+  const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent', trackingIdsOverride?: string[]) => {
+    const trackingIdsToDelete = trackingIdsOverride || (pendingDeleteThreadId ? [pendingDeleteThreadId] : selectedThreadIds);
     if (trackingIdsToDelete.length === 0) return;
     
     setLoading(true);
@@ -253,6 +253,10 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
       );
 
       if (response.data.success) {
+        if (selectedThread && trackingIdsToDelete.includes(selectedThread.trackingId)) {
+          onThreadSelect(null);
+          onReplyReset();
+        }
         setSelectedThreadIds([]);
         setShowDeleteDropdown(false);
         setActiveActionThreadId(null);
@@ -266,6 +270,22 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
       setPendingDeleteThreadId(null);
       setLoading(false);
     }
+  };
+
+  const requestDelete = (deleteMode: 'soft' | 'Permanent', trackingId?: string) => {
+    const trackingIdsToDelete = trackingId ? [trackingId] : selectedThreadIds;
+
+    setPendingDeleteThreadId(trackingId || null);
+    setPendingDeleteMode(deleteMode);
+    setShowDeleteDropdown(false);
+    setActiveActionThreadId(null);
+
+    if (deleteMode === 'soft') {
+      handleBulkDelete(deleteMode, trackingIdsToDelete);
+      return;
+    }
+
+    setShowDeleteModal(true);
   };
 
   const handlePinEmail = async (thread: InboxThread, event: React.MouseEvent<HTMLButtonElement>) => {
@@ -419,7 +439,7 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = 'transparent';
                 }}
-                title={`Delete ${selectedThreadIds.length} email(s)`}
+                title={`Remove ${selectedThreadIds.length} email(s) from inbox`}
               >
                 <FontAwesomeIcon
                   icon={faTrashAlt}
@@ -442,10 +462,7 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
                 }}>
                   <button
                     onClick={() => {
-                      setPendingDeleteThreadId(null);
-                      setPendingDeleteMode('soft');
-                      setShowDeleteModal(true);
-                      setShowDeleteDropdown(false);
+                      requestDelete('soft');
                     }}
                     style={{
                       width: '100%',
@@ -462,7 +479,7 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
                     onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
-                    Delete from Inbox
+                    Remove from Inbox
                   </button>
                   <button
                     onClick={() => {
@@ -479,11 +496,10 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
                       textAlign: 'left',
                       cursor: 'pointer',
                       fontSize: '14px',
-                      color: '#ef4444',
-                      fontWeight: '500',
+                      color: '#374151',
                       transition: 'background 0.2s'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
                     Delete permanently
@@ -612,17 +628,13 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
                               </button>
                               <button
                                 type="button"
-                                className="danger"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  setPendingDeleteThreadId(thread.trackingId);
-                                  setPendingDeleteMode('soft');
-                                  setShowDeleteModal(true);
-                                  setActiveActionThreadId(null);
+                                  requestDelete('soft', thread.trackingId);
                                 }}
                               >
                                 <FontAwesomeIcon icon={faTrashAlt} />
-                                Delete
+                                Remove from Inbox
                               </button>
                             </div>
                           )}

@@ -695,6 +695,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
     if (selectedThreadIds.length === 0) return;
+    const trackingIdsToDelete = [...selectedThreadIds];
     
     setLoading(true);
     try {
@@ -721,12 +722,25 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setTimeout(() => setShowToast(false), 3000);
         
         if (activeTab === 'inbox') {
+          if (selectedThread && trackingIdsToDelete.includes(selectedThread.trackingId)) {
+            setSelectedThread(null);
+          }
           await fetchMails(false);
         } else if (activeTab === 'sent') {
+          if (selectedSentThread && trackingIdsToDelete.includes(selectedSentThread.trackingId)) {
+            setSelectedSentThread(null);
+          }
           setRefreshSentTab(prev => prev + 1);
         } else if (activeTab === 'unassigned') {
+          if (selectedUnassignedThread && trackingIdsToDelete.includes(selectedUnassignedThread.trackingId)) {
+            setSelectedUnassignedThread(null);
+            setSelectedUnassignedEmail(null);
+          }
           setRefreshUnassignedTab(prev => prev + 1);
         } else if (activeTab === 'all' || activeTab === 'allmessages') {
+          if (selectedAllMessagesThread && trackingIdsToDelete.includes(selectedAllMessagesThread.trackingId)) {
+            setSelectedAllMessagesThread(null);
+          }
           setRefreshAllMessagesTab(prev => prev + 1);
         }
         
@@ -783,7 +797,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }));
   };
 
-  const handleDeleteEmail = async (deleteMode: 'soft' | 'Permanent') => {
+  const handleDeleteEmail = async (deleteMode: 'soft' | 'Permanent', trackingIdOverride?: string | null) => {
     const currentThread = activeTab === 'inbox'
       ? selectedThread
       : activeTab === 'sent'
@@ -791,8 +805,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         : activeTab === 'unassigned'
           ? selectedUnassignedThread
           : selectedAllMessagesThread;
-    const trackingIdToDelete = pendingDeleteThreadId || currentThread?.trackingId;
+    const trackingIdToDelete = (trackingIdOverride !== undefined ? trackingIdOverride : pendingDeleteThreadId) || currentThread?.trackingId;
     if (!trackingIdToDelete) return;
+    const shouldClearCurrentThread = currentThread?.trackingId === trackingIdToDelete;
     
     setShowDeleteDropdown(false);
     setActiveActionThreadId(null);
@@ -822,18 +837,25 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         
         // Remove from list and close detail view based on active tab
         if (activeTab === 'inbox') {
-          if (!pendingDeleteThreadId || selectedThread?.trackingId === pendingDeleteThreadId) {
+          if (shouldClearCurrentThread) {
             setSelectedThread(null);
           }
           await fetchMails(false);
         } else if (activeTab === 'sent') {
-          setSelectedSentThread(null);
+          if (shouldClearCurrentThread) {
+            setSelectedSentThread(null);
+          }
           setRefreshSentTab(prev => prev + 1);
         } else if (activeTab === 'unassigned') {
-          setSelectedUnassignedThread(null);
+          if (shouldClearCurrentThread) {
+            setSelectedUnassignedThread(null);
+            setSelectedUnassignedEmail(null);
+          }
           setRefreshUnassignedTab(prev => prev + 1);
         } else {
-          setSelectedAllMessagesThread(null);
+          if (shouldClearCurrentThread) {
+            setSelectedAllMessagesThread(null);
+          }
           setRefreshAllMessagesTab(prev => prev + 1);
         }
         setPendingDeleteThreadId(null);
@@ -852,6 +874,26 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     } finally {
       setPendingDeleteThreadId(null);
     }
+  };
+
+  const requestDelete = (deleteMode: 'soft' | 'Permanent', deleteType: 'single' | 'bulk', trackingId?: string | null) => {
+    setDeleteModalType(deleteType);
+    setPendingDeleteThreadId(trackingId || null);
+    setPendingDeleteMode(deleteMode);
+    setShowDeleteDropdown(false);
+    setShowBulkDeleteDropdown(false);
+    setActiveActionThreadId(null);
+
+    if (deleteMode === 'soft') {
+      if (deleteType === 'bulk') {
+        handleBulkDelete(deleteMode);
+      } else {
+        handleDeleteEmail(deleteMode, trackingId);
+      }
+      return;
+    }
+
+    setShowDeleteModal(true);
   };
 
   const handleKraftEmail = async () => {
@@ -2097,7 +2139,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             onMouseLeave={(e) => {
                               e.currentTarget.style.background = 'transparent';
                             }}
-                            title={`Delete ${selectedThreadIds.length} email(s)`}
+                            title={`Remove ${selectedThreadIds.length} email(s) from inbox`}
                           >
                             <FontAwesomeIcon
                               icon={faTrashAlt}
@@ -2120,11 +2162,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             }}>
                               <button
                                 onClick={() => {
-                                  setDeleteModalType('bulk');
-                                  setPendingDeleteThreadId(null);
-                                  setPendingDeleteMode('soft');
-                                  setShowDeleteModal(true);
-                                  setShowBulkDeleteDropdown(false);
+                                  requestDelete('soft', 'bulk');
                                 }}
                                 style={{
                                   width: '100%',
@@ -2141,7 +2179,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                 onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                               >
-                                Delete from Inbox
+                                Remove from Inbox
                               </button>
                               <button
                                 onClick={() => {
@@ -2159,11 +2197,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                   textAlign: 'left',
                                   cursor: 'pointer',
                                   fontSize: '14px',
-                                  color: '#ef4444',
-                                  fontWeight: '500',
+                                  color: '#374151',
                                   transition: 'background 0.2s'
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                               >
                                 Delete permanently
@@ -2293,18 +2330,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                     </button>
                                     <button
                                       type="button"
-                                      className="danger"
                                       onClick={(event) => {
                                         event.stopPropagation();
-                                        setPendingDeleteThreadId(thread.trackingId);
-                                        setDeleteModalType('single');
-                                        setPendingDeleteMode('soft');
-                                        setShowDeleteModal(true);
-                                        setActiveActionThreadId(null);
+                                        requestDelete('soft', 'single', thread.trackingId);
                                       }}
                                     >
                                       <FontAwesomeIcon icon={faTrashAlt} />
-                                      Delete
+                                      Remove from Inbox
                                     </button>
                                   </div>
                                 )}
@@ -2465,7 +2497,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     </button>
                     {showDeleteDropdown && (
                       <div className="delete-dropdown">
-                        <button onClick={() => { setDeleteModalType('single'); setPendingDeleteThreadId(null); setPendingDeleteMode('soft'); setShowDeleteModal(true); setShowDeleteDropdown(false); }}>Delete from Inbox</button>
+                        <button onClick={() => requestDelete('soft', 'single', null)}>Remove from Inbox</button>
                         <button onClick={() => { setDeleteModalType('single'); setPendingDeleteThreadId(null); setPendingDeleteMode('Permanent'); setShowDeleteModal(true); setShowDeleteDropdown(false); }}>Delete permanently</button>
                       </div>
                     )}
@@ -2550,10 +2582,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     }}>
                       <button
                         onClick={() => {
-                          setDeleteModalType('single');
-                          setPendingDeleteThreadId(null);
-                          setPendingDeleteMode('soft');
-                          setShowDeleteModal(true);
+                          requestDelete('soft', 'single', null);
                         }}
                         style={{
                           width: '100%',
@@ -2570,7 +2599,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       >
-                        Delete from Inbox
+                        Remove from Inbox
                       </button>
                       <button
                         onClick={() => {
@@ -2587,11 +2616,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           textAlign: 'left',
                           cursor: 'pointer',
                           fontSize: '14px',
-                          color: '#ef4444',
-                          fontWeight: '500',
+                          color: '#374151',
                           transition: 'background 0.2s'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       >
                         Delete permanently
@@ -3095,10 +3123,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       }}>
                         <button
                           onClick={() => {
-                            setDeleteModalType('single');
-                            setPendingDeleteThreadId(null);
-                            setPendingDeleteMode('soft');
-                            setShowDeleteModal(true);
+                            requestDelete('soft', 'single', null);
                           }}
                           style={{
                             width: '100%',
@@ -3115,7 +3140,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                          Delete from Inbox
+                          Remove from Inbox
                         </button>
                         <button
                           onClick={() => {
@@ -3132,11 +3157,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             textAlign: 'left',
                             cursor: 'pointer',
                             fontSize: '14px',
-                            color: '#ef4444',
-                            fontWeight: '500',
+                            color: '#374151',
                             transition: 'background 0.2s'
                           }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
                           Delete permanently
@@ -3300,10 +3324,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       }}>
                         <button
                           onClick={() => {
-                            setDeleteModalType('single');
-                            setPendingDeleteThreadId(null);
-                            setPendingDeleteMode('soft');
-                            setShowDeleteModal(true);
+                            requestDelete('soft', 'single', null);
                           }}
                           style={{
                             width: '100%',
@@ -3320,7 +3341,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                          Delete from Inbox
+                          Remove from Inbox
                         </button>
                         <button
                           onClick={() => {
@@ -3337,11 +3358,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             textAlign: 'left',
                             cursor: 'pointer',
                             fontSize: '14px',
-                            color: '#ef4444',
-                            fontWeight: '500',
+                            color: '#374151',
                             transition: 'background 0.2s'
                           }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
                           Delete permanently
@@ -3950,10 +3970,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       }}>
                         <button
                           onClick={() => {
-                            setDeleteModalType('single');
-                            setPendingDeleteThreadId(null);
-                            setPendingDeleteMode('soft');
-                            setShowDeleteModal(true);
+                            requestDelete('soft', 'single', null);
                           }}
                           style={{
                             width: '100%',
@@ -3970,7 +3987,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                          Delete from Inbox
+                          Remove from Inbox
                         </button>
                         <button
                           onClick={() => {
@@ -3987,11 +4004,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             textAlign: 'left',
                             cursor: 'pointer',
                             fontSize: '14px',
-                            color: '#ef4444',
-                            fontWeight: '500',
+                            color: '#374151',
                             transition: 'background 0.2s'
                           }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
                           Delete permanently

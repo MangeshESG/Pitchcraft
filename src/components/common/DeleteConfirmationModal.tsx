@@ -81,7 +81,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                 margin: 0,
                 color: '#111827'
               }}>
-                {isPermanent ? 'Delete Permanently?' : `Delete ${count === 1 ? 'Email' : 'Emails'}?`}
+                {isPermanent ? 'Delete permanently?' : `Delete ${count === 1 ? 'Email' : 'Emails'}?`}
               </h3>
             </div>
             <button
@@ -172,7 +172,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                 onClick={onConfirm}
                 style={{
                   padding: '12px 24px',
-                  background: isPermanent ? '#ef4444' : '#f59e0b',
+                  background: isPermanent ? '#3f9f42' : '#f59e0b',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '8px',
@@ -187,12 +187,12 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                   gap: '8px'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = isPermanent ? '#dc2626' : '#d97706';
+                  e.currentTarget.style.background = isPermanent ? '#358938' : '#d97706';
                   e.currentTarget.style.transform = 'translateY(-1px)';
                   e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = isPermanent ? '#ef4444' : '#f59e0b';
+                  e.currentTarget.style.background = isPermanent ? '#3f9f42' : '#f59e0b';
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = 'none';
                 }}
@@ -200,7 +200,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
                 </svg>
-                {isPermanent ? 'Delete Permanently' : 'Delete'}
+                {isPermanent ? 'Delete permanently' : 'Delete'}
               </button>
             </div>
           </div>
