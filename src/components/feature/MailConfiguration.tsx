@@ -280,8 +280,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
 
                   {!isDemoAccount && (
                     <button
-                      className="save-button button auto-width small d-flex justify-between align-center"
-                      style={{ borderRadius: "8px", background: "#3f9f42", color: "#fff", border: "none" }}
+                      className="btn-default"
                       onClick={() => {
                         dispatch(openPanel("add-edit-mailbox-modal"));
                       }}
@@ -769,8 +768,8 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                     onChange={(e) => setNewBccEmail(e.target.value)}
                   /> */}
                   <button
-                    className="save-button button auto-width small d-flex justify-between align-center mt-10"
-                    style={{ marginLeft: "auto", borderRadius: "12px" }}
+                    className="btn-default"
+                    style={{ marginLeft: "auto" }}
                     // onClick={handleAddBcc}
                     onClick={() => 
                      // setShowPopup(true)
@@ -812,14 +811,12 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                           <td>
                             {!isDemoAccount && (
                               <button
-                                className="button secondary small"
+                                className="btn-default"
                                 onClick={() => handleDeleteBcc(email.id)}
                                 disabled={bccLoading}
                                 style={{
                                   padding: "6px 12px",
                                   fontSize: "14px",
-                                  background: "#dc3545",
-                                  color: "#fff",
                                   border: "none",
                                   borderRadius: "12px",
                                   cursor: bccLoading ? "not-allowed" : "pointer",
@@ -856,6 +853,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   footerContent={
                     <>
                       <button
+                      className="btn-muted"
                         onClick={() => 
                           //setShowPopup(false)
                           dispatch(closePanel())
@@ -864,24 +862,20 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                         style={{
                           padding: "10px 32px",
                           border: "1px solid #ddd",
-                          background: "#fff",
                           borderRadius: "12px",
                           cursor: "pointer",
                           fontSize: "14px",
                           fontWeight: "500",
-                          color: "#333",
                         }}
                       >
                         Cancel
                       </button>
                       <button
+                      className="btn-default"
                         onClick={handleSave}
                         disabled={bccLoading || !newBccEmail}
                         style={{
                           padding: "10px 32px",
-                          background: "#fff",
-                          color: bccLoading || !newBccEmail ? "#ccc" : "#ef4444",
-                          border: `1px solid ${bccLoading || !newBccEmail ? "#ccc" : "#ef4444"}`,
                           borderRadius: "12px",
                           cursor: bccLoading || !newBccEmail ? "not-allowed" : "pointer",
                           fontSize: "14px",
@@ -987,12 +981,11 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                           </td>
                           <td>
                             <button
+                            className="btn-default"
                               onClick={() => handleDomainDeleteClick(domain)}
                               style={{
                                 padding: "6px 12px",
                                 fontSize: "14px",
-                                background: "#dc3545",
-                                color: "#fff",
                                 border: "none",
                                 borderRadius: "12px",
                                 cursor: "pointer",

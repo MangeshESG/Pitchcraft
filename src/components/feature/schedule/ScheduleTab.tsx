@@ -552,7 +552,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 <div className="bp-header-actions">
                   <button
                     type="button"
-                    className="bp-btn-primary-dark"
+                    className="btn-default"
                     onClick={() => dispatch(openPanel("schedule-modal"))}
                   >
                     <Plus className="h-4 w-4" />
@@ -584,7 +584,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                   {!isDemoAccount && (
                     <div className="bp-empty-actions">
                       <button
-                        className="bp-btn-primary"
+                        className="btn-default"
                         onClick={() => dispatch(openPanel("schedule-modal"))}
                       >
                         <Plus className="h-4 w-4" />
@@ -626,7 +626,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                     {!isDemoAccount && (
                       <div className="bp-banner__actions">
                         <button
-                          className="bp-btn-banner-primary"
+                          className="btn-default"
                           onClick={() => dispatch(openPanel("schedule-modal"))}
                         >
                           <Plus className="h-4 w-4" />
@@ -787,14 +787,14 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
         width={600}
         footerContent={
           <>
-            <button type="button" onClick={closeAndReset} className="sch-btn-cancel">
+            <button type="button" onClick={closeAndReset} className="btn-muted">
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSubmitSchedule}
               disabled={!isFormValid}
-              className={`sch-btn-submit${isFormValid ? " is-active" : ""}`}
+              className="btn-default"
             >
               {editingId ? "Update" : "Create"}
             </button>

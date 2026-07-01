@@ -502,14 +502,12 @@ const OtherMailboxWizard: React.FC<OtherMailboxWizardProps> = ({
           }}
         >
           <button
+          className="btn-muted" 
             type="button"
             onClick={activeStep === 0 ? onCancel : () => setActiveStep((step) => step - 1)}
             style={{
               padding: "9px 22px",
-              border: "1px solid #d1d5db",
               borderRadius: 6,
-              background: "#fff",
-              color: "#374151",
               cursor: "pointer",
               fontSize: 13,
               fontWeight: 600,
@@ -520,14 +518,12 @@ const OtherMailboxWizard: React.FC<OtherMailboxWizardProps> = ({
 
           {activeStep < 2 ? (
             <button
+            className="btn-default"
               type="button"
               onClick={() => setActiveStep((step) => step + 1)}
               style={{
                 padding: "9px 22px",
-                border: "1px solid #3f9f42",
                 borderRadius: 6,
-                background: "#3f9f42",
-                color: "#fff",
                 cursor: "pointer",
                 fontSize: 13,
                 fontWeight: 700,
@@ -538,14 +534,12 @@ const OtherMailboxWizard: React.FC<OtherMailboxWizardProps> = ({
           ) : (
             <button
               type="button"
+              className="btn-default"
               onClick={onSaveMailbox}
               disabled={outgoingLoading || incomingLoading}
               style={{
                 padding: "9px 24px",
-                border: `1px solid ${outgoingLoading || incomingLoading ? "#d1d5db" : "#3f9f42"}`,
                 borderRadius: 6,
-                background: outgoingLoading || incomingLoading ? "#f3f4f6" : "#3f9f42",
-                color: outgoingLoading || incomingLoading ? "#9ca3af" : "#fff",
                 cursor: outgoingLoading || incomingLoading ? "not-allowed" : "pointer",
                 fontSize: 13,
                 fontWeight: 700,

@@ -491,12 +491,12 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
       footerContent={selectedProvider === "others" ? undefined : (
         <>
           <button
+           className="btn-muted"
             type="button"
             onClick={handleClose}
             style={{
               padding: "10px 32px",
               border: "1px solid #ddd",
-              background: "#fff",
               borderRadius: "24px",
               cursor: "pointer",
               fontSize: "14px",
@@ -731,6 +731,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
               </div>
               <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
                 <button
+                className="btn-default"
                   onClick={handleGmailConnect}
                   disabled={pop3Loading}
                   style={{
@@ -740,9 +741,6 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
                     gap: "8px",
                     width: "auto",
                     padding: "10px 32px",
-                    background: "#fff",
-                    color: pop3Loading ? "#ccc" : "#ef4444",
-                    border: `1px solid ${pop3Loading ? "#ccc" : "#ef4444"}`,
                     borderRadius: "24px",
                     cursor: pop3Loading ? "not-allowed" : "pointer",
                     fontSize: "14px",
@@ -820,6 +818,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
               </div>
               <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
                 <button
+                className="btn-default"
                   onClick={handleOutlookConnect}
                   disabled={outlookLoading}
                   style={{
@@ -829,9 +828,6 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
                     gap: "8px",
                     width: "auto",
                     padding: "10px 32px",
-                    background: "#fff",
-                    color: outlookLoading ? "#ccc" : "#ef4444",
-                    border: `1px solid ${outlookLoading ? "#ccc" : "#ef4444"}`,
                     borderRadius: "24px",
                     cursor: outlookLoading ? "not-allowed" : "pointer",
                     fontSize: "14px",
@@ -913,6 +909,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
               </div>
               <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
                 <button
+                className="btn-default"
                   onClick={handleOutlookConnect}
                   disabled={outlookLoading}
                   style={{
@@ -922,9 +919,6 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
                     gap: "8px",
                     width: "auto",
                     padding: "10px 32px",
-                    background: "#fff",
-                    color: outlookLoading ? "#ccc" : "#ef4444",
-                    border: `1px solid ${outlookLoading ? "#ccc" : "#ef4444"}`,
                     borderRadius: "24px",
                     cursor: outlookLoading ? "not-allowed" : "pointer",
                     fontSize: "14px",
