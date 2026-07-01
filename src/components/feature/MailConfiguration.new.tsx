@@ -20,8 +20,9 @@ export const MailConfigurationEmptyState: React.FC<{
             <span className="mce-start-pill">⚙️ Start here</span>
             <h2 className="mce-empty-headline">Connect your first mailbox.</h2>
             <p className="mce-empty-body-text">
-              Add a sending mailbox to unlock campaign delivery, BCC copies, and
-              domain authentication — everything in Mail Configuration starts here.
+              Add mailboxes to send and respond to your email campaigns, 
+              Inbuilt tools check your domains to ensure they have the highest deliverability. 
+              IMAP, Outlook, Google, O365 all supported.
             </p>
             {!isDemoAccount && (
               <div className="mce-empty-actions">
@@ -31,9 +32,6 @@ export const MailConfigurationEmptyState: React.FC<{
                 </button>
               </div>
             )}
-            <div className="mce-empty-meta">
-              Takes about 2 minutes · SMTP and IMAP supported
-            </div>
           </div>
           <div className="mce-empty-hero__art">
             <img
