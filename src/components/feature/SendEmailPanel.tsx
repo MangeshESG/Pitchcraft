@@ -112,6 +112,8 @@ setOverwriteDatabase,
   const [indexRangeError, setIndexRangeError] = useState("");
   const [showValidationError, setShowValidationError] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("");
+  // Collapsed state for the "Hide actions" / "Show actions" toggle
+  const [actionsCollapsed, setActionsCollapsed] = useState<boolean>(isOpen ?? false);
 
   const enableDelay = externalEnableDelay ?? internalEnableDelay;
   const setEnableDelay = externalSetEnableDelay ?? setInternalEnableDelay;
@@ -159,11 +161,176 @@ setOverwriteDatabase,
     <>
 
       <div
-        className={`${isOpen && "hidden"} min-w-[320px] flex flex-1 flex-col bg-[#ffffff] rounded-[10px] border border-[#cccccc] overflow-hidden shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]`}
+        className={`min-w-[320px] flex flex-1 flex-col bg-[#ffffff] rounded-[10px] border border-[#cccccc] overflow-hidden shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]`}
       >
+        {/* Shared controls — apply to both Kraft and Send tabs */}
+        {!actionsCollapsed && (
+        <div className="p-[20px] pb-[0px] flex flex-col w-[100%]">
+          {/* Filter Dropdown */}
+          <div
+            className="form-group"
+            style={{
+              padding: "12px",
+              border: "1px solid #cccccc",
+              borderRadius: "8px",
+              marginBottom: "12px",
+              backgroundColor: "#fff",
+            }}
+          >
+            <label style={{ display: "block", marginBottom: 6, fontSize: "14px", fontWeight: 600, fontFamily: "inherit" }}>
+              Filter
+            </label>
+            <select
+              className="form-control"
+              value={getCurrentFilterValue()}
+              onChange={(e) => {
+                const selectedValue = e.target.value;
+                setSelectedFilter(selectedValue);
+
+                // Reset all filters first
+                setEnableIndexRange(false);
+                setNotKraftedEnabled?.(false);
+                setKraftedNotSentEnabled?.(false);
+
+                // Then set the appropriate filter
+                if (selectedValue === "restrict-contact") {
+                  setEnableIndexRange(true);
+                } else if (selectedValue === "not-krafted") {
+                  setNotKraftedEnabled?.(true);
+                } else if (selectedValue === "kraft-not-sent") {
+                  setKraftedNotSentEnabled?.(true);
+                }
+
+                // Reset current index when filter changes
+                if (typeof window !== "undefined" && (window as any).resetCurrentIndex) {
+                  (window as any).resetCurrentIndex();
+                }
+
+                if (onFilterChange) {
+                  onFilterChange();
+                }
+              }}
+              style={{ width: "100%", padding: "8px", fontSize: 14 }}
+            >
+              <option value="">Select filter...</option>
+              <option value="kraft-not-sent">Kraft not sent</option>
+              <option value="not-krafted">Not krafted</option>
+              <option value="restrict-contact">Restrict contacts</option>
+            </select>
+          </div>
+
+          {/* Restrict Contacts (index range) */}
+          {(selectedFilter === "restrict-contact" || enableIndexRange === true) && (
+            <div
+              className="form-group"
+              style={{
+                padding: "12px",
+                border: "1px solid #cccccc",
+                borderRadius: "8px",
+                marginBottom: "12px",
+                backgroundColor: "#fff",
+              }}
+            >
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+                <div style={{ width: "80px" }}>
+                  <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
+                    From
+                  </label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={startIndex}
+                    onChange={(e) => {
+                      setStartIndex(e.target.value);
+                      setShowValidationError(false);
+                    }}
+                    placeholder="From"
+                    min="1"
+                    max={combinedResponses.length}
+                    style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
+                  />
+                </div>
+                <div style={{ width: "80px" }}>
+                  <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
+                    To
+                  </label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={endIndex}
+                    onChange={(e) => {
+                      setEndIndex(e.target.value);
+                      setShowValidationError(false);
+                    }}
+                    placeholder="To"
+                    min={startIndex || "1"}
+                    max={combinedResponses.length}
+                    disabled={!startIndex}
+                    style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
+                  />
+                </div>
+              </div>
+              {showValidationError && indexRangeError && (
+                <div className="mt-[8px] text-red-600 text-[12px]">
+                  {indexRangeError}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Include email trail */}
+          {!isDemoAccount && (
+            <div
+              className="form-group"
+              style={{
+                padding: "12px",
+                border: "1px solid #cccccc",
+                borderRadius: "8px",
+                backgroundColor: "#fff",
+                marginBottom: "12px",
+              }}
+            >
+              <div className="flex items-center gap-[8px]">
+                <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={followupEnabled || false}
+                    onChange={(e) => {
+                      setFollowupEnabled?.(e.target.checked);
+                    }}
+                    className="!mr-0"
+                  />
+                  <span style={{ fontSize: "14px", whiteSpace: "nowrap", marginLeft: "10px" }}>
+                    Include email trail
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Krafted & Emailed Dates */}
+          {combinedResponses[currentIndex] && (
+            <div className="mb-[12px] text-[13px] italic text-gray-600">
+              {combinedResponses[currentIndex]?.lastemailupdateddate && (
+                <div>
+                  Krafted:{" "}
+                  {formatDateTimeIST(combinedResponses[currentIndex]?.lastemailupdateddate)}
+                </div>
+              )}
+              {combinedResponses[currentIndex]?.emailsentdate && (
+                <div>
+                  Emailed:{" "}
+                  {formatDateTimeIST(combinedResponses[currentIndex]?.emailsentdate)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        )}
+
         {/* Tabs Header */}
         <div className="flex border-b border-[#cccccc] rounded-[10px 10px 0 0] panel-tab items-center">
-          {panelTabs.map((tab) => (
+          {!actionsCollapsed && panelTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
@@ -176,30 +343,11 @@ setOverwriteDatabase,
               {tab.label}
             </button>
           ))}
-          <button
-            className="bg-[#e7f5e8] text-[#3f9f42] font-[600] text-[14px] border border-dashed border-[#9b9b9b] !rounded-[4px] h-[30px] ml-[5px] py-[2px] px-[5px]"
-            onClick={() => onClose()}
-            style={{ borderRadius: "12px" }}
-          >
-            <span className="flex items-center gap-[5px]">
-              {/* <FontAwesomeIcon
-                icon={isOpen ? faAngleRight : faAngleLeft}
-                className="text-[#ffffff] text-md"
-              /> */}
-              <FontAwesomeIcon
-                icon={isOpen ? faCircleLeft : faAngleLeft}
-                className="text-[#3f9f42] text-md pr-[2px]"
-              />
-              <span>
-                {!isOpen ? "Hide actions" : "Show"}
-              </span>
-            </span>
-          </button>
         </div>
         {/* HEADER */}
 
         {/* CONTENT */}
-        {panelTab === "kraft" && (
+        {!actionsCollapsed && panelTab === "kraft" && (
   <div className="p-[20px] flex flex-col w-[100%] h-[100%]">
 
     {/* Overwrite */}
@@ -214,6 +362,7 @@ setOverwriteDatabase,
     >
       <div style={{ display: "flex", alignItems: "center" ,  gap: "8px"}}>
         <input
+          id="overwrite-existing-emails"
           type="checkbox"
           checked={overwriteDatabase ?? false}
           onChange={(e) => {
@@ -222,167 +371,18 @@ setOverwriteDatabase,
             setOverwriteDatabase?.(checked);
           }}
         />
-        <label style={{ fontWeight: 600, cursor: "pointer" }}>
-          Overwrite
+        <label htmlFor="overwrite-existing-emails" style={{ fontWeight: 400, cursor: "pointer" }}>
+          Overwrite existing emails
         </label>
       </div>
     </div>
-
-    {/* Filter Dropdown */}
-    <div
-      className="form-group"
-      style={{
-        padding: "12px",
-        border: "1px solid #cccccc",
-        borderRadius: "8px",
-        marginBottom: "12px",
-        backgroundColor: "#fff",
-      }}
-    >
-      <label style={{ display: "block", marginBottom: 6, fontSize: "14px", fontWeight: 600, fontFamily: "inherit" }}>
-        Filter
-      </label>
-      <select
-        className="form-control"
-        value={getCurrentFilterValue()}
-        onChange={(e) => {
-          const selectedValue = e.target.value;
-          console.log('Filter dropdown changed to:', selectedValue); // Debug log
-          setSelectedFilter(selectedValue);
-          
-          // Reset all filters first
-          setEnableIndexRange(false);
-          setNotKraftedEnabled?.(false);
-          setKraftedNotSentEnabled?.(false);
-          
-          // Then set the appropriate filter
-          if (selectedValue === "restrict-contact") {
-            setEnableIndexRange(true);
-            console.log('Set restrict-contact filter'); // Debug log
-          } else if (selectedValue === "not-krafted") {
-            console.log('Setting notKraftedEnabled to true'); // Debug log
-            console.log('Current notKraftedEnabled value:', notKraftedEnabled); // Debug log
-            if (setNotKraftedEnabled) {
-              setNotKraftedEnabled(true);
-              console.log('Successfully called setNotKraftedEnabled(true)'); // Debug log
-            } else {
-              console.error('setNotKraftedEnabled function is not available!'); // Debug log
-            }
-          } else if (selectedValue === "kraft-not-sent") {
-            setKraftedNotSentEnabled?.(true);
-          } else {
-            // No filter selected - all filters already reset above
-            console.log('Reset all filters'); // Debug log
-          }
-          
-          // Reset current index when filter changes
-          if (typeof window !== 'undefined' && (window as any).resetCurrentIndex) {
-            (window as any).resetCurrentIndex();
-          }
-          
-          // Call filter change callback if provided
-          if (onFilterChange) {
-            onFilterChange();
-          }
-        }}
-        style={{ width: "100%", padding: "8px", fontSize: 14 }}
-      >
-        <option value="">Select filter...</option>
-        <option value="kraft-not-sent">Kraft not sent</option>
-        <option value="not-krafted">Not krafted</option>
-        <option value="restrict-contact">Restrict contacts</option>
-      </select>
-    </div>
-
-    {/* Restrict Contacts */}
-    {(selectedFilter === "restrict-contact" || enableIndexRange === true) && (
-      <div
-        className="form-group"
-        style={{
-          padding: "12px",
-          border: "1px solid #cccccc",
-          borderRadius: "8px",
-          marginBottom: "12px",
-          backgroundColor: "#fff",
-        }}
-      >
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-          <div style={{ width: "80px" }}>
-            <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
-              From
-            </label>
-            <input
-              type="number"
-              className="form-control"
-              value={startIndex}
-              onChange={(e) => {
-                setStartIndex(e.target.value);
-                setShowValidationError(false);
-              }}
-              placeholder="From"
-              min="1"
-              max={combinedResponses.length}
-              style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
-            />
-          </div>
-
-          <div style={{ width: "80px" }}>
-            <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
-              To
-            </label>
-            <input
-              type="number"
-              className="form-control"
-              value={endIndex}
-              onChange={(e) => {
-                setEndIndex(e.target.value);
-                setShowValidationError(false);
-              }}
-              placeholder="To"
-              min={startIndex || "1"}
-              max={combinedResponses.length}
-              disabled={!startIndex}
-              style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
-            />
-          </div>
-        </div>
-
-        {showValidationError && indexRangeError && (
-          <div className="mt-[8px] text-red-600 text-[12px]">
-            {indexRangeError}
-          </div>
-        )}
-      </div>
-    )}
-
-    {/* Krafted & Emailed Dates */}
-    {combinedResponses[currentIndex] && (
-      <div className="mt-[10px] text-[13px] italic text-gray-600">
-        {combinedResponses[currentIndex]?.lastemailupdateddate && (
-          <div>
-            Krafted:{" "}
-            {formatDateTimeIST(
-              combinedResponses[currentIndex]?.lastemailupdateddate
-            )}
-          </div>
-        )}
-        {combinedResponses[currentIndex]?.emailsentdate && (
-          <div>
-            Emailed:{" "}
-            {formatDateTimeIST(
-              combinedResponses[currentIndex]?.emailsentdate
-            )}
-          </div>
-        )}
-      </div>
-    )}
 
     {/* START BUTTON */}
     <div className="mt-[100px] pt-[15px] border-t border-[#cccccc] sticky bottom-0 bg-white z-10">
        {isResetEnabled ? (
       <button
         type="button"
-        className="button save-button w-[100%]"
+        className="btn-default w-[100%]"
         onClick={() => {
           if (enableIndexRange && startIndex && endIndex) {
             const fromValue = parseInt(startIndex);
@@ -406,16 +406,14 @@ setOverwriteDatabase,
 
            onStart();
         }}
-        style={{ borderRadius: "12px" }}
       >
         Start
       </button>
        ) : (
     <button
       type="button"
-      className="button save-button w-[100%]"
+      className="btn-default w-[100%]"
       onClick={onStop}   // or separate stop handler if you have one
-      style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, borderRadius: "12px" }}
     >
       Stop
     </button>
@@ -423,7 +421,7 @@ setOverwriteDatabase,
     </div>
   </div>
 )}
-        {panelTab === "send" && (
+        {!actionsCollapsed && panelTab === "send" && (
           <div className="p-[20px] flex items-start flex-col w-[100%] h-[100%]">
 
             <>
@@ -591,171 +589,6 @@ setOverwriteDatabase,
                   )}
                 </div>
 
-                {/* Filter Dropdown */}
-                <div
-                  className="form-group"
-                  style={{
-                    padding: "12px",
-                    border: "1px solid #cccccc",
-                    borderRadius: "8px",
-                    marginBottom: "12px",
-                    backgroundColor: "#fff",
-                  }}
-                >
-                  <label style={{ display: "block", marginBottom: 6, fontSize: "14px", fontWeight: 600, fontFamily: "inherit" }}>
-                    Filter
-                  </label>
-                  <select
-                    className="form-control"
-                    value={getCurrentFilterValue()}
-                    onChange={(e) => {
-                      const selectedValue = e.target.value;
-                      console.log('Filter dropdown changed to:', selectedValue); // Debug log
-                      setSelectedFilter(selectedValue);
-                      
-                      // Reset all filters first
-                      setEnableIndexRange(false);
-                      setNotKraftedEnabled?.(false);
-                      setKraftedNotSentEnabled?.(false);
-                      
-                      // Then set the appropriate filter
-                      if (selectedValue === "restrict-contact") {
-                        setEnableIndexRange(true);
-                        console.log('Set restrict-contact filter'); // Debug log
-                      } else if (selectedValue === "not-krafted") {
-                        console.log('Setting notKraftedEnabled to true'); // Debug log
-                        console.log('Current notKraftedEnabled value:', notKraftedEnabled); // Debug log
-                        if (setNotKraftedEnabled) {
-                          setNotKraftedEnabled(true);
-                          console.log('Successfully called setNotKraftedEnabled(true)'); // Debug log
-                        } else {
-                          console.error('setNotKraftedEnabled function is not available!'); // Debug log
-                        }
-                      } else if (selectedValue === "kraft-not-sent") {
-                        setKraftedNotSentEnabled?.(true);
-                      } else {
-                        // No filter selected - all filters already reset above
-                        console.log('Reset all filters'); // Debug log
-                      }
-                      
-                      // Reset current index when filter changes
-                      if (typeof window !== 'undefined' && (window as any).resetCurrentIndex) {
-                        (window as any).resetCurrentIndex();
-                      }
-                      
-                      // Call filter change callback if provided
-                      if (onFilterChange) {
-                        onFilterChange();
-                      }
-                    }}
-                    style={{ width: "100%", padding: "8px", fontSize: 14 }}
-                  >
-                    <option value="">Select filter...</option>
-                    <option value="kraft-not-sent">Kraft not sent</option>
-                    <option value="not-krafted">Not krafted</option>
-                    <option value="restrict-contact">Restrict contacts</option>
-                  </select>
-                </div>
-
-                {/* ROW 4: Index Range panel */}
-                {(selectedFilter === "restrict-contact" || enableIndexRange === true) && (
-                  <div
-                    className="form-group"
-                    style={{
-                      padding: "12px",
-                      border: "1px solid #cccccc",
-                      borderRadius: "8px",
-                      backgroundColor: "#fff",
-                    }}
-                  >
-                    <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-                      <div style={{ width: "80px" }}>
-                        <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
-                          From
-                        </label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          value={startIndex}
-                          onChange={(e) => {
-                            setStartIndex(e.target.value);
-                            setShowValidationError(false);
-                          }}
-                          placeholder="From"
-                          min="1"
-                          max={combinedResponses.length}
-                          style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
-                        />
-                      </div>
-                      <div style={{ width: "80px" }}>
-                        <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
-                          To
-                        </label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          value={endIndex}
-                          onChange={(e) => {
-                            setEndIndex(e.target.value);
-                            setShowValidationError(false);
-                          }}
-                          placeholder="To"
-                          min={startIndex || "1"}
-                          max={combinedResponses.length}
-                          disabled={!startIndex}
-                          style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
-                        />
-                      </div>
-                    </div>
-                    {showValidationError && indexRangeError && (
-                      <div
-                        style={{
-                          marginTop: 8,
-                          padding: "6px 10px",
-                          background: "#fee",
-                          border: "1px solid #fcc",
-                          borderRadius: 4,
-                          fontSize: 12,
-                          color: "#c33",
-                        }}
-                      >
-                        {indexRangeError}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {!isDemoAccount && (
-                  <div
-                      className="form-group"
-                      style={{
-                        padding: "12px",
-                        border: "1px solid #cccccc",
-                        borderRadius: "8px",
-                        backgroundColor: "#fff",
-                        marginBottom: "12px",
-                      }}
-                    >
-                    <div
-                      className="flex items-center gap-[8px]"
-                    >
-                      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={followupEnabled || false}
-                          onChange={(e) => {
-                            setFollowupEnabled?.(e.target.checked);
-                          }}
-                          className="!mr-0"
-                        />
-                        <span style={{ fontSize: "14px", whiteSpace: "nowrap",marginLeft: "10px" }}>
-                          Include email trail
-                        </span>
-                      </label>
-                    </div>
-                    </div>
-                  )}
-                  
-
                 {/* Countdown */}
                 {isBulkSending && countdown !== null && (
                   <div
@@ -780,38 +613,6 @@ setOverwriteDatabase,
                     <span>Next email will be sent in {countdown} seconds</span>
                   </div>
                 )}
-                {/* Krafted and Emailed Dates */}
-                {combinedResponses[currentIndex] && (
-                  <div style={{ marginTop: 16 }}>
-                    {combinedResponses[currentIndex]?.lastemailupdateddate && (
-                      <div
-                        style={{
-                          fontSize: "inherit",
-                          color: "#666",
-                          fontStyle: "italic",
-                          marginBottom: 4,
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        Krafted: {formatDateTimeIST(combinedResponses[currentIndex]?.lastemailupdateddate)}
-                      </div>
-                    )}
-                    {combinedResponses[currentIndex]?.emailsentdate && (
-                      <div
-                        style={{
-                          fontSize: "inherit",
-                          color: "#666",
-                          fontStyle: "italic",
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        Emailed: {formatDateTimeIST(
-          combinedResponses[currentIndex]?.emailsentdate
-        )}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
 
               {/* FOOTER - ROW 5: Buttons */}
@@ -819,7 +620,7 @@ setOverwriteDatabase,
               >
                 <button
                   type="button"
-                  className="button save-button"
+                  className="btn-default flex-1"
                   onClick={onSendSingle}
                   disabled={(() => {
                     const contact = combinedResponses[currentIndex];
@@ -837,7 +638,6 @@ setOverwriteDatabase,
                     }
                     return false;
                   })()}
-                  style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, borderRadius: "12px" }}
                 >
                   {!sendingEmail && emailMessage === "" && "Send"}
                   {sendingEmail && "Sending..."}
@@ -846,7 +646,7 @@ setOverwriteDatabase,
 
                 <button
                   type="button"
-                  className="button save-button"
+                  className="btn-default flex-1"
                   onClick={() => {
                     if (enableIndexRange && startIndex && endIndex) {
                       const fromValue = parseInt(startIndex);
@@ -883,7 +683,6 @@ setOverwriteDatabase,
                     }
                     return false;
                   })()}
-                  style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, borderRadius: "12px" }}
                 >
                   {isBulkSending ? "Stop" : "Send all"}
                 </button>

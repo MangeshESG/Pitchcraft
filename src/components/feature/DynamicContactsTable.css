@@ -95,10 +95,10 @@
 }
 .dt-btn-primary:hover { background: var(--dt-brand-d); }
 .dt-btn-default {
-  background: #e2f1e3; color: #3f9f42;
-  border: 1px solid #cfecd6;
+  background: var(--btn-default-bg); color: var(--btn-default-fg);
+  border: 1px solid var(--btn-default-border);
 }
-.dt-btn-default:hover { background: #d6ecd9; }
+.dt-btn-default:hover { background: var(--btn-default-bg-hover); }
 .dt-btn-secondary {
   background: var(--dt-bg-2); color: var(--dt-ink-soft);
   border: 1px solid #e5e7eb;

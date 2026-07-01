@@ -1452,6 +1452,25 @@ textarea {
   top: 15px;
 }
 
+/* Output email-body icons: pulled up (they used to overlay the body) and
+   aligned to the right edge now that the expand icon is gone. */
+.output-email-floated-icons.floated-icons-green {
+  right: 15px;
+  top: 8px;
+}
+
+/* Recolour the email-body action icons to brand green. Overriding the CSS
+   stroke/fill properties beats the SVGs' presentation attributes. */
+.floated-icons-green [stroke="#000000"],
+.floated-icons-green [stroke="#0C0310"],
+.floated-icons-green [stroke="#200E32"] {
+  stroke: #3f9f42;
+}
+.floated-icons-green [fill="#000000"],
+.floated-icons-green [fill="#200E32"] {
+  fill: #3f9f42;
+}
+
 /* Responsive */
 
 @media (max-width: 1200px) {
