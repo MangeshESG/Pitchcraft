@@ -51,6 +51,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons"
 import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/free-regular-svg-icons";
 import { closePanel, openPanel } from "../../slices/panelSlice";
+import { defaultButtonStyle, lessPriorityButtonStyle } from "../../styles/buttonStyles";
 
 // Persistent column selection utilities
 const CONTACTLIST_COLUMNS_KEY = 'contactlist_selected_columns';
@@ -2737,13 +2738,7 @@ const filterFields: any = useMemo(() => {
                         setRenamingListDescription("");
                       }}
                       className="button secondary"
-                      style={{
-                        padding: "8px 16px",
-                        border: "1px solid #ddd",
-                        background: "#fff",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
+                      style={lessPriorityButtonStyle}
                     >
                       Cancel
                     </button>
@@ -2756,22 +2751,19 @@ const filterFields: any = useMemo(() => {
                         isRenamingList
                       }
                       style={{
-                        padding: "8px 16px",
-                        background:
-                          renamingListName.trim() &&
-                            renamingListDescription.trim() &&
-                            !isRenamingList
-                            ? "#3f9f42"
-                            : "#ccc",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "4px",
+                        ...defaultButtonStyle,
                         cursor:
                           renamingListName.trim() &&
                             renamingListDescription.trim() &&
                             !isRenamingList
                             ? "pointer"
                             : "not-allowed",
+                        opacity:
+                          renamingListName.trim() &&
+                            renamingListDescription.trim() &&
+                            !isRenamingList
+                            ? 1
+                            : 0.5,
                       }}
                     >
                       {isRenamingList ? "Saving..." : "Save"}
@@ -2874,13 +2866,7 @@ const filterFields: any = useMemo(() => {
                           setEditingList(null);
                         }}
                         className="button secondary"
-                        style={{
-                          padding: "8px 16px",
-                          border: "1px solid #ddd",
-                          background: "#fff",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
+                        style={lessPriorityButtonStyle}
                       >
                         Cancel
                       </button>
@@ -2888,9 +2874,9 @@ const filterFields: any = useMemo(() => {
                         className="button primary"
                         style={{
                           padding: "8px 16px",
-                          background: "#dc3545",
-                          color: "#fff",
-                          border: "none",
+                          background: "var(--btn-danger-bg)",
+                          color: "var(--btn-danger-fg)",
+                          border: "1px solid var(--btn-danger-border)",
                           borderRadius: "4px",
                           cursor: "pointer",
                         }}
@@ -2944,9 +2930,9 @@ const filterFields: any = useMemo(() => {
                   }}
                   style={{
                     padding: "8px 16px",
-                    background: "#3f9f42",
-                    color: "#fff",
-                    border: "none",
+                    background: "var(--btn-default-bg)",
+                    color: "var(--btn-default-fg)",
+                    border: "1px solid var(--btn-default-border)",
                     borderRadius: "12px",
                     cursor: "pointer",
                     fontWeight: 600,
@@ -3772,9 +3758,9 @@ const filterFields: any = useMemo(() => {
                   }}
                   style={{
                     padding: "8px 16px",
-                    background: "#3f9f42",
-                    color: "#fff",
-                    border: "none",
+                    background: "var(--btn-default-bg)",
+                    color: "var(--btn-default-fg)",
+                    border: "1px solid var(--btn-default-border)",
                     borderRadius: "12px",
                     cursor: "pointer",
                     fontWeight: 600,
@@ -4124,16 +4110,7 @@ const filterFields: any = useMemo(() => {
                 setRenamingSegmentDescription("");
               }}
               className="button secondary"
-              style={{
-                padding: "10px 32px",
-                border: "1px solid #ddd",
-                background: "#fff",
-                borderRadius: "24px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "500",
-                color: "#333",
-              }}
+              style={lessPriorityButtonStyle}
             >
               Cancel
             </button>
@@ -4145,27 +4122,17 @@ const filterFields: any = useMemo(() => {
                 isRenamingSegment
               }
               style={{
-                padding: "10px 32px",
-                background: "#fff",
-                color:
-                  renamingSegmentName.trim() &&
-                    !isRenamingSegment
-                    ? "#ef4444"
-                    : "#ccc",
-                border: `1px solid ${
-                  renamingSegmentName.trim() &&
-                    !isRenamingSegment
-                    ? "#ef4444"
-                    : "#ccc"
-                }`,
-                borderRadius: "24px",
+                ...defaultButtonStyle,
                 cursor:
                   renamingSegmentName.trim() &&
                     !isRenamingSegment
                     ? "pointer"
                     : "not-allowed",
-                fontSize: "14px",
-                fontWeight: "500",
+                opacity:
+                  renamingSegmentName.trim() &&
+                    !isRenamingSegment
+                    ? 1
+                    : 0.5,
               }}
             >
               {isRenamingSegment ? "Saving..." : "Save"}
@@ -4255,13 +4222,7 @@ const filterFields: any = useMemo(() => {
                   setEditingSegment(null);
                 }}
                 className="button secondary"
-                style={{
-                  padding: "8px 16px",
-                  border: "1px solid #ddd",
-                  background: "#fff",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
+                style={lessPriorityButtonStyle}
               >
                 Cancel
               </button>
@@ -4269,9 +4230,9 @@ const filterFields: any = useMemo(() => {
                 className="button primary"
                 style={{
                   padding: "8px 16px",
-                  background: "#dc3545",
-                  color: "#fff",
-                  border: "none",
+                  background: "var(--btn-danger-bg)",
+                  color: "var(--btn-danger-fg)",
+                  border: "1px solid var(--btn-danger-border)",
                   borderRadius: "4px",
                   cursor: "pointer",
                 }}
@@ -4332,6 +4293,7 @@ const filterFields: any = useMemo(() => {
           dispatch(closePanel())
         }
         dataFileId={selectedDataFileForView?.id?.toString() || selectedDataFile}
+        clientId={effectiveUserId}
         onContactAdded={() => {
           // Refresh the data files grid to update contact counts
           fetchDataFiles();
@@ -4443,13 +4405,7 @@ const filterFields: any = useMemo(() => {
               <button
                 onClick={() => setShowDeleteConfirmation(false)}
                 className="button secondary"
-                style={{
-                  padding: "8px 16px",
-                  border: "1px solid #ddd",
-                  background: "#fff",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
+                style={lessPriorityButtonStyle}
               >
                 Cancel
               </button>
@@ -4457,9 +4413,9 @@ const filterFields: any = useMemo(() => {
                 className="button primary"
                 style={{
                   padding: "8px 16px",
-                  background: "#dc3545",
-                  color: "#fff",
-                  border: "none",
+                  background: "var(--btn-danger-bg)",
+                  color: "var(--btn-danger-fg)",
+                  border: "1px solid var(--btn-danger-border)",
                   borderRadius: "4px",
                   cursor: "pointer",
                 }}

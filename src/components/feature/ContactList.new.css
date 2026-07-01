@@ -81,41 +81,46 @@
 }
 .ct-btn-secondary:hover { background: #f5f6f8; }
 
+/* Button colours use the global --btn-* tokens (src/index.css :root) so they
+   stay in sync with src/styles/buttonStyles.ts. Change colours there once. */
 .ct-btn-default {
   height: 48px; padding: 0 16px; border-radius: 12px;
-  background: #e2f1e3; color: var(--ct-brand);
-  border: 1px solid #cfecd6;
+  background: var(--btn-default-bg); color: var(--btn-default-fg);
+  border: 1px solid var(--btn-default-border);
   font-size: 14px; font-weight: 600;
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
 }
-.ct-btn-default:hover { background: #d6ecd9; }
+.ct-btn-default:hover { background: var(--btn-default-bg-hover); }
 
 .ct-btn-muted {
   height: 48px; padding: 0 16px; border-radius: 12px;
-  background: #f8fafc; color: #374151;
-  border: 1.5px solid #e2e8f0;
+  background: var(--btn-muted-bg); color: var(--btn-muted-fg);
+  border: 1.5px solid var(--btn-muted-border);
   font-size: 14px; font-weight: 500;
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
   transition: all 0.18s;
 }
-.ct-btn-muted:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.ct-btn-muted:hover { background: var(--btn-muted-bg-hover); border-color: var(--btn-muted-border-hover); }
 
 .ct-btn-tertiary-default {
   height: 40px; padding: 0 12px; border-radius: 8px;
-  background: #e2f1e3; color: var(--ct-brand);
-  border: 1px solid #cfecd6;
+  background: var(--btn-default-bg); color: var(--btn-default-fg);
+  border: 1px solid var(--btn-default-border);
   font-size: 13px; font-weight: 600;
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
 }
-.ct-btn-tertiary-default:hover { background: #d6ecd9; }
+.ct-btn-tertiary-default:hover { background: var(--btn-default-bg-hover); }
 
+/* Less priority (secondary) style — neutral grey, compact size. */
 .ct-btn-tertiary {
-  height: 40px; padding: 0 12px; border-radius: 8px; background: #fff;
-  border: 1px solid #dadde2; color: var(--ct-ink-soft);
+  height: 40px; padding: 0 12px; border-radius: 8px;
+  background: var(--btn-muted-bg); color: var(--btn-muted-fg);
+  border: 1.5px solid var(--btn-muted-border);
   font-size: 13px; font-weight: 500;
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  transition: all 0.18s;
 }
-.ct-btn-tertiary:hover { background: #f5f6f8; }
+.ct-btn-tertiary:hover { background: var(--btn-muted-bg-hover); border-color: var(--btn-muted-border-hover); }
 
 /* ------------------------ KPI STRIP ------------------------ */
 .ct-kpi-strip {

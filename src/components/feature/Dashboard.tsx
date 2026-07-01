@@ -254,8 +254,12 @@ const StepDetail: React.FC<{
             onClick={() => step.ctaPath && navigate(step.ctaPath)}
             disabled={!step.ctaPath}
             className={`h-11 px-5 rounded-lg text-[15px] font-semibold border transition
-              ${step.ctaPath ? "hover:bg-[#d6ecd9]" : "opacity-60 cursor-not-allowed"}`}
-            style={{ background: "#e2f1e3", color: BRAND, borderColor: "#cfecd6" }}
+              ${step.ctaPath ? "hover:bg-[var(--btn-default-bg-hover)]" : "opacity-60 cursor-not-allowed"}`}
+            style={{
+              background: "var(--btn-default-bg)",
+              color: "var(--btn-default-fg)",
+              borderColor: "var(--btn-default-border)",
+            }}
           >
             {step.cta}
           </button>

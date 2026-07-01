@@ -185,15 +185,15 @@ export const ContactsPageHeader: React.FC<PageHeaderProps> = ({
           </div>
           <div className="ct-header-actions">
             <button className="ct-btn-tertiary-default" onClick={onImportList}>
-              <FontAwesomeIcon icon={faUpload} style={{ color: "#3f9f42" }} />
+              <FontAwesomeIcon icon={faUpload} style={{ color: "var(--btn-default-fg)" }} />
               Import list
             </button>
             <button className="ct-btn-tertiary" onClick={onAddContact}>
-              <FontAwesomeIcon icon={faUser} style={{ color: "#3f9f42" }} />
+              <FontAwesomeIcon icon={faUser} style={{ color: "var(--btn-muted-fg)" }} />
               Add contact
             </button>
             <button className="ct-btn-tertiary" onClick={onCreateList}>
-              <FontAwesomeIcon icon={faPlus} style={{ color: "#3f9f42" }} />
+              <FontAwesomeIcon icon={faPlus} style={{ color: "var(--btn-muted-fg)" }} />
               Create a list
             </button>
           </div>
@@ -242,15 +242,15 @@ export const ContactsEmptyState: React.FC<{
           </p>
           <div className="ct-empty-actions">
             <button className="ct-btn-default" onClick={onImportList}>
-              <FontAwesomeIcon icon={faUpload} style={{ color: "#3f9f42" }} />
+              <FontAwesomeIcon icon={faUpload} style={{ color: "var(--btn-default-fg)" }} />
               Import list
             </button>
             <button className="ct-btn-muted" onClick={onAddContact}>
-              <FontAwesomeIcon icon={faPlus} style={{ color: "#374151" }} />
+              <FontAwesomeIcon icon={faPlus} style={{ color: "var(--btn-muted-fg)" }} />
               Add your first contact
             </button>
             <button className="ct-btn-muted" onClick={onCreateList}>
-              <FontAwesomeIcon icon={faPlus} style={{ color: "#374151" }} />
+              <FontAwesomeIcon icon={faPlus} style={{ color: "var(--btn-muted-fg)" }} />
               Create a list
             </button>
           </div>
