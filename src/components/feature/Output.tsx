@@ -26,7 +26,6 @@ import toggleOff from "../../assets/images/off-button.png";
 import DOMPurify from "dompurify";
 import { faAngleRight, faAngleLeft, faCircleRight, faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import LoadingSpinner from "../common/LoadingSpinner";
 import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus,faBell    } from "@fortawesome/free-regular-svg-icons";
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 import { KraftEmailEmptyState, KraftLoadingState, KraftCampaignSelectState } from "./Output.new";
@@ -1694,6 +1693,24 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     }
   }, [effectiveUserId, token]);
 
+  // Prepend a timestamped, colored line to the shared output log (the same
+  // "small part" banner used for email generation) so email-send progress and
+  // errors are shown there too.
+  const appendSendLog = (
+    message: string,
+    color: "green" | "red" | "orange" | "blue" = "green",
+  ) => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const stamp = `${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    setOutputForm((prev: any) => ({
+      ...prev,
+      generatedContent:
+        `<span style="color: ${color}">[${stamp}] ${message}</span><br/>` +
+        (prev.generatedContent || ""),
+    }));
+  };
+
   const handleSendEmail = async (
     subjectFromButton: string,
 
@@ -1773,6 +1790,11 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
       toast.success("Email sent successfully!");
 
+      appendSendLog(
+        `Sent email successfully to contact ${currentContact.name || "N/A"} with company name ${currentContact.company || "N/A"} and email address ${currentContact.email || "N/A"}`,
+        "green",
+      );
+
       // Update the contact's email sent status
 
       try {
@@ -1834,6 +1856,12 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
         setEmailMessage("");
       }, 2000);
     } catch (err) {
+      const failedContact = targetContact || combinedResponses[currentIndex];
+      appendSendLog(
+        `Failed to send email to contact ${failedContact?.name || "N/A"} with company name ${failedContact?.company || "N/A"} and email address ${failedContact?.email || "N/A"}`,
+        "red",
+      );
+
       if (axios.isAxiosError(err)) {
         const errorMessage =
           err.response?.data?.message ||
@@ -2212,6 +2240,11 @@ const sleepWithCountdown = async (ms: number) => {
 
         sentCount++;
 
+        appendSendLog(
+          `Sent email successfully to contact ${contact.name || "N/A"} with company name ${contact.company || "N/A"} and email address ${contact.email || "N/A"}`,
+          "green",
+        );
+
         // UPDATE local state for this contact
 
         const updatedItem = {
@@ -2264,6 +2297,11 @@ const sleepWithCountdown = async (ms: number) => {
         }
       } catch (err) {
         console.error(`Error sending email to ${contact.email}:`, err);
+
+        appendSendLog(
+          `Failed to send email to contact ${contact.name || "N/A"} with company name ${contact.company || "N/A"} and email address ${contact.email || "N/A"}`,
+          "red",
+        );
 
         if (axios.isAxiosError(err)) {
           console.error("API Error:", err.response?.data);
@@ -2965,19 +3003,7 @@ useEffect(() => {
                 </div>
                 {tab2 === "Output" && (
                   <>
-                    <div className="form-group mb-0">
-                      {/* <div className="d-flex mb-10 align-items-center">
-            {userRole === "ADMIN" && (
-              <button
-                className="button clear-button small d-flex align-center"
-                onClick={clearContent}
-              >
-                <span>Clear output</span>
-              </button>
-            )}
-          </div> */}
 
-                    </div>
                     <div className="form-group mb-0 mt-2">
                       <div className="d-flex justify-between w-full">
                         <div
@@ -3008,11 +3034,7 @@ useEffect(() => {
                           </span>
                           {combinedResponses[currentIndex]?.location || "NA"}
                           <span style={{ whiteSpace: "pre" }}> </span>
-                          {/* <span className="inline-block relative top-[6px] mr-[3px]">
-                <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke="#3f9f42" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </span> */}
+
                           <ReactTooltip
                             anchorSelect="#website-icon-tooltip"
                             place="top"
@@ -4527,8 +4549,8 @@ useEffect(() => {
         {...appModal.config}
       />
 
-      {/* Email Sending Loader Modal */}
-      {sendingEmail && <LoadingSpinner message="Sending email..." />}
+      {/* Email sending state is shown inline on the Send button ("Sending...")
+          — no full-screen loader so the rest of the UI stays usable. */}
 
       {/* Notes Modal */}
       {showNotesModal && (

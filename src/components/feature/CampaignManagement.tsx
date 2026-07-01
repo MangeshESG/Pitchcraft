@@ -15,6 +15,7 @@ import campaignIllustration from "../../assets/images/campaign-illustration.png"
 import campaignIllustration2 from "../../assets/images/Campgains_old_user.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlay, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
+import PaginationControls from "./PaginationControls";
 import {
   FileText,
   MoreVertical,
@@ -752,21 +753,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     </>
   );
 
-  const pageStart =
-    filteredCampaigns.length === 0
-      ? 0
-      : pageSize === "All"
-      ? 1
-      : (currentPage - 1) * pageSize + 1;
-  const pageEnd =
-    pageSize === "All"
-      ? filteredCampaigns.length
-      : Math.min(currentPage * pageSize, filteredCampaigns.length);
-
-  const goToPage = (page: number) => {
-    setCurrentPage(Math.min(Math.max(page, 1), totalPages || 1));
-  };
-
   const closeCampaignVideo = () => {
     campaignVideoRef.current?.pause();
     setShowCampaignVideo(false);
@@ -790,7 +776,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                     Choose a blueprint, connect a contact source, and PitchKraft will be ready to kraft personalized outreach.
                   </p>
                   <div className="bp-empty-actions">
-                    <button className="bp-btn-primary" onClick={openCreateCampaignPanel}>
+                    <button className="bp-btn-default" onClick={openCreateCampaignPanel}>
                       <Plus className="h-4 w-4" />
                       Create your first campaign
                     </button>
@@ -843,6 +829,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                 }
                 primaryLabel="Create campaign"
                 primaryIcon={<Plus className="h-4 w-4" />}
+                primaryClassName="bp-btn-banner-default"
                 onPrimaryClick={openCreateCampaignPanel}
                 secondaryLabel="Explore best practices"
                 secondaryIcon={<FontAwesomeIcon icon={faArrowUpRightFromSquare} />}
@@ -875,18 +862,18 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   </button>
                 </div>
 
-                <div className="bp-pagination">
-                  <span>
-                    Showing <strong>{paginatedCampaigns.length}</strong> of {filteredCampaigns.length}
-                  </span>
-                  <div className="bp-pagination__nav">
-                    <button onClick={() => goToPage(1)} disabled={currentPage === 1}>{"<<"}</button>
-                    <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>{"<"}</button>
-                    <span className="bp-pagination__page">{currentPage} / {totalPages || 1}</span>
-                    <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>{">"}</button>
-                    <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages}>{">>"}</button>
-                  </div>
-                </div>
+                <PaginationControls
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalRecords={filteredCampaigns.length}
+                  pageSize={pageSize}
+                  setCurrentPage={setCurrentPage}
+                  setPageSize={(s) => {
+                    setPageSize(s);
+                    setCurrentPage(1);
+                  }}
+                  pageSizeOptions={[10, 25, 50, "All"]}
+                />
               </div>
 
               <div className="bp-rows">
@@ -992,30 +979,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                 )}
               </div>
 
-              <div className="bp-tip">
-                Showing {pageStart} to {pageEnd} of {filteredCampaigns.length} campaigns.
-                <select
-                  value={pageSize}
-                  onChange={(e) => {
-                    const value = e.target.value === "All" ? "All" : Number(e.target.value);
-                    setPageSize(value);
-                    setCurrentPage(1);
-                  }}
-                  style={{
-                    marginLeft: 12,
-                    border: "1px solid #dadde2",
-                    borderRadius: 8,
-                    padding: "6px 10px",
-                    background: "#fff",
-                    color: "#374151",
-                  }}
-                >
-                  {[10, 25, 50].map((size) => (
-                    <option key={size} value={size}>{size} / page</option>
-                  ))}
-                  <option value="All">All</option>
-                </select>
-              </div>
             </div>
           </>
         )}
@@ -1160,10 +1123,10 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               type="button"
               onClick={selectedCampaign ? updateCampaign : createCampaign}
               disabled={isCreateDisabled}
-              className={`inline-flex h-10 items-center gap-2 rounded-lg px-5 text-[13.5px] font-semibold shadow-[0_4px_12px_rgba(63,159,66,0.18)] ${
+              className={`inline-flex h-10 items-center gap-2 rounded-lg px-5 text-[13.5px] font-semibold ${
                 isCreateDisabled
-                  ? "cursor-not-allowed bg-[#eef0f3] text-[#9ca3af] shadow-none"
-                  : "bg-[#3f9f42] text-white hover:bg-[#368a39]"
+                  ? "cursor-not-allowed bg-[#eef0f3] text-[#9ca3af]"
+                  : "border border-[#cfecd6] bg-[#e2f1e3] text-[#3f9f42] hover:bg-[#d6ecd9]"
               }`}
             >
               {isLoading

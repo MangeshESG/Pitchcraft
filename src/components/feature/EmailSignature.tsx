@@ -340,10 +340,10 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
         duration={5}
       />
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Email signature</h2>
+        <h2 className="text-2xl font-semibold">Email signatures</h2>
         <button
           onClick={handleAddSignature}
-          className="px-4 py-2 bg-[#3f9f42] text-white rounded-md hover:bg-[#358a38] transition-colors font-medium"
+          className="btn-default"
         >
           Add signature
         </button>
@@ -521,14 +521,14 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
           <>
             <button
               onClick={handleClosePanel}
-              className="px-4 py-2 border border-gray-300 rounded-[24px] hover:bg-gray-50 transition-colors font-medium"
+              className="btn-muted"
               disabled={saving}
             >
               Cancel
             </button>
             <button
               onClick={handleSaveSignature}
-              className="px-4 py-2 bg-[#3f9f42] text-white rounded-[24px] hover:bg-[#358a38] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-default"
               disabled={saving}
             >
               {saving ? "Saving..." : isEditMode ? "Update signature" : "Save signature"}
@@ -556,7 +556,7 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
           {/* Email Account Dropdown */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select email account <span className="text-red-500">*</span>
+              Email account <span className="text-red-500">*</span>
             </label>
             {loading ? (
               <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 text-sm">
