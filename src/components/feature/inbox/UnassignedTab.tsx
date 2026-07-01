@@ -274,8 +274,8 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
     );
   };
 
-  const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
-    const trackingIdsToDelete = pendingDeleteThreadId ? [pendingDeleteThreadId] : selectedThreadIds;
+  const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent', trackingIdsOverride?: string[]) => {
+    const trackingIdsToDelete = trackingIdsOverride || (pendingDeleteThreadId ? [pendingDeleteThreadId] : selectedThreadIds);
     if (trackingIdsToDelete.length === 0) return;
     
     setLoading(true);
@@ -297,6 +297,11 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
       );
 
       if (response.data.success) {
+        if (selectedThread && trackingIdsToDelete.includes(selectedThread.trackingId)) {
+          onThreadSelect(null);
+          onEmailSelect(null);
+          onReplyReset?.();
+        }
         setSelectedThreadIds([]);
         setShowDeleteDropdown(false);
         setActiveActionThreadId(null);
@@ -310,6 +315,22 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
       setPendingDeleteThreadId(null);
       setLoading(false);
     }
+  };
+
+  const requestDelete = (deleteMode: 'soft' | 'Permanent', trackingId?: string) => {
+    const trackingIdsToDelete = trackingId ? [trackingId] : selectedThreadIds;
+
+    setPendingDeleteThreadId(trackingId || null);
+    setPendingDeleteMode(deleteMode);
+    setShowDeleteDropdown(false);
+    setActiveActionThreadId(null);
+
+    if (deleteMode === 'soft') {
+      handleBulkDelete(deleteMode, trackingIdsToDelete);
+      return;
+    }
+
+    setShowDeleteModal(true);
   };
 
   const handlePinEmail = async (thread: UnassignedThread, event: React.MouseEvent<HTMLButtonElement>) => {
@@ -484,7 +505,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = 'transparent';
                 }}
-                title={`Delete ${selectedThreadIds.length} email(s)`}
+                title={`Remove ${selectedThreadIds.length} email(s) from inbox`}
               >
                 <FontAwesomeIcon
                   icon={faTrashAlt}
@@ -507,10 +528,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                 }}>
                   <button
                     onClick={() => {
-                      setPendingDeleteThreadId(null);
-                      setPendingDeleteMode('soft');
-                      setShowDeleteModal(true);
-                      setShowDeleteDropdown(false);
+                      requestDelete('soft');
                     }}
                     style={{
                       width: '100%',
@@ -527,7 +545,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                     onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
-                    Delete from Inbox
+                    Remove from Inbox
                   </button>
                   <button
                     onClick={() => {
@@ -544,11 +562,10 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                       textAlign: 'left',
                       cursor: 'pointer',
                       fontSize: '14px',
-                      color: '#ef4444',
-                      fontWeight: '500',
+                      color: '#374151',
                       transition: 'background 0.2s'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
                     Delete permanently
@@ -558,7 +575,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
             </div>
           )}
           <span style={{ fontSize: '14px', color: '#6b7280' }}>
-            Page {currentPage} of {totalPages}
+            Page {currentPage} of {totalPages} | {totalCount} {totalCount === 1 ? 'email' : 'emails'}
           </span>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -569,10 +586,10 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
               padding: '4px 8px',
               border: '1px solid #d1d5db',
               borderRadius: '4px',
-              background: currentPage === 1 ? '#f3f4f6' : '#fff',
+              background: currentPage === 1 ? '#f3f4f6' : '#e2f1e3',
               cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
               fontSize: '18px',
-              color: currentPage === 1 ? '#9ca3af' : '#374151'
+              color: currentPage === 1 ? '#9ca3af' : '#3f9f42'
             }}
           >
             ‹
@@ -584,10 +601,10 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
               padding: '4px 8px',
               border: '1px solid #d1d5db',
               borderRadius: '4px',
-              background: currentPage === totalPages ? '#f3f4f6' : '#fff',
+              background: currentPage === totalPages ? '#f3f4f6' : '#e2f1e3',
               cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
               fontSize: '18px',
-              color: currentPage === totalPages ? '#9ca3af' : '#374151'
+              color: currentPage === totalPages ? '#9ca3af' : '#3f9f42'
             }}
           >
             ›
@@ -690,17 +707,13 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                         </button>
                         <button
                           type="button"
-                          className="danger"
                           onClick={(event) => {
                             event.stopPropagation();
-                            setPendingDeleteThreadId(thread.trackingId);
-                            setPendingDeleteMode('soft');
-                            setShowDeleteModal(true);
-                            setActiveActionThreadId(null);
+                            requestDelete('soft', thread.trackingId);
                           }}
                         >
                           <FontAwesomeIcon icon={faTrashAlt} />
-                          Delete
+                          Remove from Inbox
                         </button>
                       </div>
                     )}
@@ -708,7 +721,6 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                 </span>
               </div>
               <div className="mail-subject">
-                {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
                 {attachmentCount > 0 && (
                   <span
                     title={`${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`}
@@ -717,6 +729,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                     <FontAwesomeIcon icon={faPaperclip} />
                   </span>
                 )}
+                {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
                 {thread.subject}
               </div>
               <div className="mail-preview">

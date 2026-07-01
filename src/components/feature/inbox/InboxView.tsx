@@ -13,8 +13,8 @@ import Modal from '../../common/Modal';
 import ToastMessage from '../../common/ToastMessage';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
-import { faEllipsisV, faPaperclip, faReply, faShare } from '@fortawesome/free-solid-svg-icons';
-import { Pin, PinOff } from 'lucide-react';
+import { faCaretDown, faEllipsisV, faFloppyDisk, faPaperclip, faReply, faShare } from '@fortawesome/free-solid-svg-icons';
+import { Pin, PinOff, X } from 'lucide-react';
 import UnassignedTab from './UnassignedTab';
 import SentTab from './SentTab';
 import AllMessagesTab from './AllMessagesTab';
@@ -112,6 +112,18 @@ interface InboxViewProps {
 }
 
 const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible, initialTab = 'Inbox', onTabChange, onSelectedInboxUnreadCountsChange }) => {
+  const primarySoftButtonStyle: React.CSSProperties = {
+    background: '#e2f1e3',
+    color: '#3f9f42',
+    border: '1px solid #cfecd6'
+  };
+
+  const secondaryButtonStyle: React.CSSProperties = {
+    background: '#f8fafc',
+    color: '#374151',
+    border: '1px solid #d1d5db'
+  };
+
   const lastSelectedInboxStorageKey = `lastSelectedInbox:${effectiveUserId || 'default'}`;
   const [inboxList, setInboxList] = useState<InboxDropdownItem[]>([]);
   const [selectedInboxId, setSelectedInboxId] = useState<number | null>(null);
@@ -683,6 +695,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
     if (selectedThreadIds.length === 0) return;
+    const trackingIdsToDelete = [...selectedThreadIds];
     
     setLoading(true);
     try {
@@ -709,12 +722,25 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setTimeout(() => setShowToast(false), 3000);
         
         if (activeTab === 'inbox') {
+          if (selectedThread && trackingIdsToDelete.includes(selectedThread.trackingId)) {
+            setSelectedThread(null);
+          }
           await fetchMails(false);
         } else if (activeTab === 'sent') {
+          if (selectedSentThread && trackingIdsToDelete.includes(selectedSentThread.trackingId)) {
+            setSelectedSentThread(null);
+          }
           setRefreshSentTab(prev => prev + 1);
         } else if (activeTab === 'unassigned') {
+          if (selectedUnassignedThread && trackingIdsToDelete.includes(selectedUnassignedThread.trackingId)) {
+            setSelectedUnassignedThread(null);
+            setSelectedUnassignedEmail(null);
+          }
           setRefreshUnassignedTab(prev => prev + 1);
         } else if (activeTab === 'all' || activeTab === 'allmessages') {
+          if (selectedAllMessagesThread && trackingIdsToDelete.includes(selectedAllMessagesThread.trackingId)) {
+            setSelectedAllMessagesThread(null);
+          }
           setRefreshAllMessagesTab(prev => prev + 1);
         }
         
@@ -771,7 +797,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }));
   };
 
-  const handleDeleteEmail = async (deleteMode: 'soft' | 'Permanent') => {
+  const handleDeleteEmail = async (deleteMode: 'soft' | 'Permanent', trackingIdOverride?: string | null) => {
     const currentThread = activeTab === 'inbox'
       ? selectedThread
       : activeTab === 'sent'
@@ -779,8 +805,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         : activeTab === 'unassigned'
           ? selectedUnassignedThread
           : selectedAllMessagesThread;
-    const trackingIdToDelete = pendingDeleteThreadId || currentThread?.trackingId;
+    const trackingIdToDelete = (trackingIdOverride !== undefined ? trackingIdOverride : pendingDeleteThreadId) || currentThread?.trackingId;
     if (!trackingIdToDelete) return;
+    const shouldClearCurrentThread = currentThread?.trackingId === trackingIdToDelete;
     
     setShowDeleteDropdown(false);
     setActiveActionThreadId(null);
@@ -810,18 +837,25 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         
         // Remove from list and close detail view based on active tab
         if (activeTab === 'inbox') {
-          if (!pendingDeleteThreadId || selectedThread?.trackingId === pendingDeleteThreadId) {
+          if (shouldClearCurrentThread) {
             setSelectedThread(null);
           }
           await fetchMails(false);
         } else if (activeTab === 'sent') {
-          setSelectedSentThread(null);
+          if (shouldClearCurrentThread) {
+            setSelectedSentThread(null);
+          }
           setRefreshSentTab(prev => prev + 1);
         } else if (activeTab === 'unassigned') {
-          setSelectedUnassignedThread(null);
+          if (shouldClearCurrentThread) {
+            setSelectedUnassignedThread(null);
+            setSelectedUnassignedEmail(null);
+          }
           setRefreshUnassignedTab(prev => prev + 1);
         } else {
-          setSelectedAllMessagesThread(null);
+          if (shouldClearCurrentThread) {
+            setSelectedAllMessagesThread(null);
+          }
           setRefreshAllMessagesTab(prev => prev + 1);
         }
         setPendingDeleteThreadId(null);
@@ -840,6 +874,26 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     } finally {
       setPendingDeleteThreadId(null);
     }
+  };
+
+  const requestDelete = (deleteMode: 'soft' | 'Permanent', deleteType: 'single' | 'bulk', trackingId?: string | null) => {
+    setDeleteModalType(deleteType);
+    setPendingDeleteThreadId(trackingId || null);
+    setPendingDeleteMode(deleteMode);
+    setShowDeleteDropdown(false);
+    setShowBulkDeleteDropdown(false);
+    setActiveActionThreadId(null);
+
+    if (deleteMode === 'soft') {
+      if (deleteType === 'bulk') {
+        handleBulkDelete(deleteMode);
+      } else {
+        handleDeleteEmail(deleteMode, trackingId);
+      }
+      return;
+    }
+
+    setShowDeleteModal(true);
   };
 
   const handleKraftEmail = async () => {
@@ -920,37 +974,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const renderReplyAttachments = () => (
-    <div style={{ marginBottom: '12px', display: 'grid', gap: '8px' }}>
-      <label
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 'fit-content',
-          padding: '8px 14px',
-          border: '1px solid #d1d5db',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: '500',
-          color: '#374151',
-          background: '#fff'
-        }}
-      >
-        Attach file
-        <input
-          type="file"
-          multiple
-          onChange={(e) => {
-            const files = Array.from(e.target.files || []);
-            setReplyAttachments((prev) => [...prev, ...files]);
-            e.target.value = '';
-          }}
-          style={{ display: 'none' }}
-        />
-      </label>
+    <>
       {replyAttachments.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ marginBottom: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           {replyAttachments.map((file, index) => (
             <span
               key={`${file.name}-${file.lastModified}-${index}`}
@@ -958,7 +984,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '6px 10px',
+                padding: '9px 10px',
                 border: '1px solid #e5e7eb',
                 borderRadius: '999px',
                 fontSize: '12px',
@@ -988,7 +1014,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 
   const getAttachmentUrl = (attachment: InboxAttachment) => {
@@ -1264,7 +1290,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       return { draftHtml: html, trailHtml: '' };
     }
 
-    const separatorStart = html.lastIndexOf('<br/><br/>', trailTagStart);
+    const separatorStart = Math.max(
+      html.lastIndexOf('<br/><br/>', trailTagStart),
+      html.lastIndexOf('<br/>', trailTagStart)
+    );
     const trailStart = separatorStart === -1 ? trailTagStart : separatorStart;
 
     return {
@@ -1275,12 +1304,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   const appendReplyTrail = (draftHtml: string, formattedTrail: string): string => {
     const { draftHtml: currentDraftHtml, trailHtml } = splitReplyTrail(draftHtml || '');
+    const compactDraftHtml = currentDraftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, '');
 
     if (trailHtml) {
-      return `${currentDraftHtml}<br/><br/>${buildCollapsedReplyTrail(formattedTrail)}`;
+      return `${compactDraftHtml}${buildCollapsedReplyTrail(formattedTrail)}`;
     }
 
-    return `${currentDraftHtml}<br/><br/>${buildCollapsedReplyTrail(formattedTrail)}`;
+    return `${compactDraftHtml}${buildCollapsedReplyTrail(formattedTrail)}`;
   };
 
   const replyTrailSeparator = '<hr style="border:0;border-top:1px solid #d1d5db;margin:16px 0;width:100%;" />';
@@ -1312,6 +1342,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     });
 
     return wrapper.innerHTML;
+  };
+
+  const getDraftReplyBody = (html: string): string => {
+    const { draftHtml } = splitReplyTrail(html || '');
+    return draftHtml;
   };
 
   const formatReplyTrailHeader = (headerText: string): string => {
@@ -1442,7 +1477,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const copyToClipboardHandler = async () => {
-    const contentToCopy = replyText || '';
+    const container = document.createElement('div');
+    container.innerHTML = replyText || '';
+    const contentToCopy = (container.textContent || container.innerText || '').trim();
+
     if (contentToCopy) {
       try {
         const copied = await copyToClipboard(contentToCopy);
@@ -1468,6 +1506,154 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const handleModalClose = (id: string) => {
     setOpenModals((prev) => ({ ...prev, [id]: false }));
   };
+
+  const recipientToggleButtonStyle: React.CSSProperties = {
+    padding: '6px 12px',
+    background: '#fff',
+    color: '#2563eb',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '500',
+    whiteSpace: 'nowrap'
+  };
+
+  const recipientInputStyle: React.CSSProperties = {
+    flex: 1,
+    width: '100%',
+    padding: '10px 12px',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    fontSize: '14px'
+  };
+
+  const recipientIconButtonStyle: React.CSSProperties = {
+    width: '38px',
+    minWidth: '38px',
+    height: '38px',
+    padding: 0,
+    background: '#fff',
+    color: '#6b7280',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  };
+
+  const collapseReplyCc = () => {
+    setReplyCc('');
+    setShowReplyCc(false);
+  };
+
+  const collapseReplyBcc = () => {
+    setReplyBcc('');
+    setShowReplyBcc(false);
+  };
+
+  const collapseForwardBcc = () => {
+    setForwardBccEmail('');
+    setShowForwardBcc(false);
+  };
+
+  const renderReplyRecipientToggles = () => (
+    <>
+      {!showReplyCc && (
+        <button
+          type="button"
+          onClick={() => setShowReplyCc(true)}
+          style={recipientToggleButtonStyle}
+        >
+          CC
+        </button>
+      )}
+      {!showReplyBcc && (
+        <button
+          type="button"
+          onClick={() => setShowReplyBcc(true)}
+          style={recipientToggleButtonStyle}
+        >
+          BCC
+        </button>
+      )}
+      <label
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '9px 12px',
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '13px',
+          fontWeight: '500',
+          color: '#374151',
+          background: '#fff',
+          gap: '6px',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        <FontAwesomeIcon icon={faPaperclip} style={{ color: '#3f9f42' }} />
+        <input
+          type="file"
+          multiple
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            setReplyAttachments((prev) => [...prev, ...files]);
+            e.target.value = '';
+          }}
+          style={{ display: 'none' }}
+        />
+      </label>
+    </>
+  );
+
+  const renderReplyRecipientFields = () => (
+    <>
+      {showReplyCc && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <input
+            type="text"
+            value={replyCc}
+            onChange={(e) => setReplyCc(e.target.value)}
+            placeholder="CC"
+            style={recipientInputStyle}
+          />
+          <button
+            type="button"
+            onClick={collapseReplyCc}
+            title="Hide CC"
+            aria-label="Hide CC"
+            style={recipientIconButtonStyle}
+          >
+            <X size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
+      {showReplyBcc && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <input
+            type="text"
+            value={replyBcc}
+            onChange={(e) => setReplyBcc(e.target.value)}
+            placeholder="BCC"
+            style={recipientInputStyle}
+          />
+          <button
+            type="button"
+            onClick={collapseReplyBcc}
+            title="Hide BCC"
+            aria-label="Hide BCC"
+            style={recipientIconButtonStyle}
+          >
+            <X size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
+    </>
+  );
 
   const openForwardModal = (thread: InboxThread) => {
     setForwardTrackingId(thread.trackingId);
@@ -1604,19 +1790,24 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           )}
         </div>
         {showForwardBcc && (
-          <input
-            type="email"
-            value={forwardBccEmail}
-            onChange={(e) => setForwardBccEmail(e.target.value)}
-            placeholder="BCC"
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              fontSize: '14px'
-            }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="email"
+              value={forwardBccEmail}
+              onChange={(e) => setForwardBccEmail(e.target.value)}
+              placeholder="BCC"
+              style={recipientInputStyle}
+            />
+            <button
+              type="button"
+              onClick={collapseForwardBcc}
+              title="Hide BCC"
+              aria-label="Hide BCC"
+              style={recipientIconButtonStyle}
+            >
+              <X size={16} strokeWidth={2.5} />
+            </button>
+          </div>
         )}
         <RichTextEditor value={forwardMessage} onChange={setForwardMessage} />
       </div>
@@ -1627,9 +1818,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           disabled={isForwarding || !forwardEmail.trim() || !forwardMessage.trim()}
           style={{
             padding: '10px 24px',
-            background: isForwarding || !forwardEmail.trim() || !forwardMessage.trim() ? '#ccc' : '#ef4444',
-            color: '#fff',
-            border: 'none',
+            ...(isForwarding || !forwardEmail.trim() || !forwardMessage.trim()
+              ? { background: '#e5e7eb', color: '#9ca3af', border: '1px solid #d1d5db' }
+              : primarySoftButtonStyle),
             borderRadius: '6px',
             cursor: isForwarding || !forwardEmail.trim() || !forwardMessage.trim() ? 'not-allowed' : 'pointer',
             fontSize: '14px',
@@ -1644,9 +1835,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           disabled={isForwarding}
           style={{
             padding: '10px 24px',
-            background: '#6b7280',
-            color: '#fff',
-            border: 'none',
+            ...secondaryButtonStyle,
             borderRadius: '6px',
             cursor: isForwarding ? 'not-allowed' : 'pointer',
             fontSize: '14px',
@@ -1695,7 +1884,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           contactId: contactId,
           gptGenerate: false,
           emailSubject: null,
-          emailBody: getSendableReplyBody(replyText)
+          emailBody: getDraftReplyBody(replyText)
         },
         {
           headers: {
@@ -1737,7 +1926,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     try {
       // Call the refresh API
       const response = await axios.post(
-        `${API_BASE_URL}/api/Inbox/RefreshInbox?inboxId=${selectedInboxId}&provider=${selectedProvider}`,
+        `${API_BASE_URL}/api/Inbox/RefreshInbox?inboxId=${selectedInboxId}&clientId=${effectiveUserId}&provider=${selectedProvider}`,
         {},
         {
           headers: {
@@ -1950,7 +2139,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             onMouseLeave={(e) => {
                               e.currentTarget.style.background = 'transparent';
                             }}
-                            title={`Delete ${selectedThreadIds.length} email(s)`}
+                            title={`Remove ${selectedThreadIds.length} email(s) from inbox`}
                           >
                             <FontAwesomeIcon
                               icon={faTrashAlt}
@@ -1973,11 +2162,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             }}>
                               <button
                                 onClick={() => {
-                                  setDeleteModalType('bulk');
-                                  setPendingDeleteThreadId(null);
-                                  setPendingDeleteMode('soft');
-                                  setShowDeleteModal(true);
-                                  setShowBulkDeleteDropdown(false);
+                                  requestDelete('soft', 'bulk');
                                 }}
                                 style={{
                                   width: '100%',
@@ -1994,7 +2179,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                 onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                               >
-                                Delete from Inbox
+                                Remove from Inbox
                               </button>
                               <button
                                 onClick={() => {
@@ -2012,11 +2197,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                   textAlign: 'left',
                                   cursor: 'pointer',
                                   fontSize: '14px',
-                                  color: '#ef4444',
-                                  fontWeight: '500',
+                                  color: '#374151',
                                   transition: 'background 0.2s'
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                               >
                                 Delete permanently
@@ -2026,7 +2210,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         </div>
                       )}
                       <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                        Page {inboxCurrentPage} of {inboxTotalPages}
+                        Page {inboxCurrentPage} of {inboxTotalPages} | {inboxTotalCount} {inboxTotalCount === 1 ? 'email' : 'emails'}
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -2037,10 +2221,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           padding: '4px 8px',
                           border: '1px solid #d1d5db',
                           borderRadius: '4px',
-                          background: inboxCurrentPage === 1 ? '#f3f4f6' : '#fff',
+                          background: inboxCurrentPage === 1 ? '#f3f4f6' : '#e2f1e3',
                           cursor: inboxCurrentPage === 1 ? 'not-allowed' : 'pointer',
                           fontSize: '18px',
-                          color: inboxCurrentPage === 1 ? '#9ca3af' : '#374151'
+                          color: inboxCurrentPage === 1 ? '#9ca3af' : '#3f9f42'
                         }}
                       >
                         ‹
@@ -2052,10 +2236,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           padding: '4px 8px',
                           border: '1px solid #d1d5db',
                           borderRadius: '4px',
-                          background: inboxCurrentPage === inboxTotalPages ? '#f3f4f6' : '#fff',
+                          background: inboxCurrentPage === inboxTotalPages ? '#f3f4f6' : '#e2f1e3',
                           cursor: inboxCurrentPage === inboxTotalPages ? 'not-allowed' : 'pointer',
                           fontSize: '18px',
-                          color: inboxCurrentPage === inboxTotalPages ? '#9ca3af' : '#374151'
+                          color: inboxCurrentPage === inboxTotalPages ? '#9ca3af' : '#3f9f42'
                         }}
                       >
                         ›
@@ -2146,18 +2330,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                     </button>
                                     <button
                                       type="button"
-                                      className="danger"
                                       onClick={(event) => {
                                         event.stopPropagation();
-                                        setPendingDeleteThreadId(thread.trackingId);
-                                        setDeleteModalType('single');
-                                        setPendingDeleteMode('soft');
-                                        setShowDeleteModal(true);
-                                        setActiveActionThreadId(null);
+                                        requestDelete('soft', 'single', thread.trackingId);
                                       }}
                                     >
                                       <FontAwesomeIcon icon={faTrashAlt} />
-                                      Delete
+                                      Remove from Inbox
                                     </button>
                                   </div>
                                 )}
@@ -2318,7 +2497,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     </button>
                     {showDeleteDropdown && (
                       <div className="delete-dropdown">
-                        <button onClick={() => { setDeleteModalType('single'); setPendingDeleteThreadId(null); setPendingDeleteMode('soft'); setShowDeleteModal(true); setShowDeleteDropdown(false); }}>Delete from Inbox</button>
+                        <button onClick={() => requestDelete('soft', 'single', null)}>Remove from Inbox</button>
                         <button onClick={() => { setDeleteModalType('single'); setPendingDeleteThreadId(null); setPendingDeleteMode('Permanent'); setShowDeleteModal(true); setShowDeleteDropdown(false); }}>Delete permanently</button>
                       </div>
                     )}
@@ -2403,10 +2582,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     }}>
                       <button
                         onClick={() => {
-                          setDeleteModalType('single');
-                          setPendingDeleteThreadId(null);
-                          setPendingDeleteMode('soft');
-                          setShowDeleteModal(true);
+                          requestDelete('soft', 'single', null);
                         }}
                         style={{
                           width: '100%',
@@ -2423,7 +2599,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       >
-                        Delete from Inbox
+                        Remove from Inbox
                       </button>
                       <button
                         onClick={() => {
@@ -2440,11 +2616,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           textAlign: 'left',
                           cursor: 'pointer',
                           fontSize: '14px',
-                          color: '#ef4444',
-                          fontWeight: '500',
+                          color: '#374151',
                           transition: 'background 0.2s'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       >
                         Delete permanently
@@ -2558,9 +2733,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             width: '34px',
                             height: '34px',
                             padding: 0,
-                            background: '#fff',
-                            color: '#3f9f42',
-                            border: '1px solid #3f9f42',
+                            ...primarySoftButtonStyle,
                             borderRadius: '6px',
                             cursor: 'pointer',
                             fontSize: '13px',
@@ -2628,7 +2801,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       style={{ cursor: 'pointer' }}
                     >
                       <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
-                        <EmailIframe html={formatEmailBody(message.body)} />
+                        <EmailIframe
+                          html={formatEmailBody(message.body)}
+                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
+                        />
                       </div>
                     </div>
                   )}
@@ -2665,42 +2841,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write Reply</label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {!showReplyCc && (
-                      <button
-                        type="button"
-                        onClick={() => setShowReplyCc(true)}
-                        style={{
-                          padding: '6px 12px',
-                          background: '#fff',
-                          color: '#2563eb',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '500'
-                        }}
-                      >
-                        CC
-                      </button>
-                    )}
-                    {!showReplyBcc && (
-                      <button
-                        type="button"
-                        onClick={() => setShowReplyBcc(true)}
-                        style={{
-                          padding: '6px 12px',
-                          background: '#fff',
-                          color: '#2563eb',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '500'
-                        }}
-                      >
-                        BCC
-                      </button>
-                    )}
+                    {renderReplyRecipientToggles()}
                     <select
                       value={selectedBlueprint || ''}
                       onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
@@ -2725,8 +2866,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       disabled={!selectedBlueprint || isKrafting}
                       style={{
                         padding: '6px 16px',
-                        background: (!selectedBlueprint || isKrafting) ? '#ccc' : '#3b82f6',
-                        color: '#fff',
+                        background: (!selectedBlueprint || isKrafting) ? '#ccc' : '#e2f1e3',
+                        color: '#3f9f42',
                         border: 'none',
                         borderRadius: '6px',
                         cursor: (!selectedBlueprint || isKrafting) ? 'not-allowed' : 'pointer',
@@ -2739,40 +2880,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     </button>
                   </div>
                 </div>
-                {showReplyCc && (
-                  <div style={{ marginBottom: '12px' }}>
-                    <input
-                      type="text"
-                      value={replyCc}
-                      onChange={(e) => setReplyCc(e.target.value)}
-                      placeholder="CC"
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-                )}
-                {showReplyBcc && (
-                  <div style={{ marginBottom: '12px' }}>
-                    <input
-                      type="text"
-                      value={replyBcc}
-                      onChange={(e) => setReplyBcc(e.target.value)}
-                      placeholder="BCC"
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-                )}
+                {renderReplyRecipientFields()}
                 <style>
                   {`
                     .reply-section .rich-text-editor > div {
@@ -2884,21 +2992,25 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     </button>
 
                     <button 
-                      className="button square-40 justify-center" 
+                      type="button"
+                      className="button square-40 justify-center"
+                      title={isSavingDraft ? 'Saving draft' : 'Save draft'}
+                      aria-label={isSavingDraft ? 'Saving draft' : 'Save draft'}
                       style={{ 
-                        background: isSavingDraft || !replyText.trim() ? '#ccc' : '#3f9f42', 
-                        color: '#fff',
+                        ...(isSavingDraft || !replyText.trim()
+                          ? { background: '#e5e7eb', color: '#9ca3af', border: '1px solid #d1d5db' }
+                          : primarySoftButtonStyle),
                         fontWeight: '500',
-                        fontSize: '13px',
-                        padding: '0 16px',
-                        width: 'auto',
-                        minWidth: '70px',
+                        fontSize: '16px',
+                        padding: 0,
+                        width: '40px',
+                        minWidth: '40px',
                         cursor: isSavingDraft || !replyText.trim() ? 'not-allowed' : 'pointer'
                       }}
                       onClick={handleSaveDraft}
                       disabled={isSavingDraft || !replyText.trim()}
                     >
-                      {isSavingDraft ? 'Saving...' : 'Save'}
+                      <FontAwesomeIcon icon={faFloppyDisk} />
                     </button>
                   </div>
                 </div>
@@ -2911,7 +3023,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   size="90%"
                 >
                   <div style={{ padding: '20px' }}>
-                    <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply Editor</label>
+                    <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply editor</label>
                     <RichTextEditor value={replyText} onChange={setReplyText} />
                   </div>
                 </Modal>
@@ -2922,9 +3034,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     disabled={!replyText.trim() || isSending}
                     style={{
                       padding: '10px 24px',
-                      background: (!replyText.trim() || isSending) ? '#ccc' : '#ef4444',
-                      color: '#fff',
-                      border: 'none',
+                      ...((!replyText.trim() || isSending)
+                        ? { background: '#e5e7eb', color: '#9ca3af', border: '1px solid #d1d5db' }
+                        : primarySoftButtonStyle),
                       borderRadius: '6px',
                       cursor: (!replyText.trim() || isSending) ? 'not-allowed' : 'pointer',
                       fontSize: '14px',
@@ -2945,9 +3057,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     }}
                     style={{
                       padding: '10px 24px',
-                      background: '#6b7280',
-                      color: '#fff',
-                      border: 'none',
+                      ...secondaryButtonStyle,
                       borderRadius: '6px',
                       cursor: 'pointer',
                       fontSize: '14px',
@@ -3013,10 +3123,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       }}>
                         <button
                           onClick={() => {
-                            setDeleteModalType('single');
-                            setPendingDeleteThreadId(null);
-                            setPendingDeleteMode('soft');
-                            setShowDeleteModal(true);
+                            requestDelete('soft', 'single', null);
                           }}
                           style={{
                             width: '100%',
@@ -3033,7 +3140,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                          Delete from Inbox
+                          Remove from Inbox
                         </button>
                         <button
                           onClick={() => {
@@ -3050,11 +3157,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             textAlign: 'left',
                             cursor: 'pointer',
                             fontSize: '14px',
-                            color: '#ef4444',
-                            fontWeight: '500',
+                            color: '#374151',
                             transition: 'background 0.2s'
                           }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
                           Delete permanently
@@ -3156,7 +3262,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         style={{ cursor: 'pointer' }}
                       >
                         <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
-                        <EmailIframe html={formatEmailBody(message.body)} />
+                        <EmailIframe
+                          html={formatEmailBody(message.body)}
+                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
+                        />
                       </div>
                       </div>
                     )}
@@ -3215,10 +3324,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       }}>
                         <button
                           onClick={() => {
-                            setDeleteModalType('single');
-                            setPendingDeleteThreadId(null);
-                            setPendingDeleteMode('soft');
-                            setShowDeleteModal(true);
+                            requestDelete('soft', 'single', null);
                           }}
                           style={{
                             width: '100%',
@@ -3235,7 +3341,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                          Delete from Inbox
+                          Remove from Inbox
                         </button>
                         <button
                           onClick={() => {
@@ -3252,11 +3358,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             textAlign: 'left',
                             cursor: 'pointer',
                             fontSize: '14px',
-                            color: '#ef4444',
-                            fontWeight: '500',
+                            color: '#374151',
                             transition: 'background 0.2s'
                           }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
                           Delete permanently
@@ -3368,9 +3473,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               width: '34px',
                               height: '34px',
                               padding: 0,
-                              background: '#fff',
-                              color: '#3f9f42',
-                              border: '1px solid #3f9f42',
+                              ...primarySoftButtonStyle,
                               borderRadius: '6px',
                               cursor: 'pointer',
                               fontSize: '13px',
@@ -3437,7 +3540,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         style={{ cursor: 'pointer' }}
                       >
                         <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
-                        <EmailIframe html={formatEmailBody(message.body)} />
+                        <EmailIframe
+                          html={formatEmailBody(message.body)}
+                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
+                        />
                       </div>
                       </div>
                     )}
@@ -3475,42 +3581,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write Reply</label>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {!showReplyCc && (
-                        <button
-                          type="button"
-                          onClick={() => setShowReplyCc(true)}
-                          style={{
-                            padding: '6px 12px',
-                            background: '#fff',
-                            color: '#2563eb',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '500'
-                          }}
-                        >
-                          CC
-                        </button>
-                      )}
-                      {!showReplyBcc && (
-                        <button
-                          type="button"
-                          onClick={() => setShowReplyBcc(true)}
-                          style={{
-                            padding: '6px 12px',
-                            background: '#fff',
-                            color: '#2563eb',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '500'
-                          }}
-                        >
-                          BCC
-                        </button>
-                      )}
+                      {renderReplyRecipientToggles()}
                       <select
                         value={selectedBlueprint || ''}
                         onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
@@ -3578,8 +3649,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         disabled={!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId}
                         style={{
                           padding: '6px 16px',
-                          background: (!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId) ? '#ccc' : '#3b82f6',
-                          color: '#fff',
+                          background: (!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId) ? '#ccc' : '#e2f1e3',
+                          color: '#3f9f42',
                           border: 'none',
                           borderRadius: '6px',
                           cursor: (!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId) ? 'not-allowed' : 'pointer',
@@ -3592,40 +3663,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </button>
                     </div>
                   </div>
-                  {showReplyCc && (
-                    <div style={{ marginBottom: '12px' }}>
-                      <input
-                        type="text"
-                        value={replyCc}
-                        onChange={(e) => setReplyCc(e.target.value)}
-                        placeholder="CC"
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-                  )}
-                  {showReplyBcc && (
-                    <div style={{ marginBottom: '12px' }}>
-                      <input
-                        type="text"
-                        value={replyBcc}
-                        onChange={(e) => setReplyBcc(e.target.value)}
-                        placeholder="BCC"
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-                  )}
+                  {renderReplyRecipientFields()}
                   <style>
                     {`
                       .reply-section .rich-text-editor > div {
@@ -3737,21 +3775,25 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </button>
 
                       <button 
-                        className="button square-40 justify-center" 
+                        type="button"
+                        className="button square-40 justify-center"
+                        title={isSavingDraft ? 'Saving draft' : 'Save draft'}
+                        aria-label={isSavingDraft ? 'Saving draft' : 'Save draft'}
                         style={{ 
-                          background: isSavingDraft || !replyText.trim() || !selectedUnassignedThread.contactId ? '#ccc' : '#3f9f42', 
-                          color: '#fff',
+                          ...(isSavingDraft || !replyText.trim() || !selectedUnassignedThread.contactId
+                            ? { background: '#e5e7eb', color: '#9ca3af', border: '1px solid #d1d5db' }
+                            : primarySoftButtonStyle),
                           fontWeight: '500',
-                          fontSize: '13px',
-                          padding: '0 16px',
-                          width: 'auto',
-                          minWidth: '70px',
+                          fontSize: '16px',
+                          padding: 0,
+                          width: '40px',
+                          minWidth: '40px',
                           cursor: isSavingDraft || !replyText.trim() || !selectedUnassignedThread.contactId ? 'not-allowed' : 'pointer'
                         }}
                         onClick={handleSaveDraft}
                         disabled={isSavingDraft || !replyText.trim() || !selectedUnassignedThread.contactId}
                       >
-                        {isSavingDraft ? 'Saving...' : 'Save'}
+                        <FontAwesomeIcon icon={faFloppyDisk} />
                       </button>
                     </div>
                   </div>
@@ -3764,7 +3806,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     size="90%"
                   >
                     <div style={{ padding: '20px' }}>
-                      <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply Editor</label>
+                      <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply editor</label>
                       <RichTextEditor value={replyText} onChange={setReplyText} />
                     </div>
                   </Modal>
@@ -3841,9 +3883,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       disabled={!replyText.trim() || isSending}
                       style={{
                         padding: '10px 24px',
-                        background: (!replyText.trim() || isSending) ? '#ccc' : '#ef4444',
-                        color: '#fff',
-                        border: 'none',
+                        ...((!replyText.trim() || isSending)
+                          ? { background: '#e5e7eb', color: '#9ca3af', border: '1px solid #d1d5db' }
+                          : primarySoftButtonStyle),
                         borderRadius: '6px',
                         cursor: (!replyText.trim() || isSending) ? 'not-allowed' : 'pointer',
                         fontSize: '14px',
@@ -3864,9 +3906,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       }}
                       style={{
                         padding: '10px 24px',
-                        background: '#6b7280',
-                        color: '#fff',
-                        border: 'none',
+                        ...secondaryButtonStyle,
                         borderRadius: '6px',
                         cursor: 'pointer',
                         fontSize: '14px',
@@ -3930,10 +3970,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       }}>
                         <button
                           onClick={() => {
-                            setDeleteModalType('single');
-                            setPendingDeleteThreadId(null);
-                            setPendingDeleteMode('soft');
-                            setShowDeleteModal(true);
+                            requestDelete('soft', 'single', null);
                           }}
                           style={{
                             width: '100%',
@@ -3950,7 +3987,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                          Delete from Inbox
+                          Remove from Inbox
                         </button>
                         <button
                           onClick={() => {
@@ -3967,11 +4004,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             textAlign: 'left',
                             cursor: 'pointer',
                             fontSize: '14px',
-                            color: '#ef4444',
-                            fontWeight: '500',
+                            color: '#374151',
                             transition: 'background 0.2s'
                           }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
                           Delete permanently
@@ -4017,6 +4053,63 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
                             {extractEmailAddress(message.fromEmail)}
                           </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                            <span style={{ color: '#6b7280', fontSize: '13px' }}>To:</span>
+                            <span style={{ color: '#2563eb', fontSize: '13px' }}>
+                              {extractEmailAddress(message.toEmail || selectedAllMessagesThread.contactEmail)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleMessageExpand(uniqueKey);
+                              }}
+                              aria-label={expandedMessages[uniqueKey] ? 'Hide email details' : 'Show email details'}
+                              aria-expanded={Boolean(expandedMessages[uniqueKey])}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '2px 4px',
+                                color: '#6b7280',
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginLeft: '4px'
+                              }}
+                            >
+                              <FontAwesomeIcon
+                                icon={faCaretDown}
+                                style={{
+                                  transform: expandedMessages[uniqueKey] ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  transition: 'transform 0.2s',
+                                  fontSize: '11px'
+                                }}
+                              />
+                            </button>
+                          </div>
+                          {expandedMessages[uniqueKey] && (
+                            <div style={{
+                              marginTop: '8px',
+                              padding: '8px 0',
+                              fontSize: '13px',
+                              lineHeight: '1.8',
+                              color: '#6b7280',
+                              borderTop: '1px solid #e5e7eb'
+                            }}>
+                              <div>
+                                <strong style={{ color: '#374151' }}>From:</strong> {message.contactName || extractSenderName(message.fromEmail)} &lt;{extractEmailAddress(message.fromEmail)}&gt;
+                              </div>
+                              <div>
+                                <strong style={{ color: '#374151' }}>To:</strong> {extractEmailAddress(message.toEmail || selectedAllMessagesThread.contactEmail)}
+                              </div>
+                              <div>
+                                <strong style={{ color: '#374151' }}>Date:</strong> {formatFullDate(message.date)}
+                              </div>
+                              <div>
+                                <strong style={{ color: '#374151' }}>Subject:</strong> {message.subject}
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <button
@@ -4031,9 +4124,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               width: '34px',
                               height: '34px',
                               padding: 0,
-                              background: '#fff',
-                              color: '#3f9f42',
-                              border: '1px solid #3f9f42',
+                              ...primarySoftButtonStyle,
                               borderRadius: '6px',
                               cursor: 'pointer',
                               fontSize: '13px',
@@ -4100,7 +4191,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         style={{ cursor: 'pointer' }}
                       >
                         <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
-                        <EmailIframe html={formatEmailBody(message.body)} />
+                        <EmailIframe
+                          html={formatEmailBody(message.body)}
+                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
+                        />
                       </div>
                       </div>
                     )}
@@ -4138,42 +4232,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write Reply</label>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {!showReplyCc && (
-                        <button
-                          type="button"
-                          onClick={() => setShowReplyCc(true)}
-                          style={{
-                            padding: '6px 12px',
-                            background: '#fff',
-                            color: '#2563eb',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '500'
-                          }}
-                        >
-                          CC
-                        </button>
-                      )}
-                      {!showReplyBcc && (
-                        <button
-                          type="button"
-                          onClick={() => setShowReplyBcc(true)}
-                          style={{
-                            padding: '6px 12px',
-                            background: '#fff',
-                            color: '#2563eb',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '500'
-                          }}
-                        >
-                          BCC
-                        </button>
-                      )}
+                      {renderReplyRecipientToggles()}
                       <select
                         value={selectedBlueprint || ''}
                         onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
@@ -4247,8 +4306,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         disabled={!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId}
                         style={{
                           padding: '6px 16px',
-                          background: (!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId) ? '#ccc' : '#3b82f6',
-                          color: '#fff',
+                          background: (!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId) ? '#ccc' : '#e2f1e3',
+                          color: '#3f9f42',
                           border: 'none',
                           borderRadius: '6px',
                           cursor: (!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId) ? 'not-allowed' : 'pointer',
@@ -4261,40 +4320,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </button>
                     </div>
                   </div>
-                  {showReplyCc && (
-                    <div style={{ marginBottom: '12px' }}>
-                      <input
-                        type="text"
-                        value={replyCc}
-                        onChange={(e) => setReplyCc(e.target.value)}
-                        placeholder="CC"
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-                  )}
-                  {showReplyBcc && (
-                    <div style={{ marginBottom: '12px' }}>
-                      <input
-                        type="text"
-                        value={replyBcc}
-                        onChange={(e) => setReplyBcc(e.target.value)}
-                        placeholder="BCC"
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-                  )}
+                  {renderReplyRecipientFields()}
                   <style>
                     {`
                       .reply-section .rich-text-editor > div {
@@ -4349,21 +4375,25 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </button>
 
                       <button
+                        type="button"
                         className="button square-40 justify-center"
+                        title={isSavingDraft ? 'Saving draft' : 'Save draft'}
+                        aria-label={isSavingDraft ? 'Saving draft' : 'Save draft'}
                         style={{
-                          background: isSavingDraft || !replyText.trim() || !selectedAllMessagesThread.contactId ? '#ccc' : '#3f9f42',
-                          color: '#fff',
+                          ...(isSavingDraft || !replyText.trim() || !selectedAllMessagesThread.contactId
+                            ? { background: '#e5e7eb', color: '#9ca3af', border: '1px solid #d1d5db' }
+                            : primarySoftButtonStyle),
                           fontWeight: '500',
-                          fontSize: '13px',
-                          padding: '0 16px',
-                          width: 'auto',
-                          minWidth: '70px',
+                          fontSize: '16px',
+                          padding: 0,
+                          width: '40px',
+                          minWidth: '40px',
                           cursor: isSavingDraft || !replyText.trim() || !selectedAllMessagesThread.contactId ? 'not-allowed' : 'pointer'
                         }}
                         onClick={handleSaveDraft}
                         disabled={isSavingDraft || !replyText.trim() || !selectedAllMessagesThread.contactId}
                       >
-                        {isSavingDraft ? 'Saving...' : 'Save'}
+                        <FontAwesomeIcon icon={faFloppyDisk} />
                       </button>
                     </div>
                   </div>
@@ -4376,7 +4406,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     size="90%"
                   >
                     <div style={{ padding: '20px' }}>
-                      <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply Editor</label>
+                      <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply editor</label>
                       <RichTextEditor value={replyText} onChange={setReplyText} />
                     </div>
                   </Modal>
@@ -4451,9 +4481,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       disabled={!replyText.trim() || isSending}
                       style={{
                         padding: '10px 24px',
-                        background: (!replyText.trim() || isSending) ? '#ccc' : '#ef4444',
-                        color: '#fff',
-                        border: 'none',
+                        ...((!replyText.trim() || isSending)
+                          ? { background: '#e5e7eb', color: '#9ca3af', border: '1px solid #d1d5db' }
+                          : primarySoftButtonStyle),
                         borderRadius: '6px',
                         cursor: (!replyText.trim() || isSending) ? 'not-allowed' : 'pointer',
                         fontSize: '14px',
@@ -4474,9 +4504,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       }}
                       style={{
                         padding: '10px 24px',
-                        background: '#6b7280',
-                        color: '#fff',
-                        border: 'none',
+                        ...secondaryButtonStyle,
                         borderRadius: '6px',
                         cursor: 'pointer',
                         fontSize: '14px',

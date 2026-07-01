@@ -2,6 +2,7 @@ import React, { useRef, useCallback } from 'react';
 
 interface EmailIframeProps {
   html: string;
+  onBodyClick?: () => void;
 }
 
 /**
@@ -96,7 +97,7 @@ ${bodyContent}
 </html>`;
 }
 
-const EmailIframe: React.FC<EmailIframeProps> = ({ html }) => {
+const EmailIframe: React.FC<EmailIframeProps> = ({ html, onBodyClick }) => {
   const ref = useRef<HTMLIFrameElement>(null);
 
   const handleLoad = useCallback(() => {
@@ -121,12 +122,20 @@ const EmailIframe: React.FC<EmailIframeProps> = ({ html }) => {
       } catch { /* cross-origin guard */ }
     };
 
+    try {
+      const doc = frame.contentDocument || frame.contentWindow?.document;
+      if (doc?.body && onBodyClick) {
+        doc.body.style.cursor = 'pointer';
+        doc.body.addEventListener('click', onBodyClick);
+      }
+    } catch { /* cross-origin guard */ }
+
     requestAnimationFrame(() => {
       resize();
       setTimeout(resize, 400);
       setTimeout(resize, 1200);
     });
-  }, []);
+  }, [onBodyClick]);
 
   return (
     <iframe
