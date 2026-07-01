@@ -5,6 +5,7 @@ import PaginationControls from "./PaginationControls";
 import FilterBuilder from "../common/FilterBuilder";
 import type { ViewEditorPayload } from "../common/FilterBuilder";
 import AppModal from "../common/AppModal";
+import WebsiteGlobeIcon from "../common/WebsiteGlobeIcon";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import duplicateIcon from "../../assets/images/icons/duplicate.png";
 import BulkUpdatePanel from "./BulkUpdatePanel";
@@ -561,41 +562,76 @@ const handleCloneContacts = async () => {
   }
 };
 
-const handleDeleteContacts = async () => {
+const handleDeleteContacts = () => {
   const ids = Array.from(selectedContacts);
   if (ids.length === 0) return;
 
-  try {
-    setIsDeletingContact(true);
+  appModal.showConfirm(
+    `Are you sure you want to delete this ${ids.length} contact${ids.length > 1 ? "s" : ""}?`,
+    async () => {
+      try {
+        setIsDeletingContact(true);
 
-    for (const id of ids) {
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/delete-Datafile-contact?contactId=${id}`,
-        {
-          method: "POST",
-          headers: {
-            accept: "*/*",
-          },
+        for (const id of ids) {
+          const response = await fetch(
+            `${API_BASE_URL}/api/Crm/delete-Datafile-contact?contactId=${id}`,
+            {
+              method: "POST",
+              headers: {
+                accept: "*/*",
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`Failed to delete contact ${id}`);
+          }
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(`Failed to delete contact ${id}`);
+        setSelectedContacts(new Set());
+        if (selectedView) {
+          await fetchContactsForView(selectedView);
+        }
+        appModal.showSuccess(`${ids.length} contact(s) deleted successfully!`);
+      } catch (error) {
+        console.error("Failed to delete contacts:", error);
+        appModal.showError("Failed to delete contacts");
+      } finally {
+        setIsDeletingContact(false);
       }
     }
-
-    setSelectedContacts(new Set());
-    if (selectedView) {
-      await fetchContactsForView(selectedView);
-    }
-    appModal.showSuccess(`${ids.length} contact(s) deleted successfully!`);
-  } catch (error) {
-    console.error("Failed to delete contacts:", error);
-    appModal.showError("Failed to delete contacts");
-  } finally {
-    setIsDeletingContact(false);
-  }
+  );
 };
+
+  // Open a contact's profile in a new tab (used by the name link and by the
+  // dedicated profile-icon column shown when the "Full name" column is hidden).
+  const openContactProfile = (row: any) => {
+    const fallbackDataFileId =
+      selectedView?.dataFileIds?.length === 1
+        ? selectedView?.dataFileIds?.[0]
+        : undefined;
+    const fallbackSegmentId =
+      selectedView?.segmentIds?.length === 1
+        ? selectedView?.segmentIds?.[0]
+        : undefined;
+
+    const dataFileId = row.dataFileId || row.DataFileId || fallbackDataFileId;
+    const segmentId = row.segmentId || row.SegmentId || fallbackSegmentId;
+
+    const params = new URLSearchParams();
+    params.set("tab", "DataCampaigns");
+    params.set("subtab", "View");
+    params.set("clientId", String(clientId));
+    if (segmentId) params.set("segmentId", String(segmentId));
+    if (dataFileId != null) params.set("dataFileId", String(dataFileId));
+    const query = params.toString();
+
+    const contactDetailsUrl = `/#/contact-details/${row.id}${
+      query ? `?${query}` : ""
+    }`;
+    window.open(contactDetailsUrl, "_blank");
+  };
+
   const fieldTypeMap = useMemo(() => {
     const map = new Map<string, FieldType>();
     filterFields.forEach((field) => {
@@ -1736,14 +1772,6 @@ const handleDeleteContacts = async () => {
     }
   };
 
-  const selectedViewContactCount =
-    selectedView?.id != null
-      ? viewContactCounts[selectedView.id] ?? viewContacts.length
-      : viewContacts.length;
-  const refinedViewContactCount = viewContacts.length;
-  const hasRefinedViewResults =
-    baseViewContacts.length > 0 && refinedViewContactCount !== baseViewContacts.length;
-
   const detailHeader = viewMetaMissing ? (
     <div
       style={{
@@ -1979,41 +2007,6 @@ const handleDeleteContacts = async () => {
   </div>
 )}
 
-    {/* ✅ EXISTING HEADER (DON’T REMOVE) */}
-    <div
-      style={{
-        marginBottom: 16,
-        padding: "12px 16px",
-        background: "#f0f7ff",
-        borderRadius: 6,
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-        justifyContent: "space-between",
-      }}
-    >
-      <span style={{ fontWeight: 500 }}>
-        {hasRefinedViewResults
-          ? `Showing ${refinedViewContactCount} of ${selectedViewContactCount} contacts in this view`
-          : `${selectedViewContactCount} contact${selectedViewContactCount === 1 ? "" : "s"} in this view`}
-      </span>
-
-      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        {selectedView?.filtersJson && (
-          <span style={{ color: "#4b5563", fontSize: 13 }}>
-            Filter rules applied
-          </span>
-        )}
-
-        <button
-          type="button"
-          className="button secondary"
-          onClick={() => selectedView && handleDownloadView(selectedView)}
-        >
-          Download
-        </button>
-      </div>
-    </div>
   </>
 );
 
@@ -2089,6 +2082,7 @@ const handleDeleteContacts = async () => {
               currentPage={viewCurrentPage}
               pageSize={viewPageSize}
               onPageChange={setViewCurrentPage}
+              onOpenProfile={openContactProfile}
               totalItems={viewContacts.length}
               autoGenerateColumns={true}
               selectedItems={selectedContacts}
@@ -2116,31 +2110,6 @@ const handleDeleteContacts = async () => {
                   const displayName = getDisplayName(row);
                   if (!displayName || displayName === "-") return "-";
 
-                  const fallbackDataFileId =
-                    selectedView?.dataFileIds?.length === 1
-                      ? selectedView?.dataFileIds?.[0]
-                      : undefined;
-                  const fallbackSegmentId =
-                    selectedView?.segmentIds?.length === 1
-                      ? selectedView?.segmentIds?.[0]
-                      : undefined;
-
-                  const dataFileId =
-                    row.dataFileId || row.DataFileId || fallbackDataFileId;
-                  const segmentId = row.segmentId || row.SegmentId || fallbackSegmentId;
-
-                  const params = new URLSearchParams();
-                  params.set("tab", "DataCampaigns");
-                  params.set("subtab", "View");
-                  params.set("clientId", String(clientId));
-                  if (segmentId) params.set("segmentId", String(segmentId));
-                  if (dataFileId != null) params.set("dataFileId", String(dataFileId));
-                  const query = params.toString();
-
-                  const contactDetailsUrl = `/#/contact-details/${row.id}${
-                    query ? `?${query}` : ""
-                  }`;
-
                   return (
                     <span
                       style={{
@@ -2151,7 +2120,7 @@ const handleDeleteContacts = async () => {
                       }}
                       onClick={(event) => {
                         event.stopPropagation();
-                        window.open(contactDetailsUrl, "_blank");
+                        openContactProfile(row);
                       }}
                     >
                       {displayName}
@@ -2173,14 +2142,14 @@ const handleDeleteContacts = async () => {
                       rel="noopener noreferrer"
                       title={value}
                       style={{
+                        display: "inline-flex",
                         color: "#3f9f42",
                         textDecoration: "none",
                         cursor: "pointer",
-                        fontSize: "16px",
                       }}
                       onClick={(event) => event.stopPropagation()}
                     >
-                      Link
+                      <WebsiteGlobeIcon />
                     </a>
                   );
                 },

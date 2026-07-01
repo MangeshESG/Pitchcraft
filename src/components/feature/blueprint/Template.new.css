@@ -95,6 +95,23 @@
 }
 .bp-btn-primary:hover { background: var(--bp-brand-d); }
 
+.bp-btn-default {
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 12px;
+  background: var(--btn-default-bg);
+  color: var(--btn-default-fg);
+  border: 1px solid var(--btn-default-border);
+  font-size: 14.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.bp-btn-default:hover { background: var(--btn-default-bg-hover); }
+
 .bp-btn-primary-dark {
   height: 40px;
   padding: 0 16px;

@@ -236,13 +236,13 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
                     Custom fields let you store any extra information about contacts — industry, deal size, lead source, or anything your team tracks.
                   </p>
                   <div className="bp-empty-actions">
-                    <button className="bp-btn-primary" onClick={openCreatePanel}>
+                    <button className="bp-btn-default" onClick={openCreatePanel}>
                       <Plus className="h-4 w-4" />
                       Add your first field
                     </button>
                   </div>
                   <div className="bp-empty-meta">
-                    Fields appear on every contact record and can be used in segments.
+                     Custom attributes are available on every contact record and can be used to create views
                   </div>
                 </div>
                 <div className="bp-empty-hero__art">
@@ -271,7 +271,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
                 </p>
               </div>
               <div className="bp-header-actions">
-                <button type="button" className="bp-btn-primary-dark" onClick={openCreatePanel}>
+                <button type="button" className="bp-btn-default" onClick={openCreatePanel}>
                   <Plus className="h-4 w-4" />
                   Add field
                 </button>
@@ -492,18 +492,26 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="px-5 py-2 rounded-full bg-black text-white"
+                className="px-5 py-2 rounded-full"
+                style={{
+                  background: "var(--btn-muted-bg)",
+                  color: "var(--btn-muted-fg)",
+                  border: "1.5px solid var(--btn-muted-border)",
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDeleteField}
                 disabled={deleteConfirmText !== "DELETE"}
-                className={`px-5 py-2 rounded-full text-white ${
-                  deleteConfirmText === "DELETE"
-                    ? "bg-red-600 hover:bg-red-700"
-                    : "bg-gray-400 cursor-not-allowed"
-                }`}
+                className="px-5 py-2 rounded-full"
+                style={{
+                  background: "var(--btn-danger-bg)",
+                  color: "var(--btn-danger-fg)",
+                  border: "1px solid var(--btn-danger-border)",
+                  cursor: deleteConfirmText === "DELETE" ? "pointer" : "not-allowed",
+                  opacity: deleteConfirmText === "DELETE" ? 1 : 0.5,
+                }}
               >
                 Delete
               </button>

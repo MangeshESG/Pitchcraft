@@ -68,6 +68,13 @@ interface DynamicContactsTableProps {
   bulkActions?: BulkAction[];
   /** Called when the bulk bar "Clear" button is pressed */
   onClearSelection?: () => void;
+
+  /**
+   * When provided, the table can open a row's profile. An extra icon column is
+   * shown only when the "full_name" column is hidden, so there is always a way
+   * to reach the contact profile even if the name column isn't visible.
+   */
+  onOpenProfile?: (row: any) => void;
 }
 
 type SortDirection = "asc" | "desc";
@@ -155,6 +162,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   currentTab,
   bulkActions,
   onClearSelection,
+  onOpenProfile,
 }) => {
   const [columns, setColumns]           = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
@@ -404,6 +412,12 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
   const visibleColumns = columns.filter((c) => c.visible);
 
+  // Show a dedicated profile-link column only when the "Full name" column is
+  // hidden — otherwise the name itself is the link to the profile.
+  const fullNameVisible = columns.some((c) => c.key === "full_name" && c.visible);
+  const showProfileCol = !!onOpenProfile && !fullNameVisible;
+  const totalColSpan = visibleColumns.length + (showProfileCol ? 1 : 0);
+
   // ---------- Cell rendering ----------
   const getFormattedValue = (item: any, column: ColumnConfig, index?: number): React.ReactNode => {
     if (column.key === "checkbox") {
@@ -535,7 +549,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           </div>
           <div className="dt-detail-actions">
             {onAddItem && (
-              <button className="dt-btn-primary" onClick={onAddItem}>
+              <button className="dt-btn-default" onClick={onAddItem}>
                 <svg viewBox="0 0 24 24" width="14" height="14">
                   <path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M12 5v14M5 12h14"/>
                 </svg>
@@ -567,10 +581,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             <div className="dt-result-count">
               <span className="dt-result-count__num">{totalRecords.toLocaleString()}</span>
               <span>{totalRecords === 1 ? "item" : "items"}</span>
-              {search && !serverSidePagination && <span className="dt-muted">� filtered from {processedData.length.toLocaleString()}</span>}
-              {totalItems !== undefined && !search && !serverSidePagination && (
-                <span className="dt-muted">· {totalItems.toLocaleString()} total</span>
-              )}
+              {search && !serverSidePagination && <span className="dt-muted">· filtered from {processedData.length.toLocaleString()}</span>}
             </div>
           </div>
 
@@ -655,12 +666,17 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                     </th>
                   );
                 })}
+                {showProfileCol && (
+                  <th style={{ width: "70px" }}>
+                    <span className="dt-th-label">Profile</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={visibleColumns.length} className="dt-state-cell">
+                  <td colSpan={totalColSpan} className="dt-state-cell">
                     <div className="dt-loading">
                       <span className="dt-spinner" />
                       Loading…
@@ -669,7 +685,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                 </tr>
               ) : displayData.length === 0 ? (
                 <tr>
-                  <td colSpan={visibleColumns.length} className="dt-state-cell">
+                  <td colSpan={totalColSpan} className="dt-state-cell">
                     <div className="dt-empty">
                       <div className="dt-empty__icon">
                         <svg viewBox="0 0 24 24" width="22" height="22">
@@ -711,6 +727,38 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                           </td>
                         );
                       })}
+                      {showProfileCol && (
+                        <td>
+                          <button
+                            type="button"
+                            title="Open contact profile"
+                            onClick={(e) => { e.stopPropagation(); onOpenProfile!(item); }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 4,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="18"
+                              height="18"
+                              fill="none"
+                              stroke="#3f9f42"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <circle cx="12" cy="8" r="3.2" />
+                              <path d="M5.5 19a6.5 6.5 0 0 1 13 0" />
+                            </svg>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })

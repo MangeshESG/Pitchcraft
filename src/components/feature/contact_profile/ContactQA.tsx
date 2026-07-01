@@ -835,8 +835,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
         <div>
           <h2 className="contact-qa-title">Q&amp;A</h2>
           <p className="contact-qa-subtitle">
-            Interrogate the CRM to quickly find information about this contact from the contact profile, all note, all, email communications, stored LinkedIn summary and all activity stored in the CRM.
-          </p>
+            Interrogate the CRM to quickly find information about this contact from the contact profile, all internal notes, all email communications, stored contact career details, and all activity stored in the CRM.          </p>
           <div className="contact-qa-badges">
             <span className="contact-qa-badge">
               Contact: {contactContext.contact.fullName || "Unknown contact"}

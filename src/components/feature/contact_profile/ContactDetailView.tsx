@@ -2461,18 +2461,28 @@ dispatch(closePanel());
                         flexDirection: "row",
                         alignItems: "center",
                         gap: 8,
-                        padding: "8px 16px",
-                        border: "1px solid #3f9f42",
+                        padding: "8px 14px",
+                        border: "1.5px solid #e2e8f0",
                         borderRadius: 8,
-                        background: "#3f9f42",
-                        color: "#ffffff",
-                        fontSize: 14,
-                        fontWeight: 600,
+                        background: "#f8fafc",
+                        color: "#374151",
+                        fontSize: 13,
+                        fontWeight: 500,
                         cursor:
                           isGeneratingInsights || !selectedCampaign
                             ? "not-allowed"
                             : "pointer",
                         opacity: isGeneratingInsights || !selectedCampaign ? 0.6 : 1,
+                        transition: "all 0.18s",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (isGeneratingInsights || !selectedCampaign) return;
+                        e.currentTarget.style.background = "#f1f5f9";
+                        e.currentTarget.style.borderColor = "#cbd5e1";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "#f8fafc";
+                        e.currentTarget.style.borderColor = "#e2e8f0";
                       }}
                     >
                       <svg
@@ -2484,11 +2494,11 @@ dispatch(closePanel());
                       >
                         <path
                           d="M12 3l1.9 4.9L18.8 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z"
-                          fill="#ffffff"
+                          fill="#374151"
                         />
                         <path
                           d="M18.5 14.5l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8.8-2.1z"
-                          fill="#ffffff"
+                          fill="#374151"
                         />
                       </svg>
                       {isGeneratingInsights ? "Generating..." : "Generate insights"}
@@ -4129,10 +4139,10 @@ dispatch(closePanel());
             />
             <div>
               <div className="text-sm font-medium text-gray-900">
-                Email personalization
+                Use in personalization
               </div>
               <div className="text-xs text-gray-500">
-                Use this note to personalize future emails.
+                Use this note to personalize future emails and in Q&A.
               </div>
             </div>
           </div>

@@ -111,9 +111,9 @@
 
 /* ---------- Page jump ---------- */
 .pc-jump {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 6px;
   height: 40px;
-  padding: 0 12px;
+  padding: 0 8px;
   border-radius: 8px;
   border: 1px solid var(--pc-line);
   background: #fff;
@@ -122,8 +122,8 @@
   font-size: 12.5px; color: var(--pc-ink-faint); font-weight: 500;
 }
 .pc-jump input {
-  width: 52px; height: 28px;
-  padding: 0 6px;
+  width: 38px; height: 28px;
+  padding: 0 4px;
   text-align: center;
   border-radius: 6px;
   border: 1px solid var(--pc-line-2);

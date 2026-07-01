@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL from '../../config';
 import CommonSidePanel from '../common/CommonSidePanel';
+import { defaultButtonStyle, lessPriorityButtonStyle } from '../../styles/buttonStyles';
 
 interface DataFile {
   id: number | string | null;
@@ -17,6 +18,7 @@ interface AddContactModalProps {
   isOpen: boolean;
   onClose: () => void;
   dataFileId?: string;
+  clientId?: string;
   isFromAllContacts?: boolean;
   onContactAdded: () => void;
   onShowMessage: (message: string, type: 'success' | 'error') => void;
@@ -26,12 +28,14 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
   isOpen,
   onClose,
   dataFileId,
+  clientId: clientIdProp,
   isFromAllContacts = false,
   onContactAdded,
   onShowMessage
 }) => {
-  // Get client ID from session storage like EmailCampaignBuilder does
-  const clientId = sessionStorage.getItem("clientId");
+  // Prefer the explicitly selected client (admin may be acting on behalf of a
+  // client); fall back to the logged-in user's own clientId.
+  const clientId = clientIdProp || sessionStorage.getItem("clientId");
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -61,20 +65,27 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         const response = await fetch(`${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${clientId}`);
         if (response.ok) {
           const files = await response.json();
-          
+
+          // Sort files alphabetically (A-Z) by name
+          const sortedFiles = [...files].sort((a: DataFile, b: DataFile) =>
+            (a.name || "").localeCompare(b.name || "", undefined, {
+              sensitivity: "base",
+            })
+          );
+
           // Add "Select file" option at the beginning
           const filesWithNoSelection = [
             {
               id: 'no-file',
               client_id: parseInt(clientId || '0'),
-              name: "Select file",
+              name: "Select file to save in (optional)",
               data_file_name: "no_file",
               description: "Don't associate with any data file",
               created_at: new Date().toISOString(),
               updated_at: null,
               contactCount: 0
             },
-            ...files
+            ...sortedFiles
           ];
           
           setDataFiles(filesWithNoSelection);
@@ -135,7 +146,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
       // Check if selected file is "All manually added contacts" or "Select file"
       const selectedFile = dataFiles.find(f => f.id === selectedDataFileId);
       const isManualContacts = selectedFile?.name === "All manually added contacts";
-      const isNoFileSelected = selectedFile?.name === "Select file";
+      const isNoFileSelected = selectedFile?.name === "Select file to save in (optional)";
       
       // Send null for manual contacts or select file, otherwise send the actual ID
       const dataFileIdToSend = (isManualContacts || isNoFileSelected) ? null : selectedDataFileId;
@@ -234,7 +245,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
     <CommonSidePanel
       isOpen={isOpen}
       onClose={handleClose}
-      title="Add new contact in"
+      title="Add new contact"
       width={550}
       headerContent={
         <div style={{ position: 'relative' }}>
@@ -246,7 +257,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
               padding: '8px 16px',
               borderRadius: '12px',
               cursor: 'pointer',
-              minWidth: '220px',
+              minWidth: '320px',
               textAlign: 'left',
               display: 'flex',
               justifyContent: 'space-between',
@@ -272,7 +283,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              maxWidth: '170px'
+              maxWidth: '270px'
             }}>
               {selectedDataFileId !== null
                 ? dataFiles.find(f => f.id === selectedDataFileId)?.name || 'Select Data File'
@@ -358,13 +369,13 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                             width: '6px',
                             height: '6px',
                             borderRadius: '50%',
-                            backgroundColor: 
-                              file.name === "Select file" ? '#e53e3e' : 
-                              file.name === "All manually added contacts" ? '#ed8936' : 
+                            backgroundColor:
+                              file.name === "Select file to save in (optional)" ? '#e53e3e' :
+                              file.name === "All manually added contacts" ? '#ed8936' :
                               '#48bb78'
                           }}></span>
-                          {file.name === "Select file" ? 'No data file' : 
-                           file.name === "All manually added contacts" ? 'Manual contacts' : 
+                          {file.name === "Select file to save in (optional)" ? 'No data file' :
+                           file.name === "All manually added contacts" ? 'Manual contacts' :
                            `${file.contactCount} contacts`}
                         </div>
                       </div>
@@ -402,16 +413,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
           <button
             type="button"
             onClick={handleClose}
-            style={{
-              padding: '10px 24px',
-              borderRadius: '24px',
-              border: '2px solid #ddd',
-              background: '#fff',
-              color: '#666',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: 'pointer'
-            }}
+            style={lessPriorityButtonStyle}
           >
             Cancel
           </button>
@@ -419,13 +421,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             onClick={handleSubmit}
             disabled={isSubmitting || !formData.email.trim() || !selectedDataFileId}
             style={{
-              padding: '10px 24px',
-              borderRadius: '24px',
-              border: '2px solid #dc3545',
-              background: '#fff',
-              color: '#dc3545',
-              fontSize: '14px',
-              fontWeight: '500',
+              ...defaultButtonStyle,
               cursor: (isSubmitting || !formData.email.trim() || !selectedDataFileId) ? 'not-allowed' : 'pointer',
               opacity: (isSubmitting || !formData.email.trim() || !selectedDataFileId) ? 0.5 : 1
             }}

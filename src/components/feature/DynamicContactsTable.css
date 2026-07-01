@@ -83,7 +83,7 @@
 }
 
 /* ============ BUTTONS ============ */
-.dt-btn-primary, .dt-btn-secondary, .dt-btn-tertiary {
+.dt-btn-primary, .dt-btn-secondary, .dt-btn-tertiary, .dt-btn-default {
   height: 36px; padding: 0 14px; border-radius: 8px;
   font-size: 13px; font-weight: 600; cursor: pointer;
   display: inline-flex; align-items: center; gap: 8px;
@@ -94,6 +94,11 @@
   background: var(--dt-brand); color: #fff;
 }
 .dt-btn-primary:hover { background: var(--dt-brand-d); }
+.dt-btn-default {
+  background: #e2f1e3; color: #3f9f42;
+  border: 1px solid #cfecd6;
+}
+.dt-btn-default:hover { background: #d6ecd9; }
 .dt-btn-secondary {
   background: var(--dt-bg-2); color: var(--dt-ink-soft);
   border: 1px solid #e5e7eb;

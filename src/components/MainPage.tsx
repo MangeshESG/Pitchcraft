@@ -4155,7 +4155,7 @@ try {
                                 setContactsSubTab("List");
                                 setTab("DataCampaigns");
                                 setShowMailSubmenu(false);
-                                navigate("/main?tab=DataCampaigns&subtab=List");
+                                navigate(`/main?tab=DataCampaigns&subtab=List&t=${Date.now()}`);
                               }}
                               className="submenu-button"
                             >

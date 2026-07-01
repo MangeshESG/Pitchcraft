@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { RootState } from "../../Redux/store";
 import { clearToken } from "../../slices/authSLice";
 import { useCreditRefresh } from "../../hooks/useCreditRefresh";
+import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
 
 interface HeaderProps {
   connectTo: boolean;
@@ -171,17 +172,11 @@ const logoutHandler = () => {
                 <button
                   onClick={onUpgradeClick}
                   style={{
+                    ...lessPriorityButtonStyle,
                     display: "flex",
                     alignItems: "center",
                     gap: "6px",
                     padding: "8px 14px",
-                    background: "#f8fafc",
-                    color: "#374151",
-                    border: "1.5px solid #e2e8f0",
-                    borderRadius: "8px",
-                    fontSize: "13px",
-                    fontWeight: "500",
-                    cursor: "pointer",
                     whiteSpace: "nowrap",
                     transition: "all 0.18s",
                   }}
@@ -204,17 +199,11 @@ const logoutHandler = () => {
               <button
                 onClick={logoutHandler}
                 style={{
+                  ...lessPriorityButtonStyle,
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
                   padding: "8px 14px",
-                  background: "#f8fafc",
-                  color: "#374151",
-                  border: "1.5px solid #e2e8f0",
-                  borderRadius: "8px",
-                  fontSize: "13px",
-                  fontWeight: "500",
-                  cursor: "pointer",
                   whiteSpace: "nowrap",
                   transition: "all 0.18s",
                 }}

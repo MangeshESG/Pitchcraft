@@ -13,6 +13,7 @@ import FilterBuilder from "../common/FilterBuilder";
 import ContactViews from "./ContactViews";
 import BulkUpdatePanel from "./BulkUpdatePanel";
 import PopupModal from "../common/PopupModal";
+import WebsiteGlobeIcon from "../common/WebsiteGlobeIcon";
 
 import { useAppData } from "../../contexts/AppDataContext";
 import { useToast } from "../../hooks/useToast";
@@ -50,6 +51,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons"
 import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/free-regular-svg-icons";
 import { closePanel, openPanel } from "../../slices/panelSlice";
+import { defaultButtonStyle, lessPriorityButtonStyle } from "../../styles/buttonStyles";
 
 // Persistent column selection utilities
 const CONTACTLIST_COLUMNS_KEY = 'contactlist_selected_columns';
@@ -786,6 +788,21 @@ const formatTimeIST = (dateString?: string) => {
     }
   }, [activeSubTab, viewNavigationToken]);
 
+  // Clicking "Lists" in the sidebar should always return to the lists grid,
+  // not the previously opened list detail. The nav token (?t=) lets us detect
+  // the click even when the subtab is already "List". Skip when the URL points
+  // at a specific list (dataFileId) so deep links still open the detail view.
+  useEffect(() => {
+    if (
+      activeSubTab === "List" &&
+      viewNavigationToken &&
+      !searchParams.get("dataFileId")
+    ) {
+      setViewMode("list");
+      setSelectedDataFileForView(null);
+    }
+  }, [activeSubTab, viewNavigationToken]);
+
   // Handle URL parameters for direct navigation from ContactDetailView
   useEffect(() => {
     const dataFileIdFromUrl = searchParams.get("dataFileId");
@@ -935,6 +952,14 @@ const formatTimeIST = (dateString?: string) => {
     } finally {
       setIsDeletingContact(false);
     }
+  };
+
+  // Open a contact's profile in a new tab (used by the name link and by the
+  // dedicated profile-icon column shown when the "Full name" column is hidden).
+  const openContactProfile = (row: any) => {
+    const dataFileId = row.dataFileId || selectedDataFileForView?.id;
+    const contactDetailsUrl = `/#/contact-details/${row.id}?tab=DataCampaigns&subtab=List&dataFileId=${dataFileId}&clientId=${effectiveUserId}`;
+    window.open(contactDetailsUrl, "_blank");
   };
 
   // Unsubscribe contacts
@@ -2181,7 +2206,7 @@ const filterFields: any = useMemo(() => {
                     <ContactsEmptyState
                       onAddContact={() => dispatch(openPanel("add-contact-modal"))}
                       onImportList={() => onAddContactClick?.()}
-                      onCreateList={() => setShowCreateListModal(true)}
+                      onCreateList={() => dispatch(openPanel("create-list-modal"))}
                     />
                   ) : (
                     <>
@@ -2251,6 +2276,7 @@ const filterFields: any = useMemo(() => {
                   currentPage={detailCurrentPage}
                   pageSize={detailPageSize}
                   onPageChange={setDetailCurrentPage}
+                  onOpenProfile={openContactProfile}
                   selectedItems={detailSelectedContacts}
                   onSelectItem={handleDetailSelectContact}
                   totalItems={detailTotalContacts}
@@ -2295,17 +2321,7 @@ const filterFields: any = useMemo(() => {
                           }}
                           onClick={(e) => {
                            e.stopPropagation();
-                           // Use row.dataFileId if available (from All Contacts), otherwise use selectedDataFileForView.id
-                           const dataFileId = row.dataFileId || selectedDataFileForView?.id;
-                           
-                           console.log("[ContactList] Opening contact:", {
-                             contactId: row.id,
-                             dataFileId: dataFileId,
-                             rowData: row
-                           });
-
-                           const contactDetailsUrl = `/#/contact-details/${row.id}?tab=DataCampaigns&subtab=List&dataFileId=${dataFileId}&clientId=${effectiveUserId}`;
-                           window.open(contactDetailsUrl, "_blank");
+                           openContactProfile(row);
                           }}
                         >
                           {displayName}
@@ -2330,14 +2346,14 @@ const filterFields: any = useMemo(() => {
                           rel="noopener noreferrer"
                           title={value}
                           style={{
+                            display: "inline-flex",
                             color: "#3f9f42",
                             textDecoration: "none",
                             cursor: "pointer",
-                            fontSize: "16px"
                           }}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          🌐
+                          <WebsiteGlobeIcon />
                         </a>
                       );
                     },
@@ -2722,13 +2738,7 @@ const filterFields: any = useMemo(() => {
                         setRenamingListDescription("");
                       }}
                       className="button secondary"
-                      style={{
-                        padding: "8px 16px",
-                        border: "1px solid #ddd",
-                        background: "#fff",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
+                      style={lessPriorityButtonStyle}
                     >
                       Cancel
                     </button>
@@ -2741,22 +2751,19 @@ const filterFields: any = useMemo(() => {
                         isRenamingList
                       }
                       style={{
-                        padding: "8px 16px",
-                        background:
-                          renamingListName.trim() &&
-                            renamingListDescription.trim() &&
-                            !isRenamingList
-                            ? "#3f9f42"
-                            : "#ccc",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "4px",
+                        ...defaultButtonStyle,
                         cursor:
                           renamingListName.trim() &&
                             renamingListDescription.trim() &&
                             !isRenamingList
                             ? "pointer"
                             : "not-allowed",
+                        opacity:
+                          renamingListName.trim() &&
+                            renamingListDescription.trim() &&
+                            !isRenamingList
+                            ? 1
+                            : 0.5,
                       }}
                     >
                       {isRenamingList ? "Saving..." : "Save"}
@@ -2859,13 +2866,7 @@ const filterFields: any = useMemo(() => {
                           setEditingList(null);
                         }}
                         className="button secondary"
-                        style={{
-                          padding: "8px 16px",
-                          border: "1px solid #ddd",
-                          background: "#fff",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
+                        style={lessPriorityButtonStyle}
                       >
                         Cancel
                       </button>
@@ -2873,9 +2874,9 @@ const filterFields: any = useMemo(() => {
                         className="button primary"
                         style={{
                           padding: "8px 16px",
-                          background: "#dc3545",
-                          color: "#fff",
-                          border: "none",
+                          background: "var(--btn-danger-bg)",
+                          color: "var(--btn-danger-fg)",
+                          border: "1px solid var(--btn-danger-border)",
                           borderRadius: "4px",
                           cursor: "pointer",
                         }}
@@ -2929,9 +2930,9 @@ const filterFields: any = useMemo(() => {
                   }}
                   style={{
                     padding: "8px 16px",
-                    background: "#3f9f42",
-                    color: "#fff",
-                    border: "none",
+                    background: "var(--btn-default-bg)",
+                    color: "var(--btn-default-fg)",
+                    border: "1px solid var(--btn-default-border)",
                     borderRadius: "12px",
                     cursor: "pointer",
                     fontWeight: 600,
@@ -3239,7 +3240,7 @@ const filterFields: any = useMemo(() => {
                     <ContactsEmptyState
                       onAddContact={() => dispatch(openPanel("add-contact-modal"))}
                       onImportList={() => onAddContactClick?.()}
-                      onCreateList={() => setShowCreateListModal(true)}
+                      onCreateList={() => dispatch(openPanel("create-list-modal"))}
                     />
                   ) : (
                     <div className="ct-rows">
@@ -3312,6 +3313,7 @@ const filterFields: any = useMemo(() => {
                   currentPage={detailCurrentPage}
                   pageSize={detailPageSize}
                   onPageChange={setDetailCurrentPage}
+                  onOpenProfile={openContactProfile}
                   selectedItems={detailSelectedContacts}
                   onSelectItem={handleDetailSelectContact}
                   totalItems={detailTotalContacts}
@@ -3388,14 +3390,14 @@ const filterFields: any = useMemo(() => {
                           rel="noopener noreferrer"
                           title={value}
                           style={{
+                            display: "inline-flex",
                             color: "#3f9f42",
                             textDecoration: "none",
                             cursor: "pointer",
-                            fontSize: "16px"
                           }}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          🌐
+                          <WebsiteGlobeIcon />
                         </a>
                       );
                     },
@@ -3756,9 +3758,9 @@ const filterFields: any = useMemo(() => {
                   }}
                   style={{
                     padding: "8px 16px",
-                    background: "#3f9f42",
-                    color: "#fff",
-                    border: "none",
+                    background: "var(--btn-default-bg)",
+                    color: "var(--btn-default-fg)",
+                    border: "1px solid var(--btn-default-border)",
                     borderRadius: "12px",
                     cursor: "pointer",
                     fontWeight: 600,
@@ -4059,7 +4061,7 @@ const filterFields: any = useMemo(() => {
             <ContactsEmptyState
               onAddContact={() => dispatch(openPanel("add-contact-modal"))}
               onImportList={() => onAddContactClick?.()}
-              onCreateList={() => setShowCreateListModal(true)}
+              onCreateList={() => dispatch(openPanel("create-list-modal"))}
             />
           ) : (
             <div className="ct-rows">
@@ -4108,16 +4110,7 @@ const filterFields: any = useMemo(() => {
                 setRenamingSegmentDescription("");
               }}
               className="button secondary"
-              style={{
-                padding: "10px 32px",
-                border: "1px solid #ddd",
-                background: "#fff",
-                borderRadius: "24px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "500",
-                color: "#333",
-              }}
+              style={lessPriorityButtonStyle}
             >
               Cancel
             </button>
@@ -4129,27 +4122,17 @@ const filterFields: any = useMemo(() => {
                 isRenamingSegment
               }
               style={{
-                padding: "10px 32px",
-                background: "#fff",
-                color:
-                  renamingSegmentName.trim() &&
-                    !isRenamingSegment
-                    ? "#ef4444"
-                    : "#ccc",
-                border: `1px solid ${
-                  renamingSegmentName.trim() &&
-                    !isRenamingSegment
-                    ? "#ef4444"
-                    : "#ccc"
-                }`,
-                borderRadius: "24px",
+                ...defaultButtonStyle,
                 cursor:
                   renamingSegmentName.trim() &&
                     !isRenamingSegment
                     ? "pointer"
                     : "not-allowed",
-                fontSize: "14px",
-                fontWeight: "500",
+                opacity:
+                  renamingSegmentName.trim() &&
+                    !isRenamingSegment
+                    ? 1
+                    : 0.5,
               }}
             >
               {isRenamingSegment ? "Saving..." : "Save"}
@@ -4239,13 +4222,7 @@ const filterFields: any = useMemo(() => {
                   setEditingSegment(null);
                 }}
                 className="button secondary"
-                style={{
-                  padding: "8px 16px",
-                  border: "1px solid #ddd",
-                  background: "#fff",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
+                style={lessPriorityButtonStyle}
               >
                 Cancel
               </button>
@@ -4253,9 +4230,9 @@ const filterFields: any = useMemo(() => {
                 className="button primary"
                 style={{
                   padding: "8px 16px",
-                  background: "#dc3545",
-                  color: "#fff",
-                  border: "none",
+                  background: "var(--btn-danger-bg)",
+                  color: "var(--btn-danger-fg)",
+                  border: "1px solid var(--btn-danger-border)",
                   borderRadius: "4px",
                   cursor: "pointer",
                 }}
@@ -4316,6 +4293,7 @@ const filterFields: any = useMemo(() => {
           dispatch(closePanel())
         }
         dataFileId={selectedDataFileForView?.id?.toString() || selectedDataFile}
+        clientId={effectiveUserId}
         onContactAdded={() => {
           // Refresh the data files grid to update contact counts
           fetchDataFiles();
@@ -4419,7 +4397,7 @@ const filterFields: any = useMemo(() => {
           >
             <h3 style={{ marginTop: 0, marginBottom: 16 }}>Delete contacts</h3>
             <p style={{ marginBottom: 20 }}>
-              Are you sure you want to delete {deleteContactCount} contact{deleteContactCount > 1 ? 's' : ''}?
+              Are you sure you want to delete this {deleteContactCount} contact{deleteContactCount > 1 ? 's' : ''}?
             </p>
             <div
               style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}
@@ -4427,13 +4405,7 @@ const filterFields: any = useMemo(() => {
               <button
                 onClick={() => setShowDeleteConfirmation(false)}
                 className="button secondary"
-                style={{
-                  padding: "8px 16px",
-                  border: "1px solid #ddd",
-                  background: "#fff",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
+                style={lessPriorityButtonStyle}
               >
                 Cancel
               </button>
@@ -4441,9 +4413,9 @@ const filterFields: any = useMemo(() => {
                 className="button primary"
                 style={{
                   padding: "8px 16px",
-                  background: "#dc3545",
-                  color: "#fff",
-                  border: "none",
+                  background: "var(--btn-danger-bg)",
+                  color: "var(--btn-danger-fg)",
+                  border: "1px solid var(--btn-danger-border)",
                   borderRadius: "4px",
                   cursor: "pointer",
                 }}

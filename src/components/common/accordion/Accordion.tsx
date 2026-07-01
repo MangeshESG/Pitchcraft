@@ -31,11 +31,11 @@ const AccordionSection = ({
           }
         }}
 
-        className="flex w-full items-center justify-between text-left"
+        className="flex w-full items-center justify-between text-left bg-[#e6f4e6] rounded-md px-4 py-3"
       >
         <div className="flex items-center gap-3">
           <span className="text-[#3f9f42]">{icon}</span>
-          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <h2 className="text-lg font-semibold text-[#1e5e21]">{title}</h2>
         </div>
         <svg
           className={`h-5 w-5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
