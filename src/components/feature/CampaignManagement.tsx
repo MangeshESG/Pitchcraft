@@ -30,6 +30,7 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronRight,
+  Check,
 } from "lucide-react";
 
 interface CampaignManagementProps {
@@ -758,6 +759,31 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     setShowCampaignVideo(false);
   };
 
+  // Prerequisites for creating a campaign: at least one contact source and one blueprint.
+  const campaignSteps = [
+    {
+      done: dataFiles.length > 0 || segments.length > 0 || views.length > 0,
+      icon: <Users className="h-4 w-4" />,
+      title: "At least one contact",
+      subtitle: "Add or import contacts to build your audience.",
+      addLabel: "Add contacts",
+      onAdd: () => {
+        window.location.href = `/#/main?tab=DataCampaigns&subtab=List`;
+      },
+    },
+    {
+      done: campaignBlueprints.length > 0,
+      icon: <FileText className="h-4 w-4" />,
+      title: "At least one blueprint",
+      subtitle: "Create a blueprint to use AI and its wisdom for your emails.",
+      addLabel: "Add blueprint",
+      onAdd: () => {
+        window.location.href = `/#/main?tab=TestTemplate`;
+      },
+    },
+  ];
+  const allStepsCompleted = campaignSteps.every((step) => step.done);
+
   return (
     <div className="bp-list-wrap campaign-bp-page">
         {isLoading ? (
@@ -775,20 +801,50 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   <p className="bp-empty-body-text">
                     Choose a blueprint, connect a contact source, and PitchKraft will be ready to kraft personalized outreach.
                   </p>
-                  <div className="bp-empty-actions">
-                    <button className="bp-btn-default" onClick={openCreateCampaignPanel}>
-                      <Plus className="h-4 w-4" />
-                      Create your first campaign
-                    </button>
-                    <button
-                      className="bp-btn-secondary"
-                      type="button"
-                      onClick={() => setShowCampaignVideo(true)}
-                    >
-                      <FontAwesomeIcon icon={faPlay} style={{ color: "#3f9f42" }} />
-                      Watch demo
-                    </button>
-                  </div>
+                  {!allStepsCompleted && (
+                    <div className="bp-setup-checklist">
+                      {campaignSteps.map((step) => (
+                        <div key={step.addLabel} className="bp-setup-card">
+                          <span className="bp-setup-card__icon">{step.icon}</span>
+                          <div className="bp-setup-card__text">
+                            <div className="bp-setup-card__title">{step.title}</div>
+                            <div className="bp-setup-card__subtitle">{step.subtitle}</div>
+                          </div>
+                          {step.done ? (
+                            <span className="bp-setup-badge bp-setup-badge--done">
+                              <Check className="h-3.5 w-3.5" />
+                              Completed
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="bp-btn-default bp-setup-card__btn"
+                              onClick={step.onAdd}
+                            >
+                              <Plus className="h-4 w-4" />
+                              {step.addLabel}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {allStepsCompleted && (
+                    <div className="bp-empty-actions">
+                      <button className="bp-btn-default" onClick={openCreateCampaignPanel}>
+                        <Plus className="h-4 w-4" />
+                        Create your first campaign
+                      </button>
+                      <button
+                        className="bp-btn-secondary"
+                        type="button"
+                        onClick={() => setShowCampaignVideo(true)}
+                      >
+                        <FontAwesomeIcon icon={faPlay} style={{ color: "#3f9f42" }} />
+                        Watch demo
+                      </button>
+                    </div>
+                  )}
                   <div className="bp-empty-meta">
                     Takes about 4 minutes. You can edit the campaign later.
                   </div>
@@ -1089,6 +1145,68 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         .campaign-bp-page .campaign-analytics-button:focus-visible {
           outline: 2px solid rgba(63, 159, 66, 0.28);
           outline-offset: 2px;
+        }
+        .campaign-bp-page .bp-setup-checklist {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-top: 24px;
+          max-width: 620px;
+        }
+        .campaign-bp-page .bp-setup-card {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 14px 16px;
+          border: 1px solid #eef0f3;
+          border-radius: 12px;
+          background: #fafbfc;
+        }
+        .campaign-bp-page .bp-setup-card__icon {
+          flex-shrink: 0;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: #e8f3e9;
+          color: #3f9f42;
+        }
+        .campaign-bp-page .bp-setup-card__text {
+          flex: 1;
+          min-width: 0;
+        }
+        .campaign-bp-page .bp-setup-card__title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #0b1220;
+        }
+        .campaign-bp-page .bp-setup-card__subtitle {
+          font-size: 12.5px;
+          color: #6b7280;
+          margin-top: 2px;
+        }
+        .campaign-bp-page .bp-setup-badge {
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 999px;
+          font-size: 12.5px;
+          font-weight: 600;
+        }
+        .campaign-bp-page .bp-setup-badge--done {
+          background: #e8f3e9;
+          color: #2d7a30;
+        }
+        .campaign-bp-page .bp-setup-card__btn {
+          flex-shrink: 0;
+          height: auto;
+          padding: 8px 14px;
+          font-size: 12.5px;
+          border-radius: 8px;
         }
         @media (max-width: 768px) {
           .campaign-bp-page .bp-row {

@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus, faCircleCheck } from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faCircleCheck, faUsers, faFileLines, faPaperPlane } from "@fortawesome/free-solid-svg-icons";
 import kraftEmailNewImage from "../../assets/images/Kraft_email_no_campgain.png";
 import kraftEmailNoCampaignImage from "../../assets/images/Kraft_email_no_campgain.png";
 import "./Output.new.css";
@@ -93,22 +93,25 @@ export const KraftEmailEmptyState: React.FC<{
   const steps = [
     {
       done: hasContacts,
-      doneLabel: "Contacts added",
-      todoLabel: "No contacts added",
+      icon: faUsers,
+      title: "At least one contact",
+      subtitle: "Add or import contacts to build your audience.",
       addLabel: "Add contacts",
       onAdd: () => navigate("/main?tab=DataCampaigns&subtab=List"),
     },
     {
       done: hasBlueprint,
-      doneLabel: "Blueprint added",
-      todoLabel: "No blueprints added",
+      icon: faFileLines,
+      title: "At least one blueprint",
+      subtitle: "Create a blueprint to use AI and its wisdom for your emails.",
       addLabel: "Add blueprint",
       onAdd: () => navigate("/main?tab=TestTemplate"),
     },
     {
       done: hasCampaign,
-      doneLabel: "Campaign added",
-      todoLabel: "No campaigns added",
+      icon: faPaperPlane,
+      title: "At least one campaign",
+      subtitle: "Link contacts and a blueprint together in a campaign.",
       addLabel: "Add campaign",
       onAdd: () => navigate("/main?tab=Campaigns"),
     },
@@ -130,20 +133,24 @@ export const KraftEmailEmptyState: React.FC<{
 
               <div className="ke-setup-checklist">
                 {steps.map((step) => (
-                  <div key={step.addLabel} className="ke-setup-row">
+                  <div key={step.addLabel} className="ke-setup-card">
+                    <span className="ke-setup-card__icon">
+                      <FontAwesomeIcon icon={step.icon} />
+                    </span>
+                    <div className="ke-setup-card__text">
+                      <div className="ke-setup-card__title">{step.title}</div>
+                      <div className="ke-setup-card__subtitle">{step.subtitle}</div>
+                    </div>
                     {step.done ? (
-                      <span className="ke-setup-status ke-setup-status--done">
-                        <FontAwesomeIcon icon={faCircleCheck} className="ke-setup-tick" />
-                        {step.doneLabel}: YES
+                      <span className="ke-setup-badge ke-setup-badge--done">
+                        <FontAwesomeIcon icon={faCircleCheck} />
+                        Completed
                       </span>
                     ) : (
-                      <>
-                        <span className="ke-setup-status">{step.todoLabel}</span>
-                        <button className="btn-default" onClick={step.onAdd}>
-                          <FontAwesomeIcon icon={faPlus} />
-                          {step.addLabel}
-                        </button>
-                      </>
+                      <button className="btn-default ke-setup-card__btn" onClick={step.onAdd}>
+                        <FontAwesomeIcon icon={faPlus} />
+                        {step.addLabel}
+                      </button>
                     )}
                   </div>
                 ))}
