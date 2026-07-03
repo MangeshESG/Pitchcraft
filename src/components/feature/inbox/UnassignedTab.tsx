@@ -756,6 +756,9 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                     .replace(/v\\:\*|o\\:\*|w\\:\*/g, '')
                     .replace(/behavior:url\([^)]*\)/g, '')
                     .replace(/mso-[^;:]*:[^;]*/gi, '')
+                    .replace(/\bRead more:\s*/gi, '')
+                    .replace(/\bLIKE\s+\d+\b/gi, '')
+                    .replace(/https?:\/\/\S+/gi, '')
                     .replace(/\s+/g, ' ')
                     .trim();
                   
