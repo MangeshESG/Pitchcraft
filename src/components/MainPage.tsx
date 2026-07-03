@@ -1935,6 +1935,22 @@ const resolvePromptSafely = async () => {
       const instructionTemplate =
         promptConfig?.webSearchInstructions || instructionsParamA || "";
       const pv = (promptConfig?.placeholderValues || {}) as Record<string, any>;
+
+      // If personalization search is explicitly disabled on the blueprint,
+      // skip the web search API entirely and generate the email directly.
+      const personalizationSearch = (pv.use_personalization_search ?? "")
+        .toString()
+        .trim()
+        .toLowerCase();
+      if (personalizationSearch === "no") {
+        return {
+          promptText: promptText.replace("{web_searched_data}", ""),
+          webSearchData: "",
+          searchResults: [] as string[],
+          usage: { totalTokens: 0, currentCost: 0 },
+        };
+      }
+
       const webSearchReplacements = {
         ...pv,
         // alias: prompt templates may use {hook} while blueprints store hook_search_terms
