@@ -1313,6 +1313,31 @@ const handleDeleteContacts = () => {
     }));
   };
 
+  // Fetch the set of unsubscribed emails for this client so the client-side
+  // view path excludes them exactly like the backend `view-contacts` endpoint
+  // does. Best-effort: if the endpoint is missing we return an empty set and
+  // fall back to the previous behaviour rather than breaking the view.
+  const fetchUnsubscribedEmails = async (): Promise<Set<string>> => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/unsubscribed-emails-by-client?clientId=${clientId}`
+      );
+      if (!response.ok) {
+        return new Set();
+      }
+      const data = await response.json();
+      const emails: any[] = Array.isArray(data) ? data : data?.emails ?? [];
+      return new Set(
+        emails
+          .map((email) => String(email ?? "").trim().toLowerCase())
+          .filter((email) => email.length > 0)
+      );
+    } catch (error) {
+      console.warn("Failed to load unsubscribed emails:", error);
+      return new Set();
+    }
+  };
+
   const fetchViewContactsData = async (
     view: ViewItem
   ): Promise<{ contacts: any[]; metaMissing: boolean; contactCount: number }> => {
@@ -1447,7 +1472,18 @@ const handleDeleteContacts = () => {
     });
 
     const mergedList = Array.from(mergedMap.values());
-    const filtered = await applySavedFilters(mergedList, view.filtersJson);
+
+    // Exclude unsubscribed contacts to match the backend view-contacts count.
+    const unsubscribedEmails = await fetchUnsubscribedEmails();
+    const subscribedList =
+      unsubscribedEmails.size === 0
+        ? mergedList
+        : mergedList.filter((contact) => {
+            const email = String(contact.email ?? "").trim().toLowerCase();
+            return email.length === 0 || !unsubscribedEmails.has(email);
+          });
+
+    const filtered = await applySavedFilters(subscribedList, view.filtersJson);
     const decorated = await decorateContactsWithTrackingState(
       filtered,
       view.filtersJson
