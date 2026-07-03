@@ -11,7 +11,7 @@ import CommonSidePanel from "../common/CommonSidePanel";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import "./blueprint/Template.new.css";
 import { BpBanner } from "./blueprint/BpBanner";
-import campaignIllustration from "../../assets/images/campaign-illustration.png";
+import campaignIllustration from "../../assets/images/Campgains_old_user.png";
 import campaignIllustration2 from "../../assets/images/Campgains_old_user.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlay, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
@@ -61,7 +61,7 @@ interface Prompt {
 }
 
 interface Campaign {
-  id: number;
+   id: number;
   campaignName: string;
   promptId: number;
   clientId: number;

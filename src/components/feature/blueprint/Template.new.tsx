@@ -23,7 +23,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { Tooltip } from "react-tooltip";
 import blueprintNewUserImage from "../../../assets/images/blueprint_new_user.png";
-import blueprintOldUserImage from "../../../assets/images/blueprint_old_user.png";
+import blueprintOldUserImage from "../../../assets/images/blueprint_new_user.png";
 import { BpBanner } from "./BpBanner";
 
 interface CampaignTemplate {
