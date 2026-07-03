@@ -191,7 +191,7 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
               <div>
                 <div className="tracking-row__title">Email tracking</div>
                 <div className="tracking-row__sub">
-                  Track opens and clicks for campaign emails sent to contacts.
+                  Track opens and clicks for emails sent to contacts.
                 </div>
               </div>
             </div>

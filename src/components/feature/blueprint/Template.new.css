@@ -332,6 +332,22 @@
   transition: background 0.15s;
 }
 .bp-btn-banner-primary:hover { background: var(--bp-brand-d); }
+.bp-btn-banner-default {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--btn-default-bg);
+  color: var(--btn-default-fg);
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--btn-default-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.bp-btn-banner-default:hover { background: var(--btn-default-bg-hover); }
 .bp-btn-banner-ghost {
   height: 36px;
   padding: 0 14px;

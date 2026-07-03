@@ -5,6 +5,7 @@ interface BpBannerProps {
   subtitle: React.ReactNode;
   primaryLabel: string;
   primaryIcon?: React.ReactNode;
+  primaryClassName?: string;
   onPrimaryClick: () => void;
   secondaryLabel?: string;
   secondaryIcon?: React.ReactNode;
@@ -20,6 +21,7 @@ export const BpBanner: React.FC<BpBannerProps> = ({
   subtitle,
   primaryLabel,
   primaryIcon,
+  primaryClassName = "bp-btn-banner-primary",
   onPrimaryClick,
   secondaryLabel,
   secondaryIcon,
@@ -34,7 +36,7 @@ export const BpBanner: React.FC<BpBannerProps> = ({
           <div className="bp-banner__title">{title}</div>
           <div className="bp-banner__sub">{subtitle}</div>
           <div className="bp-banner__actions">
-            <button className="bp-btn-banner-primary" onClick={onPrimaryClick}>
+            <button className={primaryClassName} onClick={onPrimaryClick}>
               {primaryIcon}
               {primaryLabel}
             </button>

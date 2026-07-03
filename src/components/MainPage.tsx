@@ -2457,7 +2457,17 @@ const resolvePromptSafely = async () => {
         setAllResponses(prev =>
           prev.map(r =>
             r.id === entry.id
-              ? { ...r, pitch: displayPitch, subject: subjectLine }
+              ? {
+                  ...r,
+                  pitch: displayPitch,
+                  subject: subjectLine,
+                  // Refresh the "Krafted" date to reflect this regeneration,
+                  // mirroring the normal generation flow. Only when the DB
+                  // update succeeded so we don't show a false save time.
+                  ...(updateSucceeded
+                    ? { lastemailupdateddate: new Date().toISOString() }
+                    : {}),
+                }
               : r,
           ),
         );

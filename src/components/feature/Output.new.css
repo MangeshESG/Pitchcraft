@@ -166,6 +166,69 @@
   margin-top: 16px;
 }
 
+/* ---------------------- SETUP CHECKLIST ---------------------- */
+.ke-setup-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+  max-width: 620px;
+}
+.ke-setup-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--ke-line);
+  border-radius: 12px;
+  background: var(--ke-bg);
+}
+.ke-setup-card__icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ke-brand-200);
+  color: var(--ke-brand);
+  font-size: 16px;
+}
+.ke-setup-card__text {
+  flex: 1;
+  min-width: 0;
+}
+.ke-setup-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ke-ink);
+}
+.ke-setup-card__subtitle {
+  font-size: 12.5px;
+  color: var(--ke-ink-faint);
+  margin-top: 2px;
+}
+.ke-setup-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.ke-setup-badge--done {
+  background: var(--ke-brand-200);
+  color: var(--ke-brand-d);
+}
+.ke-setup-card__btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  font-size: 12.5px;
+}
+
 /* ---------------------- FEATURES LIST ---------------------- */
 .ke-feature-list {
   display: flex;

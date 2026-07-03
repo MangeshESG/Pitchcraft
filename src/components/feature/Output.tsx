@@ -24,10 +24,9 @@ import ReactMarkdown from "react-markdown";
 import toggleOn from "../../assets/images/on-button.png";
 import toggleOff from "../../assets/images/off-button.png";
 import DOMPurify from "dompurify";
-import { faAngleRight, faAngleLeft, faCircleRight } from "@fortawesome/free-solid-svg-icons";
+import { faAngleRight, faAngleLeft, faCircleRight, faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import LoadingSpinner from "../common/LoadingSpinner";
-import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus    } from "@fortawesome/free-regular-svg-icons";
+import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus,faBell    } from "@fortawesome/free-regular-svg-icons";
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 import { KraftEmailEmptyState, KraftLoadingState, KraftCampaignSelectState } from "./Output.new";
 import { repairAndParseJsonObject } from "../../utils/jsonRepair";
@@ -673,7 +672,10 @@ const Output: React.FC<OutputInterface> = ({
     return fallback;
   };
 
-  const getWebSearchDisplayText = (value: any) => {
+  const getWebSearchDisplayText = (
+    value: any,
+    fallback = "No online research available.",
+  ) => {
     const normalizedValue =
       value?.webSearchData ||
       value?.WebSearchData ||
@@ -681,10 +683,7 @@ const Output: React.FC<OutputInterface> = ({
       value?.Summary ||
       value;
 
-    return getDisplayText(
-      normalizedValue,
-      "No online research available.",
-    )
+    return getDisplayText(normalizedValue, fallback)
       .replace(/\\n/g, "\n")
       .replace(
         /\((?!\[|https?:\/\/)([a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s)]*)?)\)/gi,
@@ -851,6 +850,28 @@ const Output: React.FC<OutputInterface> = ({
     return <pre style={commonStyle}>{text}</pre>;
   };
 
+  // Consistent-font empty state shown when an insight tab has no information.
+  const renderEmptyInsight = (message: string) => (
+    <div className="form-group">
+      <div className="d-flex mb-10"></div>
+      <div
+        style={{
+          width: "100%",
+          padding: "10px",
+          border: "1px solid #ccc",
+          borderRadius: "4px",
+          fontFamily: "inherit",
+          fontSize: "inherit",
+          lineHeight: 1.45,
+          color: "#374151",
+          boxSizing: "border-box",
+        }}
+      >
+        {message}
+      </div>
+    </div>
+  );
+
   const renderInsightPre = (
     text: string,
     modalId: string,
@@ -978,30 +999,49 @@ const Output: React.FC<OutputInterface> = ({
       ? currentInsights
       : {};
 
+  // Empty-state messages shown (in a consistent font) when an insight tab has
+  // no information that was used in the krafting of the email.
+  const EMPTY_ONLINE_RESEARCH =
+    "These insights are generated when krafting emails and then saved in the relevant contact.";
+  const EMPTY_NOTES =
+    "No notes were used in the krafting of the email. There may be no notes added for this contact, they may not have been set to include in personalization or they may not be useful in krafting this email.";
+  const EMPTY_EMAILS =
+    "No emails were used in the krafting of the email. There may be no email communications for this contact or they may not be useful in krafting this email.";
+  const EMPTY_PROFESSIONAL_SUMMARY =
+    "No professional summary information was used in the krafting of the email. There may be no professional summary for this contact or it may not be useful in krafting this email.";
+
   const onlineResearchText = getWebSearchDisplayText(
     normalizedInsights.webSearchData ||
       normalizedInsights.webSearchResponse ||
       normalizedInsights.searchResults ||
       everyscrapedData[currentIndex] ||
       currentInsights,
+    EMPTY_ONLINE_RESEARCH,
   );
   const notesUsedText = getDisplayText(
     normalizedInsights.notes ||
       allSearchTermBodies[currentIndex] ||
       currentContact.notes,
-    "No notes were used for personalization.",
+    EMPTY_NOTES,
   );
   const emailInsightText = getDisplayText(
     normalizedInsights.emailContext || currentContact.use_email,
-    "No email context available.",
+    EMPTY_EMAILS,
   );
   const linkedinInsightText = getDisplayText(
     normalizedInsights.linkedinInfo ||
       allsummery[currentIndex] ||
       currentContact.linkedin_info ||
       currentContact.linkedIninformation,
-    "No LinkedIn information available.",
+    EMPTY_PROFESSIONAL_SUMMARY,
   );
+
+  // Whether each insight tab actually has information (vs. the empty message).
+  const hasOnlineResearch = onlineResearchText !== EMPTY_ONLINE_RESEARCH;
+  const hasNotes = notesUsedText !== EMPTY_NOTES;
+  const hasEmails = emailInsightText !== EMPTY_EMAILS;
+  const hasProfessionalSummary =
+    linkedinInsightText !== EMPTY_PROFESSIONAL_SUMMARY;
 
   // Update the useEffect that sets combinedResponses to also store the original
   // In the second useEffect that notifies parent of initial data
@@ -1548,6 +1588,45 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     console.log("Effective User ID:", effectiveUserId);
   }, [reduxUserId, effectiveUserId]);
 
+  // Detect onboarding completeness for the Kraft-email empty-state checklist
+  // (whether the client has any contacts / blueprints). Mirrors Dashboard.tsx.
+  const [hasContacts, setHasContacts] = useState(false);
+  const [hasBlueprint, setHasBlueprint] = useState(false);
+
+  useEffect(() => {
+    if (!effectiveUserId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [templatesRes, dataFilesRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}`).then(
+            (r) => (r.ok ? r.json() : [])
+          ),
+          fetch(
+            `${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${effectiveUserId}`
+          ).then((r) => (r.ok ? r.json() : [])),
+        ]);
+        const templateList = Array.isArray(templatesRes?.templates)
+          ? templatesRes.templates
+          : Array.isArray(templatesRes)
+          ? templatesRes
+          : [];
+        const realFiles = Array.isArray(dataFilesRes)
+          ? dataFilesRes.filter((f: any) => f.id !== -1 && f.id !== "-1")
+          : [];
+        if (!cancelled) {
+          setHasBlueprint(templateList.length > 0);
+          setHasContacts(realFiles.length > 0);
+        }
+      } catch {
+        // ignore — checklist simply shows the items as not-done
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveUserId]);
+
   const getCampaignSourceLabel = (campaign?: Campaign) => {
     if (!campaign) return "Source";
     if (campaign.dataSource === "Segment" && campaign.segmentName) return campaign.segmentName;
@@ -1613,6 +1692,24 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
       fetchSmtpUsers();
     }
   }, [effectiveUserId, token]);
+
+  // Prepend a timestamped, colored line to the shared output log (the same
+  // "small part" banner used for email generation) so email-send progress and
+  // errors are shown there too.
+  const appendSendLog = (
+    message: string,
+    color: "green" | "red" | "orange" | "blue" = "green",
+  ) => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const stamp = `${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    setOutputForm((prev: any) => ({
+      ...prev,
+      generatedContent:
+        `<span style="color: ${color}">[${stamp}] ${message}</span><br/>` +
+        (prev.generatedContent || ""),
+    }));
+  };
 
   const handleSendEmail = async (
     subjectFromButton: string,
@@ -1693,6 +1790,11 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
       toast.success("Email sent successfully!");
 
+      appendSendLog(
+        `Sent email successfully to contact ${currentContact.name || "N/A"} with company name ${currentContact.company || "N/A"} and email address ${currentContact.email || "N/A"}`,
+        "green",
+      );
+
       // Update the contact's email sent status
 
       try {
@@ -1754,6 +1856,12 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
         setEmailMessage("");
       }, 2000);
     } catch (err) {
+      const failedContact = targetContact || combinedResponses[currentIndex];
+      appendSendLog(
+        `Failed to send email to contact ${failedContact?.name || "N/A"} with company name ${failedContact?.company || "N/A"} and email address ${failedContact?.email || "N/A"}`,
+        "red",
+      );
+
       if (axios.isAxiosError(err)) {
         const errorMessage =
           err.response?.data?.message ||
@@ -2132,6 +2240,11 @@ const sleepWithCountdown = async (ms: number) => {
 
         sentCount++;
 
+        appendSendLog(
+          `Sent email successfully to contact ${contact.name || "N/A"} with company name ${contact.company || "N/A"} and email address ${contact.email || "N/A"}`,
+          "green",
+        );
+
         // UPDATE local state for this contact
 
         const updatedItem = {
@@ -2184,6 +2297,11 @@ const sleepWithCountdown = async (ms: number) => {
         }
       } catch (err) {
         console.error(`Error sending email to ${contact.email}:`, err);
+
+        appendSendLog(
+          `Failed to send email to contact ${contact.name || "N/A"} with company name ${contact.company || "N/A"} and email address ${contact.email || "N/A"}`,
+          "red",
+        );
 
         if (axios.isAxiosError(err)) {
           console.error("API Error:", err.response?.data);
@@ -2336,7 +2454,14 @@ useEffect(() => {
 
 
   if (safeCampaigns.length === 0) {
-    return <KraftEmailEmptyState onGoToBlueprints={onGoToBlueprints} />;
+    return (
+      <KraftEmailEmptyState
+        onGoToBlueprints={onGoToBlueprints}
+        hasContacts={hasContacts}
+        hasBlueprint={hasBlueprint}
+        hasCampaign={safeCampaigns.length > 0}
+      />
+    );
   }
 
   const selectedCampaignDetails = safeCampaigns.find((c) => String(c?.id) === selectedCampaign);
@@ -2357,7 +2482,7 @@ useEffect(() => {
       <div className="flex items-start justify-between pt-4 pb-4 px-6">
         <div>
           <h1 className="text-[26px] font-bold text-[#111827] leading-tight">Kraft emails</h1>
-          <p className="text-[13.5px] mt-1" style={{ color: '#6b7280' }}>Design and personalize impactful emails for each contact</p>
+          
         </div>
         <div className="flex items-center gap-3">
           {userRole === "ADMIN" && usageData && (
@@ -2370,16 +2495,11 @@ useEffect(() => {
           <div className="flex items-center">
             <ReactTooltip anchorSelect="#download-data-tooltip" place="top">Download all loaded emails to a spreadsheet</ReactTooltip>
             <a href="#" id="download-data-tooltip" onClick={(e) => { e.preventDefault(); if (!isExporting && combinedResponses.length > 0) { exportToExcel(); } }} className="export-link green flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22px" height="22px" viewBox="0 0 24 24">
-                <g id="Complete"><g id="download"><g>
-                  <path d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7" fill="none" stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
-                  <g><polyline data-name="Right" fill="none" id="Right-2" points="7.9 12.3 12 16.3 16.1 12.3" stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/><line fill="none" stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" x1="12" x2="12" y1="2.7" y2="14.2"/></g>
-                </g></g></g>
-              </svg>
+              <FontAwesomeIcon icon={faDownload} style={{ color: "#3f9f42", fontSize: 18 }} />
             </a>
           </div>
-          <div className="flex items-center cursor-pointer" title={isSoundEnabled ? "Sound ON" : "Sound OFF"} onClick={() => setIsSoundEnabled((prev) => !prev)}>
-            <span style={{ color: "#3f9f42", fontWeight: 500, fontSize: "20px" }}>🔔</span>
+          <div className="flex items-center gap-2 cursor-pointer" title={isSoundEnabled ? "Sound ON" : "Sound OFF"} onClick={() => setIsSoundEnabled((prev) => !prev)}>
+            <FontAwesomeIcon icon={faBell} style={{ color: "#3f9f42", fontSize: 18 }} />
             <img src={isSoundEnabled ? toggleOn : toggleOff} alt="Sound Toggle" style={{ height: "28px", width: "32px" }}/>
           </div>
         </div>
@@ -2392,9 +2512,6 @@ useEffect(() => {
           <div className="bg-white rounded-2xl border p-5" style={{ borderColor: '#e8eaee' }}>
             {/* Campaign section */}
             <div className="mb-3">
-              <label className="text-[12px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: '#6b7280' }}>
-                Campaign <span style={{ color: '#ef4444' }}>*</span>
-              </label>
               <div className="flex items-center gap-2">
                 <div className="form-group !mb-0 flex-1">
                   <select
@@ -2420,110 +2537,6 @@ useEffect(() => {
                     <small className="error-text">Select a campaign</small>
                   )}
                 </div>
-                {selectedCampaign && (
-                  <>
-                    <ReactTooltip
-                      anchorSelect="#refresh-campaign-tooltip"
-                      place="top"
-                      positionStrategy="fixed"
-                      style={{ zIndex: 99999 }}
-                    >
-                      Refresh campaign
-                    </ReactTooltip>
-                    <button
-                      id="refresh-campaign-tooltip"
-                      className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
-                      style={{ borderColor: '#e8eaee' }}
-                      onClick={async () => {
-                        const indexToPreserve = currentIndex;
-                        sessionStorage.setItem("refreshTargetIndex", indexToPreserve.toString());
-                        sessionStorage.removeItem("selectedPrompt");
-                        sessionStorage.removeItem("campaignSubjectConfig");
-                        setJumpToNewLast(false);
-                        setCombinedResponses([]);
-                        setAllResponses([]);
-                        setexistingResponse([]);
-                        setSelectedPrompt?.(null);
-                        setCurrentIndex(0);
-                        handleCampaignChange?.({
-                          target: { value: selectedCampaign },
-                        } as React.ChangeEvent<HTMLSelectElement>);
-                      }}
-                      aria-label="Refresh campaign"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18px" height="18px" viewBox="0 0 16 16" fill="none">
-                        <g fill="#3f9f42"><path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/></g>
-                      </svg>
-                    </button>
-                    {(selectedCampaignDetails?.zohoViewId || selectedCampaignDetails?.segmentId || selectedCampaignDetails?.dataSource) && (
-                      <>
-                        <ReactTooltip
-                          anchorSelect="#go-source-tooltip"
-                          place="top"
-                          positionStrategy="fixed"
-                          style={{ zIndex: 99999 }}
-                        >
-                          Edit {getCampaignSourceLabel(selectedCampaignDetails)}
-                        </ReactTooltip>
-                        <button
-                          id="go-source-tooltip"
-                          className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
-                          style={{ borderColor: '#e8eaee' }}
-                          onClick={() => handleCampaignSourceClick(selectedCampaignDetails)}
-                          aria-label={`Edit ${getCampaignSourceLabel(selectedCampaignDetails)}`}
-                        >
-                          <FontAwesomeIcon icon={faCircleRight} style={{ color: "#3f9f42", fontSize: 18 }} />
-                        </button>
-                      </>
-                    )}
-                    {selectedCampaignDetails?.templateId && (
-                      <>
-                        <ReactTooltip
-                          anchorSelect="#edit-blueprint-tooltip"
-                          place="top"
-                          positionStrategy="fixed"
-                          style={{ zIndex: 99999 }}
-                        >
-                          Edit this campaign's blueprint
-                        </ReactTooltip>
-                        <button
-                          id="edit-blueprint-tooltip"
-                          className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
-                          style={{ borderColor: '#e8eaee' }}
-                          onClick={async () => {
-                            const campaign = selectedCampaignDetails;
-                            if (campaign?.templateId) {
-                              try {
-                                const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`);
-                                if (response.ok) {
-                                  const fullTemplate = await response.json();
-                                  const example = fullTemplate?.placeholderValues?.example_output_email || "";
-                                  if (fullTemplate.placeholderValues) {
-                                    sessionStorage.setItem("campaign_placeholder_values", JSON.stringify(fullTemplate.placeholderValues));
-                                  }
-                                  sessionStorage.setItem("editTemplateId", campaign.templateId.toString());
-                                  sessionStorage.setItem("editTemplateMode", "true");
-                                  sessionStorage.setItem("newCampaignId", campaign.templateId.toString());
-                                  sessionStorage.setItem("newCampaignName", fullTemplate.templateName || campaign.campaignName);
-                                  sessionStorage.setItem("initialExampleEmail", example);
-                                  if (fullTemplate.templateDefinitionId) {
-                                    sessionStorage.setItem("selectedTemplateDefinitionId", fullTemplate.templateDefinitionId.toString());
-                                  }
-                                  window.dispatchEvent(new CustomEvent("switchToBlueprint", { detail: { templateId: campaign.templateId } }));
-                                }
-                              } catch (error) {
-                                console.error("Error loading blueprint:", error);
-                              }
-                            }
-                          }}
-                          aria-label="Edit this campaign's blueprint"
-                        >
-                          <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", fontSize: 18 }}/>
-                        </button>
-                      </>
-                    )}
-                  </>
-                )} 
               </div>
               {selectedCampaign && selectedCampaignDetails?.description && (
                 <small className="campaign-description mt-1 block text-[12px]" style={{ color: '#6b7280' }}>
@@ -2534,8 +2547,111 @@ useEffect(() => {
 
             {/* Campaign banner */}
             {selectedCampaign ? (
-              <div className="flex items-center gap-2 rounded-lg px-3 py-2 mb-4 text-[13px] font-medium" style={{ background: '#e8f3e9', border: '1px solid #b3d9b4', color: '#2d7a30' }}>
-                ✓ Campaign loaded
+              <div className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 mb-4 text-[13px] font-medium" style={{ background: 'transparent', color: '#2d7a30' }}>
+                <span className="flex items-center gap-2">✓ Campaign loaded</span>
+                {/* Grouped, right-aligned campaign action icons */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <ReactTooltip
+                    anchorSelect="#refresh-campaign-tooltip"
+                    place="top"
+                    positionStrategy="fixed"
+                    style={{ zIndex: 99999 }}
+                  >
+                    Refresh campaign
+                  </ReactTooltip>
+                  <button
+                    id="refresh-campaign-tooltip"
+                    className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
+                    style={{ borderColor: '#e8eaee', background: '#ffffff' }}
+                    onClick={async () => {
+                      const indexToPreserve = currentIndex;
+                      sessionStorage.setItem("refreshTargetIndex", indexToPreserve.toString());
+                      sessionStorage.removeItem("selectedPrompt");
+                      sessionStorage.removeItem("campaignSubjectConfig");
+                      setJumpToNewLast(false);
+                      setCombinedResponses([]);
+                      setAllResponses([]);
+                      setexistingResponse([]);
+                      setSelectedPrompt?.(null);
+                      setCurrentIndex(0);
+                      handleCampaignChange?.({
+                        target: { value: selectedCampaign },
+                      } as React.ChangeEvent<HTMLSelectElement>);
+                    }}
+                    aria-label="Refresh campaign"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18px" height="18px" viewBox="0 0 16 16" fill="none">
+                      <g fill="#3f9f42"><path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/></g>
+                    </svg>
+                  </button>
+                  {(selectedCampaignDetails?.zohoViewId || selectedCampaignDetails?.segmentId || selectedCampaignDetails?.dataSource) && (
+                    <>
+                      <ReactTooltip
+                        anchorSelect="#go-source-tooltip"
+                        place="top"
+                        positionStrategy="fixed"
+                        style={{ zIndex: 99999 }}
+                      >
+                        Edit {getCampaignSourceLabel(selectedCampaignDetails)}
+                      </ReactTooltip>
+                      <button
+                        id="go-source-tooltip"
+                        className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
+                        style={{ borderColor: '#e8eaee', background: '#ffffff' }}
+                        onClick={() => handleCampaignSourceClick(selectedCampaignDetails)}
+                        aria-label={`Edit ${getCampaignSourceLabel(selectedCampaignDetails)}`}
+                      >
+                        <FontAwesomeIcon icon={faCircleRight} style={{ color: "#3f9f42", fontSize: 18 }} />
+                      </button>
+                    </>
+                  )}
+                  {selectedCampaignDetails?.templateId && (
+                    <>
+                      <ReactTooltip
+                        anchorSelect="#edit-blueprint-tooltip"
+                        place="top"
+                        positionStrategy="fixed"
+                        style={{ zIndex: 99999 }}
+                      >
+                        Edit this campaign's blueprint
+                      </ReactTooltip>
+                      <button
+                        id="edit-blueprint-tooltip"
+                        className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
+                        style={{ borderColor: '#e8eaee', background: '#ffffff' }}
+                        onClick={async () => {
+                          const campaign = selectedCampaignDetails;
+                          if (campaign?.templateId) {
+                            try {
+                              const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`);
+                              if (response.ok) {
+                                const fullTemplate = await response.json();
+                                const example = fullTemplate?.placeholderValues?.example_output_email || "";
+                                if (fullTemplate.placeholderValues) {
+                                  sessionStorage.setItem("campaign_placeholder_values", JSON.stringify(fullTemplate.placeholderValues));
+                                }
+                                sessionStorage.setItem("editTemplateId", campaign.templateId.toString());
+                                sessionStorage.setItem("editTemplateMode", "true");
+                                sessionStorage.setItem("newCampaignId", campaign.templateId.toString());
+                                sessionStorage.setItem("newCampaignName", fullTemplate.templateName || campaign.campaignName);
+                                sessionStorage.setItem("initialExampleEmail", example);
+                                if (fullTemplate.templateDefinitionId) {
+                                  sessionStorage.setItem("selectedTemplateDefinitionId", fullTemplate.templateDefinitionId.toString());
+                                }
+                                window.dispatchEvent(new CustomEvent("switchToBlueprint", { detail: { templateId: campaign.templateId } }));
+                              }
+                            } catch (error) {
+                              console.error("Error loading blueprint:", error);
+                            }
+                          }
+                        }}
+                        aria-label="Edit this campaign's blueprint"
+                      >
+                        <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", fontSize: 18 }}/>
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-2 rounded-lg px-3 py-2 mb-4 text-[13px]" style={{ background: '#eef6ff', border: '1px solid #cfe0ff', color: '#1e40af' }}>
@@ -2704,9 +2820,9 @@ useEffect(() => {
             )}
 
             {/* Pager navigation + tab bar */}
-            <div className="px-6 pt-5">
+            <div className="px-6 pt-3">
             {/* Wrapper for navigation + contact index */}
-            <div className="d-flex align-items-center gap mt-[26px] gap-3">
+            <div className="d-flex align-items-center gap gap-3">
               {/* Navigation buttons */}
               <div className="d-flex align-items-center gap-1">
                 <button
@@ -2887,22 +3003,7 @@ useEffect(() => {
                 </div>
                 {tab2 === "Output" && (
                   <>
-                    <div className="form-group mb-0">
-                      {/* <div className="d-flex mb-10 align-items-center">
-            {userRole === "ADMIN" && (
-              <button
-                className="button clear-button small d-flex align-center"
-                onClick={clearContent}
-              >
-                <span>Clear output</span>
-              </button>
-            )}
-          </div> */}
-                      <p>
-                        The Output tab shows the contact details and dynamic fields
-                        for review before sending the email.
-                      </p>
-                    </div>
+
                     <div className="form-group mb-0 mt-2">
                       <div className="d-flex justify-between w-full">
                         <div
@@ -2933,11 +3034,7 @@ useEffect(() => {
                           </span>
                           {combinedResponses[currentIndex]?.location || "NA"}
                           <span style={{ whiteSpace: "pre" }}> </span>
-                          {/* <span className="inline-block relative top-[6px] mr-[3px]">
-                <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke="#3f9f42" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </span> */}
+
                           <ReactTooltip
                             anchorSelect="#website-icon-tooltip"
                             place="top"
@@ -3234,18 +3331,19 @@ useEffect(() => {
                           }}
                         >
                           {/* Subject field - 48% width */}
-                          <div style={{ flex: "0 0 100%"}}>
+                          <div style={{ flex: "0 0 100%", display: "flex", alignItems: "center", gap: "10px" }}>
                             <label
                               style={{
-                                display: "block",
-                                marginBottom: "8px",
+                                flexShrink: 0,
+                                marginBottom: "0",
                                 fontWeight: "600",
                                 fontSize: "14px",
+                                whiteSpace: "nowrap",
                               }}
                             >
                               Subject
                             </label>
-                            <div style={{ width: "100%" }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
                               {!isEditingSubject ? (
                                 /* READ MODE */
                                 <div
@@ -3579,8 +3677,8 @@ useEffect(() => {
                               }}
 
                             ></div>
-                            <div className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md">
-                              <div className="d-flex align-items-center justify-between flex-col-991">
+                            <div className="output-email-floated-icons floated-icons-green d-flex bg-[#ffffff] rounded-md">
+                              <div className="d-flex align-items-center justify-between flex-col-991" style={{ order: 1 }}>
                                 <div className="d-flex relative">
                                   <button
                                     onClick={() =>
@@ -4088,40 +4186,6 @@ useEffect(() => {
                               </>
                             </div>
 
-                            <button
-                              className="full-view-icon d-flex align-center justify-center"
-                              onClick={() => handleModalOpen("modal-output-2")}
-                            >
-                              <svg width="30px" height="30px" viewBox="0 0 512 512">
-                                <polyline
-                                  points="304 96 416 96 416 208"
-                                  fill="none"
-                                  stroke="#000000"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="32"
-                                />
-                                <line
-                                  x1="405.77"
-                                  y1="106.2"
-                                  x2="111.98"
-                                  y2="400.02"
-                                  fill="none"
-                                  stroke="#000000"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="32"
-                                />
-                                <polyline
-                                  points="208 416 96 416 96 304"
-                                  fill="none"
-                                  stroke="#000000"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="32"
-                                />
-                              </svg>
-                            </button>
                           </>
                         )}
                       </span>{" "}
@@ -4373,28 +4437,46 @@ useEffect(() => {
                     <div className="tabs secondary d-flex align-center ">
                       <ul className="d-flex full-width flex-wrap-991">
                         {[
-                          "Online research",
-                          "Notes",
-                          "Emails",
-                          "LinkedIn information",
+                          { key: "Online research", hasInfo: hasOnlineResearch },
+                          { key: "Notes", hasInfo: hasNotes },
+                          { key: "Emails", hasInfo: hasEmails },
+                          {
+                            key: "Professional summary",
+                            hasInfo: hasProfessionalSummary,
+                          },
                         ].map((insightTab) => (
                           <li
-                            key={insightTab}
+                            key={insightTab.key}
                             className="flex-25percent-991 flex-full-640"
                           >
                             <button
-                              onClick={tabHandler3}
+                              onClick={() => setTab3(insightTab.key)}
                               className={`button full-width ${
-                                tab3 === insightTab ? "active" : ""
+                                tab3 === insightTab.key ? "active" : ""
                               }`}
                             >
-                              {insightTab}
+                              {insightTab.key}
+                              {insightTab.hasInfo && (
+                                <sup
+                                  title="Information available"
+                                  style={{
+                                    color: "#3f9f42",
+                                    marginLeft: "3px",
+                                    fontSize: "0.85em",
+                                  }}
+                                >
+                                  ✓
+                                </sup>
+                              )}
                             </button>
                           </li>
                         ))}
                       </ul>
                     </div>
-                    {tab3 === "Online research" && (
+                    {tab3 === "Online research" &&
+                      (!hasOnlineResearch ? (
+                        renderEmptyInsight(onlineResearchText)
+                      ) : (
                       <div className="form-group">
                         <div className="d-flex mb-10"></div>
                         <span className="pos-relative d-flex justify-start">
@@ -4424,26 +4506,32 @@ useEffect(() => {
                           </button>
                         </span>
                       </div>
-                    )}
+                      ))}
                     {tab3 === "Notes" &&
-                      renderInsightPre(
-                        notesUsedText,
-                        "modal-output-insights-notes",
-                        "Notes used for personalization",
-                      )}
+                      (!hasNotes
+                        ? renderEmptyInsight(notesUsedText)
+                        : renderInsightPre(
+                            notesUsedText,
+                            "modal-output-insights-notes",
+                            "Notes used for personalization",
+                          ))}
                     {tab3 === "Emails" &&
-                      renderInsightPre(
-                        emailInsightText,
-                        "modal-output-insights-emails",
-                        "Emails",
-                        "html",
-                      )}
-                    {tab3 === "LinkedIn information" &&
-                      renderInsightPre(
-                        linkedinInsightText,
-                        "modal-output-insights-linkedin",
-                        "LinkedIn information",
-                      )}
+                      (!hasEmails
+                        ? renderEmptyInsight(emailInsightText)
+                        : renderInsightPre(
+                            emailInsightText,
+                            "modal-output-insights-emails",
+                            "Emails",
+                            "html",
+                          ))}
+                    {tab3 === "Professional summary" &&
+                      (!hasProfessionalSummary
+                        ? renderEmptyInsight(linkedinInsightText)
+                        : renderInsightPre(
+                            linkedinInsightText,
+                            "modal-output-insights-linkedin",
+                            "Professional summary",
+                          ))}
                   </>
                 )}
                 {/* Add this after the Output tab and before the Stages tab */}
@@ -4461,8 +4549,8 @@ useEffect(() => {
         {...appModal.config}
       />
 
-      {/* Email Sending Loader Modal */}
-      {sendingEmail && <LoadingSpinner message="Sending email..." />}
+      {/* Email sending state is shown inline on the Send button ("Sending...")
+          — no full-screen loader so the rest of the UI stays usable. */}
 
       {/* Notes Modal */}
       {showNotesModal && (
