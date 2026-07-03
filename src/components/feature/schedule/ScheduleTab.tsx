@@ -29,21 +29,33 @@ interface scheduleFetch {
   title: string;
   bccEmail?: string;
   scheduledDate: string;
-  scheduledTime: string;
+  scheduledTime: string | { ticks?: number };
   timeZone: string;
   smtpID: number;
   smtpName: string;
+  provider?: string;
   zohoviewName: string;
   zohoViewName: string;
   isSent: boolean;
   testIsSent: boolean;
   dataFileId: number | null;
   segmentId?: number | null;
+  campaignId?: number | null;
+  steps?: Array<{
+    scheduledDate?: string;
+    ScheduledDate?: string;
+    scheduledTime?: string | { ticks?: number };
+    ScheduledTime?: string | { ticks?: number };
+  }>;
 }
 
 interface SmtpUser {
   id: number;
-  username: string;
+  username?: string;
+  email?: string;
+  type?: string;
+  smtpType?: string;
+  provider?: string;
 }
 
 interface EmailEntry {
@@ -75,6 +87,28 @@ const asArray = <T,>(value: unknown): T[] => {
     }
   }
   return [];
+};
+
+const getCampaignId = (campaign: any) =>
+  campaign?.id ?? campaign?.Id ?? campaign?.campaignId ?? campaign?.CampaignId ?? "";
+
+const getCampaignName = (campaign: any) =>
+  String(
+    campaign?.campaignName ??
+      campaign?.CampaignName ??
+      campaign?.name ??
+      campaign?.Name ??
+      campaign?.title ??
+      campaign?.Title ??
+      ""
+  ).trim();
+
+const getCampaignLabel = (campaign: any) => {
+  const name = getCampaignName(campaign);
+  if (name) return name;
+
+  const id = getCampaignId(campaign);
+  return id ? `Campaign ${id}` : "Untitled campaign";
 };
 
 const timezoneOptions = [
@@ -300,12 +334,12 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
 
   useEffect(() => {
     axios
-      .get(`${API_BASE_URL}/api/email/get-SMTPUser?ClientId=${effectiveUserId}`, {
+      .get(`${API_BASE_URL}/api/email/get-Outboxs?clientId=${effectiveUserId}`, {
         headers: { ...(token && { Authorization: `Bearer ${token}` }) },
       })
-      .then((r) => setSmtpUsers(asArray<SmtpUser>(r.data)))
+      .then((r) => setSmtpUsers(asArray<SmtpUser>(r.data?.data || r.data)))
       .catch((err) => { if (!axios.isAxiosError(err)) console.error(err); });
-  }, [effectiveUserId]);
+  }, [effectiveUserId, token]);
 
   const fetchSchedule = async () => {
     try {
@@ -388,8 +422,8 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
     if (val) {
       const [type, id] = val.split("-");
       if (type === "campaign") {
-        const c = scheduleCampaigns.find((c) => c.id.toString() === id);
-        setSelectedScheduleFile({ id: c?.id || 0, name: c?.campaignName || "" });
+        const c = scheduleCampaigns.find((c) => String(getCampaignId(c)) === id);
+        setSelectedScheduleFile({ id: Number(getCampaignId(c)) || 0, name: c ? getCampaignLabel(c) : "" });
       }
       try { await fetchAndDisplayEmailBodies1(val.split("-")[1]); } catch { /* noop */ }
     }
@@ -413,8 +447,43 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
     setSelectedUser("");
   };
 
+  const formatTicksAsTime = (ticks?: number) => {
+    if (typeof ticks !== "number") return "";
+    const totalSeconds = Math.floor(ticks / 10000000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
+  };
+
+  const getScheduleStep = (item: any) => item.steps?.[0] || item.Steps?.[0] || null;
+
+  const getScheduledDateValue = (item: any) => {
+    const step = getScheduleStep(item);
+    return item.scheduledDate || item.ScheduledDate || step?.scheduledDate || step?.ScheduledDate || "";
+  };
+
+  const getScheduledTimeValue = (item: any) => {
+    const step = getScheduleStep(item);
+    const value = item.scheduledTime || item.ScheduledTime || step?.scheduledTime || step?.ScheduledTime || "";
+
+    if (value && typeof value === "object") {
+      return formatTicksAsTime(value.ticks ?? value.Ticks);
+    }
+
+    return value || "";
+  };
+
+  const getSmtpDisplayName = (user?: SmtpUser | null) => user?.email || user?.username || "";
+
   const handleSubmitSchedule = async (e: any) => {
     e.preventDefault();
+    if (!selectedUser) {
+      appModal.showError("Please select a From mailbox.");
+      return;
+    }
+
     if (!formData.scheduledDate || !formData.scheduledTime) {
       appModal.showError("Please select both scheduled date and time.");
       return;
@@ -425,7 +494,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
     const utcMoment = moment.tz(`${formData.scheduledDate}T${formData.scheduledTime}`, ianaTimezone).utc();
 
     const stepsPayload = [{
-      scheduledDate: utcMoment.format("YYYY-MM-DD"),
+      scheduledDate: utcMoment.toISOString(),
       scheduledTime: utcMoment.format("HH:mm:ss"),
     }];
 
@@ -436,24 +505,27 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
     let campaignId: number | null = null;
 
     if (type === "campaign") {
-      const c = scheduleCampaigns.find((c) => c.id.toString() === id);
-      selectedName = c?.campaignName || "";
-      campaignId = c?.id || null;
+      const c = scheduleCampaigns.find((c) => String(getCampaignId(c)) === id);
+      selectedName = c ? getCampaignLabel(c) : "";
+      campaignId = Number(getCampaignId(c)) || null;
       if (c?.dataSource === "DataFile") dataFileId = parseInt(c.zohoViewId) || null;
       else if (c?.dataSource === "Segment") segmentId = c.segmentId || null;
     }
 
+    const selectedSmtp = smtpUsers.find((u) => u.id === parseInt(selectedUser || "0"));
+
     const payload = {
       title: formData.title,
       zohoviewName: selectedName,
-      timeZone: formData.timeZone,
-      steps: stepsPayload,
+      testIsSent: false,
       smtpID: parseInt(selectedUser) || 0,
+      provider: selectedSmtp?.provider || selectedSmtp?.type || selectedSmtp?.smtpType || "",
+      timeZone: formData.timeZone,
       bccEmail: formData.bccEmail,
+      steps: stepsPayload,
       dataFileId,
       segmentId,
       campaignId,
-      testIsSent: false,
       isFollowUp,
     };
 
@@ -476,16 +548,14 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
   };
 
   const handleEditSchedule = (item: any) => {
+    const scheduledDate = getScheduledDateValue(item);
+    const scheduledTime = getScheduledTimeValue(item);
+
     setFormData({
       title: item.title || "",
       timeZone: item.timeZone || item.TimeZone || "",
-      scheduledDate:
-        (item.scheduledDate && item.scheduledDate.slice(0, 10)) ||
-        (item.ScheduledDate && item.ScheduledDate.slice(0, 10)) ||
-        (item.steps && item.steps[0]?.ScheduledDate) || "",
-      scheduledTime:
-        item.scheduledTime || item.ScheduledTime ||
-        (item.steps && item.steps[0]?.ScheduledTime) || "",
+      scheduledDate: scheduledDate ? scheduledDate.slice(0, 10) : "",
+      scheduledTime: scheduledTime ? scheduledTime.slice(0, 8) : "",
       EmailDeliver: item.EmailDeliver || "",
       bccEmail: item.bccEmail || "",
       smtpID: item.smtpID || "",
@@ -497,8 +567,8 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
       if (item.dataFileId && item.dataFileId > 0) return c.zohoViewId === item.dataFileId.toString();
       return false;
     });
-    if (matchingCampaign) setSelectedZohoviewId1(`campaign-${matchingCampaign.id}`);
-    setSelectedUser(item.smtpID);
+    if (matchingCampaign) setSelectedZohoviewId1(`campaign-${getCampaignId(matchingCampaign)}`);
+    setSelectedUser(item.smtpID ? item.smtpID.toString() : "");
     dispatch(openPanel("schedule-modal"));
   };
 
@@ -707,8 +777,10 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 ) : (
                   paginatedList.map((item, index) => {
                     const smtpUser = smtpUsers.find((u) => u.id === item.smtpID);
-                    const dateStr = item.scheduledDate ? item.scheduledDate.slice(0, 10) : "-";
-                    const timeStr = item.scheduledTime || "-";
+                    const scheduledDate = getScheduledDateValue(item);
+                    const scheduledTime = getScheduledTimeValue(item);
+                    const dateStr = scheduledDate ? scheduledDate.slice(0, 10) : "-";
+                    const timeStr = scheduledTime || "-";
 
                     return (
                       <div key={item.id ?? index} className="bp-row sch-row-grid">
@@ -718,7 +790,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                           {item.isSent && <span className="sch-sent-badge">Sent</span>}
                         </div>
                         <div className="bp-row__id">{item.zohoviewName || "-"}</div>
-                        <div className="bp-row__id">{smtpUser?.username || "-"}</div>
+                        <div className="bp-row__id">{getSmtpDisplayName(smtpUser) || item.smtpName || "-"}</div>
                         <div className="bp-row__date">
                           <span className="sch-date-line">
                             <CalendarCheck className="h-3 w-3 sch-date-icon" />
@@ -831,15 +903,19 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
               >
                 <option value="">Select campaign</option>
                 {scheduleCampaigns.length > 0
-                  ? scheduleCampaigns
+                  ? [...scheduleCampaigns]
+                      .filter((c) => getCampaignId(c))
                       .sort((a, b) =>
-                        a.campaignName.localeCompare(b.campaignName, undefined, { sensitivity: "base" })
+                        getCampaignLabel(a).localeCompare(getCampaignLabel(b), undefined, { sensitivity: "base" })
                       )
-                      .map((c) => (
-                        <option key={`campaign-${c.id}`} value={`campaign-${c.id}`}>
-                          {c.campaignName}
-                        </option>
-                      ))
+                      .map((c) => {
+                        const campaignId = getCampaignId(c);
+                        return (
+                          <option key={`campaign-${campaignId}`} value={`campaign-${campaignId}`}>
+                            {getCampaignLabel(c)}
+                          </option>
+                        );
+                      })
                   : !scheduleDataLoading && <option disabled>No campaigns available</option>}
               </select>
             </div>
@@ -851,9 +927,12 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
               <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)} className="sch-input">
                 <option value="">Select mailbox</option>
                 {smtpUsers
-                  .sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" }))
+                  .filter((u) => getSmtpDisplayName(u))
+                  .sort((a, b) =>
+                    getSmtpDisplayName(a).localeCompare(getSmtpDisplayName(b), undefined, { sensitivity: "base" })
+                  )
                   .map((u) => (
-                    <option key={u.id} value={u.id}>{u.username}</option>
+                    <option key={u.id} value={u.id}>{getSmtpDisplayName(u)}</option>
                   ))}
               </select>
             </div>

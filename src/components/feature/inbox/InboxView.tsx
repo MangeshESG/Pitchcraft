@@ -1316,7 +1316,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const replyTrailSeparator = '<hr style="border:0;border-top:1px solid #d1d5db;margin:16px 0;width:100%;" />';
 
   const buildCollapsedReplyTrail = (formattedTrail: string): string => {
-    return `<details ${replyTrailMarker} style="margin:0;padding:0;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35;text-align:left;"><summary style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;list-style:none;color:#3f9f42;background:#eaf5ea;border:1px solid #cfe7d0;border-radius:999px;font-weight:700;font-size:18px;line-height:1;width:34px;height:22px;padding:0;margin:0 0 10px 0;">...</summary><style>details[data-reply-email-trail][open] > summary{display:none;}</style><div>${replyTrailSeparator}${formattedTrail}</div></details>`;
+    return `<br/><details ${replyTrailMarker} style="margin:0;padding:0;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35;text-align:left;"><summary contenteditable="false" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;list-style:none;user-select:none;color:#3f9f42;background:#eaf5ea;border:1px solid #cfe7d0;border-radius:999px;font-weight:700;font-size:18px;line-height:1;width:34px;height:22px;padding:0;margin:0 0 10px 0;">...</summary><style>details[data-reply-email-trail][open] > summary{display:none;}</style><div>${replyTrailSeparator}${formattedTrail}</div></details>`;
   };
 
   const replaceReplyDraftContent = (nextDraftHtml: string) => {
@@ -2375,6 +2375,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                 .replace(/v\\:\*|o\\:\*|w\\:\*/g, '') // Remove VML namespace declarations
                                 .replace(/behavior:url\([^)]*\)/g, '') // Remove behavior URLs
                                 .replace(/mso-[^;:]*:[^;]*/gi, '') // Remove MS Office styles
+                                .replace(/\bRead more:\s*/gi, '')
+                                .replace(/\bLIKE\s+\d+\b/gi, '')
+                                .replace(/https?:\/\/\S+/gi, '')
                                 .replace(/\s+/g, ' ') // Replace multiple spaces
                                 .trim();
                               
@@ -2839,7 +2842,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 paddingTop: '24px'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write Reply</label>
+                  <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write reply</label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     {renderReplyRecipientToggles()}
                     <select
@@ -3579,7 +3582,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   padding: '24px'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write Reply</label>
+                    <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write reply</label>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       {renderReplyRecipientToggles()}
                       <select
@@ -4230,7 +4233,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   padding: '24px'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write Reply</label>
+                    <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write reply</label>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       {renderReplyRecipientToggles()}
                       <select
