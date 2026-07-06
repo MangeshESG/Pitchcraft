@@ -139,12 +139,15 @@
   padding: 4px 10px;
   border-radius: 999px;
 }
-.ke-empty-headline {
+/* Scoped with .ke-empty-wrap to win over global `.login-box h2`
+   (white, centered) when this banner renders inside the Mail workspace. */
+.ke-empty-wrap .ke-empty-headline {
   font-size: 34px;
   font-weight: 700;
   color: var(--ke-ink);
   letter-spacing: -0.025em;
   line-height: 1.1;
+  text-align: left;
   margin: 12px 0 0;
 }
 .ke-empty-body-text {
@@ -303,12 +306,12 @@
 @media (max-width: 1024px) {
   .ke-empty-hero__content { grid-template-columns: 1fr; }
   .ke-empty-hero__art { order: -1; }
-  .ke-empty-headline { font-size: 28px; }
+  .ke-empty-wrap .ke-empty-headline { font-size: 28px; }
 }
 
 @media (max-width: 768px) {
   .ke-empty-body { padding: 16px; }
   .ke-empty-hero__content { padding: 24px; }
-  .ke-empty-headline { font-size: 24px; }
+  .ke-empty-wrap .ke-empty-headline { font-size: 24px; }
   .ke-empty-actions { flex-direction: column; }
 }

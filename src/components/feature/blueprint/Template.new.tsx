@@ -93,11 +93,11 @@ export const BlueprintsEmptyState: React.FC<{ onCreate: () => void }> = ({
               refine the voice, and every future campaign inherits it.
             </p>
             <div className="bp-empty-actions">
-              <button className="bp-btn-primary" onClick={onCreate}>
+              <button className="btn-default" onClick={onCreate}>
                 <FontAwesomeIcon icon={faPlus} />
                 Create your first blueprint
               </button>
-              <button className="bp-btn-secondary" onClick={() => setShowVideo(true)}>
+              <button className="btn-muted" onClick={() => setShowVideo(true)}>
                 <FontAwesomeIcon icon={faPlay} style={{ color: "#3f9f42" }} />
                 Watch demo
               </button>

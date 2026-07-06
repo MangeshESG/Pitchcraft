@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../../../config';
 import LoadingSpinner from '../../common/LoadingSpinner';
@@ -21,6 +23,7 @@ import AllMessagesTab from './AllMessagesTab';
 import ContactInfoPanel from './ContactInfoPanel';
 import EmailIframe from './EmailIframe';
 import { isThreadPinned, pinEmail } from './inboxPin';
+import { InboxEmptyState, InboxSelectState } from './Inbox.new';
 import './InboxView.css';
 
 interface UnassignedEmail {
@@ -122,6 +125,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     background: '#f8fafc',
     color: '#374151',
     border: '1px solid #d1d5db'
+  };
+
+  const navigate = useNavigate();
+  const goToInboxConfiguration = () => {
+    navigate('/main?tab=Mail&mailSubTab=Configuration');
   };
 
   const lastSelectedInboxStorageKey = `lastSelectedInbox:${effectiveUserId || 'default'}`;
@@ -446,10 +454,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   (!savedInbox.provider || inbox.provider === savedInbox.provider)
                 )
               : null;
-            const inboxToSelect = matchingSavedInbox || inboxes[0];
 
-            setSelectedInboxId(inboxToSelect.inboxId);
-            setSelectedProvider(inboxToSelect.provider || '');
+            // Only auto-restore a previously selected inbox. If the user has
+            // never picked one, leave the selection empty so the inbox-select
+            // banner is shown and they can choose which inbox to open.
+            if (matchingSavedInbox) {
+              setSelectedInboxId(matchingSavedInbox.inboxId);
+              setSelectedProvider(matchingSavedInbox.provider || '');
+            }
           }
         }
       } catch (err: any) {
@@ -1990,6 +2002,45 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     return null;
   }
 
+  // 1) New user with no inbox configured — prompt to add one in Configuration.
+  if (isVisible && !loading && inboxList.length === 0) {
+    return (
+      <div className="inbox-workspace dashboard-section" style={{ display: isVisible ? 'block' : 'none', position: 'relative' }}>
+        <ToastMessage
+          show={showToast}
+          message={toastMessage}
+          type={toastType}
+          onClose={() => setShowToast(false)}
+          position="bottom-center"
+          duration={3}
+        />
+        <InboxEmptyState onGoToConfiguration={goToInboxConfiguration} />
+      </div>
+    );
+  }
+
+  // 2) User has inboxes but hasn't picked one yet — show the select banner.
+  if (isVisible && inboxList.length > 0 && !selectedInboxId) {
+    return (
+      <div className="inbox-workspace dashboard-section" style={{ display: isVisible ? 'block' : 'none', position: 'relative' }}>
+        <ToastMessage
+          show={showToast}
+          message={toastMessage}
+          type={toastType}
+          onClose={() => setShowToast(false)}
+          position="bottom-center"
+          duration={3}
+        />
+        <InboxSelectState
+          inboxList={inboxList}
+          selectedInboxId={selectedInboxId}
+          onInboxChange={handleInboxChange}
+        />
+      </div>
+    );
+  }
+
+  // 3) Inbox selected — show the full inbox workspace (existing page).
   return (
     <div className="inbox-workspace dashboard-section" style={{ display: isVisible ? 'block' : 'none', position: 'relative' }}>
       <ToastMessage
