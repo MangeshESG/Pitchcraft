@@ -1758,8 +1758,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       <style>
         {`
           .reply-section .rich-text-editor > div {
-            min-height: 30px !important;
-            max-height: 100px !important;
+            min-height: 160px !important;
+            height: auto !important;
+            overflow-y: visible !important;
           }
         `}
       </style>
@@ -2938,8 +2939,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 <style>
                   {`
                     .reply-section .rich-text-editor > div {
-                      min-height: 30px !important;
-                      max-height: 100px !important;
+                      min-height: 160px !important;
+                      height: auto !important;
+                      overflow-y: visible !important;
                     }
                   `}
                 </style>
@@ -3721,8 +3723,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <style>
                     {`
                       .reply-section .rich-text-editor > div {
-                        min-height: 30px !important;
-                        max-height: 100px !important;
+                        min-height: 160px !important;
+                        height: auto !important;
+                        overflow-y: visible !important;
                       }
                     `}
                   </style>
@@ -4378,8 +4381,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <style>
                     {`
                       .reply-section .rich-text-editor > div {
-                        min-height: 30px !important;
-                        max-height: 100px !important;
+                        min-height: 160px !important;
+                        height: auto !important;
+                        overflow-y: visible !important;
                       }
                     `}
                   </style>
