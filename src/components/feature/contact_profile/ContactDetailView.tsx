@@ -194,7 +194,6 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
   const [emailActionsAnchor, setEmailActionsAnchor] = useState<string | null>(null);
-  const [emailDeleteOptionsAnchor, setEmailDeleteOptionsAnchor] = useState<string | null>(null);
   const [emailToDelete, setEmailToDelete] = useState<any | null>(null);
   const [showEmailDeleteModal, setShowEmailDeleteModal] = useState(false);
   const [pendingEmailDeleteMode, setPendingEmailDeleteMode] = useState<"soft" | "Permanent">("soft");
@@ -1189,7 +1188,6 @@ const handleGenerateInsights = async () => {
 
   const handleEmailDelete = (email: any, deleteMode: "soft" | "Permanent") => {
     setEmailActionsAnchor(null);
-    setEmailDeleteOptionsAnchor(null);
     setEmailToDelete(email);
     setPendingEmailDeleteMode(deleteMode);
     setShowEmailDeleteModal(true);
@@ -1241,26 +1239,25 @@ const handleGenerateInsights = async () => {
     deleteEmail(emailToDelete, pendingEmailDeleteMode);
   };
 
-  const renderEmailActions = (email: any) => {
+  const renderEmailActions = (email: any, inline = false) => {
     const pinned = isEmailPinned(email);
     const isPinning = pinningEmailId === email.trackingId;
 
     return (
-      <div style={{ position: "absolute", top: 0, right: 0, zIndex: 10 }}>
+      <div style={inline ? { position: "relative", display: "inline-flex", zIndex: 10 } : { position: "absolute", top: 0, right: 0, zIndex: 10 }}>
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
             const nextAnchor = emailActionsAnchor === email.trackingId ? null : email.trackingId;
             setEmailActionsAnchor(nextAnchor);
-            setEmailDeleteOptionsAnchor(null);
           }}
           style={{
             border: "none",
             background: "#ebebeb",
             borderRadius: "50%",
-            width: 32,
-            height: 32,
+            width: inline ? 28 : 32,
+            height: inline ? 28 : 32,
             cursor: "pointer",
           }}
           title="Email actions"
@@ -1307,9 +1304,7 @@ const handleGenerateInsights = async () => {
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                setEmailDeleteOptionsAnchor(
-                  emailDeleteOptionsAnchor === email.trackingId ? null : email.trackingId
-                );
+                handleEmailDelete(email, "Permanent");
               }}
               style={menuBtnStyle}
               className="flex gap-2 items-center"
@@ -1320,44 +1315,8 @@ const handleGenerateInsights = async () => {
                   style={{ color: "#3f9f42", fontSize: 18 }}
                 />
               </div>
-              <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete</span>
-              <span style={{ marginLeft: "auto", color: "#6b7280", fontSize: 12 }}>
-                <FontAwesomeIcon icon={faAngleRight} />
-              </span>
+              <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete permanently</span>
             </button>
-
-            {emailDeleteOptionsAnchor === email.trackingId && (
-              <div
-                style={{
-                  borderTop: "1px solid #e5e7eb",
-                  background: "#fff",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleEmailDelete(email, "soft");
-                  }}
-                  style={{ ...menuBtnStyle, paddingLeft: 42 }}
-                  className="flex gap-2 items-center"
-                >
-                  <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete from Inbox</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleEmailDelete(email, "Permanent");
-                  }}
-                  style={{ ...menuBtnStyle, paddingLeft: 42 }}
-                  className="flex gap-2 items-center"
-                >
-                  <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete permanently</span>
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -1961,15 +1920,6 @@ dispatch(closePanel());
       });
     }
 
-    // Emails
-    emailTimeline.forEach((email: any) => {
-      items.push({
-        type: "email",
-        time: new Date(email.sentAt).getTime(),
-        data: email,
-      });
-    });
-
     // Notes
     notesHistory.forEach((note: any) => {
       items.push({
@@ -1990,7 +1940,7 @@ dispatch(closePanel());
 
     // newest → oldest
     return items.sort((a, b) => b.time - a.time);
-  }, [editingContact, emailTimeline, notesHistory, attachmentsHistory]);
+  }, [editingContact, notesHistory, attachmentsHistory]);
 
   const extractEmailAddress = (emailString?: string): string => {
     if (!emailString) return "";
@@ -2150,11 +2100,19 @@ dispatch(closePanel());
     if (contactMailTab === "sent") {
       return contactMailThreads
         .map((thread: any) => {
-          const sentMessages = thread.messages.filter((message: any) => String(message.type || "").toLowerCase() === "sent");
-          if (sentMessages.length === 0) return null;
+          const threadMessages = Array.isArray(thread.messages) ? thread.messages : [];
+          const hasOnlySentMessages =
+            threadMessages.length > 0 &&
+            threadMessages.every((message: any) => String(message.type || "").toLowerCase() === "sent");
+
+          if (!hasOnlySentMessages) return null;
+
+          const sentMessages = threadMessages;
           const latestMessage = sentMessages[sentMessages.length - 1] || thread.lastMessage;
           return {
             ...thread,
+            totalMessages: sentMessages.length,
+            messages: sentMessages,
             lastMessage: latestMessage,
             lastMessageDate: latestMessage?.date || thread.lastMessageDate,
           };
@@ -2252,7 +2210,7 @@ dispatch(closePanel());
                       </span>
                     )}
                     <span className="mail-action-wrapper" onClick={(event) => event.stopPropagation()}>
-                      {renderEmailActions(thread)}
+                      {renderEmailActions(thread, true)}
                     </span>
                   </span>
                 </div>
@@ -2427,9 +2385,6 @@ dispatch(closePanel());
             >
               Sent
             </button>
-          </div>
-          <div className="list-pane-meta">
-            <span>{visibleContactMailThreads.length} {visibleContactMailThreads.length === 1 ? "thread" : "threads"}</span>
           </div>
           {renderContactMailList()}
         </div>
