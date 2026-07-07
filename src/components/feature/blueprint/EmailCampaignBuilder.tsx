@@ -3220,24 +3220,37 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     [masterPrompt],
   );
 
-  const groupedPlaceholders = uiPlaceholders
-    .sort((a, b) => {
-      if (a.categorySequence !== b.categorySequence)
-        return a.categorySequence - b.categorySequence;
-      return a.placeholderSequence - b.placeholderSequence;
-    })
-    .filter(
+  // Group by category first, then order placeholders WITHIN each category by
+  // placeholderSequence only. This mirrors the placeholder manager
+  // (InstructionSetManager) exactly. A global (categorySequence,
+  // placeholderSequence) sort followed by reduce would scramble the order
+  // whenever a category holds placeholders with mixed categorySequence values
+  // — which happens after a placeholder's category is changed via the dropdown
+  // (that updates `category` but not `categorySequence`).
+  const groupedPlaceholders = (() => {
+    const visible = uiPlaceholders.filter(
       (p) =>
         !p.isRuntimeOnly &&
-        (essentialPlaceholderKeys.length === 0 || essentialPlaceholderKeys.includes(p.placeholderKey))
-    )
-    .reduce<Record<string, PlaceholderDefinitionUI[]>>((acc, p) => {
-      if (!acc[p.category]) {
-        acc[p.category] = [];
-      }
-      acc[p.category].push(p);
-      return acc;
-    }, {});
+        (essentialPlaceholderKeys.length === 0 ||
+          essentialPlaceholderKeys.includes(p.placeholderKey))
+    );
+
+    // Category display order: keyed to each category's categorySequence
+    // (last one wins, matching the manager's categoryList).
+    const categorySeq = new Map<string, number>();
+    visible.forEach((p) => categorySeq.set(p.category, p.categorySequence ?? 999));
+    const orderedCategories = Array.from(categorySeq.entries())
+      .sort((a, b) => a[1] - b[1])
+      .map(([name]) => name);
+
+    const grouped: Record<string, PlaceholderDefinitionUI[]> = {};
+    orderedCategories.forEach((category) => {
+      grouped[category] = visible
+        .filter((p) => p.category === category)
+        .sort((a, b) => a.placeholderSequence - b.placeholderSequence);
+    });
+    return grouped;
+  })();
 
   const visibleMessages: Message[] = isPreparingAutoStart ? [] : messages;
   const visiblePlaceholderValues: Record<string, string> = isPreparingAutoStart

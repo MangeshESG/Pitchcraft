@@ -676,12 +676,21 @@ const Output: React.FC<OutputInterface> = ({
     value: any,
     fallback = "No online research available.",
   ) => {
+    const hasSearchResults =
+      Array.isArray(value?.searchResults) && value.searchResults.length > 0;
+
     const normalizedValue =
       value?.webSearchData ||
       value?.WebSearchData ||
       value?.summary ||
       value?.Summary ||
-      value;
+      value?.webSearchResponse?.webSearchData ||
+      value?.webSearchResponse?.summary ||
+      (hasSearchResults ? value.searchResults : undefined) ||
+      // Only treat the raw value as content when it isn't an empty
+      // web-search object (e.g. { webSearchData: "", searchResults: [] }),
+      // which happens when personalization search is skipped.
+      (typeof value === "string" || Array.isArray(value) ? value : "");
 
     return getDisplayText(normalizedValue, fallback)
       .replace(/\\n/g, "\n")

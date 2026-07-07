@@ -93,11 +93,11 @@ export const BlueprintsEmptyState: React.FC<{ onCreate: () => void }> = ({
               refine the voice, and every future campaign inherits it.
             </p>
             <div className="bp-empty-actions">
-              <button className="bp-btn-primary" onClick={onCreate}>
+              <button className="btn-default" onClick={onCreate}>
                 <FontAwesomeIcon icon={faPlus} />
                 Create your first blueprint
               </button>
-              <button className="bp-btn-secondary" onClick={() => setShowVideo(true)}>
+              <button className="btn-muted" onClick={() => setShowVideo(true)}>
                 <FontAwesomeIcon icon={faPlay} style={{ color: "#3f9f42" }} />
                 Watch demo
               </button>
@@ -132,10 +132,11 @@ export const BlueprintsHeroBanner: React.FC<{
 }> = ({ totalCount, onCreateClick }) => {
   return (
     <BpBanner
-      title={`You have so far created ${totalCount} blueprint${totalCount !== 1 ? "s" : ""} 🎉`}
+      title={`You have so far created ${totalCount} blueprint${totalCount !== 1 ? "s" : ""}`}
       subtitle="Keep adding and refining your blueprints to create even more impactful emails."
       primaryLabel="Create blueprint"
       primaryIcon={<FontAwesomeIcon icon={faPlus} />}
+      primaryClassName="bp-btn-banner-default"
       onPrimaryClick={onCreateClick}
       secondaryLabel="Explore blueprint best practices"
       secondaryIcon={<FontAwesomeIcon icon={faArrowUpRightFromSquare} />}

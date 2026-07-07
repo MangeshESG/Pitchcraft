@@ -1,7 +1,7 @@
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import mailConfigEmptyImage from "../../assets/images/mail_dashboard_old_user.png";
+import mailConfigEmptyImage from "../../assets/images/Email-Configuration.jpg";
 import "./MailConfiguration.new.css";
 
 // ============================================================
@@ -26,7 +26,7 @@ export const MailConfigurationEmptyState: React.FC<{
             </p>
             {!isDemoAccount && (
               <div className="mce-empty-actions">
-                <button className="mce-btn-primary" onClick={onAddMailbox}>
+                <button className="btn-default" onClick={onAddMailbox}>
                   <FontAwesomeIcon icon={faPlus} />
                   Add mailbox
                 </button>

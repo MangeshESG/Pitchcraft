@@ -632,14 +632,6 @@ const handleDeleteContacts = () => {
     window.open(contactDetailsUrl, "_blank");
   };
 
-  const fieldTypeMap = useMemo(() => {
-    const map = new Map<string, FieldType>();
-    filterFields.forEach((field) => {
-      map.set(field.key, normalizeFieldType(field.type));
-    });
-    return map;
-  }, [filterFields]);
-
   const normalizedFilterFields = useMemo<FilterBuilderFieldOption[]>(
     () =>
       filterFields.map((field) => ({
@@ -1159,21 +1151,39 @@ const handleDeleteContacts = () => {
     }
 
     const value = getRowValue(row, condition.field);
-    const normalizedFieldType = fieldTypeMap.get(condition.field) || "text";
 
     switch (condition.operator) {
       case "contains":
+        if (Array.isArray(condition.value)) {
+          if (condition.value.length === 0) return true;
+          // Multiple selected options are OR-ed together.
+          return condition.value.some((entry) =>
+            String(value).toLowerCase().includes(String(entry).toLowerCase())
+          );
+        }
         return String(value)
           .toLowerCase()
           .includes(String(condition.value).toLowerCase());
-      case "equals":
-        return normalizedFieldType === "boolean"
-          ? String(value).toLowerCase() === String(condition.value).toLowerCase()
-          : String(value).toLowerCase() === String(condition.value).toLowerCase();
-      case "notEquals":
-        return normalizedFieldType === "boolean"
-          ? String(value).toLowerCase() !== String(condition.value).toLowerCase()
-          : String(value).toLowerCase() !== String(condition.value).toLowerCase();
+      case "equals": {
+        if (Array.isArray(condition.value)) {
+          if (condition.value.length === 0) return true;
+          // Multiple selected options are OR-ed together (match any).
+          return condition.value.some(
+            (entry) => String(value).toLowerCase() === String(entry).toLowerCase()
+          );
+        }
+        return String(value).toLowerCase() === String(condition.value).toLowerCase();
+      }
+      case "notEquals": {
+        if (Array.isArray(condition.value)) {
+          if (condition.value.length === 0) return true;
+          // Must differ from every selected option.
+          return condition.value.every(
+            (entry) => String(value).toLowerCase() !== String(entry).toLowerCase()
+          );
+        }
+        return String(value).toLowerCase() !== String(condition.value).toLowerCase();
+      }
       case "startsWith":
         return String(value)
           .toLowerCase()
@@ -1314,9 +1324,10 @@ const handleDeleteContacts = () => {
   };
 
   // Fetch the set of unsubscribed emails for this client so the client-side
-  // view path excludes them exactly like the backend `view-contacts` endpoint
-  // does. Best-effort: if the endpoint is missing we return an empty set and
-  // fall back to the previous behaviour rather than breaking the view.
+  // view path can exclude them exactly like the backend `view-contacts`
+  // endpoint does (the backend filters against the UnsubscribedContacts table
+  // by email). Best-effort: if the endpoint is unavailable we return an empty
+  // set and fall back to the previous behaviour rather than breaking the view.
   const fetchUnsubscribedEmails = async (): Promise<Set<string>> => {
     try {
       const response = await fetch(
@@ -1473,7 +1484,7 @@ const handleDeleteContacts = () => {
 
     const mergedList = Array.from(mergedMap.values());
 
-    // Exclude unsubscribed contacts to match the backend view-contacts count.
+    // Exclude unsubscribed contacts to match the backend view-contacts logic.
     const unsubscribedEmails = await fetchUnsubscribedEmails();
     const subscribedList =
       unsubscribedEmails.size === 0

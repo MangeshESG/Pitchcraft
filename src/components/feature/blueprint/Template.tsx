@@ -18,6 +18,7 @@ import CreditCheckModal from "../../common/CreditCheckModal";
 import deleteIcon from "../../../assets/images/deleteiconn.png";
 import CommonSidePanel from "../../common/CommonSidePanel";
 import { AVAILABLE_AI_MODELS } from "../../../utils/aiModels";
+import { defaultButtonStyle } from "../../../styles/buttonStyles";
 import {
   faAngleRight,
   faBars,
@@ -1133,7 +1134,6 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                   Cancel
                 </button>
                 <button
-                  className="button save-button"
                   onClick={handleTemplateNameSubmit}
                   disabled={
                     isPreparingCreateCampaign ||
@@ -1142,13 +1142,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                     isCreatingCampaign
                   }
                   style={{
-                    padding: "10px 24px",
-                    borderRadius: "24px",
-                    border: "2px solid #dc3545",
-                    background: "#fff",
-                    color: "#dc3545",
-                    fontSize: "14px",
-                    fontWeight: "500",
+                    ...defaultButtonStyle,
                     cursor: (isPreparingCreateCampaign || !templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? "not-allowed" : "pointer",
                     opacity: (isPreparingCreateCampaign || !templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? 0.5 : 1
                   }}

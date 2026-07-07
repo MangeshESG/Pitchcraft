@@ -310,7 +310,7 @@ setOverwriteDatabase,
 
           {/* Krafted & Emailed Dates */}
           {combinedResponses[currentIndex] && (
-            <div className="mb-[12px] text-[13px] italic text-gray-600">
+            <div className="mb-[12px] text-[13px] italic text-gray-600 text-right">
               {combinedResponses[currentIndex]?.lastemailupdateddate && (
                 <div>
                   Krafted:{" "}
@@ -329,14 +329,19 @@ setOverwriteDatabase,
         )}
 
         {/* Tabs Header */}
-        <div className="flex border-b border-[#cccccc] rounded-[10px 10px 0 0] panel-tab items-center">
-          {!actionsCollapsed && panelTabs.map((tab) => (
+        <div className="flex w-full border-b border-[#cccccc] rounded-[10px 10px 0 0] panel-tab items-center">
+          {!actionsCollapsed && panelTabs.map((tab, index) => (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`px-[30px] py-[10px] font-medium text-[16px] border-r border-[#cccccc] bg-gray-200
+              style={{
+                border: "1px solid #3f9f42",
+                borderLeft: index === 0 ? "1px solid #3f9f42" : "none",
+                borderBottom: "1px solid #3f9f42",
+              }}
+              className={`flex-1 basis-1/2 text-center px-[30px] py-[10px] font-medium text-[16px]
               ${panelTab === tab.id
-                  ? `bg-white  text-[#3f9f42] border-b-[#ffffff] relative active`
+                  ? `bg-white  text-[#3f9f42] relative active`
                   : 'bg-gray-100 text-slate-400 hover:bg-gray-200 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1)]'
                 }`}
             >
@@ -350,17 +355,20 @@ setOverwriteDatabase,
         {!actionsCollapsed && panelTab === "kraft" && (
   <div className="p-[20px] flex flex-col w-[100%] h-[100%]">
 
-    {/* Overwrite */}
+    {/* Overwrite + Start in one compact row */}
     <div
       style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "12px",
         padding: "12px",
         border: "1px solid #cccccc",
         borderRadius: "8px",
-        marginBottom: "12px",
         backgroundColor: "#fff",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center" ,  gap: "8px"}}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
         <input
           id="overwrite-existing-emails"
           type="checkbox"
@@ -375,49 +383,46 @@ setOverwriteDatabase,
           Overwrite existing emails
         </label>
       </div>
-    </div>
 
-    {/* START BUTTON */}
-    <div className="mt-[100px] pt-[15px] border-t border-[#cccccc] sticky bottom-0 bg-white z-10">
-       {isResetEnabled ? (
-      <button
-        type="button"
-        className="btn-default w-[100%]"
-        onClick={() => {
-          if (enableIndexRange && startIndex && endIndex) {
-            const fromValue = parseInt(startIndex);
-            const toValue = parseInt(endIndex);
+      {isResetEnabled ? (
+        <button
+          type="button"
+          className="btn-default flex-shrink-0"
+          onClick={() => {
+            if (enableIndexRange && startIndex && endIndex) {
+              const fromValue = parseInt(startIndex);
+              const toValue = parseInt(endIndex);
 
-            if (toValue > combinedResponses.length) {
-              setIndexRangeError(
-                `Maximum contact count is ${combinedResponses.length}`
-              );
-              setShowValidationError(true);
-              return;
-            } else if (toValue <= fromValue) {
-              setIndexRangeError("To must be greater than From");
-              setShowValidationError(true);
-              return;
+              if (toValue > combinedResponses.length) {
+                setIndexRangeError(
+                  `Maximum contact count is ${combinedResponses.length}`
+                );
+                setShowValidationError(true);
+                return;
+              } else if (toValue <= fromValue) {
+                setIndexRangeError("To must be greater than From");
+                setShowValidationError(true);
+                return;
+              }
             }
-          }
 
-          setIndexRangeError("");
-          setShowValidationError(false);
+            setIndexRangeError("");
+            setShowValidationError(false);
 
-           onStart();
-        }}
-      >
-        Start
-      </button>
-       ) : (
-    <button
-      type="button"
-      className="btn-default w-[100%]"
-      onClick={onStop}   // or separate stop handler if you have one
-    >
-      Stop
-    </button>
-  )}
+            onStart();
+          }}
+        >
+          Start
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="btn-default flex-shrink-0"
+          onClick={onStop}   // or separate stop handler if you have one
+        >
+          Stop
+        </button>
+      )}
     </div>
   </div>
 )}
@@ -616,7 +621,7 @@ setOverwriteDatabase,
               </div>
 
               {/* FOOTER - ROW 5: Buttons */}
-              <div className="mt-[30px] flex gap-[10px] border-t border-[#cccccc] pt-[15px] w-[100%] sticky bottom-0 bg-white z-10"
+              <div className="mt-[12px] flex gap-[10px] w-[100%] sticky bottom-0 bg-white z-10"
               >
                 <button
                   type="button"
