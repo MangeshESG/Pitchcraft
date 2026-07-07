@@ -132,10 +132,11 @@ export const BlueprintsHeroBanner: React.FC<{
 }> = ({ totalCount, onCreateClick }) => {
   return (
     <BpBanner
-      title={`You have so far created ${totalCount} blueprint${totalCount !== 1 ? "s" : ""} 🎉`}
+      title={`You have so far created ${totalCount} blueprint${totalCount !== 1 ? "s" : ""}`}
       subtitle="Keep adding and refining your blueprints to create even more impactful emails."
       primaryLabel="Create blueprint"
       primaryIcon={<FontAwesomeIcon icon={faPlus} />}
+      primaryClassName="bp-btn-banner-default"
       onPrimaryClick={onCreateClick}
       secondaryLabel="Explore blueprint best practices"
       secondaryIcon={<FontAwesomeIcon icon={faArrowUpRightFromSquare} />}
