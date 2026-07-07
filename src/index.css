@@ -10,10 +10,10 @@
 /* ------------------------------------------------------------------ */
 :root {
   /* Default button (primary / affirmative action, e.g. Save, Add) */
-  --btn-default-bg: #e2f1e3;
-  --btn-default-fg: #3f9f42;
-  --btn-default-border: #cfecd6;
-  --btn-default-bg-hover: #d6ecd9;
+  --btn-default-bg: #000000;
+  --btn-default-fg: #ffffff;
+  --btn-default-border: #e9e9e9;
+  --btn-default-bg-hover: #939997;
 
   /* Less priority button (secondary action, e.g. Cancel, Upgrade) */
   --btn-muted-bg: #f8fafc;
