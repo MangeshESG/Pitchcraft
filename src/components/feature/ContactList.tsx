@@ -283,7 +283,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [totalContacts, setTotalContacts] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentPageLists, setCurrentPageLists] = useState(1);
-  const [pageSize, setPageSize] = useState<number | "All">(10);
+  const [pageSize, setPageSize] = useState<number | "All">(30);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(
     new Set()
@@ -1291,7 +1291,7 @@ const formatTimeIST = (dateString?: string) => {
   const filteredDetailContacts = useMemo(() => detailContacts, [detailContacts]);
   const [detailTotalContacts, setDetailTotalContacts] = useState(0);
   const [detailCurrentPage, setDetailCurrentPage] = useState(1);
-  const [detailPageSize] = useState(10);
+  const [detailPageSize] = useState(30);
   const [detailSearchQuery, setDetailSearchQuery] = useState("");
   const [detailSelectedContacts, setDetailSelectedContacts] = useState<
     Set<string>

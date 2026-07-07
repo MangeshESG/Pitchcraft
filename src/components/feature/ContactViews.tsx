@@ -423,7 +423,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [views, setViews] = useState<ViewItem[]>([]);
   const [viewSearch, setViewSearch] = useState("");
   const [currentPageViews, setCurrentPageViews] = useState(1);
-  const [pageSizeViews, setPageSizeViews] = useState<number | "All">(10);
+  const [pageSizeViews, setPageSizeViews] = useState<number | "All">(30);
   const [viewSortKey, setViewSortKey] = useState("");
   const [viewSortDirection, setViewSortDirection] = useState<"asc" | "desc">(
     "asc"
@@ -439,7 +439,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [viewContacts, setViewContacts] = useState<any[]>([]);
   const [viewSearchQuery, setViewSearchQuery] = useState("");
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
-  const [viewPageSize] = useState(10);
+  const [viewPageSize] = useState(30);
   const [isLoadingViewContacts, setIsLoadingViewContacts] = useState(false);
   const [viewMetaMissing, setViewMetaMissing] = useState(false);
   const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
