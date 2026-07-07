@@ -38,8 +38,10 @@ import { Pin, PinOff } from 'lucide-react';
 import CommonSidePanel from '../../common/CommonSidePanel';
 import ContactQA from "./ContactQA";
 import { pinEmail } from "../inbox/inboxPin";
+import EmailIframe from "../inbox/EmailIframe";
 import { repairAndParseJsonObject } from "../../../utils/jsonRepair";
 import { saveUserCredit } from "../../../slices/authSLice";
+import "../inbox/InboxView.css";
 
 
 interface Contact {
@@ -200,6 +202,11 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [pinningEmailId, setPinningEmailId] = useState<string | null>(null);
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [contactMailTab, setContactMailTab] = useState<"allmessages" | "sent">("allmessages");
+  const [selectedContactThread, setSelectedContactThread] = useState<any | null>(null);
+  const [contactCollapsedEmails, setContactCollapsedEmails] = useState<{ [key: string]: boolean }>({});
+  const [expandedContactMessageHeaders, setExpandedContactMessageHeaders] = useState<{ [key: string]: boolean }>({});
+  const contactMailDetailRef = useRef<HTMLDivElement | null>(null);
 
   const appModal = useAppModal();
   const {
@@ -727,27 +734,55 @@ const handleGenerateInsights = async () => {
   };
 
   const getMessageTime = (message: any) =>
-    new Date(message?.date || message?.sentAt || message?.receiveAt || 0).getTime();
+    new Date(message?.date || message?.Date || message?.sentAt || message?.SentAt || message?.receiveAt || message?.ReceiveAt || 0).getTime();
+
+  const getTrackingIdValue = (value: any) =>
+    String(
+      value?.trackingId ||
+      value?.TrackingId ||
+      value?.trackingid ||
+      value?.threadId ||
+      value?.ThreadId ||
+      ""
+    ).trim();
+
+  const getMessageIdValue = (value: any) =>
+    String(value?.messageId || value?.MessageId || "").trim();
 
   const normalizeConversationThread = (conversation: any) => {
-    const sortedMessages = [...(conversation.messages || [])].sort(
+    const rawMessages = conversation.messages || conversation.Messages || [];
+    const sortedMessages = [...rawMessages].map((message: any, index: number) => ({
+      ...message,
+      type: message.type || message.Type,
+      messageId: getMessageIdValue(message) || `${getTrackingIdValue(conversation) || "message"}-${index}`,
+      subject: message.subject || message.Subject,
+      body: message.body || message.Body,
+      fromEmail: message.fromEmail || message.FromEmail,
+      toEmail: message.toEmail || message.ToEmail,
+      date: message.date || message.Date,
+      isRead: message.isRead ?? message.IsRead ?? true,
+      contactId: message.contactId ?? message.ContactId,
+      contactName: message.contactName || message.ContactName,
+      attachments: message.attachments || message.Attachments || [],
+    })).sort(
       (a: any, b: any) => getMessageTime(a) - getMessageTime(b)
     );
     const latestMessage = sortedMessages[sortedMessages.length - 1] || {};
-    const threadDate = conversation.lastMessageDate || latestMessage.date;
+    const threadDate = conversation.lastMessageDate || conversation.LastMessageDate || latestMessage.date;
     const latestType = String(latestMessage.type || "").toLowerCase();
     const isInboxThread = latestType !== "sent";
     const primaryMessage = latestMessage;
+    const trackingId = getTrackingIdValue(conversation) || getTrackingIdValue(latestMessage);
 
     return {
       ...conversation,
-      trackingId: conversation.trackingId || latestMessage.messageId || `${conversation.contactId}-${threadDate}`,
-      subject: conversation.subject || latestMessage.subject,
+      trackingId: trackingId || `${conversation.contactId || conversation.ContactId || contactId}-${threadDate || latestMessage.messageId}`,
+      subject: conversation.subject || conversation.Subject || latestMessage.subject,
       body: primaryMessage?.body,
       sentAt: threadDate,
       receiveAt: threadDate,
       senderEmailId: latestMessage.fromEmail,
-      fromEmail: latestMessage.fromEmail || conversation.contactEmail,
+      fromEmail: latestMessage.fromEmail || conversation.contactEmail || conversation.ContactEmail,
       toEmail: latestMessage.toEmail,
       emailType: isInboxThread ? "inbox" : "sent",
       messages: sortedMessages,
@@ -779,7 +814,55 @@ const handleGenerateInsights = async () => {
       senderEmailId: email.fromEmail,
     }));
 
-    return [...sentEmails, ...inboxEmails].sort((a, b) => {
+    const getThreadKey = (email: any) =>
+      getTrackingIdValue(email) ||
+      getMessageIdValue(email) ||
+      `${email.subject || "no-subject"}-${email.senderEmailId || email.fromEmail || ""}-${email.toEmail || ""}`;
+
+    const groupedEmails = [...sentEmails, ...inboxEmails].reduce((groups: Record<string, any[]>, email: any) => {
+      const key = getThreadKey(email);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(email);
+      return groups;
+    }, {});
+
+    return Object.entries(groupedEmails).map(([threadKey, emails]) => {
+      if (emails.length === 1) return emails[0];
+
+      const messages = emails
+        .map((email: any, index: number) => ({
+          type: email.emailType === "sent" ? "Sent" : "Reply",
+          messageId: getMessageIdValue(email) || `${threadKey}-${index}`,
+          subject: email.subject || email.Subject,
+          body: email.body || email.Body,
+          fromEmail: email.fromEmail || email.FromEmail || email.senderEmailId || email.SenderEmailId,
+          toEmail: email.toEmail || email.ToEmail,
+          date: email.sentAt || email.SentAt || email.receiveAt || email.ReceiveAt,
+          isRead: email.isRead ?? email.IsRead ?? true,
+          contactId: email.contactId ?? email.ContactId,
+          contactName: email.contactName || email.ContactName,
+          attachments: email.attachments || email.Attachments || [],
+        }))
+        .sort((a: any, b: any) => getMessageTime(a) - getMessageTime(b));
+      const latestMessage = messages[messages.length - 1] || {};
+      const firstEmail = emails[0];
+
+      return {
+        ...firstEmail,
+        trackingId: threadKey,
+        subject: latestMessage.subject || firstEmail.subject,
+        body: latestMessage.body,
+        sentAt: latestMessage.date,
+        receiveAt: latestMessage.date,
+        senderEmailId: latestMessage.fromEmail,
+        fromEmail: latestMessage.fromEmail,
+        toEmail: latestMessage.toEmail,
+        emailType: String(latestMessage.type || "").toLowerCase() === "sent" ? "sent" : "inbox",
+        messages,
+        replies: messages.slice(0, -1),
+        contactName: latestMessage.contactName,
+      };
+    }).sort((a, b) => {
       const dateA = new Date(a.sentAt || a.receiveAt || 0).getTime();
       const dateB = new Date(b.sentAt || b.receiveAt || 0).getTime();
       return dateB - dateA;
@@ -809,7 +892,22 @@ const handleGenerateInsights = async () => {
           : prev
       );
 
-      setEmailTimeline(normalizeEmailTimeline(data));
+      try {
+        const threadsResponse = await fetch(
+          `${API_BASE_URL}/api/Inbox/contact-threads?clientId=${effectiveUserId}&contactId=${contactId}&pageNumber=1&pageSize=500`
+        );
+
+        if (!threadsResponse.ok) {
+          throw new Error("Failed to fetch contact email threads");
+        }
+
+        const threadsData = await threadsResponse.json();
+        const contactThreads = threadsData?.data?.data || threadsData?.data?.Data || [];
+        setEmailTimeline(Array.isArray(contactThreads) ? contactThreads.map(normalizeConversationThread) : []);
+      } catch (threadError) {
+        console.error("contact-threads API failed, falling back to email-timeline conversations", threadError);
+        setEmailTimeline(normalizeEmailTimeline(data));
+      }
       setNotesHistory(data.notes || []); // ✅ Set notes from timeline API
       setAttachmentsHistory(data.attachments || []); // ✅ Set attachments from timeline API
     } catch (err) {
@@ -822,10 +920,10 @@ const handleGenerateInsights = async () => {
   };
 
   useEffect(() => {
-  if (contactId) {
+  if (contactId && effectiveUserId) {
     fetchEmailTimeline(Number(contactId));
   }
-}, [contactId]);
+}, [contactId, effectiveUserId]);
 
   const stripHtml = (html: string) => {
     if (!html) return "";
@@ -937,20 +1035,34 @@ const handleGenerateInsights = async () => {
   };
 
   const getEmailPreviewMessages = (email: any) => {
-    if (Array.isArray(email.messages) && email.messages.length > 0) {
-      return [...email.messages].sort((a: any, b: any) => getMessageTime(b) - getMessageTime(a));
+    const rawMessages = email.messages || email.Messages || [];
+    if (Array.isArray(rawMessages) && rawMessages.length > 0) {
+      return rawMessages.map((message: any, index: number) => ({
+        ...message,
+        type: message.type || message.Type,
+        messageId: getMessageIdValue(message) || `${getTrackingIdValue(email) || "message"}-${index}`,
+        subject: message.subject || message.Subject,
+        body: message.body || message.Body,
+        fromEmail: message.fromEmail || message.FromEmail,
+        toEmail: message.toEmail || message.ToEmail,
+        date: message.date || message.Date,
+        isRead: message.isRead ?? message.IsRead ?? true,
+        contactId: message.contactId ?? message.ContactId,
+        contactName: message.contactName || message.ContactName,
+        attachments: message.attachments || message.Attachments || [],
+      })).sort((a: any, b: any) => getMessageTime(b) - getMessageTime(a));
     }
 
     return [
       {
         type: email.emailType === "sent" ? "Sent" : "Reply",
-        messageId: email.trackingId,
-        subject: email.subject,
-        body: email.body,
-        fromEmail: email.fromEmail || email.senderEmailId,
-        toEmail: email.toEmail,
-        date: email.sentAt || email.receiveAt,
-        attachments: email.attachments || [],
+        messageId: getMessageIdValue(email) || getTrackingIdValue(email),
+        subject: email.subject || email.Subject,
+        body: email.body || email.Body,
+        fromEmail: email.fromEmail || email.FromEmail || email.senderEmailId || email.SenderEmailId,
+        toEmail: email.toEmail || email.ToEmail,
+        date: email.sentAt || email.SentAt || email.receiveAt || email.ReceiveAt,
+        attachments: email.attachments || email.Attachments || [],
       },
     ];
   };
@@ -1879,6 +1991,454 @@ dispatch(closePanel());
     // newest → oldest
     return items.sort((a, b) => b.time - a.time);
   }, [editingContact, emailTimeline, notesHistory, attachmentsHistory]);
+
+  const extractEmailAddress = (emailString?: string): string => {
+    if (!emailString) return "";
+    const match = emailString.match(/<(.+?)>/);
+    return (match ? match[1] : emailString).trim();
+  };
+
+  const extractSenderName = (emailString?: string): string => {
+    if (!emailString) return "Unknown";
+    const match = emailString.match(/^"?(.+?)"?\s*</);
+    if (match) return match[1].replace(/"/g, "").trim();
+    return extractEmailAddress(emailString).split("@")[0] || "Unknown";
+  };
+
+  const getMailInitials = (email?: string, contactName?: string): string => {
+    const name = contactName || extractSenderName(email);
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return (parts[0] || email || "?").substring(0, 1).toUpperCase();
+  };
+
+  const formatMailListDate = (dateString?: string): string => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
+
+    if (diffDays === 0) {
+      return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    }
+    if (diffDays < 7) {
+      return date.toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" });
+    }
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  const getContactMailPreview = (body?: string): string => {
+    if (!body) return "No preview available";
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = body;
+    const cleanText = textarea.value
+      .replace(/<style[^>]*>.*?<\/style>/gis, "")
+      .replace(/<script[^>]*>.*?<\/script>/gis, "")
+      .replace(/<!--.*?-->/gs, "")
+      .replace(/<head[^>]*>.*?<\/head>/gis, "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, "\"")
+      .replace(/&#39;/g, "'")
+      .replace(/&#x[0-9A-Fa-f]+;/g, "")
+      .replace(/&#[0-9]+;/g, "")
+      .replace(/\{[^}]*\}/g, "")
+      .replace(/v\\:\*|o\\:\*|w\\:\*/g, "")
+      .replace(/behavior:url\([^)]*\)/g, "")
+      .replace(/mso-[^;:]*:[^;]*/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!cleanText || cleanText.length < 5 || /^[\W_\s]+$/.test(cleanText)) {
+      return "No preview available";
+    }
+
+    return cleanText.substring(0, 100) + (cleanText.length > 100 ? "..." : "");
+  };
+
+  const formatContactEmailBody = (body?: string): string => {
+    if (!body) return "<p>No email body available</p>";
+    const containsActualHtml = /<\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(body);
+    const containsEncodedHtml = /&lt;\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(body);
+
+    if (containsActualHtml || !containsEncodedHtml) return body;
+
+    return body
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, "\"")
+      .replace(/&#39;/g, "'");
+  };
+
+  const contactMailThreads = useMemo(() => {
+    const toThread = (email: any, index: number) => {
+      const messages = getEmailPreviewMessages(email).map((message: any, messageIndex: number) => ({
+        ...message,
+        messageId: getMessageIdValue(message) || `${getTrackingIdValue(email) || index}-${messageIndex}`,
+        subject: message.subject || message.Subject || email.subject || email.Subject || "No subject",
+        body: message.body || "",
+        fromEmail: message.fromEmail || message.FromEmail || email.fromEmail || email.FromEmail || email.senderEmailId || email.SenderEmailId || "",
+        toEmail: message.toEmail || message.ToEmail || email.toEmail || email.ToEmail || contact?.email || "",
+        date: message.date || message.Date || email.sentAt || email.SentAt || email.receiveAt || email.ReceiveAt || "",
+        contactName: message.contactName || message.ContactName || email.contactName || email.ContactName || contact?.full_name || contact?.first_name,
+        attachments: message.attachments || message.Attachments || [],
+        type: message.type || (email.emailType === "sent" ? "Sent" : "Reply"),
+        isRead: message.isRead ?? true,
+        contactId: message.contactId ?? message.ContactId ?? Number(contactId),
+      }));
+      const sortedMessages = [...messages].sort((a: any, b: any) => getMessageTime(a) - getMessageTime(b));
+      const latestMessage = sortedMessages[sortedMessages.length - 1] || {};
+      const trackingId = getTrackingIdValue(email) || getTrackingIdValue(latestMessage) || getMessageIdValue(latestMessage) || `contact-mail-${index}`;
+      const lastMessageDate = latestMessage.date || email.sentAt || email.SentAt || email.receiveAt || email.ReceiveAt || "";
+
+      return {
+        ...email,
+        trackingId,
+        subject: email.subject || email.Subject || latestMessage.subject || "No subject",
+        contactEmail: contact?.email || email.toEmail || email.ToEmail || email.fromEmail || email.FromEmail || latestMessage.toEmail || latestMessage.fromEmail || "",
+        totalMessages: sortedMessages.length,
+        lastMessageDate,
+        hasUnread: sortedMessages.some((message: any) => message.isRead === false),
+        contactId: Number(contactId),
+        messages: sortedMessages,
+        lastMessage: latestMessage,
+      };
+    };
+
+    const byTrackingId = new Map<string, any>();
+
+    emailTimeline.map(toThread).forEach((thread: any) => {
+      const key = thread.trackingId;
+      const existing = byTrackingId.get(key);
+
+      if (!existing) {
+        byTrackingId.set(key, thread);
+        return;
+      }
+
+      const messagesById = new Map<string, any>();
+      [...existing.messages, ...thread.messages].forEach((message: any, index: number) => {
+        const messageKey = getMessageIdValue(message) || `${key}-${index}-${message.date || ""}`;
+        if (!messagesById.has(messageKey)) {
+          messagesById.set(messageKey, message);
+        }
+      });
+      const messages = Array.from(messagesById.values()).sort((a: any, b: any) => getMessageTime(a) - getMessageTime(b));
+      const latestMessage = messages[messages.length - 1] || existing.lastMessage || thread.lastMessage || {};
+
+      byTrackingId.set(key, {
+        ...existing,
+        ...thread,
+        subject: thread.subject || existing.subject,
+        totalMessages: messages.length,
+        lastMessageDate: latestMessage.date || thread.lastMessageDate || existing.lastMessageDate,
+        hasUnread: messages.some((message: any) => message.isRead === false),
+        messages,
+        lastMessage: latestMessage,
+      });
+    });
+
+    return Array.from(byTrackingId.values())
+      .sort((a: any, b: any) => new Date(b.lastMessageDate || 0).getTime() - new Date(a.lastMessageDate || 0).getTime());
+  }, [emailTimeline, contact, contactId]);
+
+  const visibleContactMailThreads = useMemo(() => {
+    if (contactMailTab === "sent") {
+      return contactMailThreads
+        .map((thread: any) => {
+          const sentMessages = thread.messages.filter((message: any) => String(message.type || "").toLowerCase() === "sent");
+          if (sentMessages.length === 0) return null;
+          const latestMessage = sentMessages[sentMessages.length - 1] || thread.lastMessage;
+          return {
+            ...thread,
+            lastMessage: latestMessage,
+            lastMessageDate: latestMessage?.date || thread.lastMessageDate,
+          };
+        })
+        .filter(Boolean);
+    }
+
+    return contactMailThreads;
+  }, [contactMailTab, contactMailThreads]);
+
+  useEffect(() => {
+    setSelectedContactThread(null);
+    setContactCollapsedEmails({});
+    setExpandedContactMessageHeaders({});
+  }, [contactMailTab, contactId]);
+
+  useEffect(() => {
+    if (
+      selectedContactThread &&
+      !visibleContactMailThreads.some((thread: any) => thread.trackingId === selectedContactThread.trackingId)
+    ) {
+      setSelectedContactThread(null);
+      setContactCollapsedEmails({});
+      setExpandedContactMessageHeaders({});
+      return;
+    }
+
+    if (selectedContactThread) {
+      const refreshedThread = visibleContactMailThreads.find(
+        (thread: any) => thread.trackingId === selectedContactThread.trackingId
+      );
+
+      if (refreshedThread && refreshedThread !== selectedContactThread) {
+        setSelectedContactThread(refreshedThread);
+      }
+    }
+  }, [visibleContactMailThreads, selectedContactThread]);
+
+  const handleContactThreadSelect = (thread: any) => {
+    setSelectedContactThread(thread);
+    const collapsed: { [key: string]: boolean } = {};
+    [...thread.messages]
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .forEach((message: any, index: number) => {
+        collapsed[`${thread.trackingId}-${message.messageId}-${index}`] = true;
+      });
+    setContactCollapsedEmails(collapsed);
+  };
+
+  const toggleContactEmailCollapse = (key: string) => {
+    setContactCollapsedEmails((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleContactMessageHeader = (key: string) => {
+    setExpandedContactMessageHeaders((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const renderContactMailList = () => {
+    if (isLoadingHistory) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 20px", gap: 12 }}>
+          <div style={{ width: 24, height: 24, border: "3px solid #eaf5ea", borderTop: "3px solid #3f9f42", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+          <span style={{ fontSize: 13, color: "#9aa1ab" }}>Loading messages...</span>
+        </div>
+      );
+    }
+
+    if (visibleContactMailThreads.length === 0) {
+      return <div className="no-mails">No {contactMailTab === "sent" ? "sent emails" : "messages"} found</div>;
+    }
+
+    return (
+      <div className="list-scroll">
+        {visibleContactMailThreads.map((thread: any) => {
+          const lastMessage = thread.lastMessage || thread.messages[thread.messages.length - 1] || {};
+          const isSelected = selectedContactThread?.trackingId === thread.trackingId;
+          const attachmentCount = thread.messages.reduce((count: number, message: any) => count + (message.attachments?.length || 0), 0);
+          const pinned = isEmailPinned(thread);
+
+          return (
+            <div
+              key={thread.trackingId}
+              className={`mail-item ${thread.hasUnread ? "unread" : ""} ${isSelected ? "selected" : ""}`}
+              onClick={() => handleContactThreadSelect(thread)}
+            >
+              <div className="mail-avatar">{getMailInitials(lastMessage.fromEmail || thread.contactEmail, lastMessage.contactName)}</div>
+              <div className="mail-content">
+                <div className="mail-item-header">
+                  <span className="mail-sender">{lastMessage.contactName || extractSenderName(lastMessage.fromEmail || thread.contactEmail)}</span>
+                  <span className="mail-row-actions">
+                    <span className="mail-date">{formatMailListDate(thread.lastMessageDate)}</span>
+                    {pinned && (
+                      <span className="mail-pinned-indicator" title="Pinned" aria-label="Pinned">
+                        <Pin size={15} strokeWidth={2.5} />
+                      </span>
+                    )}
+                    <span className="mail-action-wrapper" onClick={(event) => event.stopPropagation()}>
+                      {renderEmailActions(thread)}
+                    </span>
+                  </span>
+                </div>
+                <div className="mail-subject">
+                  {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
+                  {attachmentCount > 0 && (
+                    <span title={`${attachmentCount} attachment${attachmentCount > 1 ? "s" : ""}`} style={{ display: "inline-flex", alignItems: "center", marginRight: 6, color: "#6b7280" }}>
+                      <FontAwesomeIcon icon={faPaperclip} />
+                    </span>
+                  )}
+                  {thread.subject}
+                </div>
+                <div className="mail-preview">{getContactMailPreview(lastMessage.body)}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderContactMailReader = () => {
+    if (!selectedContactThread) {
+      return (
+        <div className="read-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+          <p>Select an email to read it here</p>
+        </div>
+      );
+    }
+
+    const activeThread =
+      visibleContactMailThreads.find((thread: any) => thread.trackingId === selectedContactThread.trackingId) ||
+      selectedContactThread;
+    const sortedMessages = [...(activeThread.messages || [])].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return (
+      <>
+        <div className="read-head">
+          <h1 className="read-subject">{activeThread.subject}</h1>
+          <div className="read-head-actions">
+            <button
+              className="head-icon danger"
+              title="Delete"
+              onClick={() => handleEmailDelete(activeThread, "soft")}
+            >
+              <FontAwesomeIcon icon={faTrashAlt} style={{ width: 16, height: 16 }} />
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="scroll-to-bottom-btn"
+          title="Scroll to bottom"
+          onClick={() => {
+            const el = contactMailDetailRef.current;
+            if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
+        </button>
+        <div className="mail-detail contact-mail-detail" ref={contactMailDetailRef}>
+          {sortedMessages.map((message: any, index: number) => {
+            const uniqueKey = `${activeThread.trackingId}-${message.messageId}-${index}`;
+            const isCollapsed = contactCollapsedEmails[uniqueKey];
+            const isHeaderExpanded = expandedContactMessageHeaders[uniqueKey];
+
+            return (
+              <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? 16 : 0, borderBottom: index < sortedMessages.length - 1 ? "1px solid #e5e7eb" : "none" }}>
+                <div className="mail-detail-header">
+                  <div className="mail-detail-top">
+                    <div className="mail-detail-avatar">{getMailInitials(message.fromEmail, message.contactName)}</div>
+                    <div className="mail-detail-info">
+                      <div className="mail-detail-sender">{message.contactName || extractSenderName(message.fromEmail)}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{extractEmailAddress(message.fromEmail)}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                        <span style={{ color: "#6b7280", fontSize: 13 }}>To:</span>
+                        <span style={{ color: "#2563eb", fontSize: 13 }}>{extractEmailAddress(message.toEmail || activeThread.contactEmail)}</span>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleContactMessageHeader(uniqueKey);
+                          }}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: "2px 4px",
+                            color: "#6b7280",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            marginLeft: 4,
+                          }}
+                          title={isHeaderExpanded ? "Hide details" : "Show details"}
+                        >
+                          <FontAwesomeIcon
+                            icon={faAngleRight}
+                            style={{
+                              width: 10,
+                              height: 10,
+                              transform: isHeaderExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s",
+                            }}
+                          />
+                        </button>
+                      </div>
+                      {isHeaderExpanded && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            padding: "8px 0",
+                            fontSize: 13,
+                            lineHeight: 1.8,
+                            color: "#6b7280",
+                            borderTop: "1px solid #e5e7eb",
+                          }}
+                        >
+                          <div><strong style={{ color: "#374151" }}>From:</strong> {message.contactName || extractSenderName(message.fromEmail)} &lt;{extractEmailAddress(message.fromEmail)}&gt;</div>
+                          <div><strong style={{ color: "#374151" }}>To:</strong> {extractEmailAddress(message.toEmail || activeThread.contactEmail)}</div>
+                          <div><strong style={{ color: "#374151" }}>Date:</strong> {formatDateTimeIST(message.date)}</div>
+                          <div><strong style={{ color: "#374151" }}>Subject:</strong> {message.subject || activeThread.subject}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mail-detail-date">{formatDateTimeIST(message.date)}</div>
+                  </div>
+                </div>
+                {isCollapsed ? (
+                  <div
+                    className="mail-body-preview"
+                    onClick={() => toggleContactEmailCollapse(uniqueKey)}
+                    style={{ padding: "16px 24px", borderLeft: "3px solid #e5e7eb", borderRadius: 4 }}
+                  >
+                    {getContactMailPreview(message.body)}
+                  </div>
+                ) : (
+                  <div onClick={() => toggleContactEmailCollapse(uniqueKey)} style={{ cursor: "pointer" }}>
+                    <div className="mail-body" style={{ maxWidth: "100%", padding: 0 }}>
+                      <EmailIframe
+                        html={formatContactEmailBody(message.body)}
+                        onBodyClick={() => toggleContactEmailCollapse(uniqueKey)}
+                      />
+                    </div>
+                  </div>
+                )}
+                <div style={{ padding: "0 24px 12px" }}>{renderMessageAttachments(message.attachments)}</div>
+              </div>
+            );
+          })}
+        </div>
+      </>
+    );
+  };
+
+  const renderContactEmailWorkspace = () => (
+    <div className="inbox-workspace contact-email-workspace">
+      <div className="inbox-content inbox-grid" style={{ gridTemplateColumns: "360px minmax(0, 1fr)", height: "calc(100vh - 260px)", minHeight: 560 }}>
+        <div className="list-pane">
+          <div className="inbox-tabs">
+            <button
+              type="button"
+              className={`inbox-tab${contactMailTab === "allmessages" ? " active" : ""}`}
+              onClick={() => setContactMailTab("allmessages")}
+            >
+              All Messages
+            </button>
+            <button
+              type="button"
+              className={`inbox-tab${contactMailTab === "sent" ? " active" : ""}`}
+              onClick={() => setContactMailTab("sent")}
+            >
+              Sent
+            </button>
+          </div>
+          <div className="list-pane-meta">
+            <span>{visibleContactMailThreads.length} {visibleContactMailThreads.length === 1 ? "thread" : "threads"}</span>
+          </div>
+          {renderContactMailList()}
+        </div>
+        <div className="read-pane">
+          {renderContactMailReader()}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -3078,7 +3638,8 @@ dispatch(closePanel());
                       )}
 
                       {/* 🔹 EMAIL TIMELINE */}
-                      {(historyFilter === "emails") &&
+                      {historyFilter === "emails" && renderContactEmailWorkspace()}
+                      {false && (historyFilter === "emails") &&
                         emailTimeline.map((email: any, index: number) => {
                           const isInboxEmail = email.emailType === 'inbox';
                           const threadMessageCount = email.messages?.length || 0;

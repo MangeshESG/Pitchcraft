@@ -841,6 +841,10 @@ details[data-reply-email-trail] > summary::marker {
   display: none !important;
 }
 
+.read-pane .mail-detail.contact-mail-detail > div:first-child {
+  display: block !important;
+}
+
 /* Mail-detail takes all remaining vertical space and scrolls */
 .read-pane .mail-detail {
   flex: 1;
