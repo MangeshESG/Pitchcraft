@@ -616,10 +616,25 @@ const canGenerateFromCreditResponse = (creditResponse: any) => {
     return false;
   }
 
-  return (
-    creditResponse.canGenerate !== false &&
-    Number(creditResponse.total ?? creditResponse.credits ?? 0) > 0
-  );
+  if (creditResponse.monthlyLimitExceeded || creditResponse.canGenerate === false) {
+    return false;
+  }
+
+  const creditValue = [
+    creditResponse.total,
+    creditResponse.credits,
+    creditResponse.credit,
+    creditResponse.remainingCredits,
+    creditResponse.remainingCredit,
+    creditResponse.remaining,
+    creditResponse.balance,
+  ].find((value) => value !== undefined && value !== null && !Number.isNaN(Number(value)));
+
+  if (creditValue !== undefined) {
+    return Number(creditValue) > 0;
+  }
+
+  return creditResponse.canGenerate === true;
 };
 
 const refreshCreditsAfterDeduction = async () => {
@@ -1016,6 +1031,27 @@ const handleGenerateInsights = async () => {
     });
   };
 
+  const fetchContactEmailThreads = async (targetContactId: number) => {
+    if (!targetContactId || !effectiveUserId) return [];
+
+    const threadsResponse = await fetch(
+      `${API_BASE_URL}/api/Inbox/contact-threads?clientId=${effectiveUserId}&contactId=${targetContactId}&pageNumber=1&pageSize=500`
+    );
+
+    if (!threadsResponse.ok) {
+      throw new Error("Failed to fetch contact email threads");
+    }
+
+    const threadsData = await threadsResponse.json();
+    const contactThreads = threadsData?.data?.data || threadsData?.data?.Data || [];
+    const normalizedThreads = Array.isArray(contactThreads)
+      ? contactThreads.map(normalizeConversationThread)
+      : [];
+
+    setEmailTimeline(normalizedThreads);
+    return normalizedThreads;
+  };
+
   const fetchEmailTimeline = async (contactId: number) => {
     if (!contactId) return;
 
@@ -1040,17 +1076,7 @@ const handleGenerateInsights = async () => {
       );
 
       try {
-        const threadsResponse = await fetch(
-          `${API_BASE_URL}/api/Inbox/contact-threads?clientId=${effectiveUserId}&contactId=${contactId}&pageNumber=1&pageSize=500`
-        );
-
-        if (!threadsResponse.ok) {
-          throw new Error("Failed to fetch contact email threads");
-        }
-
-        const threadsData = await threadsResponse.json();
-        const contactThreads = threadsData?.data?.data || threadsData?.data?.Data || [];
-        setEmailTimeline(Array.isArray(contactThreads) ? contactThreads.map(normalizeConversationThread) : []);
+        await fetchContactEmailThreads(contactId);
       } catch (threadError) {
         console.error("contact-threads API failed, falling back to email-timeline conversations", threadError);
         setEmailTimeline(normalizeEmailTimeline(data));
@@ -1753,6 +1779,11 @@ const handleGenerateInsights = async () => {
 
       if (sendResponse.data?.success === false) {
         throw new Error(sendResponse.data?.message || "Failed to send email");
+      }
+
+      const refreshedThreads = await fetchContactEmailThreads(Number(contactId));
+      if (refreshedThreads.length > 0) {
+        setSelectedContactThread(refreshedThreads[0]);
       }
 
       setContact((currentContact: any) => currentContact
@@ -3588,29 +3619,6 @@ dispatch(closePanel());
                 Sent
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsComposePopupOpen(true)}
-              style={{
-                marginRight: 10,
-                height: 32,
-                padding: "0 12px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 7,
-                border: "1px solid #178d2e",
-                background: "#118a27",
-                color: "#fff",
-                borderRadius: 6,
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <FontAwesomeIcon icon={faPen} />
-              Compose
-            </button>
           </div>
           {renderContactMailList()}
         </div>
@@ -4253,18 +4261,21 @@ dispatch(closePanel());
                 <div
                   style={{
                     display: "flex",
-                    gap: 12,
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 16,
                     marginBottom: 24,
                     marginTop: -12,
                     flexWrap: "wrap",
                   }}
                 >
-                  {[
-                    { key: "all", label: "All" },
-                    { key: "notes", label: "Notes" },
-                    { key: "emails", label: "Emails" },
-                    { key: "attachments", label: "Attachments" },
-                  ].map(item => (
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    {[
+                      { key: "all", label: "All" },
+                      { key: "notes", label: "Notes" },
+                      { key: "emails", label: "Emails" },
+                      { key: "attachments", label: "Attachments" },
+                    ].map(item => (
                     <button
                       key={item.key}
                       onClick={() => {
@@ -4295,7 +4306,33 @@ dispatch(closePanel());
                     >
                       {item.label}
                     </button>
-                  ))}
+                    ))}
+                  </div>
+                  {historyFilter === "emails" && (
+                    <button
+                      type="button"
+                      onClick={() => setIsComposePopupOpen(true)}
+                      style={{
+                        height: 34,
+                        padding: "0 14px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 7,
+                        border: "1px solid #178d2e",
+                        background: "#118a27",
+                        color: "#fff",
+                        borderRadius: 6,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        boxShadow: "0 6px 14px rgba(17, 138, 39, 0.18)",
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faPen} />
+                      Compose
+                    </button>
+                  )}
                 </div>
               )}
               {/* PROFILE TAB */}
