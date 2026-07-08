@@ -177,11 +177,18 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           onClick={(e) => {
             const target = e.target as HTMLElement;
             const summary = target.closest('summary');
-            const details = summary?.closest('details');
+            const details = summary?.closest('details') || target.closest('[data-reply-email-trail]');
 
             if (details?.hasAttribute('data-reply-email-trail')) {
               e.preventDefault();
-              details.open = !details.open;
+              if (details instanceof HTMLDetailsElement) {
+                details.open = !details.open;
+              } else {
+                const isOpen = details.getAttribute('data-trail-open') === 'true';
+                details.setAttribute('data-trail-open', isOpen ? 'false' : 'true');
+                const body = details.querySelector('.contact-reply-trail-body') as HTMLElement | null;
+                if (body) body.style.display = isOpen ? 'none' : 'block';
+              }
               onChange(e.currentTarget.innerHTML);
             }
           }}
