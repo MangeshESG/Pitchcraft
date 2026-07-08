@@ -166,15 +166,14 @@ const SentTab: React.FC<SentTabProps> = ({
       }
     }
     
-    // Start with all messages collapsed
+    // Keep the first displayed message expanded and collapse the rest.
     const collapsed: { [key: string]: boolean } = {};
     const sortedMessages = [...thread.messages].sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
     sortedMessages.forEach((message, index) => {
       const uniqueKey = `sent-${message.messageId}-${index}`;
-      // Collapse all messages initially
-      collapsed[uniqueKey] = true;
+      collapsed[uniqueKey] = index !== 0;
     });
     onInitializeCollapsedEmails(collapsed);
   };

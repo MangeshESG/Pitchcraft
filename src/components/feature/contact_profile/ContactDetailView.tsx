@@ -1784,6 +1784,7 @@ const handleGenerateInsights = async () => {
       const refreshedThreads = await fetchContactEmailThreads(Number(contactId));
       if (refreshedThreads.length > 0) {
         setSelectedContactThread(refreshedThreads[0]);
+        setContactCollapsedEmails(buildDefaultContactCollapseState(refreshedThreads[0]));
       }
 
       setContact((currentContact: any) => currentContact
@@ -2943,6 +2944,19 @@ dispatch(closePanel());
     }
   }, [visibleContactMailThreads, selectedContactThread]);
 
+  const getContactMessageCollapseKey = (thread: any, message: any, index: number) =>
+    `${thread.trackingId}-${message.messageId}-${index}`;
+
+  const buildDefaultContactCollapseState = (thread: any) => {
+    const collapsed: { [key: string]: boolean } = {};
+    [...(thread.messages || [])]
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .forEach((message: any, index: number) => {
+        collapsed[getContactMessageCollapseKey(thread, message, index)] = index !== 0;
+      });
+    return collapsed;
+  };
+
   const handleContactThreadSelect = (thread: any) => {
     setSelectedContactThread(thread);
     setContactReplyText("");
@@ -2955,17 +2969,11 @@ dispatch(closePanel());
     setShowContactReplySection(false);
     setIsContactReplyExpanded(false);
     setOpenContactReplyDeviceDropdown(false);
-    const collapsed: { [key: string]: boolean } = {};
-    [...thread.messages]
-      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .forEach((message: any, index: number) => {
-        collapsed[`${thread.trackingId}-${message.messageId}-${index}`] = true;
-      });
-    setContactCollapsedEmails(collapsed);
+    setContactCollapsedEmails(buildDefaultContactCollapseState(thread));
   };
 
   const toggleContactEmailCollapse = (key: string) => {
-    setContactCollapsedEmails((prev) => ({ ...prev, [key]: !prev[key] }));
+    setContactCollapsedEmails((prev) => ({ ...prev, [key]: false }));
   };
 
   const toggleContactMessageHeader = (key: string) => {
@@ -3074,10 +3082,14 @@ dispatch(closePanel());
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
         </button>
-        <div className="mail-detail contact-mail-detail" ref={contactMailDetailRef}>
+        <div
+          className="mail-detail contact-mail-detail"
+          ref={contactMailDetailRef}
+          style={{ paddingBottom: !showContactReplySection ? 82 : 0 }}
+        >
           {sortedMessages.map((message: any, index: number) => {
-            const uniqueKey = `${activeThread.trackingId}-${message.messageId}-${index}`;
-            const isCollapsed = contactCollapsedEmails[uniqueKey];
+            const uniqueKey = getContactMessageCollapseKey(activeThread, message, index);
+            const isCollapsed = contactCollapsedEmails[uniqueKey] ?? index !== 0;
             const isHeaderExpanded = expandedContactMessageHeaders[uniqueKey];
 
             return (
@@ -3150,11 +3162,10 @@ dispatch(closePanel());
                     {getContactMailPreview(message.body)}
                   </div>
                 ) : (
-                  <div onClick={() => toggleContactEmailCollapse(uniqueKey)} style={{ cursor: "pointer" }}>
+                  <div>
                     <div className="mail-body" style={{ maxWidth: "100%", padding: 0 }}>
                       <EmailIframe
                         html={formatContactEmailBody(message.body)}
-                        onBodyClick={() => toggleContactEmailCollapse(uniqueKey)}
                       />
                     </div>
                   </div>
@@ -3165,7 +3176,7 @@ dispatch(closePanel());
           })}
         </div>
         {!showContactReplySection && (
-          <div className="reply-button-sticky">
+          <div className="reply-button-sticky contact-reply-floating">
             <button
               type="button"
               className="reply-pill-button"

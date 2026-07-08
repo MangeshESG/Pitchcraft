@@ -734,6 +734,21 @@
 .reply-pill-button:hover { background: var(--green-dark); }
 .reply-pill-icon { font-size: 14px; }
 
+.read-pane .contact-reply-floating {
+  position: absolute;
+  left: 24px;
+  bottom: 18px;
+  padding: 0;
+  border-top: none;
+  background: transparent;
+  z-index: 12;
+  pointer-events: none;
+}
+
+.read-pane .contact-reply-floating .reply-pill-button {
+  pointer-events: auto;
+}
+
 details[data-reply-email-trail] > summary::-webkit-details-marker {
   display: none;
 }

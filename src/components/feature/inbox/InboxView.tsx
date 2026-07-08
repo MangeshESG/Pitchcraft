@@ -635,15 +635,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setSelectedUnassignedEmail(null);
     setSelectedUnassignedThread(null);
     
-    // Start with all messages collapsed
+    // Keep the first displayed message expanded and collapse the rest.
     const collapsed: { [key: string]: boolean } = {};
     const sortedMessages = [...thread.messages].sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
     sortedMessages.forEach((message, index) => {
       const uniqueKey = `${message.messageId}-${index}`;
-      // Collapse all messages initially
-      collapsed[uniqueKey] = true;
+      collapsed[uniqueKey] = index !== 0;
     });
     setCollapsedEmails(collapsed);
     
@@ -805,7 +804,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const toggleEmailCollapse = (messageId: string) => {
     setCollapsedEmails(prev => ({
       ...prev,
-      [messageId]: !prev[messageId]
+      [messageId]: false
     }));
   };
 
@@ -2803,7 +2802,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </div>
                     </div>
                   </div>
-                  {collapsedEmails[uniqueKey] ? (
+                  {(collapsedEmails[uniqueKey] ?? index !== 0) ? (
                     <div 
                       className="mail-body-preview" 
                       onClick={() => toggleEmailCollapse(uniqueKey)}
@@ -2851,14 +2850,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       })()}
                     </div>
                   ) : (
-                    <div 
-                      onClick={() => toggleEmailCollapse(uniqueKey)} 
-                      style={{ cursor: 'pointer' }}
-                    >
+                    <div>
                       <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
                         <EmailIframe
                           html={formatEmailBody(message.body)}
-                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
                         />
                       </div>
                     </div>
@@ -3266,7 +3261,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
                       </div>
                     </div>
-                    {collapsedEmails[uniqueKey] ? (
+                    {(collapsedEmails[uniqueKey] ?? index !== 0) ? (
                       <div 
                         className="mail-body-preview" 
                         onClick={() => toggleEmailCollapse(uniqueKey)}
@@ -3313,14 +3308,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         })()}
                       </div>
                     ) : (
-                      <div 
-                        onClick={() => toggleEmailCollapse(uniqueKey)} 
-                        style={{ cursor: 'pointer' }}
-                      >
+                      <div>
                         <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
                         <EmailIframe
                           html={formatEmailBody(message.body)}
-                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
                         />
                       </div>
                       </div>
@@ -3544,7 +3535,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         </div>
                       </div>
                     </div>
-                    {collapsedEmails[uniqueKey] ? (
+                    {(collapsedEmails[uniqueKey] ?? index !== 0) ? (
                       <div 
                         className="mail-body-preview" 
                         onClick={() => toggleEmailCollapse(uniqueKey)}
@@ -3591,14 +3582,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         })()}
                       </div>
                     ) : (
-                      <div 
-                        onClick={() => toggleEmailCollapse(uniqueKey)} 
-                        style={{ cursor: 'pointer' }}
-                      >
+                      <div>
                         <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
                         <EmailIframe
                           html={formatEmailBody(message.body)}
-                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
                         />
                       </div>
                       </div>
@@ -4196,7 +4183,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         </div>
                       </div>
                     </div>
-                    {collapsedEmails[uniqueKey] ? (
+                    {(collapsedEmails[uniqueKey] ?? index !== 0) ? (
                       <div
                         className="mail-body-preview"
                         onClick={() => toggleEmailCollapse(uniqueKey)}
@@ -4243,14 +4230,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         })()}
                       </div>
                     ) : (
-                      <div 
-                        onClick={() => toggleEmailCollapse(uniqueKey)} 
-                        style={{ cursor: 'pointer' }}
-                      >
+                      <div>
                         <div className="mail-body" style={{ maxWidth: '100%', padding: 0 }}>
                         <EmailIframe
                           html={formatEmailBody(message.body)}
-                          onBodyClick={() => toggleEmailCollapse(uniqueKey)}
                         />
                       </div>
                       </div>
