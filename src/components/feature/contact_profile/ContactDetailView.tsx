@@ -22,6 +22,7 @@ import {
   faDownload,
   faReply,
   faFloppyDisk,
+  faPen,
 } from "@fortawesome/free-solid-svg-icons";
 import { faEdit, faTrashAlt, faSquarePlus } from "@fortawesome/free-regular-svg-icons";
 import EditContactModal from "./EditContactModal";
@@ -40,6 +41,7 @@ import { Pin, PinOff } from 'lucide-react';
 
 import CommonSidePanel from '../../common/CommonSidePanel';
 import ContactQA from "./ContactQA";
+import ContactComposeEmailPopup from "./ContactComposeEmailPopup";
 import { pinEmail } from "../inbox/inboxPin";
 import EmailIframe from "../inbox/EmailIframe";
 import { repairAndParseJsonObject } from "../../../utils/jsonRepair";
@@ -83,6 +85,18 @@ interface ContactDetailViewProps {
 interface ContactReplyBlueprint {
   id: number;
   templateName: string;
+}
+
+interface ContactSmtpUser {
+  id?: number;
+  outboxId?: number;
+  OutboxId?: number;
+  username?: string;
+  emailAddress?: string;
+  fromEmail?: string;
+  email?: string;
+  type?: string;
+  smtpType?: string;
 }
 
 const ResearchCards: React.FC<{ content: string }> = ({ content }) => {
@@ -221,6 +235,10 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [showContactReplyCc, setShowContactReplyCc] = useState(false);
   const [showContactReplyBcc, setShowContactReplyBcc] = useState(false);
   const [contactReplyAttachments, setContactReplyAttachments] = useState<File[]>([]);
+  const [isComposePopupOpen, setIsComposePopupOpen] = useState(false);
+  const [composeSmtpUsers, setComposeSmtpUsers] = useState<ContactSmtpUser[]>([]);
+  const [selectedComposeSmtpUser, setSelectedComposeSmtpUser] = useState("");
+  const [isSendingComposeEmail, setIsSendingComposeEmail] = useState(false);
   const [showContactReplySection, setShowContactReplySection] = useState(false);
   const [isSendingContactReply, setIsSendingContactReply] = useState(false);
   const [contactReplyBlueprints, setContactReplyBlueprints] = useState<ContactReplyBlueprint[]>([]);
@@ -524,6 +542,11 @@ const effectiveUserId = useMemo(() => {
 const token = sessionStorage.getItem("token");
 
 useEffect(() => {
+  const lastFrom = localStorage.getItem("lastFrom");
+  if (lastFrom) setSelectedComposeSmtpUser(lastFrom);
+}, []);
+
+useEffect(() => {
   if (!effectiveUserId) return;
 
   const fetchContactReplyBlueprints = async () => {
@@ -547,6 +570,42 @@ useEffect(() => {
 
   fetchContactReplyBlueprints();
 }, [effectiveUserId, token]);
+
+useEffect(() => {
+  if (!effectiveUserId) return;
+
+  const fetchComposeSmtpUsers = async () => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/email/get-Outboxs?clientId=${effectiveUserId}`,
+        {
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      const users = Array.isArray(response.data?.data) ? response.data.data : [];
+      setComposeSmtpUsers(users);
+      if (users.length === 1) {
+        const onlyUserId = users[0]?.id ?? users[0]?.outboxId ?? users[0]?.OutboxId;
+        if (onlyUserId !== undefined && onlyUserId !== null) {
+          setSelectedComposeSmtpUser((current) => current || String(onlyUserId));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch compose SMTP users:", error);
+    }
+  };
+
+  fetchComposeSmtpUsers();
+}, [effectiveUserId, token]);
+
+useEffect(() => {
+  if (selectedComposeSmtpUser) {
+    localStorage.setItem("lastFrom", selectedComposeSmtpUser);
+  }
+}, [selectedComposeSmtpUser]);
 
 const canGenerateFromCreditResponse = (creditResponse: any) => {
   if (typeof creditResponse === "number") {
@@ -1550,6 +1609,169 @@ const handleGenerateInsights = async () => {
     } finally {
       setIsKraftingContactReply(false);
       contactReplyKraftInFlightRef.current = false;
+    }
+  };
+
+  const handleGenerateComposeEmail = async (blueprintId: number) => {
+    const emptyGeneratedEmail = { emailBody: "", emailSubject: "" };
+
+    if (!blueprintId || !contactId) {
+      showContactMailError("Please select a blueprint first.");
+      return emptyGeneratedEmail;
+    }
+
+    const canKraft = await ensureCanDeductCredit();
+    if (!canKraft) return emptyGeneratedEmail;
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        {
+          blueprintId,
+          contactId: Number(contactId),
+          clientId: String(effectiveUserId),
+          overwriteExisting: true,
+        },
+        {
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data?.success && (response.data?.emailBody || response.data?.emailSubject)) {
+        refreshCreditsAfterDeduction();
+        window.dispatchEvent(new CustomEvent("creditUpdated", { detail: { clientId: effectiveUserId } }));
+        return {
+          emailBody: response.data.emailBody || "",
+          emailSubject: response.data.emailSubject || "",
+        };
+      }
+
+      throw new Error(response.data?.message || "Failed to generate email");
+    } catch (error: any) {
+      console.error("Failed to generate compose email:", error);
+      showContactMailError(error.response?.data?.message || error.message || "Failed to generate email.");
+      return emptyGeneratedEmail;
+    }
+  };
+
+  const getComposeSmtpId = (smtpUser: ContactSmtpUser) =>
+    smtpUser.id ?? smtpUser.outboxId ?? smtpUser.OutboxId;
+
+  const handleSendComposeEmail = async ({
+    emailSubject,
+    emailBody,
+    bccEmail,
+  }: {
+    emailSubject: string;
+    emailBody: string;
+    bccEmail: string;
+  }): Promise<boolean> => {
+    const plainBody = getPlainText(emailBody || "").trim();
+    const outboxId = parseInt(selectedComposeSmtpUser || "0", 10);
+    const selectedSmtp = composeSmtpUsers.find((smtpUser) => Number(getComposeSmtpId(smtpUser)) === outboxId);
+
+    if (!contactId || !effectiveUserId) {
+      showContactMailError("Contact not found.");
+      return false;
+    }
+
+    if (!outboxId) {
+      showContactMailError("Please select From email.");
+      return false;
+    }
+
+    if (!emailSubject.trim()) {
+      showContactMailError("Please enter subject.");
+      return false;
+    }
+
+    if (!plainBody) {
+      showContactMailError("Please write email body.");
+      return false;
+    }
+
+    setIsSendingComposeEmail(true);
+    try {
+      const updateResponse = await axios.post(
+        `${API_BASE_URL}/api/Crm/contacts/update-email`,
+        {
+          clientId: Number(effectiveUserId),
+          contactId: Number(contactId),
+          campaignId: null,
+          blueprintId: null,
+          gptGenerate: true,
+          emailSubject,
+          emailBody,
+        },
+        {
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (
+        updateResponse.status < 200 ||
+        updateResponse.status >= 300 ||
+        updateResponse.data?.success === false ||
+        updateResponse.data?.success === "false"
+      ) {
+        throw new Error(updateResponse.data?.message || "Failed to update email before sending");
+      }
+
+      const sendResponse = await axios.post(
+        `${API_BASE_URL}/api/email/send-singleEmail`,
+        {
+          clientId: Number(effectiveUserId),
+          contactid: Number(contactId),
+          campaignid: null,
+          isFollowUp: false,
+          BccEmail: bccEmail || "",
+          OutboxId: outboxId,
+          Type: selectedSmtp?.type || selectedSmtp?.smtpType || "",
+          SegmentId:
+            segmentId &&
+            segmentId !== "null" &&
+            segmentId !== "" &&
+            !Number.isNaN(parseInt(segmentId, 10))
+              ? parseInt(segmentId, 10)
+              : 0,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (sendResponse.data?.success === false) {
+        throw new Error(sendResponse.data?.message || "Failed to send email");
+      }
+
+      setContact((currentContact: any) => currentContact
+        ? {
+            ...currentContact,
+            email_subject: emailSubject,
+            email_body: emailBody,
+            email_sent_at: new Date().toISOString(),
+          }
+        : currentContact
+      );
+      showContactMailSuccess(sendResponse.data?.message || "Email sent successfully.");
+      return true;
+    } catch (error: any) {
+      console.error("Failed to send compose email:", error);
+      showContactMailError(error.response?.data?.message || error.message || "Failed to send email.");
+      return false;
+    } finally {
+      setIsSendingComposeEmail(false);
     }
   };
 
@@ -3349,20 +3571,45 @@ dispatch(closePanel());
     <div className="inbox-workspace contact-email-workspace">
       <div className="inbox-content inbox-grid" style={{ gridTemplateColumns: "360px minmax(0, 1fr)", height: "calc(100vh - 260px)", minHeight: 560 }}>
         <div className="list-pane">
-          <div className="inbox-tabs">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb" }}>
+            <div className="inbox-tabs" style={{ borderBottom: "none", flex: 1 }}>
+              <button
+                type="button"
+                className={`inbox-tab${contactMailTab === "allmessages" ? " active" : ""}`}
+                onClick={() => setContactMailTab("allmessages")}
+              >
+                All Messages
+              </button>
+              <button
+                type="button"
+                className={`inbox-tab${contactMailTab === "sent" ? " active" : ""}`}
+                onClick={() => setContactMailTab("sent")}
+              >
+                Sent
+              </button>
+            </div>
             <button
               type="button"
-              className={`inbox-tab${contactMailTab === "allmessages" ? " active" : ""}`}
-              onClick={() => setContactMailTab("allmessages")}
+              onClick={() => setIsComposePopupOpen(true)}
+              style={{
+                marginRight: 10,
+                height: 32,
+                padding: "0 12px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                border: "1px solid #178d2e",
+                background: "#118a27",
+                color: "#fff",
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
             >
-              All Messages
-            </button>
-            <button
-              type="button"
-              className={`inbox-tab${contactMailTab === "sent" ? " active" : ""}`}
-              onClick={() => setContactMailTab("sent")}
-            >
-              Sent
+              <FontAwesomeIcon icon={faPen} />
+              Compose
             </button>
           </div>
           {renderContactMailList()}
@@ -5902,6 +6149,18 @@ dispatch(closePanel());
       )}
 
     </div>
+    <ContactComposeEmailPopup
+      isOpen={isComposePopupOpen}
+      onClose={() => setIsComposePopupOpen(false)}
+      blueprints={contactReplyBlueprints}
+      fromOptions={composeSmtpUsers}
+      selectedFromId={selectedComposeSmtpUser}
+      onFromChange={setSelectedComposeSmtpUser}
+      toEmail={contact?.email || ""}
+      onGenerate={handleGenerateComposeEmail}
+      onSend={handleSendComposeEmail}
+      isSending={isSendingComposeEmail}
+    />
     {(loading || isLoadingHistory || isLoadingNotes || isLoadingDetails || isBlueprintLoading || isSavingNote) && (
       <LoadingSpinner
         message={
