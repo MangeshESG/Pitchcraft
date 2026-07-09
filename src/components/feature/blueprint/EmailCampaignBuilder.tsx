@@ -13,6 +13,21 @@ import {
   ChevronDown,
   Volume2,
   VolumeX,
+  Palette,
+  Magnet,
+  Search,
+  Target,
+  RotateCcw,
+  Zap,
+  TrendingUp,
+  User,
+  Megaphone,
+  Edit3,
+  Image as ImageIcon,
+  Ban,
+  Plus,
+  Mic,
+  ArrowUp,
 } from "lucide-react";
 import axios from "axios";
 import API_BASE_URL from "../../../config";
@@ -28,6 +43,7 @@ import downArrow from "../../assets/images/down.png";
 import PopupModal from "../../common/PopupModal";
 import toggleOn from "../../../assets/images/on-button.png";
 import toggleOff from "../../../assets/images/off-button.png";
+import witchLogo from "../../../assets/images/Witch_logo_AI.png";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
 import LoadingSpinner from "../../common/LoadingSpinner";
@@ -138,6 +154,7 @@ interface TemplateTabProps {
 interface EmailCampaignBuilderProps {
   selectedClient: string | null;
   onBeforeAiChatOpen?: () => Promise<boolean>;
+  onExitBuilder?: () => void;
 }
 
 interface ConversationTabProps {
@@ -153,6 +170,7 @@ interface ConversationTabProps {
   handleSendMessage: (overrideText?: string) => void;
   handleKeyPress: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   resetAll: () => void;
+  onExitBuilder?: () => void;
   onStartConversation?: (method: "reference" | "description", initialMessage: string) => void;
   onApprove?: () => void;
 
@@ -410,6 +428,56 @@ const INITIAL_BLUEPRINT_WELCOME_MESSAGE = `
 </div>
 `.trim();
 
+// Shared dark, ChatGPT-style instruction input used across the chat/refine steps.
+// Text on top; a "+" attach on the bottom-left; mic + circular send on the right.
+const BlueprintChatInput: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  onKeyPress: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onSend: () => void;
+  onAttach: (file: File) => void;
+  isTyping: boolean;
+  canSend: boolean;
+  placeholder: string;
+  inputRef?: React.RefObject<HTMLTextAreaElement | null>;
+}> = ({ value, onChange, onKeyPress, onSend, onAttach, isTyping, canSend, placeholder, inputRef }) => {
+  return (
+    <div style={{ maxWidth: 820, margin: "0 auto", width: "100%", background: "#2f2f2f", borderRadius: 26, padding: "12px 14px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <textarea
+        ref={inputRef}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          e.target.style.height = "auto";
+          e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
+        }}
+        onKeyPress={onKeyPress}
+        placeholder={placeholder}
+        className="bp-dark-input"
+        disabled={isTyping}
+        rows={1}
+        style={{ width: "100%", border: "none", outline: "none", background: "transparent", color: "#fff", fontSize: 15, lineHeight: "22px", resize: "none", fontFamily: "inherit", maxHeight: 200, overflowY: "auto", padding: "2px 4px", display: "block" }}
+      />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        {/* + attach */}
+        <label style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", cursor: isTyping ? "not-allowed" : "pointer", color: "#e5e5e5", border: "1px solid #4b4b4b", flexShrink: 0 }} title="Attach file">
+          <input type="file" accept="image/*" hidden disabled={isTyping} onChange={(e) => { const f = e.target.files?.[0]; if (f) onAttach(f); e.currentTarget.value = ""; }} />
+          <Plus size={18} />
+        </label>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", color: "#e5e5e5" }} title="Voice">
+            <Mic size={18} />
+          </span>
+          <button onClick={onSend} disabled={isTyping || !canSend} title="Send"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: isTyping || !canSend ? "#5a5a5a" : "#fff", color: isTyping || !canSend ? "#9ca3af" : "#111827", border: "none", cursor: isTyping || !canSend ? "not-allowed" : "pointer", flexShrink: 0 }}>
+            <ArrowUp size={18} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const ConversationTab: React.FC<ConversationTabProps> = ({
   isTemplateLoading = false,
   conversationStarted,
@@ -422,6 +490,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
   handleSendMessage,
   handleKeyPress,
   resetAll,
+  onExitBuilder,
   isEditMode = false,
   availablePlaceholders = [],
   placeholderValues = {},
@@ -466,6 +535,10 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
   const [referenceEmailSubmitted, setReferenceEmailSubmitted] = useState(false);
   const [blueprintApproved, setBlueprintApproved] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [showFullExampleEmail, setShowFullExampleEmail] = useState(false);
+  // Phase 5: after the example email is approved we show a "blueprint ready"
+  // step; only choosing "Fine-tune elements" advances to the elements editor.
+  const [exampleApproved, setExampleApproved] = useState(false);
 
   // Track the message index when Phase 4 starts, so we only show refinement messages
   const phase4StartIndexRef = useRef<number | null>(null);
@@ -474,6 +547,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
       phase4StartIndexRef.current = messages.length;
     } else if (!blueprintApproved) {
       phase4StartIndexRef.current = null;
+      setExampleApproved(false);
     }
   }, [blueprintApproved]);
 
@@ -576,6 +650,24 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
     val.length > max ? val.slice(0, max) + "…" : val;
 
   // ===============================
+  // HTML → CLEAN TEXT (reference email box)
+  // Preserves paragraph/line breaks and list bullets, then tidies whitespace
+  // so a pasted email is sent to the AI as readable, well-spaced text.
+  // ===============================
+  const htmlToCleanText = (html: string): string => {
+    let s = html
+      .replace(/<\s*br\s*\/?>/gi, "\n")
+      .replace(/<\s*li[^>]*>/gi, "\n• ")
+      .replace(/<\/(p|div|li|h[1-6]|tr|ul|ol|blockquote)>/gi, "\n");
+    const decoded = new DOMParser().parseFromString(s, "text/html").body.textContent || "";
+    return decoded
+      .replace(/[ \t ]+/g, " ") // collapse runs of spaces/tabs/nbsp
+      .replace(/ *\n */g, "\n")      // trim spaces around line breaks
+      .replace(/\n{3,}/g, "\n\n")    // at most one blank line between blocks
+      .trim();
+  };
+
+  // ===============================
   // GROUP PLACEHOLDERS (CATEGORY WISE)
   // ===============================
 
@@ -595,66 +687,123 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
       {/* ===== PHASE 1: CHOOSE METHOD ===== */}
       {!isEditMode && wizardPhase === 1 && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 32px", gap: 28, background: "#fafafa" }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>✨</div>
-            <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111827", marginBottom: 10 }}>Let's build your blueprint</h2>
-            <p style={{ color: "#6b7280", fontSize: 14, maxWidth: 420, lineHeight: 1.6 }}>
-              Choose how you'd like to start. We'll derive the placeholders and let you fine-tune before sending.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 16, width: "100%", maxWidth: 560 }}>
-            {[
-              { id: "reference" as const, icon: "📧", title: "Use a reference email", desc: "Paste an email you've already sent or like the style of. We'll derive your blueprint from it." },
-              { id: "description" as const, icon: "✏️", title: "Start from a description", desc: "No reference yet? Describe your company and what your outbound should do." },
-            ].map((opt) => {
-              const selected = localSelectedMethod === opt.id;
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "16px", background: "#fff" }}>
+          <div style={{ width: "100%", maxWidth: 1400, background: "#fff", borderRadius: 16, padding: "20px 28px" }}>
+            {/* Header */}
+            <div style={{ textAlign: "left", marginBottom: 18 }}>
+              <h2 style={{ fontSize: 25, fontWeight: 800, color: "#111827", marginBottom: 8, lineHeight: 1.15 }}>Let's build your blueprint</h2>
+              <p style={{ color: "#6b7280", fontSize: 13, maxWidth: 460, lineHeight: 1.55 }}>
+                Choose how you'd like to start. We'll derive the placeholders and let you fine-tune before sending.
+              </p>
+            </div>
+
+            {/* Method cards */}
+            <div style={{ display: "flex", gap: 14, width: "100%", alignItems: "stretch", flexWrap: "wrap" }}>
+              {[
+                {
+                  id: "reference" as const,
+                  icon: "📧",
+                  accent: "#3f9f42",
+                  iconBg: "#e7f6e8",
+                  tagColor: "#2f7d32",
+                  recommended: true,
+                  title: "Start with an existing email",
+                  paras: [
+                    "Paste an email you already use. Not a template but one you actually have sent. Make sure it is personalized for the recipient and that the information that personalizes it is available from an internet search.",
+                    "PitchKraft will derive the theme, the hook and the way in which you currently personalize the email and create a blueprint so it can create emails to all your other contacts and personalize each of them in the same way.",
+                  ],
+                  tagSymbol: "✓",
+                  tags: ["Smarter setup", "More accurate", "Learns your style"],
+                },
+                {
+                  id: "description" as const,
+                  icon: "🪄",
+                  accent: "#7c3aed",
+                  iconBg: "#f1ecfe",
+                  tagColor: "#6d28d9",
+                  recommended: false,
+                  title: "Start from scratch",
+                  paras: [
+                    "If you don't already have an existing email that you use then PitchKraft will work with you to create it.",
+                    "The Blueprint Builder will ask you to give information about your organization, what it is promoting and how you want to make each of the emails hyper-relevant to each of your contacts.",
+                    "This is the 'hook' and the internet search to create the hook for each prospect is the 'personalization search'.",
+                    "Just dive in. It's much easier than it sounds.",
+                  ],
+                  tagSymbol: "+",
+                  tags: ["Guided setup", "AI-powered", "Great for new users"],
+                },
+              ].map((opt) => {
+                const selected = localSelectedMethod === opt.id;
+                return (
+                  <div key={opt.id} onClick={() => setLocalSelectedMethod(opt.id)}
+                    style={{ flex: "1 1 290px", minWidth: 270, padding: 20, border: `2px solid ${selected ? opt.accent : "#e5e7eb"}`, borderRadius: 14, cursor: "pointer", background: "#fff", transition: "all 0.2s", display: "flex", flexDirection: "column" }}>
+                    {/* Top row: icon + (recommended) + radio */}
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 13 }}>
+                      <div style={{ width: 40, height: 40, background: opt.iconBg, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                        {opt.icon}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {opt.recommended && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#e7f6e8", color: "#2f7d32", fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 999 }}>
+                            ⭐ Recommended
+                          </span>
+                        )}
+                        <div style={{ width: 17, height: 17, borderRadius: "50%", border: `2px solid ${selected ? opt.accent : "#d1d5db"}`, background: selected ? opt.accent : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {selected && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 20, color: "#111827", marginBottom: 10 }}>{opt.title}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 15 }}>
+                      {opt.paras.map((p, i) => (
+                        <p key={i} style={{ fontSize: 12, color: "#4b5563", lineHeight: 1.55 }}>{p}</p>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: "auto" }}>
+                      {opt.tags.map((t) => (
+                        <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: opt.iconBg, color: opt.tagColor, fontSize: 11, fontWeight: 600, padding: "5px 10px", borderRadius: 999 }}>
+                          <span style={{ fontWeight: 700 }}>{opt.tagSymbol}</span> {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Actions */}
+            {(() => {
+              const busy = isTemplateLoading || isStarting;
               return (
-                <div key={opt.id} onClick={() => setLocalSelectedMethod(opt.id)}
-                  style={{ flex: 1, padding: 20, border: `2px solid ${selected ? "#3f9f42" : "#e5e7eb"}`, borderRadius: 14, cursor: "pointer", background: "#fff", position: "relative", transition: "all 0.2s" }}>
-                  <div style={{ position: "absolute", top: 14, right: 14, width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selected ? "#3f9f42" : "#d1d5db"}`, background: selected ? "#3f9f42" : "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {selected && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
-                  </div>
-                  <div style={{ width: 44, height: 44, background: "#f3f4f6", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, fontSize: 22 }}>
-                    {opt.icon}
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: 15, color: "#111827", marginBottom: 6 }}>{opt.title}</div>
-                  <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>{opt.desc}</div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "center", marginTop: 20 }}>
+                  <button onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())} disabled={busy} style={{ padding: "8px 20px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff", color: "#374151", fontSize: 13, cursor: busy ? "not-allowed" : "pointer", fontWeight: 500, opacity: busy ? 0.5 : 1 }}>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!localSelectedMethod || busy) return;
+                      setIsStarting(true);
+                      const msg = localSelectedMethod === "reference"
+                        ? "I'll start from a reference email."
+                        : "I'll start from a description.";
+                      onStartConversation?.(localSelectedMethod, msg);
+                    }}
+                    disabled={!localSelectedMethod || busy}
+                    style={{ padding: "8px 24px", borderRadius: 8, background: localSelectedMethod && !busy ? "#3f9f42" : "#e5e7eb", color: localSelectedMethod && !busy ? "#fff" : "#9ca3af", fontSize: 13, fontWeight: 600, cursor: localSelectedMethod && !busy ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8, minWidth: 120, justifyContent: "center" }}>
+                    {busy ? (
+                      <>
+                        <Loader2 size={16} style={{ animation: "campaign-builder-spin 1s linear infinite" }} />
+                        Setting up…
+                      </>
+                    ) : "Continue →"}
+                  </button>
                 </div>
               );
-            })}
+            })()}
+            <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 13 }}>
+              🛡️ Don't worry — you can switch methods anytime before approving the blueprint.
+            </p>
           </div>
-          {(() => {
-            const busy = isTemplateLoading || isStarting;
-            return (
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <button onClick={resetAll} disabled={busy} style={{ padding: "10px 24px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff", color: "#374151", fontSize: 14, cursor: busy ? "not-allowed" : "pointer", fontWeight: 500, opacity: busy ? 0.5 : 1 }}>
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    if (!localSelectedMethod || busy) return;
-                    setIsStarting(true);
-                    const msg = localSelectedMethod === "reference"
-                      ? "I'll start from a reference email."
-                      : "I'll start from a description.";
-                    onStartConversation?.(localSelectedMethod, msg);
-                  }}
-                  disabled={!localSelectedMethod || busy}
-                  style={{ padding: "10px 28px", borderRadius: 8, background: localSelectedMethod && !busy ? "#3f9f42" : "#e5e7eb", color: localSelectedMethod && !busy ? "#fff" : "#9ca3af", fontSize: 14, fontWeight: 600, cursor: localSelectedMethod && !busy ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8, minWidth: 140, justifyContent: "center" }}>
-                  {busy ? (
-                    <>
-                      <Loader2 size={16} style={{ animation: "campaign-builder-spin 1s linear infinite" }} />
-                      Setting up…
-                    </>
-                  ) : "Continue →"}
-                </button>
-              </div>
-            );
-          })()}
-          <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", display: "flex", alignItems: "center", gap: 5 }}>
-            🛡️ Don't worry — you can switch methods anytime before approving the blueprint.
-          </p>
         </div>
       )}
 
@@ -695,16 +844,35 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
       {/* ===== PHASE 2: PROVIDE INPUT (CHAT) ===== */}
       {(isEditMode || wizardPhase === 2) && (
-        <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 240px)", minHeight: 420 }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 180px)", minHeight: 420 }}>
           {/* Messages */}
           <div className="messages-area" ref={messagesContainerRef} style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
             {isEditMode && !conversationStarted && selectedPlaceholder && (
               <div className="empty-conversation"><p>Preparing conversation…</p></div>
             )}
+            {/* Welcome hero */}
+            {!isEditMode && (
+              <div style={{ textAlign: "center", padding: "28px 20px 12px" }}>
+                <div style={{ width: 104, height: 104, borderRadius: "50%", background: "radial-gradient(circle, #eafaf0 0%, #f7fdf9 65%, transparent 100%)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+                  <img src={witchLogo} alt="Blueprint Assistant" style={{ width: 78, height: 78, objectFit: "contain" }} />
+                </div>
+                <h2 style={{ fontSize: 26, fontWeight: 800, color: "#111827", marginBottom: 8, lineHeight: 1.2 }}>
+                  Hi! I'm your <span style={{ color: "#3f9f42" }}>Blueprint Assistant</span> 👋
+                </h2>
+                <p style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6, maxWidth: 540, margin: "0 auto" }}>
+                  {localSelectedMethod === "reference"
+                    ? "I'll help you build a hyper-personalized blueprint from your reference email. Paste your reference email below to get started."
+                    : "I'll help you build a hyper-personalized blueprint. Answer a few questions below to get started."}
+                </p>
+              </div>
+            )}
             {(conversationStarted || isEditMode) && (
               <div className="messages-list">
                 {messages.map((msg, idx) => (
-                  <div key={idx} className={`message-wrapper ${msg.type}`}>
+                  <div key={idx} className={`message-wrapper ${msg.type}`} style={msg.type === "bot" ? { alignItems: "flex-start", gap: 10 } : undefined}>
+                    {msg.type === "bot" && (
+                      <img src={witchLogo} alt="" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "contain", background: "#f0fdf4", border: "1.5px solid #86efac", padding: 3, flexShrink: 0, marginTop: 2 }} />
+                    )}
                     <div className={`message-bubble ${msg.type}`}>
                       {renderMessageContent(msg.content)}
                       <div className={`message-time ${msg.type}`}>
@@ -716,7 +884,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                 {isTyping && (
                   <div className="typing-indicator">
                     <div className="typing-dots-row">
-                      <div className="typing-avatar">🤖</div>
+                      <div className="typing-avatar"><img src={witchLogo} alt="" style={{ width: 22, height: 22, objectFit: "contain" }} /></div>
                       <div className="typing-dots-bubble">
                         <div className="typing-dot" />
                         <div className="typing-dot" />
@@ -748,60 +916,82 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
             <div className="input-area" style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#fff" }}>
               {/* Reference email big textarea (shown until submitted) */}
               {!isEditMode && localSelectedMethod === "reference" && !referenceEmailSubmitted && messages.length > 0 && !isTyping && (
-                <div style={{ padding: "12px 16px", borderTop: "1px solid #e5e7eb" }}>
-                  <textarea
-                    value={referenceEmailDraft}
-                    onChange={(e) => {
-                      setReferenceEmailDraft(e.target.value);
-                      e.target.style.height = "auto";
-                      e.target.style.height = `${Math.min(e.target.scrollHeight, 320)}px`;
-                    }}
-                    placeholder="Paste your reference email here…"
-                    rows={2}
-                    style={{ width: "100%", minHeight: 44, height: 44, maxHeight: 320, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, resize: "none", fontFamily: "inherit", color: "#111827", overflowY: "hidden" }}
-                  />
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
-                    <span style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 4 }}>
-                      ⓘ Tone, structure and CTA all come from this
-                    </span>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <label style={{ padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, cursor: "pointer", background: "#fff", color: "#374151", display: "flex", alignItems: "center", gap: 6 }}>
-                        <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.currentTarget.value = ""; }} />
-                        📎 Attach file
+                <div style={{ padding: "12px 16px", maxWidth: 900, margin: "0 auto" }}>
+                  {/* Composer — same look as the answer/instruction input */}
+                  <div style={{ background: "#2f2f2f", borderRadius: 26, padding: "12px 14px 10px", display: "flex", flexDirection: "column", gap: 8, transition: "box-shadow 0.15s" }}>
+                    <div
+                      contentEditable
+                      suppressContentEditableWarning
+                      role="textbox"
+                      aria-multiline="true"
+                      className="reference-email-editor"
+                      data-placeholder="Paste your reference email here…"
+                      onInput={(e) => setReferenceEmailDraft(htmlToCleanText((e.currentTarget as HTMLDivElement).innerHTML))}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const html = e.clipboardData.getData("text/html");
+                        const text = e.clipboardData.getData("text/plain");
+                        if (html) {
+                          const clean = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+                          document.execCommand("insertHTML", false, clean);
+                        } else {
+                          document.execCommand("insertText", false, text);
+                        }
+                        setReferenceEmailDraft(htmlToCleanText((e.currentTarget as HTMLDivElement).innerHTML));
+                      }}
+                      style={{ width: "100%", minHeight: 24, maxHeight: 320, padding: "2px 4px", border: "none", outline: "none", background: "transparent", color: "#f3f4f6", fontSize: 14, fontFamily: "inherit", lineHeight: 1.6, overflow: "auto" }}
+                    />
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      {/* + attach */}
+                      <label style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", cursor: isTyping ? "not-allowed" : "pointer", color: "#e5e5e5", border: "1px solid #4b4b4b", flexShrink: 0 }} title="Attach file">
+                        <input type="file" accept="image/*" hidden disabled={isTyping} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.currentTarget.value = ""; }} />
+                        <Plus size={18} />
                       </label>
-                      <button
-                        onClick={() => {
-                          if (!referenceEmailDraft.trim() && attachedImages.length === 0) return;
-                          setReferenceEmailSubmitted(true);
-                          handleSendMessage(referenceEmailDraft.trim() || undefined);
-                          setReferenceEmailDraft("");
-                        }}
-                        disabled={isTyping || (!referenceEmailDraft.trim() && attachedImages.length === 0)}
-                        style={{ padding: "7px 18px", background: "#3f9f42", color: "#fff", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, border: "none" }}>
-                        ⚙️ Derive blueprint
-                      </button>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", color: "#e5e5e5" }} title="Voice">
+                          <Mic size={18} />
+                        </span>
+                        <button
+                          onClick={() => {
+                            if (!referenceEmailDraft.trim() && attachedImages.length === 0) return;
+                            setReferenceEmailSubmitted(true);
+                            handleSendMessage(referenceEmailDraft.trim() || undefined);
+                            setReferenceEmailDraft("");
+                          }}
+                          disabled={isTyping || (!referenceEmailDraft.trim() && attachedImages.length === 0)}
+                          title="Derive blueprint"
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: isTyping || (!referenceEmailDraft.trim() && attachedImages.length === 0) ? "#5a5a5a" : "#fff", color: isTyping || (!referenceEmailDraft.trim() && attachedImages.length === 0) ? "#9ca3af" : "#111827", border: "none", cursor: isTyping || (!referenceEmailDraft.trim() && attachedImages.length === 0) ? "not-allowed" : "pointer", flexShrink: 0 }}>
+                          <ArrowUp size={18} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div style={{ textAlign: "right", marginTop: 6 }}>
-                    <button onClick={() => { setLocalSelectedMethod(null); resetAll(); }} style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer" }}>← Back to method</button>
-                    <span style={{ fontSize: 12, color: "#9ca3af", marginLeft: 12 }}>~30 seconds to derive</span>
+                  <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 8, display: "flex", alignItems: "center", gap: 4 }}>
+                    ⓘ Tone, structure and CTA all come from this
+                  </p>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                    <button onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())} style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer", fontWeight: 500 }}>Cancel</button>
+                    <div>
+                      <button onClick={() => { setLocalSelectedMethod(null); resetAll(); }} style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer" }}>← Back to method</button>
+                      <span style={{ fontSize: 12, color: "#9ca3af", marginLeft: 12 }}>~30 seconds to derive</span>
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Normal chat input — show unless waiting for reference email paste */}
               {(isEditMode || localSelectedMethod !== "reference" || referenceEmailSubmitted) && (
-                <div className="input-container flex items-end gap-2">
-                  <label className="cursor-pointer p-2 rounded hover:bg-gray-100" title="Attach image">
-                    <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.currentTarget.value = ""; }} disabled={isTyping} />
-                    <span style={{ fontSize: 18 }}><FontAwesomeIcon icon={faAngleRight} className="text-[#ffffff] text-md" /></span>
-                  </label>
-                  <textarea ref={inputRef} value={currentAnswer} onChange={(e) => setCurrentAnswer(e.target.value)} onKeyPress={handleKeyPress}
-                    placeholder="Type your answer…" className="message-input" rows={1} disabled={isTyping} />
-                  <button onClick={() => handleSendMessage()} disabled={isTyping || (!currentAnswer.trim() && attachedImages.length === 0)} className="send-button" title="Send message">
-                    <Send size={18} />
-                  </button>
-                </div>
+                <BlueprintChatInput
+                  value={currentAnswer}
+                  onChange={setCurrentAnswer}
+                  onKeyPress={handleKeyPress}
+                  onSend={() => handleSendMessage()}
+                  onAttach={handleImageUpload}
+                  isTyping={isTyping}
+                  canSend={!!currentAnswer.trim() || attachedImages.length > 0}
+                  placeholder="Type your answer…"
+                  inputRef={inputRef}
+                />
               )}
             </div>
           )}
@@ -814,7 +1004,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
           <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0" }}>
             {/* Bot intro */}
             <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 14, color: "#374151", display: "flex", gap: 10, alignItems: "flex-start" }}>
-              <span style={{ fontSize: 18, flexShrink: 0 }}>🤖</span>
+              <img src={witchLogo} alt="" style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "contain", background: "#f0fdf4", border: "1.5px solid #86efac", padding: 3, flexShrink: 0 }} />
               <span>Here's what I derived. Have a quick read — you can approve, ask me to refine it, or rewrite from scratch.</span>
             </div>
 
@@ -841,8 +1031,13 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, paddingTop: 14, borderTop: "1px solid #f3f4f6" }}>
                 <span style={{ fontSize: 13, color: "#6b7280" }}>Next: we'll generate an example email for you to approve.</span>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => { setReferenceEmailSubmitted(false); resetAll(); }}
-                    style={{ padding: "8px 16px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 14, cursor: "pointer", color: "#374151" }}>
+                  <button onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())}
+                    style={{ padding: "8px 16px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff", fontSize: 14, cursor: "pointer", color: "#374151", fontWeight: 500 }}>
+                    Cancel
+                  </button>
+                  <button onClick={() => handleSendMessage("Rewrite the blueprint from scratch — regenerate all the elements again.")}
+                    disabled={isTyping}
+                    style={{ padding: "8px 16px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 14, cursor: isTyping ? "not-allowed" : "pointer", color: "#374151", opacity: isTyping ? 0.6 : 1 }}>
                     Rewrite
                   </button>
                   <button
@@ -858,7 +1053,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
             {isTyping && (
               <div className="typing-indicator" style={{ padding: "0 16px 8px" }}>
                 <div className="typing-dots-row">
-                  <div className="typing-avatar">🤖</div>
+                  <div className="typing-avatar"><img src={witchLogo} alt="" style={{ width: 22, height: 22, objectFit: "contain" }} /></div>
                   <div className="typing-dots-bubble">
                     <div className="typing-dot" />
                     <div className="typing-dot" />
@@ -869,18 +1064,32 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
               </div>
             )}
 
-            {/* Refinement chips */}
+            {/* Refinement quick actions */}
             {!isTyping && (
               <div style={{ marginBottom: 12 }}>
-                <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", marginBottom: 10, letterSpacing: "0.05em", fontWeight: 600 }}>NEED TO REFINE?</p>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-                  {["Less formal", "Fix the offer", "Tighten the hook", "Add stronger CTA"].map((chip) => (
-                    <button key={chip}
-                      onClick={() => handleSendMessage(chip)}
-                      style={{ padding: "6px 14px", border: "1px solid #d1d5db", borderRadius: 20, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", display: "flex", alignItems: "center", gap: 5 }}>
-                      <span style={{ color: "#3f9f42" }}>⚡</span> {chip}
-                    </button>
-                  ))}
+                <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", marginBottom: 12, letterSpacing: "0.05em", fontWeight: 600 }}>REFINE THIS BLUEPRINT</p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                  {[
+                    { icon: Palette, color: "#16a34a", bg: "#eafaf0", label: "Change theme", msg: "Let's change the theme of the blueprint." },
+                    { icon: Magnet, color: "#9333ea", bg: "#f5edfe", label: "Change hook", msg: "Let's change the hook." },
+                    { icon: Search, color: "#0d9488", bg: "#e6f7f5", label: "Change personalization search", msg: "Let's change the personalization search." },
+                    { icon: RefreshCw, color: "#ea580c", bg: "#fef1e7", label: "Retry with different reference emails", msg: "Retry with different reference emails." },
+                    { icon: Target, color: "#2563eb", bg: "#e8f0fe", label: "Make it closer to my reference emails personalization", msg: "Make it closer to my reference emails' personalization." },
+                  ].map((a) => {
+                    const Icon = a.icon;
+                    return (
+                      <button key={a.label}
+                        onClick={() => handleSendMessage(a.msg)}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = a.color; e.currentTarget.style.background = "#fbfdfc"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fff"; }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", fontWeight: 500, transition: "border-color 0.15s, background 0.15s" }}>
+                        <span style={{ width: 26, height: 26, borderRadius: 8, background: a.bg, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <Icon size={15} color={a.color} />
+                        </span>
+                        {a.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -888,51 +1097,86 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
           {/* Refinement chat input */}
           <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", background: "#fff" }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-              <textarea ref={inputRef} value={currentAnswer} onChange={(e) => setCurrentAnswer(e.target.value)} onKeyPress={handleKeyPress}
-                placeholder="Tell the AI what to change… e.g. 'the offer is outbound lead gen, not software'"
-                style={{ flex: 1, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, resize: "none", fontFamily: "inherit", minHeight: 44, maxHeight: 160, height: 44, overflowY: "hidden" }}
-                rows={1} disabled={isTyping} />
-              <button onClick={() => handleSendMessage()} disabled={isTyping || !currentAnswer.trim()}
-                style={{ padding: "10px 14px", background: isTyping || !currentAnswer.trim() ? "#e5e7eb" : "#3f9f42", color: "#fff", borderRadius: 8, border: "none", cursor: isTyping || !currentAnswer.trim() ? "not-allowed" : "pointer", flexShrink: 0 }}>
-                <Send size={16} />
-              </button>
-            </div>
-            <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", marginTop: 6 }}>
-              ⓘ Your follow-up updates the blueprint above — the conversation stays open until you approve.
+            <BlueprintChatInput
+              value={currentAnswer}
+              onChange={setCurrentAnswer}
+              onKeyPress={handleKeyPress}
+              onSend={() => handleSendMessage()}
+              onAttach={handleImageUpload}
+              isTyping={isTyping}
+              canSend={!!currentAnswer.trim()}
+              placeholder="Type your instruction here…"
+              inputRef={inputRef}
+            />
+            <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 8, display: "flex", alignItems: "center", gap: 5 }}>
+              ⓘ You can type any instruction — change a field, remove something, revert, or paste a new reference email.
             </p>
           </div>
         </div>
       )}
 
       {/* ===== PHASE 4: EXAMPLE EMAIL REVIEW ===== */}
-      {!isEditMode && wizardPhase === 4 && (() => {
+      {!isEditMode && wizardPhase === 4 && !exampleApproved && (() => {
         const exampleEmailHtml = placeholderValues?.["example_output_email"] || "";
         const hasEmail = exampleEmailHtml.trim().length > 0;
-        const phase4Messages = phase4StartIndexRef.current !== null
+        // Hide the "blueprint complete" boilerplate from the refinement chat —
+        // it's informational and not relevant while refining the example email.
+        const COMPLETION_MARKER = "The fundamental elements of your campaign blueprint have been saved";
+        const phase4Messages = (phase4StartIndexRef.current !== null
           ? messages.slice(phase4StartIndexRef.current)
-          : [];
+          : []
+        ).filter((m) => !(m.type === "bot" && m.content.includes(COMPLETION_MARKER)));
         return (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {/* Scrollable content */}
             <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0" }}>
               {/* Bot intro */}
               <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 14, color: "#374151", display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <span style={{ fontSize: 18, flexShrink: 0 }}>🤖</span>
+                <img src={witchLogo} alt="" style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "contain", background: "#f0fdf4", border: "1.5px solid #86efac", padding: 3, flexShrink: 0 }} />
                 <span>Here's the example email I derived from your blueprint. Approve it to open the editor, or refine it below.</span>
               </div>
 
               {/* Email card */}
               {hasEmail ? (
                 <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff", overflow: "hidden", marginBottom: 16 }}>
-                  <div style={{ padding: "10px 16px", borderBottom: "1px solid #f3f4f6", background: "#f9fafb", display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ padding: "12px 20px 0", display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, background: "#dcfce7", color: "#16a34a", padding: "2px 8px", borderRadius: 20, letterSpacing: "0.04em" }}>EXAMPLE OUTPUT</span>
                     <span style={{ fontSize: 12, color: "#9ca3af" }}>AI-generated from your blueprint</span>
                   </div>
-                  <div
-                    style={{ padding: "20px 24px", fontSize: 14, lineHeight: 1.7, color: "#111827" }}
-                    dangerouslySetInnerHTML={{ __html: exampleEmailHtml }}
-                  />
+                  <div style={{ position: "relative" }}>
+                    <div
+                      style={{ padding: "14px 20px 8px", fontSize: 14, lineHeight: 1.7, color: "#111827", maxHeight: showFullExampleEmail ? "none" : 180, overflow: "hidden" }}
+                      dangerouslySetInnerHTML={{ __html: exampleEmailHtml }}
+                    />
+                    {!showFullExampleEmail && (
+                      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 48, background: "linear-gradient(transparent, #fff)", pointerEvents: "none" }} />
+                    )}
+                  </div>
+                  {/* Card footer: show more toggle + Rewrite / Approve */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "12px 20px", flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => setShowFullExampleEmail((v) => !v)}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", fontWeight: 500 }}
+                    >
+                      {showFullExampleEmail ? "Show less" : "Show full email"}
+                      <ChevronDown size={15} style={{ transform: showFullExampleEmail ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+                    </button>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <button
+                        onClick={() => handleSendMessage("Rewrite the example email from scratch.")}
+                        disabled={isTyping}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, fontWeight: 500, cursor: isTyping ? "not-allowed" : "pointer", color: "#374151", opacity: isTyping ? 0.6 : 1 }}
+                      >
+                        <Edit3 size={15} /> Rewrite
+                      </button>
+                      <button
+                        onClick={() => setExampleApproved(true)}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 20px", borderRadius: 8, background: "#3f9f42", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", border: "none" }}
+                      >
+                        Approve →
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div style={{ border: "1px dashed #d1d5db", borderRadius: 10, padding: "40px 24px", background: "#f9fafb", textAlign: "center", marginBottom: 16 }}>
@@ -952,7 +1196,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                       marginBottom: 10,
                     }}>
                       {msg.type === "bot" && (
-                        <span style={{ width: 28, height: 28, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, marginRight: 8, marginTop: 2 }}>🤖</span>
+                        <img src={witchLogo} alt="" style={{ width: 28, height: 28, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "50%", objectFit: "contain", padding: 2, flexShrink: 0, marginRight: 8, marginTop: 2 }} />
                       )}
                       <div style={{
                         maxWidth: "80%",
@@ -975,7 +1219,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
               {isTyping && (
                 <div className="typing-indicator" style={{ marginBottom: 12 }}>
                   <div className="typing-dots-row">
-                    <div className="typing-avatar">🤖</div>
+                    <div className="typing-avatar"><img src={witchLogo} alt="" style={{ width: 22, height: 22, objectFit: "contain" }} /></div>
                     <div className="typing-dots-bubble">
                       <div className="typing-dot" />
                       <div className="typing-dot" />
@@ -986,63 +1230,153 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                 </div>
               )}
 
-              {/* Quick refinement chips */}
+              {/* Quick refinement cards */}
               <div style={{ marginBottom: 16 }}>
-                <p style={{ fontSize: 11, color: "#9ca3af", marginBottom: 8, fontWeight: 600, letterSpacing: "0.05em" }}>QUICK REFINEMENTS</p>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {["Make it shorter", "Stronger opening", "More personalised", "Softer CTA", "More direct"].map((chip) => (
-                    <button key={chip}
-                      onClick={() => handleSendMessage(chip)}
-                      disabled={isTyping}
-                      style={{ padding: "6px 14px", border: "1px solid #d1d5db", borderRadius: 20, background: "#fff", fontSize: 13, cursor: isTyping ? "not-allowed" : "pointer", color: "#374151", display: "flex", alignItems: "center", gap: 5, opacity: isTyping ? 0.5 : 1 }}>
-                      <span style={{ color: "#3f9f42" }}>✦</span> {chip}
-                    </button>
-                  ))}
+                <p style={{ fontSize: 12, color: "#6b7280", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 2 }}>QUICK REFINEMENTS</p>
+                <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 12 }}>Refine your email quickly with these options.</p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {[
+                    { icon: RotateCcw, color: "#ea580c", label: "Revert to last version", msg: "Revert to the last version." },
+                    { icon: Target, color: "#2563eb", label: "Make closer to reference email", msg: "Make it closer to my reference email." },
+                    { icon: Zap, color: "#ca8a04", label: "Make it shorter", msg: "Make the email shorter." },
+                    { icon: TrendingUp, color: "#9333ea", label: "Make it longer", msg: "Make the email longer." },
+                    { icon: User, color: "#16a34a", label: "Make personalization more deep", msg: "Make the personalization deeper." },
+                    { icon: Megaphone, color: "#db2777", label: "Softer CTA", msg: "Use a softer call to action." },
+                    { icon: Target, color: "#e11d48", label: "More direct", msg: "Make it more direct." },
+                  ].map((a) => {
+                    const Icon = a.icon;
+                    return (
+                      <button key={a.label}
+                        onClick={() => handleSendMessage(a.msg)}
+                        disabled={isTyping}
+                        onMouseEnter={(e) => { if (!isTyping) { e.currentTarget.style.borderColor = a.color; e.currentTarget.style.background = "#fbfdfc"; } }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fff"; }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff", fontSize: 13, cursor: isTyping ? "not-allowed" : "pointer", color: "#374151", fontWeight: 500, opacity: isTyping ? 0.5 : 1, transition: "border-color 0.15s, background 0.15s", maxWidth: 220, textAlign: "left" }}>
+                        <Icon size={18} color={a.color} style={{ flexShrink: 0 }} />
+                        {a.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
             {/* Chat input for refinements */}
             <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", background: "#fff", flexShrink: 0 }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 10 }}>
-                <textarea
-                  ref={inputRef}
+              <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+                ⓘ You can type any instruction here — e.g. "make it shorter", "softer CTA", "change the personalization".
+              </p>
+              <div style={{ marginBottom: 10 }}>
+                <BlueprintChatInput
                   value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
+                  onChange={setCurrentAnswer}
                   onKeyPress={handleKeyPress}
-                  placeholder="Suggest a refinement… e.g. 'open with the personalisation instead' or 'cut the last paragraph'"
-                  style={{ flex: 1, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, resize: "none", fontFamily: "inherit", minHeight: 44, maxHeight: 160, height: 44, overflowY: "hidden", color: "#111827" }}
-                  rows={1}
-                  disabled={isTyping}
+                  onSend={() => handleSendMessage()}
+                  onAttach={handleImageUpload}
+                  isTyping={isTyping}
+                  canSend={!!currentAnswer.trim()}
+                  placeholder="Ask AI to rewrite anything — e.g. 'make it shorter', 'change the CTA', 'remove this paragraph'…"
+                  inputRef={inputRef}
                 />
-                <button
-                  onClick={() => handleSendMessage()}
-                  disabled={isTyping || !currentAnswer.trim()}
-                  style={{ padding: "10px 14px", background: isTyping || !currentAnswer.trim() ? "#e5e7eb" : "#3f9f42", color: "#fff", borderRadius: 8, border: "none", cursor: isTyping || !currentAnswer.trim() ? "not-allowed" : "pointer", flexShrink: 0, display: "flex", alignItems: "center" }}
-                >
-                  <Send size={16} />
-                </button>
               </div>
 
-              {/* Footer nav */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <button
-                  onClick={() => setBlueprintApproved(false)}
-                  style={{ padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
-                >
-                  ← Back to blueprint
-                </button>
-                <button
-                  onClick={onApprove}
-                  style={{ padding: "7px 20px", borderRadius: 8, background: "#3f9f42", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, border: "none" }}
-                >
-                  Approve & edit elements →
-                </button>
+              {/* Footer: AI chat mode note + exit/back */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 5 }}>
+                  🛡️ You're still in AI chat mode. Ask for any email change before approving.
+                </span>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <button
+                    onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())}
+                    style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer", fontWeight: 500 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => setBlueprintApproved(false)}
+                    style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    ← Back to blueprint
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         );
       })()}
+
+      {/* ===== PHASE 5: BLUEPRINT READY (between example approval and elements) ===== */}
+      {!isEditMode && wizardPhase === 4 && exampleApproved && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "16px", background: "#fafafa", overflowY: "auto" }}>
+          <div style={{ width: "100%", maxWidth: 1280, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: "28px 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 22 }}>
+              <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#3f9f42", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <CheckCircle size={40} color="#fff" />
+              </div>
+              <div>
+                <h2 style={{ fontSize: 28, fontWeight: 800, color: "#111827", marginBottom: 8, lineHeight: 1.2 }}>
+                  Your <span style={{ color: "#3f9f42" }}>blueprint</span> is ready to use.
+                </h2>
+                <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.6 }}>
+                  Theme, hook, and your example email are set.<br />You can start creating campaigns with this right now.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid #f3f4f6", marginBottom: 20 }} />
+
+            <p style={{ fontSize: 14, color: "#374151", marginBottom: 16 }}>
+              Want to make every email even more consistent and on-brand? A few optional elements can help:
+            </p>
+
+            {/* Optional element cards */}
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 24 }}>
+              {[
+                { icon: Edit3, color: "#16a34a", bg: "#eafaf0", title: "Signature", desc: "Keep a consistent sign-off across your whole campaign" },
+                { icon: ImageIcon, color: "#7c3aed", bg: "#f1ecfe", title: "Banner & Footer Image", desc: "Add constant visuals to every email" },
+                { icon: Ban, color: "#dc2626", bg: "#fdecec", title: "Avoid Words", desc: "List words you never want used in outreach" },
+                { icon: FileText, color: "#2563eb", bg: "#e8f0fe", title: "Special Instructions", desc: "Add any other rules in your own words" },
+                { icon: Plus, color: "#6b7280", bg: "#f3f4f6", title: "More elements available", desc: "Explore additional elements to refine your blueprint" },
+              ].map((c) => {
+                const Icon = c.icon;
+                return (
+                  <div key={c.title} onClick={() => onApprove?.()}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = c.color; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e5e7eb"; }}
+                    style={{ flex: "1 1 200px", minWidth: 180, padding: 18, border: "1px solid #e5e7eb", borderRadius: 14, background: "#fff", cursor: "pointer", transition: "border-color 0.15s" }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+                      <Icon size={22} color={c.color} />
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: "#111827", marginBottom: 6 }}>{c.title}</div>
+                    <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>{c.desc}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+              <button onClick={() => onApprove?.()}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 20px", border: "1px solid #d1d5db", borderRadius: 10, background: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", color: "#374151" }}>
+                <FileText size={16} /> Fine-tune elements →
+              </button>
+              <button
+                onClick={() => {
+                  onExitBuilder?.();
+                  const base = window.location.href.split("#")[0];
+                  window.location.href = `${base}#/main?tab=Campaigns`;
+                }}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 24px", borderRadius: 10, background: "#3f9f42", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", border: "none" }}>
+                <Send size={16} /> Skip &amp; go to Campaigns →
+              </button>
+              <span style={{ fontSize: 13, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}>
+                🛡️ Skipping is fine — you can return to this blueprint anytime to add, edit, preview, or remove elements.
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== MODAL ===== */}
       <PopupModal open={popupmodalInfo.open} title={popupmodalInfo.title} message={popupmodalInfo.message} onClose={closeModal} />
@@ -1353,6 +1687,7 @@ const RichTextInput: React.FC<{
 const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   selectedClient,
   onBeforeAiChatOpen,
+  onExitBuilder,
 }) => {
   // --- State Management ---
   const [currentAnswer, setCurrentAnswer] = useState("");
@@ -4115,6 +4450,7 @@ const parsePlaceholdersSafe = (block: string) => {
               handleSendMessage={handleSendMessage}
               handleKeyPress={handleKeyPress}
               resetAll={resetAll}
+              onExitBuilder={onExitBuilder}
               isEditMode={isEditMode}
               selectedPlaceholder={selectedPlaceholder}
               onPlaceholderSelect={startEditConversation}

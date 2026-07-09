@@ -30,6 +30,7 @@ export interface BlueprintBuilderPanelProps {
   handleSendMessage: () => void;
   handleKeyPress: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   resetAll: () => void;
+  onExitBuilder?: () => void;
   isEditMode: boolean;
   selectedPlaceholder: string;
   onPlaceholderSelect: (key: string) => void;
@@ -121,6 +122,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   handleSendMessage,
   handleKeyPress,
   resetAll,
+  onExitBuilder,
   isEditMode,
   selectedPlaceholder,
   onPlaceholderSelect,
@@ -328,78 +330,28 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
           style={{
             display: "flex",
             flexDirection: "column",
-            marginTop: 10,
+            marginTop: 0,
           }}
         >
-          {/* ---- ACTION HEADER ---- */}
-          {/* Negative top margin lifts the action buttons up beside the page
-              header/Back row (which are rendered by the parent above the panel).
-              pointerEvents:none lets clicks pass through the overlapping empty
-              area to the Back button beneath; the buttons re-enable pointer events. */}
-          <div style={{ flexShrink: 0, marginTop: -64, pointerEvents: "none" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                alignItems: "center",
-                padding: "8px 0 12px",
-              }}
-            >
-              {/* Action buttons */}
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", pointerEvents: "auto" }}>
-                <button
-                  onClick={() => setChatPreviewOpen((v) => !v)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 5, padding: "7px 14px",
-                    border: chatPreviewOpen ? "2px solid #3f9f42" : "1px solid #d1d5db",
-                    borderRadius: 8,
-                    background: chatPreviewOpen ? "#f0fdf4" : "#fff",
-                    fontSize: 13, cursor: "pointer",
-                    color: chatPreviewOpen ? "#3f9f42" : "#374151",
-                    fontWeight: chatPreviewOpen ? 600 : 400,
-                  }}
-                >
-                  <span style={{ fontSize: 14 }}>👁️</span> Preview email
-                </button>
-                {isAdmin && onShowInstructions && (
-                  <button
-                    onClick={onShowInstructions}
-                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
-                  >
-                    📋 Instructions set
-                  </button>
-                )}
-                {isAdmin && onShowVT && (
-                  <button
-                    onClick={onShowVT}
-                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
-                  >
-                    VT
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Admin token stats row */}
-            {isAdmin && usageInfo && (
-              <div style={{ display: "flex", gap: 16, padding: "4px 0 8px", fontSize: 11, color: "#6b7280", flexWrap: "wrap" }}>
+          {/* ---- ACTION HEADER: admin token stats only (chat/starting step) ---- */}
+          {isAdmin && usageInfo && (
+            <div style={{ flexShrink: 0, display: "flex", gap: 10, padding: "0 0 8px", fontSize: 11, color: "#6b7280", flexWrap: "wrap" }}>
+              <span style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5, padding: "3px 8px", display: "flex", gap: 8 }}>
+                <strong style={{ color: "#374151" }}>Last:</strong>
+                <span>In {usageInfo.promptTokens ?? 0}</span>
+                <span>Out {usageInfo.completionTokens ?? 0}</span>
+                <span>💲{(usageInfo.cost ?? 0).toFixed(6)}</span>
+              </span>
+              {totalUsage && totalUsage.totalCost > 0 && (
                 <span style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5, padding: "3px 8px", display: "flex", gap: 8 }}>
-                  <strong style={{ color: "#374151" }}>Last:</strong>
-                  <span>In {usageInfo.promptTokens ?? 0}</span>
-                  <span>Out {usageInfo.completionTokens ?? 0}</span>
-                  <span>💲{(usageInfo.cost ?? 0).toFixed(6)}</span>
+                  <strong style={{ color: "#374151" }}>Total:</strong>
+                  <span>In {totalUsage.totalInput}</span>
+                  <span>Out {totalUsage.totalOutput}</span>
+                  <span>💲{totalUsage.totalCost.toFixed(6)}</span>
                 </span>
-                {totalUsage && totalUsage.totalCost > 0 && (
-                  <span style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5, padding: "3px 8px", display: "flex", gap: 8 }}>
-                    <strong style={{ color: "#374151" }}>Total:</strong>
-                    <span>In {totalUsage.totalInput}</span>
-                    <span>Out {totalUsage.totalOutput}</span>
-                    <span>💲{totalUsage.totalCost.toFixed(6)}</span>
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* ---- CONTENT AREA (chat + optional preview) ---- */}
           <div style={{ display: "flex", gap: 12 }}>
@@ -430,6 +382,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                   handleSendMessage={handleSendMessage}
                   handleKeyPress={handleKeyPress}
                   resetAll={resetAll}
+                  onExitBuilder={onExitBuilder}
                   isEditMode={isEditMode}
                   placeholderValues={placeholderValues}
                   onPlaceholderSelect={onPlaceholderSelect}
@@ -565,73 +518,70 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
 
   return (
     <>
-      <div style={{ display: "flex", flexDirection: "column", marginTop: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", marginTop: 0 }}>
 
-        {/* ---- ACTION HEADER (matches chat phase) ---- */}
-        {/* Negative top margin lifts the action buttons up beside the page
-            header/Back row (rendered by the parent above the panel).
-            pointerEvents:none lets clicks pass through the overlapping empty area
-            to the Back button beneath; the buttons re-enable pointer events. */}
-        <div style={{ flexShrink: 0, marginTop: -64, pointerEvents: "none" }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", padding: "8px 0 12px" }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", pointerEvents: "auto" }}>
-              <button
-                onClick={() => {
-                  // Opening the live preview closes the element edit panel so the
-                  // preview takes over the right column instead of stacking under it.
-                  setSidePanelElement(null);
-                  setPreviewPanelOpen((v) => !v);
-                }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 5, padding: "7px 14px",
-                  border: previewPanelOpen ? "2px solid #3f9f42" : "1px solid #d1d5db",
-                  borderRadius: 8,
-                  background: previewPanelOpen ? "#f0fdf4" : "#fff",
-                  fontSize: 13, cursor: "pointer",
-                  color: previewPanelOpen ? "#3f9f42" : "#374151",
-                  fontWeight: previewPanelOpen ? 600 : 400,
-                }}
-              >
-                <span style={{ fontSize: 14 }}>👁️</span> Preview email
-              </button>
-              {isAdmin && onShowInstructions && (
-                <button
-                  onClick={onShowInstructions}
-                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
-                >
-                  📋 Instructions set
-                </button>
-              )}
-              {isAdmin && onShowVT && (
-                <button
-                  onClick={onShowVT}
-                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
-                >
-                  VT
-                </button>
-              )}
-            </div>
+        {/* ---- ACTION HEADER: token stats (left) + buttons (right), one row ---- */}
+        <div style={{ flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "0 0 8px", flexWrap: "wrap" }}>
+          {/* Admin token stats */}
+          <div style={{ display: "flex", gap: 10, fontSize: 11, color: "#6b7280", flexWrap: "wrap" }}>
+            {isAdmin && usageInfo && (
+              <>
+                <span style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5, padding: "3px 8px", display: "flex", gap: 8 }}>
+                  <strong style={{ color: "#374151" }}>Last:</strong>
+                  <span>In {usageInfo.promptTokens ?? 0}</span>
+                  <span>Out {usageInfo.completionTokens ?? 0}</span>
+                  <span>💲{(usageInfo.cost ?? 0).toFixed(6)}</span>
+                </span>
+                {totalUsage && totalUsage.totalCost > 0 && (
+                  <span style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5, padding: "3px 8px", display: "flex", gap: 8 }}>
+                    <strong style={{ color: "#374151" }}>Total:</strong>
+                    <span>In {totalUsage.totalInput}</span>
+                    <span>Out {totalUsage.totalOutput}</span>
+                    <span>💲{totalUsage.totalCost.toFixed(6)}</span>
+                  </span>
+                )}
+              </>
+            )}
           </div>
 
-          {/* Admin token stats row */}
-          {isAdmin && usageInfo && (
-            <div style={{ display: "flex", gap: 16, padding: "0 0 8px", fontSize: 11, color: "#6b7280", flexWrap: "wrap" }}>
-              <span style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5, padding: "3px 8px", display: "flex", gap: 8 }}>
-                <strong style={{ color: "#374151" }}>Last:</strong>
-                <span>In {usageInfo.promptTokens ?? 0}</span>
-                <span>Out {usageInfo.completionTokens ?? 0}</span>
-                <span>💲{(usageInfo.cost ?? 0).toFixed(6)}</span>
-              </span>
-              {totalUsage && totalUsage.totalCost > 0 && (
-                <span style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5, padding: "3px 8px", display: "flex", gap: 8 }}>
-                  <strong style={{ color: "#374151" }}>Total:</strong>
-                  <span>In {totalUsage.totalInput}</span>
-                  <span>Out {totalUsage.totalOutput}</span>
-                  <span>💲{totalUsage.totalCost.toFixed(6)}</span>
-                </span>
-              )}
-            </div>
-          )}
+          {/* Action buttons */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginLeft: "auto" }}>
+            {onExitBuilder && (
+              <button
+                onClick={onExitBuilder}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", fontWeight: 500 }}
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              onClick={() => {
+                // Opening the live preview closes the element edit panel so the
+                // preview takes over the right column instead of stacking under it.
+                setSidePanelElement(null);
+                setPreviewPanelOpen((v) => !v);
+              }}
+              style={{
+                display: "flex", alignItems: "center", gap: 5, padding: "7px 14px",
+                border: previewPanelOpen ? "2px solid #3f9f42" : "1px solid #d1d5db",
+                borderRadius: 8,
+                background: previewPanelOpen ? "#f0fdf4" : "#fff",
+                fontSize: 13, cursor: "pointer",
+                color: previewPanelOpen ? "#3f9f42" : "#374151",
+                fontWeight: previewPanelOpen ? 600 : 400,
+              }}
+            >
+              <span style={{ fontSize: 14 }}>👁️</span> Preview email
+            </button>
+            {isAdmin && onShowVT && (
+              <button
+                onClick={onShowVT}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
+              >
+                VT
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ---- CONTENT: elements (+ preview panel when open) ---- */}

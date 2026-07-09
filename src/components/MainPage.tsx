@@ -42,6 +42,7 @@ import EmailCampaignBuilder from "./feature/blueprint/EmailCampaignBuilder";
 import DeepSeekSearchGenerator from "./feature/blueprint/DeepSeekSearchGenerator";
 import Tracking from "./feature/Tracking";
 import Settings from "./feature/Settings";
+import InstructionSetPage from "./feature/blueprint/InstructionSetPage";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
@@ -4483,6 +4484,25 @@ try {
                               Tracking
                             </button>
                           </li>
+                          {userRole === "ADMIN" && (
+                            <li
+                              className={
+                                settingsSubTab === "InstructionSet"
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <button
+                                onClick={() => {
+                                  setSettingsSubTab("InstructionSet");
+                                  setTab("Settings");
+                                }}
+                                className="submenu-button"
+                              >
+                                Instruction set
+                              </button>
+                            </li>
+                          )}
                         </ul>
                       )}
                     </li>
@@ -4769,7 +4789,11 @@ try {
             )}
             {shouldRenderTab("Settings") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Settings")}>
-                <Settings selectedClient={(effectiveUserId ?? "").toString()} />
+                {settingsSubTab === "InstructionSet" && userRole === "ADMIN" ? (
+                  <InstructionSetPage selectedClient={(effectiveUserId ?? "").toString()} />
+                ) : (
+                  <Settings selectedClient={(effectiveUserId ?? "").toString()} />
+                )}
               </div>
             )}
             {shouldRenderTab("MyPlan") && (

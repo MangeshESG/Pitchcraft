@@ -1072,6 +1072,48 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     return "";
   };
 
+  // Exit the inline campaign builder and return to the blueprints list
+  const handleExitBuilder = () => {
+    setShowCampaignBuilder(false);
+    setActiveBlueprintId(null);
+    sessionStorage.removeItem(BLUEPRINT_BUILDER_SESSION_KEY);
+
+    // Clear all builder/conversation state so reopening a blueprint starts fresh
+    // (stale session state was causing intermittent bugs). Runs after the builder
+    // unmounts so its useSessionState effects don't write the old values back.
+    setTimeout(async () => {
+      const keysToClear = [
+        // Active campaign / navigation
+        "newCampaignId",
+        "newCampaignName",
+        "autoStartConversation",
+        "openConversationTab",
+        "initialExampleEmail",
+        // Conversation + derived state (useSessionState keys)
+        "campaign_messages",
+        "campaign_final_prompt",
+        "campaign_final_preview",
+        "campaign_placeholder_values",
+        "campaign_is_complete",
+        "campaign_started",
+        "campaign_system_prompt",
+        "campaign_system_prompt_edit",
+        "campaign_master_prompt",
+        "campaign_master_prompt_extensive",
+        "campaign_preview_text",
+        "campaign_selected_model",
+        "campaign_template_name",
+        "campaign_web_search_instructions",
+        "campaign_activeMainTab",
+        "campaign_activeBuildTab",
+      ];
+      keysToClear.forEach((key) => sessionStorage.removeItem(key));
+      // Note: keep selectedTemplateDefinitionId and campaign_sound_enabled
+      // (needed next time / user preference).
+      await fetchCampaignTemplates();
+    }, 300);
+  };
+
   return (
     <div className="template-container">
       {!showCampaignBuilder ? (
@@ -1766,93 +1808,11 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
         </>
       ) : (
         /* ✅ Show Campaign Builder Inline */
-        <div style={{ padding: "20px" }}>
-          {/* Page header — matches the Blueprints list page */}
-          <div style={{ marginBottom: "16px" }}>
-            <h1
-              style={{
-                fontSize: "28px",
-                fontWeight: 700,
-                color: "#111827",
-                letterSpacing: "-0.02em",
-                margin: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-              }}
-            >
-              Blueprint builder
-            </h1>
-
-          </div>
-
-          {/* Back + blueprint switcher — sits below the heading */}
-          <div
-            style={{
-              display: "flex",
-              gap: "16px",
-              alignItems: "center",
-              marginBottom: "20px",
-              marginTop: "0",
-            }}
-          >
-            <button
-              className="button save-button"
-              onClick={async () => {
-                // ✅ Close UI first
-                setShowCampaignBuilder(false);
-                setActiveBlueprintId(null);
-                sessionStorage.removeItem(BLUEPRINT_BUILDER_SESSION_KEY);
-
-                // ✅ Give React state a tick before cleanup
-                setTimeout(async () => {
-                  // Only clear temp campaign session, not builder state keys used later
-                  sessionStorage.removeItem("newCampaignId");
-                  sessionStorage.removeItem("newCampaignName");
-                  sessionStorage.removeItem("autoStartConversation");
-                  sessionStorage.removeItem("openConversationTab");
-                  sessionStorage.removeItem("initialExampleEmail");
-
-                  // Don’t remove selectedTemplateDefinitionId – we need that next time
-
-                  // ✅ Refresh campaign list
-                  await fetchCampaignTemplates();
-                }, 300);
-              }}
-              style={{
-                borderRadius: "12px",
-                fontWeight: "600",
-              }}
-            >
-              ← Back
-            </button>
-            <select
-              value={activeBlueprintId?.toString() || ""}
-              onChange={(e) => handleBlueprintSwitch(Number(e.target.value))}
-              style={{
-                padding: "6px 12px",
-                borderRadius: "6px",
-                border: "1px solid #d1d5db",
-                fontSize: "14px",
-                fontWeight: 600,
-                cursor: "pointer",
-                backgroundColor: "#fff",
-                minWidth: "220px",
-              }}
-            >
-              {[...campaignTemplates].sort((a, b) => a.templateName.toLowerCase().localeCompare(b.templateName.toLowerCase())).map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.templateName}
-                </option>
-              ))}
-            </select>
-
-            {/* <h2 className="font-[600]">{sessionStorage.getItem("newCampaignName") || "Blueprint"}</h2> */}
-          </div>
-
+        <div style={{ padding: "4px 20px 20px" }}>
           <EmailCampaignBuilder
             selectedClient={effectiveUserId}
             onBeforeAiChatOpen={ensureCanOpenAiChat}
+            onExitBuilder={handleExitBuilder}
           />
         </div>
       )}

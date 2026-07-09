@@ -594,6 +594,59 @@
   padding-right: 6px;
 }
 
+/* Shared dark instruction input (chat / refine steps) */
+.email-campaign-builder .bp-dark-input::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+/* No focus ring/outline on the dark composers (removes the green/blue border) */
+.email-campaign-builder .bp-dark-input:focus,
+.email-campaign-builder .bp-dark-input:focus-visible,
+.email-campaign-builder .reference-email-editor:focus,
+.email-campaign-builder .reference-email-editor:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Reference email rich editor (renders pasted HTML) */
+.email-campaign-builder .reference-email-editor:empty:before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.email-campaign-builder .reference-email-editor {
+  line-height: 1.6;
+}
+
+/* Dark box: force pasted email content to a readable light color regardless of
+   its own inline colors (pasted emails usually carry dark text). The transparent
+   background applies only to the pasted children — NOT the editor itself, whose
+   dark background is set inline. */
+.email-campaign-builder .reference-email-editor,
+.email-campaign-builder .reference-email-editor * {
+  color: #f3f4f6 !important;
+}
+
+.email-campaign-builder .reference-email-editor * {
+  background-color: transparent !important;
+}
+
+.email-campaign-builder .reference-email-editor img {
+  max-width: 100%;
+  height: auto;
+}
+
+.email-campaign-builder .reference-email-editor table {
+  max-width: 100%;
+}
+
+.email-campaign-builder .reference-email-editor a,
+.email-campaign-builder .reference-email-editor a * {
+  color: #86efac !important;
+}
+
 
 /* Message Wrapper */
 .email-campaign-builder .message-wrapper {
