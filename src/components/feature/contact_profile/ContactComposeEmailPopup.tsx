@@ -17,6 +17,7 @@ import {
   faRedo,
   faInfoCircle,
 } from "@fortawesome/free-solid-svg-icons";
+import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 
 interface ContactComposeEmailPopupProps {
   isOpen: boolean;
@@ -252,17 +253,11 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
               onClick={handleGenerate}
               disabled={!selectedBlueprintId || isGenerating}
               style={{
-                height: 38,
-                padding: "0 18px",
-                borderRadius: 6,
-                border: (!selectedBlueprintId || isGenerating) ? "1px solid #d1d5db" : "1px solid #178d2e",
-                background: (!selectedBlueprintId || isGenerating) ? "#e5e7eb" : "#118a27",
-                color: (!selectedBlueprintId || isGenerating) ? "#9ca3af" : "#fff",
-                fontSize: 13,
-                fontWeight: 700,
+                ...lessPriorityButtonStyle,
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
+                opacity: (!selectedBlueprintId || isGenerating) ? 0.6 : 1,
                 cursor: (!selectedBlueprintId || isGenerating) ? "not-allowed" : "pointer",
               }}
             >
@@ -274,17 +269,11 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
               onClick={handleSend}
               disabled={isSending}
               style={{
-                height: 38,
-                padding: "0 22px",
-                borderRadius: 6,
-                border: isSending ? "1px solid #d1d5db" : "1px solid #178d2e",
-                background: isSending ? "#e5e7eb" : "#118a27",
-                color: isSending ? "#9ca3af" : "#fff",
-                fontSize: 13,
-                fontWeight: 700,
+                ...defaultButtonStyle,
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
+                opacity: isSending ? 0.6 : 1,
                 cursor: isSending ? "not-allowed" : "pointer",
               }}
             >

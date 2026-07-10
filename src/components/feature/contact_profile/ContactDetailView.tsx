@@ -43,6 +43,7 @@ import CommonSidePanel from '../../common/CommonSidePanel';
 import { defaultButtonStyle } from "../../../styles/buttonStyles";
 import ContactQA from "./ContactQA";
 import ContactComposeEmailPopup from "./ContactComposeEmailPopup";
+import ContactEmailsTab from "./ContactEmailsTab";
 import { pinEmail } from "../inbox/inboxPin";
 import EmailIframe from "../inbox/EmailIframe";
 import { repairAndParseJsonObject } from "../../../utils/jsonRepair";
@@ -216,7 +217,7 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
       searchParams.get("dataField");
     const segmentId = searchParams.get("segmentId");
 
-  const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists" | "qa" | "insights">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists" | "qa" | "emails" | "insights">("profile");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
@@ -3701,37 +3702,6 @@ dispatch(closePanel());
     );
   };
 
-  const renderContactEmailWorkspace = () => (
-    <div className="inbox-workspace contact-email-workspace">
-      <div className="inbox-content inbox-grid" style={{ gridTemplateColumns: "360px minmax(0, 1fr)", height: "calc(100vh - 260px)", minHeight: 560 }}>
-        <div className="list-pane">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb" }}>
-            <div className="inbox-tabs" style={{ borderBottom: "none", flex: 1 }}>
-              <button
-                type="button"
-                className={`inbox-tab${contactMailTab === "allmessages" ? " active" : ""}`}
-                onClick={() => setContactMailTab("allmessages")}
-              >
-                All Messages
-              </button>
-              <button
-                type="button"
-                className={`inbox-tab${contactMailTab === "sent" ? " active" : ""}`}
-                onClick={() => setContactMailTab("sent")}
-              >
-                Sent
-              </button>
-            </div>
-          </div>
-          {renderContactMailList()}
-        </div>
-        <div className="read-pane">
-          {renderContactMailReader()}
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <>
     
@@ -4155,7 +4125,7 @@ dispatch(closePanel());
                 {/* LEFT: PROFILE / HISTORY */}
                 <div style={{ display: "flex", gap: 24 }}>
                   {/* "insights" tab hidden — research is shown in the right panel. To restore, add "insights" back to the array below. */}
-                  {["profile", "history", "lists", "qa" /*, "insights" */].map((tab) => (
+                  {["profile", "history", "lists", "qa", "emails" /*, "insights" */].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => {
@@ -4169,6 +4139,10 @@ dispatch(closePanel());
                           // if (notesHistory.length === 0) {
                           //   fetchNotesHistory();
                           // }
+                        }
+
+                        if (tab === "emails" && contactId && emailTimeline.length === 0) {
+                          fetchEmailTimeline(Number(contactId));
                         }
 
                         if (tab === "lists" && contactId && !contactDetails) {
@@ -4197,7 +4171,9 @@ dispatch(closePanel());
                             ? "Lists"
                             : tab === "qa"
                               ? "Q&A"
-                              : "Insights"}
+                              : tab === "emails"
+                                ? "Emails"
+                                : "Insights"}
 
                     </button>
                   ))}
@@ -4249,6 +4225,24 @@ dispatch(closePanel());
                     <FontAwesomeIcon icon={faPaperclip} style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
                     Add attachment
                   </button>
+
+                  {/* Compose — only on the Emails tab */}
+                  {activeTab === "emails" && (
+                    <button
+                      type="button"
+                      onClick={() => setIsComposePopupOpen(true)}
+                      style={{
+                        ...defaultButtonStyle,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 7,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faPen} />
+                      Compose
+                    </button>
+                  )}
 
                   {/* Campaign-driven web-search insights generation */}
                   <div
@@ -4376,7 +4370,6 @@ dispatch(closePanel());
                     {[
                       { key: "all", label: "All" },
                       { key: "notes", label: "Notes" },
-                      { key: "emails", label: "Emails" },
                       { key: "attachments", label: "Attachments" },
                     ].map(item => (
                     <button
@@ -4411,31 +4404,6 @@ dispatch(closePanel());
                     </button>
                     ))}
                   </div>
-                  {historyFilter === "emails" && (
-                    <button
-                      type="button"
-                      onClick={() => setIsComposePopupOpen(true)}
-                      style={{
-                        height: 34,
-                        padding: "0 14px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 7,
-                        border: "1px solid #178d2e",
-                        background: "#118a27",
-                        color: "#fff",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        boxShadow: "0 6px 14px rgba(17, 138, 39, 0.18)",
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faPen} />
-                      Compose
-                    </button>
-                  )}
                 </div>
               )}
               {/* PROFILE TAB */}
@@ -4958,8 +4926,7 @@ dispatch(closePanel());
                         </>
                       )}
 
-                      {/* 🔹 EMAIL TIMELINE */}
-                      {historyFilter === "emails" && renderContactEmailWorkspace()}
+                      {/* 🔹 EMAIL TIMELINE — moved to the standalone "Emails" tab */}
                       {false && (historyFilter === "emails") &&
                         emailTimeline.map((email: any, index: number) => {
                           const isInboxEmail = email.emailType === 'inbox';
@@ -5721,6 +5688,15 @@ dispatch(closePanel());
                   loading={loading || isLoadingHistory}
                   onBeforeQuestion={ensureCanDeductCredit}
                   onQuestionSuccess={refreshCreditsAfterDeduction}
+                />
+              )}
+
+              {activeTab === "emails" && (
+                <ContactEmailsTab
+                  contactMailTab={contactMailTab}
+                  setContactMailTab={setContactMailTab}
+                  renderMailList={renderContactMailList}
+                  renderMailReader={renderContactMailReader}
                 />
               )}
 
