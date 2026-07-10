@@ -328,27 +328,23 @@ setOverwriteDatabase,
         </div>
         )}
 
-        {/* Tabs Header */}
-        <div className="flex w-full border-b border-[#cccccc] rounded-[10px 10px 0 0] panel-tab items-center">
-          {!actionsCollapsed && panelTabs.map((tab, index) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              style={{
-                border: "1px solid #3f9f42",
-                borderLeft: index === 0 ? "1px solid #3f9f42" : "none",
-                borderBottom: "1px solid #3f9f42",
-              }}
-              className={`flex-1 basis-1/2 text-center px-[30px] py-[10px] font-medium text-[16px]
-              ${panelTab === tab.id
-                  ? `bg-white  text-[#3f9f42] relative active`
-                  : 'bg-gray-100 text-slate-400 hover:bg-gray-200 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1)]'
-                }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* Tabs Header — matches Output / Stages / Insights underline tabs, 50/50 split */}
+        {!actionsCollapsed && (
+          <div className="tabs secondary d-flex align-center px-[20px]">
+            <ul className="d-flex w-[100%]">
+              {panelTabs.map((tab) => (
+                <li key={tab.id} className="basis-1/2 flex-1">
+                  <button
+                    onClick={() => handleTabChange(tab.id)}
+                    className={`button w-[100%] text-center !mr-0 ${panelTab === tab.id ? "active" : ""}`}
+                  >
+                    {tab.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {/* HEADER */}
 
         {/* CONTENT */}
