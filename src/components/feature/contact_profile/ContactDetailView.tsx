@@ -20,6 +20,9 @@ import {
   faList,
   faPaperclip,
   faDownload,
+  faReply,
+  faFloppyDisk,
+  faPen,
 } from "@fortawesome/free-solid-svg-icons";
 import { faEdit, faTrashAlt, faSquarePlus } from "@fortawesome/free-regular-svg-icons";
 import EditContactModal from "./EditContactModal";
@@ -30,6 +33,7 @@ import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
 import RichTextEditor from '../../common/RTEEditor';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import CreditCheckModal from "../../common/CreditCheckModal";
+import Modal from "../../common/Modal";
 import { useCreditCheck } from "../../../hooks/useCreditCheck";
 
 import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
@@ -38,9 +42,13 @@ import { Pin, PinOff } from 'lucide-react';
 import CommonSidePanel from '../../common/CommonSidePanel';
 import { defaultButtonStyle } from "../../../styles/buttonStyles";
 import ContactQA from "./ContactQA";
+import ContactComposeEmailPopup from "./ContactComposeEmailPopup";
 import { pinEmail } from "../inbox/inboxPin";
+import EmailIframe from "../inbox/EmailIframe";
 import { repairAndParseJsonObject } from "../../../utils/jsonRepair";
 import { saveUserCredit } from "../../../slices/authSLice";
+import "../inbox/InboxView.css";
+import { copyToClipboard } from "../../../utils/utils";
 
 
 interface Contact {
@@ -73,6 +81,28 @@ interface Contact {
 
 interface ContactDetailViewProps {
   embedded?: boolean;
+}
+
+interface ContactReplyBlueprint {
+  id: number;
+  templateName: string;
+}
+
+interface ContactSmtpUser {
+  id?: number;
+  outboxId?: number;
+  OutboxId?: number;
+  inboxId?: number;
+  InboxId?: number;
+  inboxid?: number;
+  username?: string;
+  emailAddress?: string;
+  fromEmail?: string;
+  email?: string;
+  provider?: string;
+  Provider?: string;
+  type?: string;
+  smtpType?: string;
 }
 
 const ResearchCards: React.FC<{ content: string }> = ({ content }) => {
@@ -193,7 +223,6 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
   const [emailActionsAnchor, setEmailActionsAnchor] = useState<string | null>(null);
-  const [emailDeleteOptionsAnchor, setEmailDeleteOptionsAnchor] = useState<string | null>(null);
   const [emailToDelete, setEmailToDelete] = useState<any | null>(null);
   const [showEmailDeleteModal, setShowEmailDeleteModal] = useState(false);
   const [pendingEmailDeleteMode, setPendingEmailDeleteMode] = useState<"soft" | "Permanent">("soft");
@@ -201,6 +230,35 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [pinningEmailId, setPinningEmailId] = useState<string | null>(null);
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [contactMailTab, setContactMailTab] = useState<"allmessages" | "sent">("allmessages");
+  const [selectedContactThread, setSelectedContactThread] = useState<any | null>(null);
+  const [contactCollapsedEmails, setContactCollapsedEmails] = useState<{ [key: string]: boolean }>({});
+  const [expandedContactMessageHeaders, setExpandedContactMessageHeaders] = useState<{ [key: string]: boolean }>({});
+  const [contactReplyText, setContactReplyText] = useState("");
+  const [contactReplyTrailHtml, setContactReplyTrailHtml] = useState("");
+  const [contactReplyCc, setContactReplyCc] = useState("");
+  const [contactReplyBcc, setContactReplyBcc] = useState("");
+  const [showContactReplyCc, setShowContactReplyCc] = useState(false);
+  const [showContactReplyBcc, setShowContactReplyBcc] = useState(false);
+  const [contactReplyAttachments, setContactReplyAttachments] = useState<File[]>([]);
+  const [isComposePopupOpen, setIsComposePopupOpen] = useState(false);
+  const [composeSmtpUsers, setComposeSmtpUsers] = useState<ContactSmtpUser[]>([]);
+  const [selectedComposeSmtpUser, setSelectedComposeSmtpUser] = useState("");
+  const [composeSignatureHtml, setComposeSignatureHtml] = useState("");
+  const [isLoadingComposeSignature, setIsLoadingComposeSignature] = useState(false);
+  const [isSendingComposeEmail, setIsSendingComposeEmail] = useState(false);
+  const [showContactReplySection, setShowContactReplySection] = useState(false);
+  const [isSendingContactReply, setIsSendingContactReply] = useState(false);
+  const [contactReplyBlueprints, setContactReplyBlueprints] = useState<ContactReplyBlueprint[]>([]);
+  const [selectedContactReplyBlueprint, setSelectedContactReplyBlueprint] = useState<number | null>(null);
+  const [isKraftingContactReply, setIsKraftingContactReply] = useState(false);
+  const [isCopyContactReplyText, setIsCopyContactReplyText] = useState(false);
+  const [openContactReplyDeviceDropdown, setOpenContactReplyDeviceDropdown] = useState(false);
+  const [contactReplyEmailWidth, setContactReplyEmailWidth] = useState<string>("");
+  const [isSavingContactReplyDraft, setIsSavingContactReplyDraft] = useState(false);
+  const [isContactReplyExpanded, setIsContactReplyExpanded] = useState(false);
+  const contactReplyKraftInFlightRef = useRef(false);
+  const contactMailDetailRef = useRef<HTMLDivElement | null>(null);
 
   const appModal = useAppModal();
   const {
@@ -228,6 +286,16 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
     fontWeight: 600,
     color: "#374151",
     marginBottom: 6,
+  };
+  const primarySoftButtonStyle: React.CSSProperties = {
+    background: "#e2f1e3",
+    color: "#3f9f42",
+    border: "1px solid #cfecd6",
+  };
+  const secondaryButtonStyle: React.CSSProperties = {
+    background: "#f8fafc",
+    color: "#374151",
+    border: "1px solid #d1d5db",
   };
   const navigate = useNavigate();
   const handleCreditModalTabChange = (nextTab: string) => {
@@ -479,6 +547,74 @@ const effectiveUserId = useMemo(() => {
   return Number(reduxUserId);
 }, [reduxUserId, searchParams]);
 
+const token = sessionStorage.getItem("token");
+
+useEffect(() => {
+  const lastFrom = localStorage.getItem("lastFrom");
+  if (lastFrom) setSelectedComposeSmtpUser(lastFrom);
+}, []);
+
+useEffect(() => {
+  if (!effectiveUserId) return;
+
+  const fetchContactReplyBlueprints = async () => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}?pageSize=20&pageNumber=1`,
+        {
+          headers: {
+            accept: "*/*",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      const templates = Array.isArray(response.data?.templates) ? response.data.templates : [];
+      setContactReplyBlueprints(templates);
+    } catch (error) {
+      console.error("Failed to fetch reply blueprints:", error);
+    }
+  };
+
+  fetchContactReplyBlueprints();
+}, [effectiveUserId, token]);
+
+useEffect(() => {
+  if (!effectiveUserId) return;
+
+  const fetchComposeSmtpUsers = async () => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/email/get-Outboxs?clientId=${effectiveUserId}`,
+        {
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      const users = Array.isArray(response.data?.data) ? response.data.data : [];
+      setComposeSmtpUsers(users);
+      if (users.length === 1) {
+        const onlyUserId = users[0]?.id ?? users[0]?.outboxId ?? users[0]?.OutboxId;
+        if (onlyUserId !== undefined && onlyUserId !== null) {
+          setSelectedComposeSmtpUser((current) => current || String(onlyUserId));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch compose SMTP users:", error);
+    }
+  };
+
+  fetchComposeSmtpUsers();
+}, [effectiveUserId, token]);
+
+useEffect(() => {
+  if (selectedComposeSmtpUser) {
+    localStorage.setItem("lastFrom", selectedComposeSmtpUser);
+  }
+}, [selectedComposeSmtpUser]);
+
 const canGenerateFromCreditResponse = (creditResponse: any) => {
   if (typeof creditResponse === "number") {
     return creditResponse > 0;
@@ -488,10 +624,25 @@ const canGenerateFromCreditResponse = (creditResponse: any) => {
     return false;
   }
 
-  return (
-    creditResponse.canGenerate !== false &&
-    Number(creditResponse.total ?? creditResponse.credits ?? 0) > 0
-  );
+  if (creditResponse.monthlyLimitExceeded || creditResponse.canGenerate === false) {
+    return false;
+  }
+
+  const creditValue = [
+    creditResponse.total,
+    creditResponse.credits,
+    creditResponse.credit,
+    creditResponse.remainingCredits,
+    creditResponse.remainingCredit,
+    creditResponse.remaining,
+    creditResponse.balance,
+  ].find((value) => value !== undefined && value !== null && !Number.isNaN(Number(value)));
+
+  if (creditValue !== undefined) {
+    return Number(creditValue) > 0;
+  }
+
+  return creditResponse.canGenerate === true;
 };
 
 const refreshCreditsAfterDeduction = async () => {
@@ -728,27 +879,80 @@ const handleGenerateInsights = async () => {
   };
 
   const getMessageTime = (message: any) =>
-    new Date(message?.date || message?.sentAt || message?.receiveAt || 0).getTime();
+    new Date(message?.date || message?.Date || message?.sentAt || message?.SentAt || message?.receiveAt || message?.ReceiveAt || 0).getTime();
+
+  const getTrackingIdValue = (value: any) =>
+    String(
+      value?.trackingId ||
+      value?.TrackingId ||
+      value?.trackingid ||
+      value?.threadId ||
+      value?.ThreadId ||
+      ""
+    ).trim();
+
+  const getMessageIdValue = (value: any) =>
+    String(value?.messageId || value?.MessageId || "").trim();
+
+  const getProviderValue = (value: any) =>
+    String(
+      value?.Provider ||
+      value?.provider ||
+      value?.ProviderName ||
+      value?.providerName ||
+      value?.providername ||
+      value?.["Provider name"] ||
+      value?.["provider name"] ||
+      value?.SmtpType ||
+      value?.smtpType ||
+      ""
+    ).trim();
+
+  const getInboxIdValue = (value: any) => {
+    const inboxId = Number(value?.inboxid ?? value?.inboxId ?? value?.InboxId ?? value?.inboxID ?? 0);
+    return Number.isFinite(inboxId) && inboxId > 0 ? inboxId : null;
+  };
 
   const normalizeConversationThread = (conversation: any) => {
-    const sortedMessages = [...(conversation.messages || [])].sort(
+    const rawMessages = conversation.messages || conversation.Messages || [];
+    const sortedMessages = [...rawMessages].map((message: any, index: number) => ({
+      ...message,
+      type: message.type || message.Type,
+      messageId: getMessageIdValue(message) || `${getTrackingIdValue(conversation) || "message"}-${index}`,
+      subject: message.subject || message.Subject,
+      body: message.body || message.Body,
+      fromEmail: message.fromEmail || message.FromEmail,
+      toEmail: message.toEmail || message.ToEmail,
+      date: message.date || message.Date,
+      isRead: message.isRead ?? message.IsRead ?? true,
+      contactId: message.contactId ?? message.ContactId,
+      contactName: message.contactName || message.ContactName,
+      attachments: message.attachments || message.Attachments || [],
+      inboxid: getInboxIdValue(message) ?? message.inboxid ?? message.inboxId ?? message.InboxId,
+      Provider: getProviderValue(message),
+      provider: getProviderValue(message),
+    })).sort(
       (a: any, b: any) => getMessageTime(a) - getMessageTime(b)
     );
     const latestMessage = sortedMessages[sortedMessages.length - 1] || {};
-    const threadDate = conversation.lastMessageDate || latestMessage.date;
+    const threadDate = conversation.lastMessageDate || conversation.LastMessageDate || latestMessage.date;
     const latestType = String(latestMessage.type || "").toLowerCase();
     const isInboxThread = latestType !== "sent";
     const primaryMessage = latestMessage;
+    const trackingId = getTrackingIdValue(conversation) || getTrackingIdValue(latestMessage);
 
     return {
       ...conversation,
-      trackingId: conversation.trackingId || latestMessage.messageId || `${conversation.contactId}-${threadDate}`,
-      subject: conversation.subject || latestMessage.subject,
+      inboxid: getInboxIdValue(conversation) ?? getInboxIdValue(latestMessage) ?? sortedMessages.map(getInboxIdValue).find(Boolean) ?? conversation.inboxid ?? conversation.inboxId ?? conversation.InboxId ?? latestMessage.inboxid ?? latestMessage.inboxId ?? latestMessage.InboxId,
+      Provider: getProviderValue(conversation) || getProviderValue(latestMessage),
+      provider: getProviderValue(conversation) || getProviderValue(latestMessage),
+      trackingId: trackingId || `${conversation.contactId || conversation.ContactId || contactId}-${threadDate || latestMessage.messageId}`,
+      subject: conversation.subject || conversation.Subject || latestMessage.subject,
       body: primaryMessage?.body,
       sentAt: threadDate,
       receiveAt: threadDate,
       senderEmailId: latestMessage.fromEmail,
-      fromEmail: latestMessage.fromEmail || conversation.contactEmail,
+      fromEmail: latestMessage.fromEmail || conversation.contactEmail || conversation.ContactEmail,
       toEmail: latestMessage.toEmail,
       emailType: isInboxThread ? "inbox" : "sent",
       messages: sortedMessages,
@@ -780,11 +984,80 @@ const handleGenerateInsights = async () => {
       senderEmailId: email.fromEmail,
     }));
 
-    return [...sentEmails, ...inboxEmails].sort((a, b) => {
+    const getThreadKey = (email: any) =>
+      getTrackingIdValue(email) ||
+      getMessageIdValue(email) ||
+      `${email.subject || "no-subject"}-${email.senderEmailId || email.fromEmail || ""}-${email.toEmail || ""}`;
+
+    const groupedEmails = [...sentEmails, ...inboxEmails].reduce((groups: Record<string, any[]>, email: any) => {
+      const key = getThreadKey(email);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(email);
+      return groups;
+    }, {});
+
+    return Object.entries(groupedEmails).map(([threadKey, emails]) => {
+      if (emails.length === 1) return emails[0];
+
+      const messages = emails
+        .map((email: any, index: number) => ({
+          type: email.emailType === "sent" ? "Sent" : "Reply",
+          messageId: getMessageIdValue(email) || `${threadKey}-${index}`,
+          subject: email.subject || email.Subject,
+          body: email.body || email.Body,
+          fromEmail: email.fromEmail || email.FromEmail || email.senderEmailId || email.SenderEmailId,
+          toEmail: email.toEmail || email.ToEmail,
+          date: email.sentAt || email.SentAt || email.receiveAt || email.ReceiveAt,
+          isRead: email.isRead ?? email.IsRead ?? true,
+          contactId: email.contactId ?? email.ContactId,
+          contactName: email.contactName || email.ContactName,
+          attachments: email.attachments || email.Attachments || [],
+        }))
+        .sort((a: any, b: any) => getMessageTime(a) - getMessageTime(b));
+      const latestMessage = messages[messages.length - 1] || {};
+      const firstEmail = emails[0];
+
+      return {
+        ...firstEmail,
+        trackingId: threadKey,
+        subject: latestMessage.subject || firstEmail.subject,
+        body: latestMessage.body,
+        sentAt: latestMessage.date,
+        receiveAt: latestMessage.date,
+        senderEmailId: latestMessage.fromEmail,
+        fromEmail: latestMessage.fromEmail,
+        toEmail: latestMessage.toEmail,
+        emailType: String(latestMessage.type || "").toLowerCase() === "sent" ? "sent" : "inbox",
+        messages,
+        replies: messages.slice(0, -1),
+        contactName: latestMessage.contactName,
+      };
+    }).sort((a, b) => {
       const dateA = new Date(a.sentAt || a.receiveAt || 0).getTime();
       const dateB = new Date(b.sentAt || b.receiveAt || 0).getTime();
       return dateB - dateA;
     });
+  };
+
+  const fetchContactEmailThreads = async (targetContactId: number) => {
+    if (!targetContactId || !effectiveUserId) return [];
+
+    const threadsResponse = await fetch(
+      `${API_BASE_URL}/api/Inbox/contact-threads?clientId=${effectiveUserId}&contactId=${targetContactId}&pageNumber=1&pageSize=500`
+    );
+
+    if (!threadsResponse.ok) {
+      throw new Error("Failed to fetch contact email threads");
+    }
+
+    const threadsData = await threadsResponse.json();
+    const contactThreads = threadsData?.data?.data || threadsData?.data?.Data || [];
+    const normalizedThreads = Array.isArray(contactThreads)
+      ? contactThreads.map(normalizeConversationThread)
+      : [];
+
+    setEmailTimeline(normalizedThreads);
+    return normalizedThreads;
   };
 
   const fetchEmailTimeline = async (contactId: number) => {
@@ -810,7 +1083,12 @@ const handleGenerateInsights = async () => {
           : prev
       );
 
-      setEmailTimeline(normalizeEmailTimeline(data));
+      try {
+        await fetchContactEmailThreads(contactId);
+      } catch (threadError) {
+        console.error("contact-threads API failed, falling back to email-timeline conversations", threadError);
+        setEmailTimeline(normalizeEmailTimeline(data));
+      }
       setNotesHistory(data.notes || []); // ✅ Set notes from timeline API
       setAttachmentsHistory(data.attachments || []); // ✅ Set attachments from timeline API
     } catch (err) {
@@ -823,10 +1101,10 @@ const handleGenerateInsights = async () => {
   };
 
   useEffect(() => {
-  if (contactId) {
+  if (contactId && effectiveUserId) {
     fetchEmailTimeline(Number(contactId));
   }
-}, [contactId]);
+}, [contactId, effectiveUserId]);
 
   const stripHtml = (html: string) => {
     if (!html) return "";
@@ -938,20 +1216,34 @@ const handleGenerateInsights = async () => {
   };
 
   const getEmailPreviewMessages = (email: any) => {
-    if (Array.isArray(email.messages) && email.messages.length > 0) {
-      return [...email.messages].sort((a: any, b: any) => getMessageTime(b) - getMessageTime(a));
+    const rawMessages = email.messages || email.Messages || [];
+    if (Array.isArray(rawMessages) && rawMessages.length > 0) {
+      return rawMessages.map((message: any, index: number) => ({
+        ...message,
+        type: message.type || message.Type,
+        messageId: getMessageIdValue(message) || `${getTrackingIdValue(email) || "message"}-${index}`,
+        subject: message.subject || message.Subject,
+        body: message.body || message.Body,
+        fromEmail: message.fromEmail || message.FromEmail,
+        toEmail: message.toEmail || message.ToEmail,
+        date: message.date || message.Date,
+        isRead: message.isRead ?? message.IsRead ?? true,
+        contactId: message.contactId ?? message.ContactId,
+        contactName: message.contactName || message.ContactName,
+        attachments: message.attachments || message.Attachments || [],
+      })).sort((a: any, b: any) => getMessageTime(b) - getMessageTime(a));
     }
 
     return [
       {
         type: email.emailType === "sent" ? "Sent" : "Reply",
-        messageId: email.trackingId,
-        subject: email.subject,
-        body: email.body,
-        fromEmail: email.fromEmail || email.senderEmailId,
-        toEmail: email.toEmail,
-        date: email.sentAt || email.receiveAt,
-        attachments: email.attachments || [],
+        messageId: getMessageIdValue(email) || getTrackingIdValue(email),
+        subject: email.subject || email.Subject,
+        body: email.body || email.Body,
+        fromEmail: email.fromEmail || email.FromEmail || email.senderEmailId || email.SenderEmailId,
+        toEmail: email.toEmail || email.ToEmail,
+        date: email.sentAt || email.SentAt || email.receiveAt || email.ReceiveAt,
+        attachments: email.attachments || email.Attachments || [],
       },
     ];
   };
@@ -1078,7 +1370,6 @@ const handleGenerateInsights = async () => {
 
   const handleEmailDelete = (email: any, deleteMode: "soft" | "Permanent") => {
     setEmailActionsAnchor(null);
-    setEmailDeleteOptionsAnchor(null);
     setEmailToDelete(email);
     setPendingEmailDeleteMode(deleteMode);
     setShowEmailDeleteModal(true);
@@ -1130,26 +1421,637 @@ const handleGenerateInsights = async () => {
     deleteEmail(emailToDelete, pendingEmailDeleteMode);
   };
 
-  const renderEmailActions = (email: any) => {
+  const showContactMailSuccess = (message: string) => {
+    setToastMessage(message);
+    setShowSuccessToast(true);
+    setTimeout(() => setShowSuccessToast(false), 3000);
+  };
+
+  const showContactMailError = (message: string) => {
+    setToastMessage(message);
+    setShowErrorToast(true);
+    setTimeout(() => setShowErrorToast(false), 3000);
+  };
+
+  const contactReplyTrailMarker = 'data-reply-email-trail="true"';
+  const contactReplyTrailSeparator = '<hr style="border:0;border-top:1px solid #d1d5db;margin:16px 0;width:100%;" />';
+
+  const escapeContactReplyHtml = (value: string): string =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const splitContactReplyTrail = (html: string): { draftHtml: string; trailHtml: string } => {
+    const markerMatch = html.match(/data-reply-email-trail(?:=(?:"true"|'true'|true|""))?/i);
+    const markerIndex = markerMatch?.index ?? -1;
+
+    if (markerIndex === -1) {
+      return { draftHtml: html, trailHtml: "" };
+    }
+
+    const detailsStart = html.lastIndexOf("<details", markerIndex);
+    const divStart = html.lastIndexOf("<div", markerIndex);
+    const trailTagStart = Math.max(detailsStart, divStart);
+
+    if (trailTagStart === -1) {
+      return { draftHtml: html, trailHtml: "" };
+    }
+
+    const separatorStart = Math.max(
+      html.lastIndexOf("<br/><br/>", trailTagStart),
+      html.lastIndexOf("<br/>", trailTagStart)
+    );
+    const trailStart = separatorStart === -1 ? trailTagStart : separatorStart;
+
+    return {
+      draftHtml: html.slice(0, trailStart),
+      trailHtml: html.slice(trailStart),
+    };
+  };
+
+  const buildCollapsedContactReplyTrail = (formattedTrail: string): string =>
+    `<br/><div ${contactReplyTrailMarker} data-trail-open="false" class="contact-reply-trail" contenteditable="false" style="display:inline-block;margin:0;padding:0;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35;text-align:left;min-width:34px;min-height:22px;"><span class="contact-reply-trail-toggle" contenteditable="false" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:#3f9f42;background:#eaf5ea;border:1px solid #cfe7d0;border-radius:999px;font-weight:700;font-size:18px;line-height:1;width:34px;height:22px;padding:0;margin:0 0 10px 0;">...</span><div class="contact-reply-trail-body" style="display:none;">${contactReplyTrailSeparator}${formattedTrail}</div></div>`;
+
+  const appendContactReplyTrail = (draftHtml: string, formattedTrail: string): string => {
+    const { draftHtml: currentDraftHtml } = splitContactReplyTrail(draftHtml || "");
+    const compactDraftHtml = currentDraftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
+    return `${compactDraftHtml}${buildCollapsedContactReplyTrail(formattedTrail)}`;
+  };
+
+  const replaceContactReplyDraftContent = (nextDraftHtml: string) => {
+    setContactReplyText((currentReplyText) => {
+      const { trailHtml } = splitContactReplyTrail(currentReplyText);
+      return `${nextDraftHtml || ""}${trailHtml || contactReplyTrailHtml}`;
+    });
+  };
+
+  const getSendableContactReplyBody = (html: string): string => {
+    if (!/data-reply-email-trail(?:=(?:"true"|'true'|true|""))?/i.test(html)) {
+      return html;
+    }
+
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+
+    wrapper.querySelectorAll("[data-reply-email-trail]").forEach((details) => {
+      const trailContent = document.createElement("div");
+      trailContent.innerHTML = details.innerHTML;
+      trailContent.querySelector("summary")?.remove();
+      trailContent.querySelector(".contact-reply-trail-toggle")?.remove();
+      const body = trailContent.querySelector(".contact-reply-trail-body") as HTMLElement | null;
+      if (body) body.style.display = "";
+      details.replaceWith(...Array.from(trailContent.childNodes));
+    });
+
+    return wrapper.innerHTML;
+  };
+
+  const getDraftContactReplyBody = (html: string): string => splitContactReplyTrail(html || "").draftHtml;
+
+  const formatContactReplyTrailHeader = (headerText: string): string => {
+    const fullyDecode = (text: string): string => {
+      const textarea = document.createElement("textarea");
+      textarea.innerHTML = text;
+      const decoded = textarea.value;
+      if (decoded !== text && /&(?:quot|lt|gt|amp);/.test(decoded)) {
+        return fullyDecode(decoded);
+      }
+      return decoded;
+    };
+
+    const headerRows = fullyDecode(headerText)
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const match = line.match(/^([^:]+):\s*(.*)$/);
+        if (!match) return `<div style="margin:0 0 8px 0;">${escapeContactReplyHtml(line)}</div>`;
+        return `<div style="margin:0 0 8px 0;text-align:left;"><strong style="font-weight:700;">${escapeContactReplyHtml(match[1])}:</strong> <span style="font-weight:400;">${escapeContactReplyHtml(match[2])}</span></div>`;
+      })
+      .join("");
+
+    return `<div style="margin:0 0 14px 0;padding:0;background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35;text-align:left;">${headerRows}</div>`;
+  };
+
+  const formatContactReplyEmailTrail = (trail: string): string => {
+    const decodeHtmlEntities = (html: string): string => {
+      const textarea = document.createElement("textarea");
+      textarea.innerHTML = html;
+      const decoded = textarea.value;
+      if (decoded !== html && (decoded.includes("&lt;") || decoded.includes("&gt;") || decoded.includes("&quot;") || decoded.includes("&amp;"))) {
+        return decodeHtmlEntities(decoded);
+      }
+      return decoded;
+    };
+
+    const decodedTrail = decodeHtmlEntities(trail);
+    const htmlStart = decodedTrail.search(/<html[\s>]/i);
+    const bodyOpen = decodedTrail.search(/<body[^>]*>/i);
+    const bodyClose = decodedTrail.search(/<\/body>/i);
+    const firstHtmlTagIndex = decodedTrail.search(/<\/?[a-z][a-z0-9-]*(?:\s[^<>]*)?>/i);
+    const headerText = htmlStart > 0
+      ? decodedTrail.slice(0, htmlStart).trim()
+      : firstHtmlTagIndex > 0
+        ? decodedTrail.slice(0, firstHtmlTagIndex).trim()
+        : bodyOpen > 0
+          ? decodedTrail.slice(0, bodyOpen).trim()
+          : "";
+    const rawBody = bodyOpen !== -1 && bodyClose !== -1 && bodyClose > bodyOpen
+      ? decodedTrail.slice(decodedTrail.indexOf(">", bodyOpen) + 1, bodyClose)
+      : firstHtmlTagIndex > -1
+        ? decodedTrail.slice(firstHtmlTagIndex)
+        : escapeContactReplyHtml(decodedTrail).replace(/\r\n|\r|\n/g, "<br>");
+    const bodyContent = rawBody
+      .replace(/<!doctype[^>]*>/gi, "")
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<head[\s\S]*?<\/head>/gi, "")
+      .replace(/<\/?(?:html|body|head)\b[^>]*>/gi, "")
+      .replace(/<(?:meta|style|link|base)\b[^>]*>([\s\S]*?<\/style>)?/gi, "")
+      .trim()
+      .replace(/<hr\b[^>]*>/gi, contactReplyTrailSeparator);
+
+    return `${headerText ? formatContactReplyTrailHeader(headerText) : ""}${bodyContent}`;
+  };
+
+  const copyContactReplyToClipboard = async () => {
+    const container = document.createElement("div");
+    container.innerHTML = contactReplyText || "";
+    const contentToCopy = (container.textContent || container.innerText || "").trim();
+
+    if (!contentToCopy) return;
+
+    try {
+      const copied = await copyToClipboard(contentToCopy);
+      setIsCopyContactReplyText(copied);
+      setTimeout(() => setIsCopyContactReplyText(false), 1000);
+    } catch (error) {
+      console.error("Failed to copy reply text:", error);
+    }
+  };
+
+  const handleKraftContactReply = async (thread: any) => {
+    if (!selectedContactReplyBlueprint || !thread?.contactId) {
+      showContactMailError("Please select a blueprint first.");
+      return;
+    }
+
+    if (contactReplyKraftInFlightRef.current) {
+      return;
+    }
+
+    contactReplyKraftInFlightRef.current = true;
+
+    const canKraft = await ensureCanDeductCredit();
+    if (!canKraft) {
+      contactReplyKraftInFlightRef.current = false;
+      return;
+    }
+
+    setIsKraftingContactReply(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        {
+          blueprintId: selectedContactReplyBlueprint,
+          contactId: thread.contactId,
+          clientId: String(effectiveUserId),
+          overwriteExisting: true,
+        },
+        {
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data?.success && response.data?.emailBody) {
+        replaceContactReplyDraftContent(response.data.emailBody);
+        refreshCreditsAfterDeduction();
+        window.dispatchEvent(new CustomEvent("creditUpdated", { detail: { clientId: effectiveUserId } }));
+        return;
+      }
+
+      throw new Error(response.data?.message || "Failed to generate email");
+    } catch (error: any) {
+      console.error("Failed to kraft contact reply:", error);
+      showContactMailError(error.response?.data?.message || error.message || "Failed to generate email.");
+    } finally {
+      setIsKraftingContactReply(false);
+      contactReplyKraftInFlightRef.current = false;
+    }
+  };
+
+  const handleGenerateComposeEmail = async (blueprintId: number) => {
+    const emptyGeneratedEmail = { emailBody: "", emailSubject: "" };
+
+    if (!blueprintId || !contactId) {
+      showContactMailError("Please select a blueprint first.");
+      return emptyGeneratedEmail;
+    }
+
+    const canKraft = await ensureCanDeductCredit();
+    if (!canKraft) return emptyGeneratedEmail;
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        {
+          blueprintId,
+          contactId: Number(contactId),
+          clientId: String(effectiveUserId),
+          overwriteExisting: true,
+        },
+        {
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data?.success && (response.data?.emailBody || response.data?.emailSubject)) {
+        refreshCreditsAfterDeduction();
+        window.dispatchEvent(new CustomEvent("creditUpdated", { detail: { clientId: effectiveUserId } }));
+        return {
+          emailBody: response.data.emailBody || "",
+          emailSubject: response.data.emailSubject || "",
+        };
+      }
+
+      throw new Error(response.data?.message || "Failed to generate email");
+    } catch (error: any) {
+      console.error("Failed to generate compose email:", error);
+      showContactMailError(error.response?.data?.message || error.message || "Failed to generate email.");
+      return emptyGeneratedEmail;
+    }
+  };
+
+  const getComposeSmtpId = (smtpUser: ContactSmtpUser) =>
+    smtpUser.id ?? smtpUser.outboxId ?? smtpUser.OutboxId;
+
+  const normalizeSignatureProvider = (provider?: string) => {
+    const normalizedProvider = String(provider || "").trim();
+    if (!normalizedProvider) return "";
+    return normalizedProvider.toLowerCase() === "smtp" ? "imap" : normalizedProvider;
+  };
+
+  useEffect(() => {
+    if (!isComposePopupOpen) {
+      setComposeSignatureHtml("");
+      setIsLoadingComposeSignature(false);
+      return;
+    }
+
+    const selectedSmtp = composeSmtpUsers.find(
+      (smtpUser) => String(getComposeSmtpId(smtpUser) ?? "") === selectedComposeSmtpUser
+    );
+    const signatureInboxId = selectedComposeSmtpUser;
+    const signatureProvider = normalizeSignatureProvider(
+      selectedSmtp?.provider ||
+      selectedSmtp?.Provider ||
+      selectedSmtp?.type ||
+      selectedSmtp?.smtpType
+    );
+
+    if (!effectiveUserId || !signatureInboxId || !signatureProvider) {
+      setComposeSignatureHtml("");
+      return;
+    }
+
+    let isCancelled = false;
+    const fetchComposeSignature = async () => {
+      setIsLoadingComposeSignature(true);
+      setComposeSignatureHtml("");
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${signatureInboxId}&Provider=${encodeURIComponent(signatureProvider)}&Mathod=Contact`,
+          {
+            headers: {
+              accept: "*/*",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+
+        if (!isCancelled) {
+          setComposeSignatureHtml(response.data?.signatureHtml || "");
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Failed to fetch compose signature:", error);
+          setComposeSignatureHtml("");
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingComposeSignature(false);
+        }
+      }
+    };
+
+    fetchComposeSignature();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isComposePopupOpen, selectedComposeSmtpUser, composeSmtpUsers, effectiveUserId, token]);
+
+  const handleSendComposeEmail = async ({
+    emailSubject,
+    emailBody,
+    bccEmail,
+  }: {
+    emailSubject: string;
+    emailBody: string;
+    bccEmail: string;
+  }): Promise<boolean> => {
+    const emailBodyToSave = emailBody;
+    const plainBody = getPlainText(emailBodyToSave || "").trim();
+    const outboxId = parseInt(selectedComposeSmtpUser || "0", 10);
+    const selectedSmtp = composeSmtpUsers.find((smtpUser) => Number(getComposeSmtpId(smtpUser)) === outboxId);
+
+    if (!contactId || !effectiveUserId) {
+      showContactMailError("Contact not found.");
+      return false;
+    }
+
+    if (!outboxId) {
+      showContactMailError("Please select From email.");
+      return false;
+    }
+
+    if (!emailSubject.trim()) {
+      showContactMailError("Please enter subject.");
+      return false;
+    }
+
+    if (!plainBody) {
+      showContactMailError("Please write email body.");
+      return false;
+    }
+
+    setIsSendingComposeEmail(true);
+    try {
+      const updateResponse = await axios.post(
+        `${API_BASE_URL}/api/Crm/contacts/update-email`,
+        {
+          clientId: Number(effectiveUserId),
+          contactId: Number(contactId),
+          campaignId: null,
+          blueprintId: null,
+          gptGenerate: true,
+          emailSubject,
+          emailBody: emailBodyToSave,
+        },
+        {
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (
+        updateResponse.status < 200 ||
+        updateResponse.status >= 300 ||
+        updateResponse.data?.success === false ||
+        updateResponse.data?.success === "false"
+      ) {
+        throw new Error(updateResponse.data?.message || "Failed to update email before sending");
+      }
+
+      const sendResponse = await axios.post(
+        `${API_BASE_URL}/api/email/send-singleEmail`,
+        {
+          clientId: Number(effectiveUserId),
+          contactid: Number(contactId),
+          campaignid: null,
+          isFollowUp: false,
+          BccEmail: bccEmail || "",
+          OutboxId: outboxId,
+          Type: selectedSmtp?.type || selectedSmtp?.smtpType || "",
+          SegmentId:
+            segmentId &&
+            segmentId !== "null" &&
+            segmentId !== "" &&
+            !Number.isNaN(parseInt(segmentId, 10))
+              ? parseInt(segmentId, 10)
+              : 0,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (sendResponse.data?.success === false) {
+        throw new Error(sendResponse.data?.message || "Failed to send email");
+      }
+
+      const refreshedThreads = await fetchContactEmailThreads(Number(contactId));
+      if (refreshedThreads.length > 0) {
+        setSelectedContactThread(refreshedThreads[0]);
+        setContactCollapsedEmails(buildDefaultContactCollapseState(refreshedThreads[0]));
+      }
+
+      setContact((currentContact: any) => currentContact
+        ? {
+            ...currentContact,
+            email_subject: emailSubject,
+            email_body: emailBodyToSave,
+            email_sent_at: new Date().toISOString(),
+          }
+        : currentContact
+      );
+      showContactMailSuccess(sendResponse.data?.message || "Email sent successfully.");
+      return true;
+    } catch (error: any) {
+      console.error("Failed to send compose email:", error);
+      showContactMailError(error.response?.data?.message || error.message || "Failed to send email.");
+      return false;
+    } finally {
+      setIsSendingComposeEmail(false);
+    }
+  };
+
+  const handleSendContactReply = async (thread: any) => {
+    const sendableReplyBody = getSendableContactReplyBody(contactReplyText || "");
+    const plainReply = getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim();
+
+    if (!thread?.trackingId) {
+      showContactMailError("Please select a thread first.");
+      return;
+    }
+
+    const threadMessages = Array.isArray(thread?.messages) ? thread.messages : [];
+    const replyOutboxId =
+      getInboxIdValue(thread) ??
+      getInboxIdValue(thread?.lastMessage) ??
+      threadMessages.map(getInboxIdValue).find(Boolean);
+
+    if (!replyOutboxId) {
+      showContactMailError("Thread inbox id not found.");
+      return;
+    }
+
+    if (!plainReply) {
+      showContactMailError("Please write a reply.");
+      return;
+    }
+
+    const replyProvider =
+      getProviderValue(thread) ||
+      getProviderValue(thread?.lastMessage) ||
+      getProviderValue(threadMessages.find((message: any) => getProviderValue(message)));
+
+    if (!replyProvider) {
+      showContactMailError("Thread provider not found.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("TrackingId", String(thread.trackingId));
+    formData.append("ClientId", String(Number(effectiveUserId)));
+    formData.append("ReplyBody", sendableReplyBody);
+    formData.append("Outboxid", String(replyOutboxId));
+    formData.append("CC", contactReplyCc);
+    formData.append("BCC", contactReplyBcc);
+    formData.append("Provider", replyProvider);
+    contactReplyAttachments.forEach((file) => {
+      formData.append("Attachments", file);
+    });
+
+    setIsSendingContactReply(true);
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/email/reply_email`, formData, {
+        headers: {
+          accept: "*/*",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      if (response.data?.success === false) {
+        throw new Error(response.data?.message || "Failed to send reply");
+      }
+
+      const sentMessage = {
+        type: "Reply",
+        messageId: `temp-${Date.now()}`,
+        subject: `Re: ${thread.subject || ""}`.trim(),
+        body: sendableReplyBody,
+        fromEmail: thread?.lastMessage?.toEmail || thread?.contactEmail || contact?.email || "",
+        toEmail: thread.contactEmail || contact?.email || "",
+        date: new Date().toISOString(),
+        isRead: true,
+        contactId: Number(contactId),
+        contactName: contact?.full_name || contact?.first_name || thread.contactName,
+        attachments: [],
+      };
+
+      const updateThreadWithReply = (item: any) => {
+        if (item.trackingId !== thread.trackingId) return item;
+        const messages = Array.isArray(item.messages) ? item.messages : [];
+        const nextMessages = [...messages, sentMessage];
+        return {
+          ...item,
+          messages: nextMessages,
+          totalMessages: nextMessages.length,
+          lastMessage: sentMessage,
+          lastMessageDate: sentMessage.date,
+          subject: item.subject || sentMessage.subject,
+        };
+      };
+
+      setEmailTimeline((prev) => prev.map(updateThreadWithReply));
+      setSelectedContactThread((prev: any) => (prev?.trackingId === thread.trackingId ? updateThreadWithReply(prev) : prev));
+      setContactReplyText("");
+      setContactReplyTrailHtml("");
+      setContactReplyCc("");
+      setContactReplyBcc("");
+      setShowContactReplyCc(false);
+      setShowContactReplyBcc(false);
+      setContactReplyAttachments([]);
+      setShowContactReplySection(false);
+      showContactMailSuccess("Reply sent successfully!");
+
+      if (contactId) {
+        fetchEmailTimeline(Number(contactId));
+      }
+    } catch (error: any) {
+      console.error("Failed to send contact reply:", error);
+      showContactMailError(error.response?.data?.message || error.message || "Failed to send reply.");
+    } finally {
+      setIsSendingContactReply(false);
+    }
+  };
+
+  const handleSaveContactReplyDraft = async (thread: any) => {
+    const draftBody = getDraftContactReplyBody(contactReplyText || "");
+
+    if (!getPlainText(draftBody).trim() || !thread?.contactId) {
+      return;
+    }
+
+    setIsSavingContactReplyDraft(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Crm/contacts/update-email`,
+        {
+          clientId: Number(effectiveUserId),
+          contactId: thread.contactId,
+          gptGenerate: false,
+          emailSubject: null,
+          emailBody: draftBody,
+        },
+        {
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data?.success === false) {
+        throw new Error(response.data?.message || "Failed to save draft");
+      }
+
+      showContactMailSuccess("Draft saved successfully!");
+    } catch (error: any) {
+      console.error("Failed to save contact reply draft:", error);
+      showContactMailError(error.response?.data?.message || error.message || "Failed to save draft.");
+    } finally {
+      setIsSavingContactReplyDraft(false);
+    }
+  };
+
+  const renderEmailActions = (email: any, inline = false) => {
     const pinned = isEmailPinned(email);
     const isPinning = pinningEmailId === email.trackingId;
 
     return (
-      <div style={{ position: "absolute", top: 0, right: 0, zIndex: 10 }}>
+      <div style={inline ? { position: "relative", display: "inline-flex", zIndex: 10 } : { position: "absolute", top: 0, right: 0, zIndex: 10 }}>
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
             const nextAnchor = emailActionsAnchor === email.trackingId ? null : email.trackingId;
             setEmailActionsAnchor(nextAnchor);
-            setEmailDeleteOptionsAnchor(null);
           }}
           style={{
             border: "none",
             background: "#ebebeb",
             borderRadius: "50%",
-            width: 32,
-            height: 32,
+            width: inline ? 28 : 32,
+            height: inline ? 28 : 32,
             cursor: "pointer",
           }}
           title="Email actions"
@@ -1196,9 +2098,7 @@ const handleGenerateInsights = async () => {
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                setEmailDeleteOptionsAnchor(
-                  emailDeleteOptionsAnchor === email.trackingId ? null : email.trackingId
-                );
+                handleEmailDelete(email, "Permanent");
               }}
               style={menuBtnStyle}
               className="flex gap-2 items-center"
@@ -1209,44 +2109,8 @@ const handleGenerateInsights = async () => {
                   style={{ color: "#3f9f42", fontSize: 18 }}
                 />
               </div>
-              <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete</span>
-              <span style={{ marginLeft: "auto", color: "#6b7280", fontSize: 12 }}>
-                <FontAwesomeIcon icon={faAngleRight} />
-              </span>
+              <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete permanently</span>
             </button>
-
-            {emailDeleteOptionsAnchor === email.trackingId && (
-              <div
-                style={{
-                  borderTop: "1px solid #e5e7eb",
-                  background: "#fff",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleEmailDelete(email, "soft");
-                  }}
-                  style={{ ...menuBtnStyle, paddingLeft: 42 }}
-                  className="flex gap-2 items-center"
-                >
-                  <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete from Inbox</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleEmailDelete(email, "Permanent");
-                  }}
-                  style={{ ...menuBtnStyle, paddingLeft: 42 }}
-                  className="flex gap-2 items-center"
-                >
-                  <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete permanently</span>
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -1850,15 +2714,6 @@ dispatch(closePanel());
       });
     }
 
-    // Emails
-    emailTimeline.forEach((email: any) => {
-      items.push({
-        type: "email",
-        time: new Date(email.sentAt).getTime(),
-        data: email,
-      });
-    });
-
     // Notes
     notesHistory.forEach((note: any) => {
       items.push({
@@ -1877,9 +2732,1005 @@ dispatch(closePanel());
       });
     });
 
+    emailTimeline.forEach((email: any) => {
+      const emailTime =
+        email.lastMessageDate ||
+        email.sentAt ||
+        email.SentAt ||
+        email.receiveAt ||
+        email.ReceiveAt ||
+        email.date ||
+        email.Date;
+
+      items.push({
+        type: "email",
+        time: new Date(emailTime || 0).getTime(),
+        data: email,
+      });
+    });
+
     // newest → oldest
     return items.sort((a, b) => b.time - a.time);
-  }, [editingContact, emailTimeline, notesHistory, attachmentsHistory]);
+  }, [editingContact, notesHistory, attachmentsHistory, emailTimeline]);
+
+  const extractEmailAddress = (emailString?: string): string => {
+    if (!emailString) return "";
+    const match = emailString.match(/<(.+?)>/);
+    return (match ? match[1] : emailString).trim();
+  };
+
+  const extractSenderName = (emailString?: string): string => {
+    if (!emailString) return "Unknown";
+    const match = emailString.match(/^"?(.+?)"?\s*</);
+    if (match) return match[1].replace(/"/g, "").trim();
+    return extractEmailAddress(emailString).split("@")[0] || "Unknown";
+  };
+
+  const getMailInitials = (email?: string, contactName?: string): string => {
+    const name = contactName || extractSenderName(email);
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return (parts[0] || email || "?").substring(0, 1).toUpperCase();
+  };
+
+  const formatMailListDate = (dateString?: string): string => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
+
+    if (diffDays === 0) {
+      return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    }
+    if (diffDays < 7) {
+      return date.toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" });
+    }
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  const getContactMailPreview = (body?: string): string => {
+    if (!body) return "No preview available";
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = body;
+    const cleanText = textarea.value
+      .replace(/<style[^>]*>.*?<\/style>/gis, "")
+      .replace(/<script[^>]*>.*?<\/script>/gis, "")
+      .replace(/<!--.*?-->/gs, "")
+      .replace(/<head[^>]*>.*?<\/head>/gis, "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, "\"")
+      .replace(/&#39;/g, "'")
+      .replace(/&#x[0-9A-Fa-f]+;/g, "")
+      .replace(/&#[0-9]+;/g, "")
+      .replace(/\{[^}]*\}/g, "")
+      .replace(/v\\:\*|o\\:\*|w\\:\*/g, "")
+      .replace(/behavior:url\([^)]*\)/g, "")
+      .replace(/mso-[^;:]*:[^;]*/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!cleanText || cleanText.length < 5 || /^[\W_\s]+$/.test(cleanText)) {
+      return "No preview available";
+    }
+
+    return cleanText.substring(0, 100) + (cleanText.length > 100 ? "..." : "");
+  };
+
+  const formatContactEmailBody = (body?: string): string => {
+    if (!body) return "<p>No email body available</p>";
+    const containsActualHtml = /<\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(body);
+    const containsEncodedHtml = /&lt;\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(body);
+
+    if (containsActualHtml || !containsEncodedHtml) return body;
+
+    return body
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, "\"")
+      .replace(/&#39;/g, "'");
+  };
+
+  const contactMailThreads = useMemo(() => {
+    const toThread = (email: any, index: number) => {
+      const messages = getEmailPreviewMessages(email).map((message: any, messageIndex: number) => ({
+        ...message,
+        messageId: getMessageIdValue(message) || `${getTrackingIdValue(email) || index}-${messageIndex}`,
+        subject: message.subject || message.Subject || email.subject || email.Subject || "No subject",
+        body: message.body || "",
+        fromEmail: message.fromEmail || message.FromEmail || email.fromEmail || email.FromEmail || email.senderEmailId || email.SenderEmailId || "",
+        toEmail: message.toEmail || message.ToEmail || email.toEmail || email.ToEmail || contact?.email || "",
+        date: message.date || message.Date || email.sentAt || email.SentAt || email.receiveAt || email.ReceiveAt || "",
+        contactName: message.contactName || message.ContactName || email.contactName || email.ContactName || contact?.full_name || contact?.first_name,
+        attachments: message.attachments || message.Attachments || [],
+        type: message.type || (email.emailType === "sent" ? "Sent" : "Reply"),
+        isRead: message.isRead ?? true,
+        contactId: message.contactId ?? message.ContactId ?? Number(contactId),
+        inboxid: getInboxIdValue(message) ?? getInboxIdValue(email) ?? message.inboxid ?? message.inboxId ?? message.InboxId ?? email.inboxid ?? email.inboxId ?? email.InboxId,
+        Provider: getProviderValue(message) || getProviderValue(email),
+        provider: getProviderValue(message) || getProviderValue(email),
+      }));
+      const sortedMessages = [...messages].sort((a: any, b: any) => getMessageTime(a) - getMessageTime(b));
+      const latestMessage = sortedMessages[sortedMessages.length - 1] || {};
+      const trackingId = getTrackingIdValue(email) || getTrackingIdValue(latestMessage) || getMessageIdValue(latestMessage) || `contact-mail-${index}`;
+      const lastMessageDate = latestMessage.date || email.sentAt || email.SentAt || email.receiveAt || email.ReceiveAt || "";
+
+      return {
+        ...email,
+        trackingId,
+        subject: email.subject || email.Subject || latestMessage.subject || "No subject",
+        contactEmail: contact?.email || email.toEmail || email.ToEmail || email.fromEmail || email.FromEmail || latestMessage.toEmail || latestMessage.fromEmail || "",
+        totalMessages: sortedMessages.length,
+        lastMessageDate,
+        hasUnread: sortedMessages.some((message: any) => message.isRead === false),
+        contactId: Number(contactId),
+        inboxid: getInboxIdValue(email) ?? getInboxIdValue(latestMessage) ?? sortedMessages.map(getInboxIdValue).find(Boolean) ?? email.inboxid ?? email.inboxId ?? email.InboxId ?? latestMessage.inboxid ?? latestMessage.inboxId ?? latestMessage.InboxId,
+        Provider: getProviderValue(email) || getProviderValue(latestMessage),
+        provider: getProviderValue(email) || getProviderValue(latestMessage),
+        messages: sortedMessages,
+        lastMessage: latestMessage,
+      };
+    };
+
+    const byTrackingId = new Map<string, any>();
+
+    emailTimeline.map(toThread).forEach((thread: any) => {
+      const key = thread.trackingId;
+      const existing = byTrackingId.get(key);
+
+      if (!existing) {
+        byTrackingId.set(key, thread);
+        return;
+      }
+
+      const messagesById = new Map<string, any>();
+      [...existing.messages, ...thread.messages].forEach((message: any, index: number) => {
+        const messageKey = getMessageIdValue(message) || `${key}-${index}-${message.date || ""}`;
+        if (!messagesById.has(messageKey)) {
+          messagesById.set(messageKey, message);
+        }
+      });
+      const messages = Array.from(messagesById.values()).sort((a: any, b: any) => getMessageTime(a) - getMessageTime(b));
+      const latestMessage = messages[messages.length - 1] || existing.lastMessage || thread.lastMessage || {};
+
+      byTrackingId.set(key, {
+        ...existing,
+        ...thread,
+        subject: thread.subject || existing.subject,
+        totalMessages: messages.length,
+        lastMessageDate: latestMessage.date || thread.lastMessageDate || existing.lastMessageDate,
+        hasUnread: messages.some((message: any) => message.isRead === false),
+        messages,
+        lastMessage: latestMessage,
+      });
+    });
+
+    return Array.from(byTrackingId.values())
+      .sort((a: any, b: any) => new Date(b.lastMessageDate || 0).getTime() - new Date(a.lastMessageDate || 0).getTime());
+  }, [emailTimeline, contact, contactId]);
+
+  const visibleContactMailThreads = useMemo(() => {
+    if (contactMailTab === "sent") {
+      return contactMailThreads
+        .map((thread: any) => {
+          const threadMessages = Array.isArray(thread.messages) ? thread.messages : [];
+          const hasOnlySentMessages =
+            threadMessages.length > 0 &&
+            threadMessages.every((message: any) => String(message.type || "").toLowerCase() === "sent");
+
+          if (!hasOnlySentMessages) return null;
+
+          const sentMessages = threadMessages;
+          const latestMessage = sentMessages[sentMessages.length - 1] || thread.lastMessage;
+          return {
+            ...thread,
+            totalMessages: sentMessages.length,
+            messages: sentMessages,
+            lastMessage: latestMessage,
+            lastMessageDate: latestMessage?.date || thread.lastMessageDate,
+          };
+        })
+        .filter(Boolean);
+    }
+
+    return contactMailThreads;
+  }, [contactMailTab, contactMailThreads]);
+
+  useEffect(() => {
+    const trackingId = selectedContactThread?.trackingId;
+
+    if (!showContactReplySection || !trackingId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchContactReplyTrail = async () => {
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/Inbox/email-trail?trackingId=${encodeURIComponent(trackingId)}`,
+          {
+            headers: {
+              accept: "*/*",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+
+        if (isCancelled) return;
+
+        const emailTrail = response.data?.emailTrail || "";
+        if (emailTrail) {
+          const formattedTrail = formatContactReplyEmailTrail(emailTrail);
+          const collapsedTrail = buildCollapsedContactReplyTrail(formattedTrail);
+          setContactReplyTrailHtml(collapsedTrail);
+          setContactReplyText((currentReplyText) => {
+            const { draftHtml: currentDraftHtml } = splitContactReplyTrail(currentReplyText || "");
+            const compactDraftHtml = currentDraftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
+            return `${compactDraftHtml}${collapsedTrail}`;
+          });
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Failed to fetch contact reply trail:", error);
+        }
+      }
+    };
+
+    fetchContactReplyTrail();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [showContactReplySection, selectedContactThread?.trackingId, token]);
+
+  useEffect(() => {
+    setSelectedContactThread(null);
+    setContactCollapsedEmails({});
+    setExpandedContactMessageHeaders({});
+    setContactReplyText("");
+    setContactReplyTrailHtml("");
+    setContactReplyCc("");
+    setContactReplyBcc("");
+    setShowContactReplyCc(false);
+    setShowContactReplyBcc(false);
+    setContactReplyAttachments([]);
+    setShowContactReplySection(false);
+    setIsContactReplyExpanded(false);
+    setOpenContactReplyDeviceDropdown(false);
+  }, [contactMailTab, contactId]);
+
+  useEffect(() => {
+    if (
+      selectedContactThread &&
+      !visibleContactMailThreads.some((thread: any) => thread.trackingId === selectedContactThread.trackingId)
+    ) {
+      setSelectedContactThread(null);
+      setContactCollapsedEmails({});
+      setExpandedContactMessageHeaders({});
+      setContactReplyText("");
+      setContactReplyTrailHtml("");
+      setContactReplyCc("");
+      setContactReplyBcc("");
+      setShowContactReplyCc(false);
+      setShowContactReplyBcc(false);
+      setContactReplyAttachments([]);
+      setShowContactReplySection(false);
+      setIsContactReplyExpanded(false);
+      setOpenContactReplyDeviceDropdown(false);
+      return;
+    }
+
+    if (selectedContactThread) {
+      const refreshedThread = visibleContactMailThreads.find(
+        (thread: any) => thread.trackingId === selectedContactThread.trackingId
+      );
+
+      if (refreshedThread && refreshedThread !== selectedContactThread) {
+        setSelectedContactThread(refreshedThread);
+      }
+    }
+  }, [visibleContactMailThreads, selectedContactThread]);
+
+  const getContactMessageCollapseKey = (thread: any, message: any, index: number) =>
+    `${thread.trackingId}-${message.messageId}-${index}`;
+
+  const buildDefaultContactCollapseState = (thread: any) => {
+    const collapsed: { [key: string]: boolean } = {};
+    [...(thread.messages || [])]
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .forEach((message: any, index: number) => {
+        collapsed[getContactMessageCollapseKey(thread, message, index)] = index !== 0;
+      });
+    return collapsed;
+  };
+
+  const handleContactThreadSelect = (thread: any) => {
+    setSelectedContactThread(thread);
+    setContactReplyText("");
+    setContactReplyTrailHtml("");
+    setContactReplyCc("");
+    setContactReplyBcc("");
+    setShowContactReplyCc(false);
+    setShowContactReplyBcc(false);
+    setContactReplyAttachments([]);
+    setShowContactReplySection(false);
+    setIsContactReplyExpanded(false);
+    setOpenContactReplyDeviceDropdown(false);
+    setContactCollapsedEmails(buildDefaultContactCollapseState(thread));
+  };
+
+  const toggleContactEmailCollapse = (key: string) => {
+    setContactCollapsedEmails((prev) => ({ ...prev, [key]: false }));
+  };
+
+  const toggleContactMessageHeader = (key: string) => {
+    setExpandedContactMessageHeaders((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const renderContactMailList = () => {
+    if (isLoadingHistory) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 20px", gap: 12 }}>
+          <div style={{ width: 24, height: 24, border: "3px solid #eaf5ea", borderTop: "3px solid #3f9f42", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+          <span style={{ fontSize: 13, color: "#9aa1ab" }}>Loading messages...</span>
+        </div>
+      );
+    }
+
+    if (visibleContactMailThreads.length === 0) {
+      return <div className="no-mails">No {contactMailTab === "sent" ? "sent emails" : "messages"} found</div>;
+    }
+
+    return (
+      <div className="list-scroll">
+        {visibleContactMailThreads.map((thread: any) => {
+          const lastMessage = thread.lastMessage || thread.messages[thread.messages.length - 1] || {};
+          const isSelected = selectedContactThread?.trackingId === thread.trackingId;
+          const attachmentCount = thread.messages.reduce((count: number, message: any) => count + (message.attachments?.length || 0), 0);
+          const pinned = isEmailPinned(thread);
+
+          return (
+            <div
+              key={thread.trackingId}
+              className={`mail-item ${thread.hasUnread ? "unread" : ""} ${isSelected ? "selected" : ""}`}
+              onClick={() => handleContactThreadSelect(thread)}
+            >
+              <div className="mail-avatar">{getMailInitials(lastMessage.fromEmail || thread.contactEmail, lastMessage.contactName)}</div>
+              <div className="mail-content">
+                <div className="mail-item-header">
+                  <span className="mail-sender">{lastMessage.contactName || extractSenderName(lastMessage.fromEmail || thread.contactEmail)}</span>
+                  <span className="mail-row-actions">
+                    <span className="mail-date">{formatMailListDate(thread.lastMessageDate)}</span>
+                    {pinned && (
+                      <span className="mail-pinned-indicator" title="Pinned" aria-label="Pinned">
+                        <Pin size={15} strokeWidth={2.5} />
+                      </span>
+                    )}
+                    <span className="mail-action-wrapper" onClick={(event) => event.stopPropagation()}>
+                      {renderEmailActions(thread, true)}
+                    </span>
+                  </span>
+                </div>
+                <div className="mail-subject">
+                  {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
+                  {attachmentCount > 0 && (
+                    <span title={`${attachmentCount} attachment${attachmentCount > 1 ? "s" : ""}`} style={{ display: "inline-flex", alignItems: "center", marginRight: 6, color: "#6b7280" }}>
+                      <FontAwesomeIcon icon={faPaperclip} />
+                    </span>
+                  )}
+                  {thread.subject}
+                </div>
+                <div className="mail-preview">{getContactMailPreview(lastMessage.body)}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderContactMailReader = () => {
+    if (!selectedContactThread) {
+      return (
+        <div className="read-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+          <p>Select an email to read it here</p>
+        </div>
+      );
+    }
+
+    const activeThread =
+      visibleContactMailThreads.find((thread: any) => thread.trackingId === selectedContactThread.trackingId) ||
+      selectedContactThread;
+    const sortedMessages = [...(activeThread.messages || [])].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return (
+      <>
+        <div className="read-head">
+          <h1 className="read-subject">{activeThread.subject}</h1>
+          <div className="read-head-actions">
+            <button
+              className="head-icon danger"
+              title="Delete"
+              onClick={() => handleEmailDelete(activeThread, "Permanent")}
+            >
+              <FontAwesomeIcon icon={faTrashAlt} style={{ width: 16, height: 16 }} />
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="scroll-to-bottom-btn"
+          title="Scroll to bottom"
+          onClick={() => {
+            const el = contactMailDetailRef.current;
+            if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
+        </button>
+        <div
+          className="mail-detail contact-mail-detail"
+          ref={contactMailDetailRef}
+          style={{ paddingBottom: !showContactReplySection ? 82 : 0 }}
+        >
+          {sortedMessages.map((message: any, index: number) => {
+            const uniqueKey = getContactMessageCollapseKey(activeThread, message, index);
+            const isCollapsed = contactCollapsedEmails[uniqueKey] ?? index !== 0;
+            const isHeaderExpanded = expandedContactMessageHeaders[uniqueKey];
+
+            return (
+              <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? 16 : 0, borderBottom: index < sortedMessages.length - 1 ? "1px solid #e5e7eb" : "none" }}>
+                <div className="mail-detail-header">
+                  <div className="mail-detail-top">
+                    <div className="mail-detail-avatar">{getMailInitials(message.fromEmail, message.contactName)}</div>
+                    <div className="mail-detail-info">
+                      <div className="mail-detail-sender">{message.contactName || extractSenderName(message.fromEmail)}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{extractEmailAddress(message.fromEmail)}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                        <span style={{ color: "#6b7280", fontSize: 13 }}>To:</span>
+                        <span style={{ color: "#2563eb", fontSize: 13 }}>{extractEmailAddress(message.toEmail || activeThread.contactEmail)}</span>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleContactMessageHeader(uniqueKey);
+                          }}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: "2px 4px",
+                            color: "#6b7280",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            marginLeft: 4,
+                          }}
+                          title={isHeaderExpanded ? "Hide details" : "Show details"}
+                        >
+                          <FontAwesomeIcon
+                            icon={faAngleRight}
+                            style={{
+                              width: 10,
+                              height: 10,
+                              transform: isHeaderExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s",
+                            }}
+                          />
+                        </button>
+                      </div>
+                      {isHeaderExpanded && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            padding: "8px 0",
+                            fontSize: 13,
+                            lineHeight: 1.8,
+                            color: "#6b7280",
+                            borderTop: "1px solid #e5e7eb",
+                          }}
+                        >
+                          <div><strong style={{ color: "#374151" }}>From:</strong> {message.contactName || extractSenderName(message.fromEmail)} &lt;{extractEmailAddress(message.fromEmail)}&gt;</div>
+                          <div><strong style={{ color: "#374151" }}>To:</strong> {extractEmailAddress(message.toEmail || activeThread.contactEmail)}</div>
+                          <div><strong style={{ color: "#374151" }}>Date:</strong> {formatDateTimeIST(message.date)}</div>
+                          <div><strong style={{ color: "#374151" }}>Subject:</strong> {message.subject || activeThread.subject}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mail-detail-date">{formatDateTimeIST(message.date)}</div>
+                  </div>
+                </div>
+                {isCollapsed ? (
+                  <div
+                    className="mail-body-preview"
+                    onClick={() => toggleContactEmailCollapse(uniqueKey)}
+                    style={{ padding: "16px 24px", borderLeft: "3px solid #e5e7eb", borderRadius: 4 }}
+                  >
+                    {getContactMailPreview(message.body)}
+                  </div>
+                ) : (
+                  <div>
+                    <div className="mail-body" style={{ maxWidth: "100%", padding: 0 }}>
+                      <EmailIframe
+                        html={formatContactEmailBody(message.body)}
+                      />
+                    </div>
+                  </div>
+                )}
+                <div style={{ padding: "0 24px 12px" }}>{renderMessageAttachments(message.attachments)}</div>
+              </div>
+            );
+          })}
+        </div>
+        {!showContactReplySection && (
+          <div className="reply-button-sticky contact-reply-floating">
+            <button
+              type="button"
+              className="reply-pill-button"
+              onClick={() => setShowContactReplySection(true)}
+            >
+              <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
+              Reply
+            </button>
+          </div>
+        )}
+        {showContactReplySection && (
+          <div
+            className="reply-section"
+            style={{
+              marginTop: 24,
+              padding: "24px 24px 20px",
+              borderTop: "1px solid #e5e7eb",
+              background: "#fff",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                marginBottom: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <label style={{ fontWeight: 500, fontSize: 14, color: "#374151" }}>Write reply</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                {!showContactReplyCc && (
+                  <button
+                    type="button"
+                    onClick={() => setShowContactReplyCc(true)}
+                    style={{ padding: "6px 12px", background: "#fff", color: "#2563eb", border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500 }}
+                  >
+                    CC
+                  </button>
+                )}
+                {!showContactReplyBcc && (
+                  <button
+                    type="button"
+                    onClick={() => setShowContactReplyBcc(true)}
+                    style={{ padding: "6px 12px", background: "#fff", color: "#2563eb", border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500 }}
+                  >
+                    BCC
+                  </button>
+                )}
+                <label
+                  style={{
+                    width: 38,
+                    minWidth: 38,
+                    height: 38,
+                    padding: 0,
+                    background: "#fff",
+                    color: "#6b7280",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  title="Attach files"
+                >
+                  <FontAwesomeIcon icon={faPaperclip} style={{ color: "#3f9f42" }} />
+                  <input
+                    type="file"
+                    multiple
+                    style={{ display: "none" }}
+                    onChange={(event) => {
+                      const files = event.target.files ? Array.from(event.target.files) : [];
+                      if (files.length) setContactReplyAttachments((prev) => [...prev, ...files]);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+                <select
+                  value={selectedContactReplyBlueprint || ""}
+                  onChange={(event) => setSelectedContactReplyBlueprint(event.target.value ? Number(event.target.value) : null)}
+                  style={{
+                    padding: "6px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    minWidth: 200,
+                    background: "#fff",
+                  }}
+                >
+                  <option value="">Select Blueprint</option>
+                  {contactReplyBlueprints.map((blueprint) => (
+                    <option key={blueprint.id} value={blueprint.id}>
+                      {blueprint.templateName}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => handleKraftContactReply(activeThread)}
+                  disabled={!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId}
+                  style={{
+                    padding: "6px 16px",
+                    background: (!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId) ? "#ccc" : "#e2f1e3",
+                    color: "#3f9f42",
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: (!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId) ? "not-allowed" : "pointer",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {isKraftingContactReply ? "Krafting..." : "Kraft"}
+                </button>
+              </div>
+            </div>
+            {(showContactReplyCc || showContactReplyBcc) && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                {showContactReplyCc && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={contactReplyCc}
+                      onChange={(event) => setContactReplyCc(event.target.value)}
+                      placeholder="CC"
+                      style={{ flex: 1, width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14 }}
+                    />
+                    <button type="button" onClick={() => { setContactReplyCc(""); setShowContactReplyCc(false); }} style={{ width: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>x</button>
+                  </div>
+                )}
+                {showContactReplyBcc && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={contactReplyBcc}
+                      onChange={(event) => setContactReplyBcc(event.target.value)}
+                      placeholder="BCC"
+                      style={{ flex: 1, width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14 }}
+                    />
+                    <button type="button" onClick={() => { setContactReplyBcc(""); setShowContactReplyBcc(false); }} style={{ width: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>x</button>
+                  </div>
+                )}
+              </div>
+            )}
+            {contactReplyAttachments.length > 0 && (
+              <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {contactReplyAttachments.map((file, index) => (
+                  <span key={`${file.name}-${file.lastModified}-${index}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 999, fontSize: 12, color: "#374151", background: "#f9fafb" }}>
+                    {file.name}
+                    <button type="button" onClick={() => setContactReplyAttachments((prev) => prev.filter((_, fileIndex) => fileIndex !== index))} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#ef4444", fontSize: 14, lineHeight: 1 }}>x</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <style>
+              {`
+                .contact-email-workspace .reply-section .rich-text-editor > div {
+                  min-height: 160px !important;
+                  height: 260px !important;
+                  max-height: 360px !important;
+                  overflow-y: auto !important;
+                  overflow-x: hidden !important;
+                  box-sizing: border-box !important;
+                  word-break: break-word;
+                  overflow-wrap: anywhere;
+                }
+                .contact-email-workspace .reply-section .rich-text-editor [data-reply-email-trail],
+                .contact-email-workspace .reply-section .rich-text-editor .contact-reply-trail-body {
+                  max-width: 100% !important;
+                  overflow-x: hidden !important;
+                  box-sizing: border-box !important;
+                  word-break: break-word;
+                  overflow-wrap: anywhere;
+                }
+                .contact-email-workspace .reply-section .rich-text-editor [data-reply-email-trail][data-trail-open="false"] {
+                  display: inline-block !important;
+                  min-width: 34px !important;
+                  min-height: 22px !important;
+                  padding: 0 !important;
+                  overflow: visible !important;
+                  cursor: pointer !important;
+                }
+                .contact-email-workspace .reply-section .rich-text-editor [data-reply-email-trail][data-trail-open="false"] .contact-reply-trail-toggle {
+                  display: inline-flex !important;
+                  visibility: visible !important;
+                  opacity: 1 !important;
+                  position: relative !important;
+                  z-index: 1 !important;
+                  align-items: center !important;
+                  justify-content: center !important;
+                  color: #3f9f42 !important;
+                  background: #eaf5ea !important;
+                  border: 1px solid #cfe7d0 !important;
+                  border-radius: 999px !important;
+                  font-weight: 700 !important;
+                  font-size: 18px !important;
+                  line-height: 1 !important;
+                  width: 34px !important;
+                  height: 22px !important;
+                  margin: 0 0 10px 0 !important;
+                }
+                .contact-email-workspace .reply-section .rich-text-editor [data-reply-email-trail][data-trail-open="false"] .contact-reply-trail-body {
+                  display: none !important;
+                }
+                .contact-email-workspace .reply-section .rich-text-editor [data-reply-email-trail][data-trail-open="true"] {
+                  display: block !important;
+                }
+                .contact-email-workspace .reply-section .rich-text-editor [data-reply-email-trail][data-trail-open="true"] .contact-reply-trail-toggle {
+                  display: inline-flex !important;
+                  visibility: visible !important;
+                  opacity: 1 !important;
+                }
+                .contact-email-workspace .reply-section .rich-text-editor [data-reply-email-trail][data-trail-open="true"] .contact-reply-trail-body {
+                  display: block !important;
+                }
+                .contact-email-workspace .reply-section .rich-text-editor table,
+                .contact-email-workspace .reply-section .rich-text-editor img {
+                  max-width: 100% !important;
+                  height: auto !important;
+                }
+                .contact-email-workspace .reply-section .rich-text-editor * {
+                  max-width: 100%;
+                }
+              `}
+            </style>
+            <div style={{ marginBottom: 12, position: "relative" }}>
+              <div
+                style={{
+                  maxWidth: contactReplyEmailWidth === "Mobile" ? "480px" : contactReplyEmailWidth === "Tab" ? "768px" : "100%",
+                  margin: "0 auto",
+                }}
+              >
+                <RichTextEditor value={contactReplyText} onChange={setContactReplyText} height={260} />
+              </div>
+              <div
+                className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md"
+                style={{ position: "absolute", right: 10, top: 10, zIndex: 10, display: "flex", gap: 6 }}
+              >
+                <div style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenContactReplyDeviceDropdown((prev) => !prev)}
+                    className="button square-40 justify-center"
+                    title="Preview width"
+                    style={{ width: 40, minWidth: 40, height: 40, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    {contactReplyEmailWidth === "Mobile" && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                    {contactReplyEmailWidth === "Tab" && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24" fill="none">
+                        <rect x="4" y="3" width="16" height="18" rx="1" stroke="#200E32" strokeWidth="2" strokeLinecap="round"/>
+                        <circle cx="12" cy="18" r="1" fill="#200E32"/>
+                      </svg>
+                    )}
+                    {contactReplyEmailWidth === "" && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24" fill="none">
+                        <rect x="3" y="4" width="18" height="13" rx="2" stroke="#0C0310" strokeWidth="2" strokeLinecap="round" fill="none"/>
+                        <line x1="7.5" y1="21" x2="16.5" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
+                        <line x1="12" y1="17" x2="12" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                    )}
+                  </button>
+                  {openContactReplyDeviceDropdown && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: 42,
+                        width: 74,
+                        background: "#eeeeee",
+                        borderRadius: "0 0 6px 6px",
+                        padding: 4,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                        boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+                      }}
+                    >
+                      <button type="button" className="button pad-10" onClick={() => { setContactReplyEmailWidth(""); setOpenContactReplyDeviceDropdown(false); }}>Desktop</button>
+                      <button type="button" className="button pad-10" onClick={() => { setContactReplyEmailWidth("Tab"); setOpenContactReplyDeviceDropdown(false); }}>Tab</button>
+                      <button type="button" className="button pad-10" onClick={() => { setContactReplyEmailWidth("Mobile"); setOpenContactReplyDeviceDropdown(false); }}>Mobile</button>
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="button d-flex align-center square-40 justify-center"
+                  title="Copy"
+                  onClick={copyContactReplyToClipboard}
+                  style={{ width: 40, minWidth: 40, height: 40, padding: 0 }}
+                >
+                  {isCopyContactReplyText ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                      <path d="M7.29417 12.9577L10.5048 16.1681L17.6729 9" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="12" cy="12" r="10" stroke="#ffffff" strokeWidth="2"/>
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="#000000" width="22" height="22" viewBox="0 0 32 32">
+                      <path d="M26 4.75h-2c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25h0.75v21.5h-17.5v-21.5h0.75c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25h-2c-0.69 0-1.25 0.56-1.25 1.25v24c0 0.69 0.56 1.25 1.25 1.25h20c0.69-0.001 1.249-0.56 1.25-1.25v-24c0-0.69-0.56-1.25-1.25-1.25zM11 9.249h10c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25h-1.137c0.242-0.513 0.385-1.114 0.387-1.748 0-2.347-1.903-4.25-4.25-4.25s-4.25 1.903-4.25 4.25c0.002 0.635 0.145 1.236 0.398 1.775h-1.137c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25zM14.25 5c0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75-0.966-0.001-1.748-0.783-1.75-1.75zM19.957 13.156l-6.44 7.039-1.516-1.506c-0.226-0.223-0.536-0.361-0.878-0.361-0.69 0-1.25 0.56-1.25 1.25 0 0.345 0.14 0.658 0.366 0.884l2.44 2.424 0.022 0.015 0.015 0.021c0.074 0.061 0.159 0.114 0.25 0.156 0.037 0.026 0.079 0.053 0.123 0.077 0.135 0.056 0.292 0.089 0.457 0.089 0.175 0 0.341-0.037 0.491-0.103 0.053-0.031 0.098-0.061 0.14-0.094 0.102-0.050 0.189-0.11 0.268-0.179l0.015-0.023 0.020-0.014 7.318-8c0.203-0.222 0.328-0.518 0.328-0.844 0-0.69-0.559-1.25-1.25-1.25-0.365 0-0.693 0.156-0.921 0.405z"/>
+                    </svg>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="button square-40 !bg-transparent justify-center"
+                  title="Expand"
+                  onClick={() => setIsContactReplyExpanded(true)}
+                  style={{ width: 40, minWidth: 40, height: 40, padding: 0 }}
+                >
+                  <svg width="28" height="28" viewBox="0 0 512 512">
+                    <polyline points="304 96 416 96 416 208" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                    <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                    <polyline points="208 416 96 416 96 304" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="button square-40 justify-center"
+                  title={isSavingContactReplyDraft ? "Saving draft" : "Save draft"}
+                  aria-label={isSavingContactReplyDraft ? "Saving draft" : "Save draft"}
+                  onClick={() => handleSaveContactReplyDraft(activeThread)}
+                  disabled={isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim()}
+                  style={{
+                    width: 40,
+                    minWidth: 40,
+                    height: 40,
+                    background: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "#e5e7eb" : "#e2f1e3",
+                    color: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "#9ca3af" : "#3f9f42",
+                    border: "1px solid #d1d5db",
+                    cursor: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <FontAwesomeIcon icon={faFloppyDisk} />
+                </button>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 12, marginTop: 14, alignItems: "center" }}>
+              <button
+                type="button"
+                onClick={() => handleSendContactReply(activeThread)}
+                disabled={!getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() || isSendingContactReply}
+                style={{
+                  padding: "10px 24px",
+                  ...((!getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() || isSendingContactReply)
+                    ? { background: "#e5e7eb", color: "#9ca3af", border: "1px solid #d1d5db" }
+                    : primarySoftButtonStyle),
+                  borderRadius: 6,
+                  cursor: (!getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() || isSendingContactReply) ? "not-allowed" : "pointer",
+                  fontSize: 14,
+                  fontWeight: 500,
+                }}
+              >
+                {isSendingContactReply ? "Sending..." : "Send Reply"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowContactReplySection(false);
+                  setContactReplyText("");
+                  setContactReplyTrailHtml("");
+                  setContactReplyCc("");
+                  setContactReplyBcc("");
+                  setShowContactReplyCc(false);
+                  setShowContactReplyBcc(false);
+                  setContactReplyAttachments([]);
+                }}
+                style={{
+                  padding: "10px 24px",
+                  ...secondaryButtonStyle,
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 500,
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        <Modal
+          show={isContactReplyExpanded}
+          closeModal={() => setIsContactReplyExpanded(false)}
+          buttonLabel="Close"
+          size="90%"
+        >
+          <div style={{ padding: 20 }}>
+            <label style={{ fontWeight: 500, fontSize: 16, marginBottom: 12, display: "block" }}>Reply editor</label>
+              <RichTextEditor value={contactReplyText} onChange={setContactReplyText} height={520} />
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 14 }}>
+                <button
+                  type="button"
+                  onClick={() => handleSaveContactReplyDraft(activeThread)}
+                  disabled={isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim()}
+                  style={{
+                    padding: "10px 24px",
+                    ...((isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim())
+                      ? { background: "#e5e7eb", color: "#9ca3af", border: "1px solid #d1d5db" }
+                      : primarySoftButtonStyle),
+                    borderRadius: 6,
+                    cursor: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "not-allowed" : "pointer",
+                    fontSize: 14,
+                    fontWeight: 500,
+                  }}
+                >
+                  {isSavingContactReplyDraft ? "Saving..." : "Save draft"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsContactReplyExpanded(false)}
+                  style={{
+                    padding: "10px 24px",
+                    ...secondaryButtonStyle,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    fontSize: 14,
+                    fontWeight: 500,
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+          </div>
+        </Modal>
+      </>
+    );
+  };
+
+  const renderContactEmailWorkspace = () => (
+    <div className="inbox-workspace contact-email-workspace">
+      <div className="inbox-content inbox-grid" style={{ gridTemplateColumns: "360px minmax(0, 1fr)", height: "calc(100vh - 260px)", minHeight: 560 }}>
+        <div className="list-pane">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb" }}>
+            <div className="inbox-tabs" style={{ borderBottom: "none", flex: 1 }}>
+              <button
+                type="button"
+                className={`inbox-tab${contactMailTab === "allmessages" ? " active" : ""}`}
+                onClick={() => setContactMailTab("allmessages")}
+              >
+                All Messages
+              </button>
+              <button
+                type="button"
+                className={`inbox-tab${contactMailTab === "sent" ? " active" : ""}`}
+                onClick={() => setContactMailTab("sent")}
+              >
+                Sent
+              </button>
+            </div>
+          </div>
+          {renderContactMailList()}
+        </div>
+        <div className="read-pane">
+          {renderContactMailReader()}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -2513,18 +4364,21 @@ dispatch(closePanel());
                 <div
                   style={{
                     display: "flex",
-                    gap: 12,
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 16,
                     marginBottom: 24,
                     marginTop: -12,
                     flexWrap: "wrap",
                   }}
                 >
-                  {[
-                    { key: "all", label: "All" },
-                    { key: "notes", label: "Notes" },
-                    { key: "emails", label: "Emails" },
-                    { key: "attachments", label: "Attachments" },
-                  ].map(item => (
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    {[
+                      { key: "all", label: "All" },
+                      { key: "notes", label: "Notes" },
+                      { key: "emails", label: "Emails" },
+                      { key: "attachments", label: "Attachments" },
+                    ].map(item => (
                     <button
                       key={item.key}
                       onClick={() => {
@@ -2555,7 +4409,33 @@ dispatch(closePanel());
                     >
                       {item.label}
                     </button>
-                  ))}
+                    ))}
+                  </div>
+                  {historyFilter === "emails" && (
+                    <button
+                      type="button"
+                      onClick={() => setIsComposePopupOpen(true)}
+                      style={{
+                        height: 34,
+                        padding: "0 14px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 7,
+                        border: "1px solid #178d2e",
+                        background: "#118a27",
+                        color: "#fff",
+                        borderRadius: 6,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        boxShadow: "0 6px 14px rgba(17, 138, 39, 0.18)",
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faPen} />
+                      Compose
+                    </button>
+                  )}
                 </div>
               )}
               {/* PROFILE TAB */}
@@ -3079,7 +4959,8 @@ dispatch(closePanel());
                       )}
 
                       {/* 🔹 EMAIL TIMELINE */}
-                      {(historyFilter === "emails") &&
+                      {historyFilter === "emails" && renderContactEmailWorkspace()}
+                      {false && (historyFilter === "emails") &&
                         emailTimeline.map((email: any, index: number) => {
                           const isInboxEmail = email.emailType === 'inbox';
                           const threadMessageCount = email.messages?.length || 0;
@@ -4400,6 +6281,20 @@ dispatch(closePanel());
       )}
 
     </div>
+    <ContactComposeEmailPopup
+      isOpen={isComposePopupOpen}
+      onClose={() => setIsComposePopupOpen(false)}
+      blueprints={contactReplyBlueprints}
+      fromOptions={composeSmtpUsers}
+      selectedFromId={selectedComposeSmtpUser}
+      onFromChange={setSelectedComposeSmtpUser}
+      toEmail={contact?.email || ""}
+      signatureHtml={composeSignatureHtml}
+      isSignatureLoading={isLoadingComposeSignature}
+      onGenerate={handleGenerateComposeEmail}
+      onSend={handleSendComposeEmail}
+      isSending={isSendingComposeEmail}
+    />
     {(loading || isLoadingHistory || isLoadingNotes || isLoadingDetails || isBlueprintLoading || isSavingNote) && (
       <LoadingSpinner
         message={

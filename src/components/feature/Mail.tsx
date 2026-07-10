@@ -1099,7 +1099,7 @@ const actionIconStyle = {
 
 
 
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(30);
 
   const [currentPageMailbox, setCurrentPageMailbox] = useState(1);
 
@@ -1167,7 +1167,7 @@ const actionIconStyle = {
   const currentInboxes = filteredInboxes.slice(startIndexInbox, endIndexInbox);
   //pagination for bcc
   const [bccPage, setBccPage] = useState(1);
-  const bccPageSize = 10;
+  const bccPageSize = 30;
   const safeBccEmails = asArray<BccEmail>(bccEmails);
   const sortedBccEmails = [...safeBccEmails].sort((a, b) =>
     compareSortableValues(

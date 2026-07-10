@@ -664,7 +664,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   // ================== UI RENDER ==================
 
   //const pageSize = 5;
-  const [pageSize, setPageSize] = useState<number | "All">(10);
+  const [pageSize, setPageSize] = useState<number | "All">(30);
   // const filteredCampaigns = campaigns.filter((c) =>
   //   c.campaignName.toLowerCase().includes(campaignSearch.toLowerCase())
   // );
@@ -928,7 +928,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                     setPageSize(s);
                     setCurrentPage(1);
                   }}
-                  pageSizeOptions={[10, 25, 50, "All"]}
+                  pageSizeOptions={[10, 30, 50, "All"]}
                 />
               </div>
 
