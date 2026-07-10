@@ -560,6 +560,25 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
     el.style.overflowY = el.scrollHeight > 160 ? "auto" : "hidden";
   }, [currentAnswer]);
+
+  // Size the chat area to fill exactly the space from its top edge down to the
+  // bottom of the viewport. Replaces a hardcoded `calc(100vh - 180px)` guess,
+  // which left dead space below the composer (or overflowed) whenever the header
+  // above the chat — e.g. the optional token-usage bar — didn't match 180px.
+  const chatAreaRef = useRef<HTMLDivElement>(null);
+  const [chatAreaHeight, setChatAreaHeight] = useState("calc(100vh - 180px)");
+  useLayoutEffect(() => {
+    const el = chatAreaRef.current;
+    if (!el) return;
+    const recompute = () => {
+      const docTop = el.getBoundingClientRect().top + window.scrollY;
+      const next = `calc(100vh - ${Math.round(docTop)}px)`;
+      setChatAreaHeight((prev) => (prev === next ? prev : next));
+    };
+    recompute();
+    window.addEventListener("resize", recompute);
+    return () => window.removeEventListener("resize", recompute);
+  }, [isEditMode, conversationStarted, isComplete, blueprintApproved, isTyping, messages.length]);
   // ========================================
   // IMAGE ATTACHMENT STATE
 
@@ -777,9 +796,6 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
               const busy = isTemplateLoading || isStarting;
               return (
                 <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "center", marginTop: 20 }}>
-                  <button onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())} disabled={busy} style={{ padding: "8px 20px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff", color: "#374151", fontSize: 13, cursor: busy ? "not-allowed" : "pointer", fontWeight: 500, opacity: busy ? 0.5 : 1 }}>
-                    Cancel
-                  </button>
                   <button
                     onClick={() => {
                       if (!localSelectedMethod || busy) return;
@@ -845,7 +861,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
       {/* ===== PHASE 2: PROVIDE INPUT (CHAT) ===== */}
       {(isEditMode || wizardPhase === 2) && (
-        <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 180px)", minHeight: 420 }}>
+        <div ref={chatAreaRef} style={{ display: "flex", flexDirection: "column", height: chatAreaHeight, minHeight: 420 }}>
           {/* Messages */}
           <div className="messages-area" ref={messagesContainerRef} style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
             {isEditMode && !conversationStarted && selectedPlaceholder && (
@@ -913,11 +929,18 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
           )}
 
           {/* Input area */}
-          {conversationStarted && (
+          {(() => {
+          // Only render the input bar (with its top border) when a composer will
+          // actually appear inside it — otherwise it shows as an empty line while
+          // the bot is "thinking" before the reference composer is revealed.
+          const showReferenceComposer =
+            !isEditMode && localSelectedMethod === "reference" && !referenceEmailSubmitted && messages.length > 0 && !isTyping;
+          const showNormalComposer = isEditMode || localSelectedMethod !== "reference" || referenceEmailSubmitted;
+          return conversationStarted && (showReferenceComposer || showNormalComposer) && (
             <div className="input-area" style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#fff" }}>
               {/* Reference email big textarea (shown until submitted) */}
-              {!isEditMode && localSelectedMethod === "reference" && !referenceEmailSubmitted && messages.length > 0 && !isTyping && (
-                <div style={{ padding: "12px 16px", maxWidth: 900, margin: "0 auto" }}>
+              {showReferenceComposer && (
+                <div style={{ padding: "12px 16px", maxWidth: 820, margin: "0 auto" }}>
                   {/* Composer — same look as the answer/instruction input */}
                   <div style={{ background: "#2f2f2f", borderRadius: 26, padding: "12px 14px 10px", display: "flex", flexDirection: "column", gap: 8, transition: "box-shadow 0.15s" }}>
                     <div
@@ -967,21 +990,11 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                       </div>
                     </div>
                   </div>
-                  <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 8, display: "flex", alignItems: "center", gap: 4 }}>
-                    ⓘ Tone, structure and CTA all come from this
-                  </p>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                    <button onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())} style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer", fontWeight: 500 }}>Cancel</button>
-                    <div>
-                      <button onClick={() => { setLocalSelectedMethod(null); resetAll(); }} style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer" }}>← Back to method</button>
-                      <span style={{ fontSize: 12, color: "#9ca3af", marginLeft: 12 }}>~30 seconds to derive</span>
-                    </div>
-                  </div>
                 </div>
               )}
 
               {/* Normal chat input — show unless waiting for reference email paste */}
-              {(isEditMode || localSelectedMethod !== "reference" || referenceEmailSubmitted) && (
+              {showNormalComposer && (
                 <BlueprintChatInput
                   value={currentAnswer}
                   onChange={setCurrentAnswer}
@@ -995,7 +1008,8 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                 />
               )}
             </div>
-          )}
+          );
+          })()}
         </div>
       )}
 
@@ -1032,10 +1046,6 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, paddingTop: 14, borderTop: "1px solid #f3f4f6" }}>
                 <span style={{ fontSize: 13, color: "#6b7280" }}>Next: we'll generate an example email for you to approve.</span>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())}
-                    style={{ padding: "8px 16px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff", fontSize: 14, cursor: "pointer", color: "#374151", fontWeight: 500 }}>
-                    Cancel
-                  </button>
                   <button onClick={() => handleSendMessage("Rewrite the blueprint from scratch — regenerate all the elements again.")}
                     disabled={isTyping}
                     style={{ padding: "8px 16px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 14, cursor: isTyping ? "not-allowed" : "pointer", color: "#374151", opacity: isTyping ? 0.6 : 1 }}>
@@ -1287,12 +1297,6 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                   🛡️ You're still in AI chat mode. Ask for any email change before approving.
                 </span>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <button
-                    onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())}
-                    style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer", fontWeight: 500 }}
-                  >
-                    Cancel
-                  </button>
                   <button
                     onClick={() => setBlueprintApproved(false)}
                     style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer" }}
@@ -4425,6 +4429,34 @@ const parsePlaceholdersSafe = (block: string) => {
   // ====================================================================
   return (
     <div className="email-campaign-builder !p-[0]">
+      {/* ================= FLOATING BACK-TO-BLUEPRINTS BUTTON ================= */}
+      {/* Single, always-visible exit control shown on every step/UI of the builder
+          (replaces the per-step "Cancel" buttons). */}
+      <button
+        onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())}
+        title="Back to blueprints"
+        style={{
+          position: "fixed",
+          top: 64,
+          right: 24,
+          zIndex: 50,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "8px 16px",
+          borderRadius: 999,
+          border: "1px solid #86efac",
+          background: "#fff",
+          color: "#3f9f42",
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: "pointer",
+          boxShadow: "0 4px 12px rgba(15,23,42,0.12)",
+        }}
+      >
+        <FontAwesomeIcon icon={faAngleLeft} /> Back to blueprints
+      </button>
+
       {/* ================= LOADING OVERLAYS ================= */}
       {isLoadingTemplate && <LoadingSpinner message="Loading template for editing..." />}
       {isLoadingDefinitions && <LoadingSpinner message="Loading blueprint definitions..." />}

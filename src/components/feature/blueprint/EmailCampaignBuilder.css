@@ -587,10 +587,13 @@
   font-size: 1.125rem;
 }
 
-/* Messages List */
+/* Messages List — centered column that lines up with the composer (ChatGPT-style) */
 .email-campaign-builder .messages-list {
   height: auto;
   overflow: visible;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
   padding-right: 6px;
 }
 
@@ -691,8 +694,8 @@
 }
 
 .email-campaign-builder .message-bubble.user {
-  background: #3f9f42;
-  color: white;
+  background: #eafaf0;
+  color: #111827;
   border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
 }
 
@@ -728,7 +731,7 @@
 }
 
 .email-campaign-builder .message-time.user {
-  color: #bfdbfe;
+  color: #6b7280;
   text-align: right;
 }
 
@@ -825,7 +828,6 @@
 
 /* Input Area */
 .email-campaign-builder .input-area {
-  border-top: 1px solid #e5e7eb;
   background-color: #fff;
   padding: 10px 16px 14px;
   position: sticky;
@@ -941,8 +943,8 @@
 }
 
 .email-campaign-builder .message-bubble.user code {
-  background-color: rgba(255, 255, 255, 0.2);
-  color: white;
+  background-color: rgba(0, 0, 0, 0.06);
+  color: #111827;
 }
 
 /* Links in messages */
@@ -952,7 +954,7 @@
 }
 
 .email-campaign-builder .message-bubble.user a {
-  color: white;
+  color: #15803d;
   font-weight: 500;
 }
 

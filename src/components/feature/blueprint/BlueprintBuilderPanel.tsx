@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
 import { defaultButtonStyle } from "../../../styles/buttonStyles";
+import witchLogo from "../../../assets/images/Witch_logo_AI.png";
 
 export interface BlueprintBuilderPanelProps {
   activeBuildTab: "chat" | "elements";
@@ -818,10 +819,8 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                     {/* Pre-start state */}
                     {chatStartedForKey !== sidePanelElement.placeholderKey && (
                       <div style={{ flex: 1, minHeight: 360, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 24px", textAlign: "center", gap: 16 }}>
-                        <div style={{ width: 56, height: 56, background: "#f0fdf4", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3f9f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                          </svg>
+                        <div style={{ width: 56, height: 56, background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <img src={witchLogo} alt="Blueprint Assistant" style={{ width: 36, height: 36, objectFit: "contain" }} />
                         </div>
                         <div>
                           <div style={{ fontWeight: 700, color: "#111827", fontSize: 15, marginBottom: 6 }}>
@@ -890,13 +889,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                                     display: "inline-flex", alignItems: "center", justifyContent: "center",
                                     flexShrink: 0, marginTop: 2,
                                   }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3f9f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <rect x="3" y="11" width="18" height="10" rx="2" />
-                                      <circle cx="12" cy="5" r="2" />
-                                      <path d="M12 7v4" />
-                                      <line x1="8" y1="16" x2="8" y2="16" />
-                                      <line x1="16" y1="16" x2="16" y2="16" />
-                                    </svg>
+                                    <img src={witchLogo} alt="" style={{ width: 18, height: 18, objectFit: "contain" }} />
                                   </span>
                                 )}
                                 <div style={{
@@ -931,11 +924,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                           {isTyping && (
                             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
                               <span style={{ width: 26, height: 26, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3f9f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <rect x="3" y="11" width="18" height="10" rx="2" />
-                                  <circle cx="12" cy="5" r="2" />
-                                  <path d="M12 7v4" />
-                                </svg>
+                                <img src={witchLogo} alt="" style={{ width: 18, height: 18, objectFit: "contain" }} />
                               </span>
                               <div style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 14px", display: "flex", gap: 6, alignItems: "center" }}>
                                 <div style={{ display: "flex", gap: 4 }}>
