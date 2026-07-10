@@ -364,10 +364,10 @@
 
 .contact-qa-send {
   align-items: center;
-  background: #e2f1e3;
-  border: 1px solid #cfecd6;
+  background: var(--btn-default-bg);
+  border: 1px solid var(--btn-default-border);
   border-radius: 8px;
-  color: #3f9f42;
+  color: var(--btn-default-fg);
   cursor: pointer;
   display: inline-flex;
   font-size: 15px;
@@ -378,7 +378,7 @@
 }
 
 .contact-qa-send:hover:not(:disabled) {
-  background: #d6ecd9;
+  background: var(--btn-default-bg-hover);
 }
 
 .contact-qa-send:disabled {
@@ -388,12 +388,12 @@
 
 .contact-qa-scroll-top {
   align-items: center;
-  background: linear-gradient(135deg, #3f9f42 0%, #2c7d31 100%);
+  background: var(--btn-default-bg);
   border: none;
   border-radius: 999px;
   bottom: 26px;
-  box-shadow: 0 16px 30px rgba(44, 125, 49, 0.28);
-  color: #ffffff;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.28);
+  color: var(--btn-default-fg);
   cursor: pointer;
   display: inline-flex;
   font-size: 22px;
@@ -408,7 +408,7 @@
 }
 
 .contact-qa-scroll-top:hover {
-  box-shadow: 0 18px 34px rgba(44, 125, 49, 0.34);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
   transform: translateY(-2px);
 }
 

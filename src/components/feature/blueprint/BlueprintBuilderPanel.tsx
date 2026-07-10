@@ -4,6 +4,7 @@ import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import { Loader2 } from "lucide-react";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
+import { defaultButtonStyle } from "../../../styles/buttonStyles";
 
 export interface BlueprintBuilderPanelProps {
   activeBuildTab: "chat" | "elements";
@@ -840,13 +841,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                           }}
                           disabled={isTyping}
                           style={{
-                            padding: "10px 22px",
-                            background: "#3f9f42",
-                            color: "#fff",
-                            borderRadius: 8,
-                            border: "none",
-                            fontWeight: 600,
-                            fontSize: 14,
+                            ...defaultButtonStyle,
                             cursor: isTyping ? "not-allowed" : "pointer",
                             display: "flex",
                             alignItems: "center",

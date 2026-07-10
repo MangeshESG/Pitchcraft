@@ -36,6 +36,7 @@ import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
 import { Pin, PinOff } from 'lucide-react';
 
 import CommonSidePanel from '../../common/CommonSidePanel';
+import { defaultButtonStyle } from "../../../styles/buttonStyles";
 import ContactQA from "./ContactQA";
 import { pinEmail } from "../inbox/inboxPin";
 import { repairAndParseJsonObject } from "../../../utils/jsonRepair";
@@ -3923,13 +3924,9 @@ dispatch(closePanel());
               }}
               disabled={!attachmentFile || isUploadingAttachment}
               style={{
-                background: !attachmentFile ? "#d1d5db" : "#3f9f42",
-                color: !attachmentFile ? "#6b7280" : "#ffffff",
-                border: "none",
-                padding: "8px 18px",
-                borderRadius: 18,
-                fontSize: 14,
+                ...defaultButtonStyle,
                 cursor: !attachmentFile ? "not-allowed" : "pointer",
+                opacity: !attachmentFile ? 0.5 : 1,
               }}
             >
               {isUploadingAttachment ? "Uploading..." : "Upload"}
@@ -4044,13 +4041,9 @@ dispatch(closePanel());
               onClick={saveNote}
               disabled={isSaveDisabled || isSavingNote}
               style={{
-                background: isSaveDisabled ? "#d1d5db" : "#3f9f42",
-                color: isSaveDisabled ? "#6b7280" : "#ffffff",
-                border: "none",
-                padding: "8px 18px",
-                borderRadius: 18,
-                fontSize: 14,
+                ...defaultButtonStyle,
                 cursor: isSaveDisabled ? "not-allowed" : "pointer",
+                opacity: isSaveDisabled ? 0.5 : 1,
                 display: "flex",
                 alignItems: "center",
                 gap: 8,

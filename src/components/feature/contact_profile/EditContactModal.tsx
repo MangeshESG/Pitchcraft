@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import API_BASE_URL from '../../../config';
+import { defaultButtonStyle } from '../../../styles/buttonStyles';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../Redux/store';
 import axios from 'axios';
@@ -2677,14 +2678,7 @@ case "boolean":
                 <button
                   type="button"
                   onClick={() => setShowEmailBodyPopup(false)}
-                  style={{
-                    padding: "8px 16px",
-                    background: "#3f9f42",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 4,
-                    cursor: "pointer",
-                  }}
+                  style={defaultButtonStyle}
                 >
                   OK
                 </button>
@@ -2750,13 +2744,9 @@ case "boolean":
                 onClick={handleLinkedInSummarySave}
                 disabled={isLinkedInSaveDisabled || isSavingLinkedIn}
                 style={{
-                  background: isLinkedInSaveDisabled ? "#d1d5db" : "#3f9f42",
-                  color: isLinkedInSaveDisabled ? "#6b7280" : "#ffffff",
-                  border: "none",
-                  padding: "8px 18px",
-                  borderRadius: 18,
-                  fontSize: 14,
+                  ...defaultButtonStyle,
                   cursor: isLinkedInSaveDisabled ? "not-allowed" : "pointer",
+                  opacity: isLinkedInSaveDisabled ? 0.5 : 1,
                 }}
               >
                 Save
@@ -3493,12 +3483,9 @@ case "boolean":
               type="submit"
               disabled={isSubmitting || !formData.email.trim()}
               style={{
-                padding: '8px 16px',
-                background: isSubmitting || !formData.email.trim() ? '#ccc' : '#3f9f42',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: isSubmitting || !formData.email.trim() ? 'not-allowed' : 'pointer'
+                ...defaultButtonStyle,
+                cursor: isSubmitting || !formData.email.trim() ? 'not-allowed' : 'pointer',
+                opacity: isSubmitting || !formData.email.trim() ? 0.5 : 1,
               }}
             >
               {isSubmitting ? 'Updating...' : 'Update contact'}

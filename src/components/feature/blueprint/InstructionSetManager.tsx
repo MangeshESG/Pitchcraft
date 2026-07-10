@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import RichTextEditor from "../../common/RTEEditor";
 import CommonSidePanel from "../../common/CommonSidePanel";
+import { defaultButtonStyle } from "../../../styles/buttonStyles";
 import "./EmailCampaignBuilder.css";
 
 type GPTModel = { id: string; name: string; description?: string };
@@ -733,7 +734,7 @@ const InstructionSetManager: React.FC<InstructionSetManagerProps> = ({
             <div style={{ marginTop: "20px", textAlign: "right" }}>
               <button
                 onClick={onSavePlaceholderDefinitions}
-                style={{ padding: "10px 18px", background: "#3f9f42", color: "#fff", borderRadius: "12px", fontWeight: 600 }}
+                style={defaultButtonStyle}
               >
                 Save placeholder settings
               </button>
@@ -782,16 +783,7 @@ const InstructionSetManager: React.FC<InstructionSetManagerProps> = ({
         footerContent={
           <button
             onClick={() => setDescEditKey(null)}
-            style={{
-              marginLeft: "auto",
-              padding: "8px 18px",
-              borderRadius: "10px",
-              border: "none",
-              background: "#3f9f42",
-              color: "#fff",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            style={{ ...defaultButtonStyle, marginLeft: "auto" }}
           >
             Done
           </button>

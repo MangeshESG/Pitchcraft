@@ -48,6 +48,7 @@ import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
 import LoadingSpinner from "../../common/LoadingSpinner";
 import { OPENAI_MODELS, isDeepSeekModel } from "../../../utils/aiModels";
+import { defaultButtonStyle } from "../../../styles/buttonStyles";
 
 // The blueprint builder / instruction set must never run on a DeepSeek model.
 // Coerce any DeepSeek (or empty) value back to a safe OpenAI default so loading
@@ -789,7 +790,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                       onStartConversation?.(localSelectedMethod, msg);
                     }}
                     disabled={!localSelectedMethod || busy}
-                    style={{ padding: "8px 24px", borderRadius: 8, background: localSelectedMethod && !busy ? "#3f9f42" : "#e5e7eb", color: localSelectedMethod && !busy ? "#fff" : "#9ca3af", fontSize: 13, fontWeight: 600, cursor: localSelectedMethod && !busy ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8, minWidth: 120, justifyContent: "center" }}>
+                    style={{ ...defaultButtonStyle, display: "flex", alignItems: "center", gap: 8, minWidth: 120, justifyContent: "center", cursor: localSelectedMethod && !busy ? "pointer" : "not-allowed", opacity: localSelectedMethod && !busy ? 1 : 0.5 }}>
                     {busy ? (
                       <>
                         <Loader2 size={16} style={{ animation: "campaign-builder-spin 1s linear infinite" }} />
@@ -1042,7 +1043,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                   </button>
                   <button
                     onClick={() => setBlueprintApproved(true)}
-                    style={{ padding: "8px 20px", borderRadius: 8, background: "#3f9f42", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, border: "none" }}>
+                    style={{ ...defaultButtonStyle, display: "flex", alignItems: "center", gap: 6 }}>
                     Approve →
                   </button>
                 </div>
@@ -1171,7 +1172,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                       </button>
                       <button
                         onClick={() => setExampleApproved(true)}
-                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 20px", borderRadius: 8, background: "#3f9f42", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", border: "none" }}
+                        style={{ ...defaultButtonStyle, display: "flex", alignItems: "center", gap: 6 }}
                       >
                         Approve →
                       </button>
@@ -1367,7 +1368,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                   const base = window.location.href.split("#")[0];
                   window.location.href = `${base}#/main?tab=Campaigns`;
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 24px", borderRadius: 10, background: "#3f9f42", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", border: "none" }}>
+                style={{ ...defaultButtonStyle, display: "flex", alignItems: "center", gap: 8 }}>
                 <Send size={16} /> Skip &amp; go to Campaigns →
               </button>
               <span style={{ fontSize: 13, color: "#9ca3af", display: "flex", alignItems: "center", gap: 6 }}>

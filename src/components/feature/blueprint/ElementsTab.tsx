@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
+import { defaultButtonStyle } from "../../../styles/buttonStyles";
 
 export interface ElementsTabProps {
   groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
@@ -266,13 +267,7 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
           onClick={saveAllPlaceholders}
           disabled={isSaving}
           style={{
-            padding: "7px 16px",
-            fontSize: 13,
-            fontWeight: 700,
-            borderRadius: 8,
-            border: "none",
-            background: "#3f9f42",
-            color: "#fff",
+            ...defaultButtonStyle,
             cursor: isSaving ? "not-allowed" : "pointer",
             opacity: isSaving ? 0.75 : 1,
             display: "flex",
