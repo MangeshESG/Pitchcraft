@@ -91,10 +91,15 @@ interface ContactSmtpUser {
   id?: number;
   outboxId?: number;
   OutboxId?: number;
+  inboxId?: number;
+  InboxId?: number;
+  inboxid?: number;
   username?: string;
   emailAddress?: string;
   fromEmail?: string;
   email?: string;
+  provider?: string;
+  Provider?: string;
   type?: string;
   smtpType?: string;
 }
@@ -238,6 +243,8 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [isComposePopupOpen, setIsComposePopupOpen] = useState(false);
   const [composeSmtpUsers, setComposeSmtpUsers] = useState<ContactSmtpUser[]>([]);
   const [selectedComposeSmtpUser, setSelectedComposeSmtpUser] = useState("");
+  const [composeSignatureHtml, setComposeSignatureHtml] = useState("");
+  const [isLoadingComposeSignature, setIsLoadingComposeSignature] = useState(false);
   const [isSendingComposeEmail, setIsSendingComposeEmail] = useState(false);
   const [showContactReplySection, setShowContactReplySection] = useState(false);
   const [isSendingContactReply, setIsSendingContactReply] = useState(false);
@@ -1687,6 +1694,72 @@ const handleGenerateInsights = async () => {
   const getComposeSmtpId = (smtpUser: ContactSmtpUser) =>
     smtpUser.id ?? smtpUser.outboxId ?? smtpUser.OutboxId;
 
+  const normalizeSignatureProvider = (provider?: string) => {
+    const normalizedProvider = String(provider || "").trim();
+    if (!normalizedProvider) return "";
+    return normalizedProvider.toLowerCase() === "smtp" ? "imap" : normalizedProvider;
+  };
+
+  useEffect(() => {
+    if (!isComposePopupOpen) {
+      setComposeSignatureHtml("");
+      setIsLoadingComposeSignature(false);
+      return;
+    }
+
+    const selectedSmtp = composeSmtpUsers.find(
+      (smtpUser) => String(getComposeSmtpId(smtpUser) ?? "") === selectedComposeSmtpUser
+    );
+    const signatureInboxId = selectedComposeSmtpUser;
+    const signatureProvider = normalizeSignatureProvider(
+      selectedSmtp?.provider ||
+      selectedSmtp?.Provider ||
+      selectedSmtp?.type ||
+      selectedSmtp?.smtpType
+    );
+
+    if (!effectiveUserId || !signatureInboxId || !signatureProvider) {
+      setComposeSignatureHtml("");
+      return;
+    }
+
+    let isCancelled = false;
+    const fetchComposeSignature = async () => {
+      setIsLoadingComposeSignature(true);
+      setComposeSignatureHtml("");
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${signatureInboxId}&Provider=${encodeURIComponent(signatureProvider)}&Mathod=Contact`,
+          {
+            headers: {
+              accept: "*/*",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+
+        if (!isCancelled) {
+          setComposeSignatureHtml(response.data?.signatureHtml || "");
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Failed to fetch compose signature:", error);
+          setComposeSignatureHtml("");
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingComposeSignature(false);
+        }
+      }
+    };
+
+    fetchComposeSignature();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isComposePopupOpen, selectedComposeSmtpUser, composeSmtpUsers, effectiveUserId, token]);
+
   const handleSendComposeEmail = async ({
     emailSubject,
     emailBody,
@@ -1696,7 +1769,8 @@ const handleGenerateInsights = async () => {
     emailBody: string;
     bccEmail: string;
   }): Promise<boolean> => {
-    const plainBody = getPlainText(emailBody || "").trim();
+    const emailBodyToSave = emailBody;
+    const plainBody = getPlainText(emailBodyToSave || "").trim();
     const outboxId = parseInt(selectedComposeSmtpUser || "0", 10);
     const selectedSmtp = composeSmtpUsers.find((smtpUser) => Number(getComposeSmtpId(smtpUser)) === outboxId);
 
@@ -1731,7 +1805,7 @@ const handleGenerateInsights = async () => {
           blueprintId: null,
           gptGenerate: true,
           emailSubject,
-          emailBody,
+          emailBody: emailBodyToSave,
         },
         {
           headers: {
@@ -1791,7 +1865,7 @@ const handleGenerateInsights = async () => {
         ? {
             ...currentContact,
             email_subject: emailSubject,
-            email_body: emailBody,
+            email_body: emailBodyToSave,
             email_sent_at: new Date().toISOString(),
           }
         : currentContact
@@ -2657,9 +2731,26 @@ dispatch(closePanel());
       });
     });
 
+    emailTimeline.forEach((email: any) => {
+      const emailTime =
+        email.lastMessageDate ||
+        email.sentAt ||
+        email.SentAt ||
+        email.receiveAt ||
+        email.ReceiveAt ||
+        email.date ||
+        email.Date;
+
+      items.push({
+        type: "email",
+        time: new Date(emailTime || 0).getTime(),
+        data: email,
+      });
+    });
+
     // newest → oldest
     return items.sort((a, b) => b.time - a.time);
-  }, [editingContact, notesHistory, attachmentsHistory]);
+  }, [editingContact, notesHistory, attachmentsHistory, emailTimeline]);
 
   const extractEmailAddress = (emailString?: string): string => {
     if (!emailString) return "";
@@ -6205,6 +6296,8 @@ dispatch(closePanel());
       selectedFromId={selectedComposeSmtpUser}
       onFromChange={setSelectedComposeSmtpUser}
       toEmail={contact?.email || ""}
+      signatureHtml={composeSignatureHtml}
+      isSignatureLoading={isLoadingComposeSignature}
       onGenerate={handleGenerateComposeEmail}
       onSend={handleSendComposeEmail}
       isSending={isSendingComposeEmail}

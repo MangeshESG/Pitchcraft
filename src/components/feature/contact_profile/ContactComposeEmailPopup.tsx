@@ -36,6 +36,8 @@ interface ContactComposeEmailPopupProps {
   selectedFromId: string;
   onFromChange: (value: string) => void;
   toEmail: string;
+  signatureHtml: string;
+  isSignatureLoading?: boolean;
   onGenerate: (blueprintId: number) => Promise<{ emailBody: string; emailSubject: string }>;
   onSend: (payload: { emailSubject: string; emailBody: string; bccEmail: string }) => Promise<boolean>;
   isSending: boolean;
@@ -79,6 +81,8 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   selectedFromId,
   onFromChange,
   toEmail,
+  signatureHtml,
+  isSignatureLoading = false,
   onGenerate,
   onSend,
   isSending,
@@ -89,7 +93,30 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   const [showBcc, setShowBcc] = useState(false);
   const [bccEmail, setBccEmail] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [hasGeneratedBody, setHasGeneratedBody] = useState(false);
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const signatureSelector = "[data-compose-email-signature]";
+
+  const getComposeSignatureBlock = (signature: string) =>
+    signature
+      ? `<br/><br/><div data-compose-email-signature="true" contenteditable="false">${signature}</div>`
+      : "";
+
+  const removeComposeSignature = (html: string) => {
+    if (!html) return "";
+    if (typeof document === "undefined") {
+      return html;
+    }
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    wrapper.querySelectorAll(signatureSelector).forEach((node) => node.remove());
+    return wrapper.innerHTML.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
+  };
+
+  const appendComposeSignature = (draftHtml: string, signature: string) => {
+    const draftWithoutSignature = removeComposeSignature(draftHtml || "");
+    return `${draftWithoutSignature}${getComposeSignatureBlock(signature)}`;
+  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -99,8 +126,15 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       setShowBcc(false);
       setBccEmail("");
       setIsGenerating(false);
+      setHasGeneratedBody(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || hasGeneratedBody) return;
+
+    setEmailBody((currentBody) => appendComposeSignature(currentBody, signatureHtml));
+  }, [isOpen, signatureHtml, hasGeneratedBody]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -136,6 +170,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
     setIsGenerating(true);
     try {
       const generatedEmail = await onGenerate(Number(selectedBlueprintId));
+      setHasGeneratedBody(true);
       setEmailBody(generatedEmail.emailBody || "");
       setEmailSubject(generatedEmail.emailSubject || "");
     } finally {
@@ -304,6 +339,11 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
                 );
               })}
             </select>
+            {isSignatureLoading && (
+              <span style={{ color: "#64748b", fontSize: 12, whiteSpace: "nowrap" }}>
+                Loading signature...
+              </span>
+            )}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
