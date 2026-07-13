@@ -24,6 +24,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   autoGrow = false,
 }) => {
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const savedSelectionRef = useRef<Range | null>(null);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -37,11 +38,76 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   }, [value]);
 
+  const isSelectionInsideEditor = (range: Range) => {
+    const editor = editorRef.current;
+    if (!editor) return false;
+    return editor.contains(range.commonAncestorContainer);
+  };
+
+  const rememberSelection = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (isSelectionInsideEditor(range)) {
+      savedSelectionRef.current = range.cloneRange();
+    }
+  };
+
+  const restoreSelection = () => {
+    const selection = window.getSelection();
+    const range = savedSelectionRef.current;
+    if (!selection || !range) return;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  };
+
+  const normalizeUrl = (url: string) => {
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) return "";
+    if (/^(https?:|mailto:|tel:|#)/i.test(trimmedUrl)) return trimmedUrl;
+    return `https://${trimmedUrl}`;
+  };
+
+  const normalizeEditorLinks = () => {
+    editorRef.current?.querySelectorAll("a[href]").forEach((link) => {
+      link.setAttribute("target", "_blank");
+      link.setAttribute("rel", "noopener noreferrer");
+    });
+  };
+
+  const syncEditorValue = () => {
+    if (!editorRef.current) return;
+    normalizeEditorLinks();
+    onChange(editorRef.current.innerHTML);
+  };
+
   const handleCommand = (command: string, value?: string) => {
     document.execCommand(command, false, value);
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
+    syncEditorValue();
+  };
+
+  const handleCreateLink = () => {
+    rememberSelection();
+    const href = normalizeUrl(prompt("Enter link URL") || "");
+    if (!href) return;
+
+    editorRef.current?.focus();
+    restoreSelection();
+
+    const selection = window.getSelection();
+    const selectedRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    if (selectedRange && !selectedRange.collapsed && isSelectionInsideEditor(selectedRange)) {
+      document.execCommand("createLink", false, href);
+    } else {
+      const link = document.createElement("a");
+      link.href = href;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = href;
+      document.execCommand("insertHTML", false, link.outerHTML);
     }
+
+    syncEditorValue();
   };
 
   return (
@@ -138,8 +204,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
-            const url = prompt("Enter link URL");
-            if (url) handleCommand("createLink", url);
+            handleCreateLink();
           }}
           className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
           title="Insert Link"
@@ -172,10 +237,20 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
               ? { minHeight: height, overflowY: "visible" }
               : { height, overflowY: "auto" }
           }
-          onInput={(e) => onChange(e.currentTarget.innerHTML)}
-          onBlur={(e) => onChange(e.currentTarget.innerHTML)}
+          onInput={syncEditorValue}
+          onBlur={syncEditorValue}
+          onMouseUp={rememberSelection}
+          onKeyUp={rememberSelection}
           onClick={(e) => {
+            if (!(e.target instanceof Element)) return;
             const target = e.target as HTMLElement;
+            const link = target.closest('a[href]') as HTMLAnchorElement | null;
+            if (link?.href) {
+              e.preventDefault();
+              window.open(link.href, "_blank", "noopener,noreferrer");
+              return;
+            }
+
             const summary = target.closest('summary');
             const details = summary?.closest('details') || target.closest('[data-reply-email-trail]');
 
