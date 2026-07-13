@@ -1,23 +1,13 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowLeft,
   faBolt,
   faPaperPlane,
-  faBold,
-  faItalic,
-  faUnderline,
-  faStrikethrough,
-  faListUl,
-  faListOl,
-  faAlignLeft,
-  faLink,
-  faImage,
-  faUndo,
-  faRedo,
-  faInfoCircle,
+  faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
+import RichTextEditor from "../../common/RTEEditor";
 
 interface ContactComposeEmailPopupProps {
   isOpen: boolean;
@@ -62,16 +52,11 @@ const labelStyle: React.CSSProperties = {
   color: "#111827",
 };
 
-const toolbarButtonStyle: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  border: "none",
-  background: "transparent",
-  color: "#1f2937",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
+const compactFieldStyle: React.CSSProperties = {
+  width: 390,
+  minWidth: 390,
+  maxWidth: 390,
+  flex: "0 0 390px",
 };
 
 const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
@@ -95,12 +80,11 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   const [bccEmail, setBccEmail] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGeneratedBody, setHasGeneratedBody] = useState(false);
-  const editorRef = useRef<HTMLDivElement | null>(null);
   const signatureSelector = "[data-compose-email-signature]";
 
   const getComposeSignatureBlock = (signature: string) =>
     signature
-      ? `<br/><br/><div data-compose-email-signature="true" contenteditable="false">${signature}</div>`
+      ? `<br/><br/><div data-compose-email-signature="true">${signature}</div>`
       : "";
 
   const removeComposeSignature = (html: string) => {
@@ -136,13 +120,6 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
 
     setEmailBody((currentBody) => appendComposeSignature(currentBody, signatureHtml));
   }, [isOpen, signatureHtml, hasGeneratedBody]);
-
-  useEffect(() => {
-    if (!editorRef.current) return;
-    if (editorRef.current.innerHTML !== emailBody) {
-      editorRef.current.innerHTML = emailBody || "";
-    }
-  }, [emailBody]);
 
   const getPlainBody = (html: string) => {
     if (!html) return "";
@@ -245,9 +222,9 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
             }}
           >
             <FontAwesomeIcon icon={faArrowLeft} />
-            Compose Email
+            Compose email
           </button>
-          <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <button
               type="button"
               onClick={handleGenerate}
@@ -280,6 +257,26 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
               <FontAwesomeIcon icon={faPaperPlane} />
               {isSending ? "Sending..." : "Send"}
             </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close compose"
+              title="Close"
+              style={{
+                width: 38,
+                height: 38,
+                border: "1px solid #d8dee8",
+                borderRadius: 8,
+                background: "#fff",
+                color: "#64748b",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
           </div>
         </div>
 
@@ -292,31 +289,27 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
-            <label style={labelStyle}>Select Blueprint</label>
+            <label style={labelStyle}>Select blueprint</label>
             <select
               value={selectedBlueprintId}
               onChange={(event) => setSelectedBlueprintId(event.target.value)}
               style={{ ...inputStyle, width: 390 }}
             >
-              <option value="">Select blueprint...</option>
+              <option value="">Select blueprint (optional)...</option>
               {blueprints.map((blueprint) => (
                 <option key={blueprint.id} value={blueprint.id}>
                   {blueprint.templateName}
                 </option>
               ))}
             </select>
-            <span style={{ color: "#64748b", fontSize: 12 }}>
-              Choose a blueprint to generate a personalized email.
-            </span>
-            <FontAwesomeIcon icon={faInfoCircle} style={{ color: "#64748b", fontSize: 13 }} />
-          </div>
+            </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
             <label style={labelStyle}>From</label>
             <select
               value={selectedFromId}
               onChange={(event) => onFromChange(event.target.value)}
-              style={{ ...inputStyle, flex: 1 }}
+              style={{ ...inputStyle, ...compactFieldStyle }}
             >
               <option value="">Select from email...</option>
               {visibleFromOptions.map((fromOption) => {
@@ -342,7 +335,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
               readOnly
               style={{
                 ...inputStyle,
-                flex: 1,
+                ...compactFieldStyle,
                 background: "#f8fafc",
                 color: "#475569",
                 cursor: "not-allowed",
@@ -364,7 +357,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
               <input
                 value={bccEmail}
                 onChange={(event) => setBccEmail(event.target.value)}
-                style={{ ...inputStyle, flex: 1 }}
+                style={{ ...inputStyle, ...compactFieldStyle }}
                 placeholder="Enter Bcc email address..."
               />
               <button
@@ -390,63 +383,10 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
             />
           </div>
 
-          <div style={{ border: "1px solid #d8dee8", borderRadius: 6, overflow: "hidden" }}>
+          <div>
+            <RichTextEditor value={emailBody} onChange={setEmailBody} height={360} />
             <div
               style={{
-                minHeight: 44,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "0 12px",
-                borderBottom: "1px solid #d8dee8",
-                background: "#f8fafc",
-              }}
-            >
-              <select style={{ height: 34, border: "none", background: "transparent", fontSize: 13, color: "#111827", width: 110 }}>
-                <option>Normal</option>
-              </select>
-              <button type="button" style={toolbarButtonStyle}><FontAwesomeIcon icon={faBold} /></button>
-              <button type="button" style={toolbarButtonStyle}><FontAwesomeIcon icon={faItalic} /></button>
-              <button type="button" style={toolbarButtonStyle}><FontAwesomeIcon icon={faUnderline} /></button>
-              <button type="button" style={toolbarButtonStyle}><FontAwesomeIcon icon={faStrikethrough} /></button>
-              <span style={{ width: 1, height: 20, background: "#e2e8f0" }} />
-              <button type="button" style={toolbarButtonStyle}><FontAwesomeIcon icon={faListUl} /></button>
-              <button type="button" style={toolbarButtonStyle}><FontAwesomeIcon icon={faListOl} /></button>
-              <button type="button" style={toolbarButtonStyle}><FontAwesomeIcon icon={faAlignLeft} /></button>
-              <button type="button" style={toolbarButtonStyle}><FontAwesomeIcon icon={faLink} /></button>
-              <button type="button" style={toolbarButtonStyle}><FontAwesomeIcon icon={faImage} /></button>
-              <button type="button" style={toolbarButtonStyle}><FontAwesomeIcon icon={faUndo} /></button>
-              <button type="button" style={toolbarButtonStyle}><FontAwesomeIcon icon={faRedo} /></button>
-            </div>
-
-            <div
-              ref={editorRef}
-              className="contact-compose-email-body"
-              contentEditable
-              suppressContentEditableWarning
-              data-placeholder="Write your email here..."
-              onInput={(event) => setEmailBody(event.currentTarget.innerHTML)}
-              onBlur={(event) => setEmailBody(event.currentTarget.innerHTML)}
-              style={{
-                width: "100%",
-                minHeight: 360,
-                maxHeight: 360,
-                border: "none",
-                outline: "none",
-                overflowY: "auto",
-                overflowX: "hidden",
-                padding: 22,
-                color: "#334155",
-                fontSize: 14,
-                lineHeight: 1.5,
-                boxSizing: "border-box",
-                wordBreak: "break-word",
-              }}
-            />
-
-            <div
-              style={{
-                borderTop: "1px solid #e5e7eb",
                 height: 48,
                 display: "flex",
                 alignItems: "center",
@@ -460,25 +400,6 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
             </div>
           </div>
 
-          <style>
-            {`
-              .contact-compose-email-body:empty:before {
-                content: attr(data-placeholder);
-                color: #94a3b8;
-              }
-              .contact-compose-email-body img {
-                max-width: 100%;
-                height: auto;
-              }
-              .contact-compose-email-body table {
-                max-width: 100%;
-              }
-              .contact-compose-email-body p {
-                margin: 0 0 10px;
-              }
-            `}
-          </style>
-
           <div
             style={{
               display: "flex",
@@ -489,10 +410,6 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
               fontSize: 13,
             }}
           >
-            <span>
-              <FontAwesomeIcon icon={faBolt} style={{ color: "#16822f", marginRight: 8 }} />
-              Use AI to generate content based on the selected blueprint.
-            </span>
             <span>Characters: {plainBody.length}</span>
           </div>
         </div>

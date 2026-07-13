@@ -467,6 +467,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     clicks: 0,
     totalClicks: 0,
     errors: 0,
+    bounceback: 0,
   });
   const [requestCount, setRequestCount] = useState(0);
   const [emailFilterType, setEmailFilterType] = useState<
@@ -515,7 +516,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     setDetailEmailLogSummary({ successCount: 0, failedCount: 0 });
     setFilteredEventData([]);
     setDailyStats([]);
-    setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0 });
+    setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0, bounceback: 0 });
     setRequestCount(0);
     setCurrentPage(1);
     setEmailLogsCurrentPage(1);
@@ -711,6 +712,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             cachedEvents,
             cachedAllLogs
           );
+          await fetchDashboardCardCounts(campaignToLoad);
 
           console.log("✅ Initialization complete with cached data");
         } else {
@@ -887,6 +889,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         cachedEvents,
         cachedAllLogs
       );
+      fetchDashboardCardCounts(selectedCampaign);
 
       console.log("✅ State updated with cached data");
     } else {
@@ -916,6 +919,9 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   useEffect(() => {
     if ((allEventData.length > 0 || allEmailLogs.length > 0) && isVisible) {
       processDataWithDateFilter(allEventData, allEmailLogs);
+      if (selectedCampaign) {
+        fetchDashboardCardCounts(selectedCampaign);
+      }
     }
   }, [allEventData, allEmailLogs, isVisible, excludeBots]);
 
@@ -1242,6 +1248,40 @@ const fetchEmailLogs = async (
     return [];
   }
 };
+
+const fetchDashboardCardCounts = async (campaignId: string) => {
+  if (!effectiveUserId || !campaignId) return;
+
+  try {
+    const campaignIdNumber =
+      campaignId === ALL_CAMPAIGNS_VALUE ? undefined : Number(campaignId);
+    const response = await axios.get(`${API_BASE_URL}/api/Crm/dashboard-card-counts`, {
+      params: {
+        clientId: Number(effectiveUserId),
+        ...(campaignIdNumber ? { campaignId: campaignIdNumber } : {}),
+        ...(startDate ? { startDate } : {}),
+        ...(endDate ? { endDate } : {}),
+        ...(selectedSender ? { outboxId: Number(selectedSender) } : {}),
+        excludeBots,
+      },
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+    });
+
+    const counts = response.data || {};
+    const sent = Number(counts.sent ?? 0);
+    setRequestCount(sent);
+    setTotalStats({
+      sent,
+      opens: Number(counts.opens ?? 0),
+      clicks: Number(counts.clicks ?? 0),
+      totalClicks: Number(counts.totalClicks ?? 0),
+      errors: Number(counts.errors ?? 0),
+      bounceback: Number(counts.bounceback ?? 0),
+    });
+  } catch (error) {
+    console.error("Dashboard: Error loading card counts:", error);
+  }
+};
   // Updated fetchLogsByCampaign function
 const fetchLogsByCampaign = async (campaignId: string) => {
   await withLoader("Loading campaign data...", async () => {
@@ -1318,6 +1358,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         allTrackingData,
         allEmailLogsData
       );
+      await fetchDashboardCardCounts(campaignId);
 
       console.log(
         `✅ Campaign ${campaignId} loaded: ${allTrackingData.length} events, ${allEmailLogsData.length} logs`
@@ -1337,6 +1378,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         clicks: 0,
         totalClicks: 0,
         errors: 0,
+        bounceback: 0,
       });
 
       setDataFetchedForCampaign(getDashboardCacheKey(campaignId));
@@ -1647,6 +1689,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     console.log('- uniqueClicksInDateRange size:', uniqueClicksInDateRange.size);
     
     const errorCount = filteredEmailLogs.filter((log: any) => !log.isSuccess).length;
+    const bouncebackCount = filteredEmailLogs.filter((log: any) => log.isBounced || log.IsBounced).length;
     
     setRequestCount(totalSentCount);
     setTotalStats({
@@ -1655,6 +1698,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       clicks: uniqueClicksInDateRange.size,
       totalClicks: totalClickCount,
       errors: errorCount,
+      bounceback: bouncebackCount,
     });
 
     // Update filtered event data
@@ -1713,7 +1757,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       setAllEventData([]);
       setEmailLogs([]);
       setDailyStats([]);
-      setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0 });
+      setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0, bounceback: 0 });
       setRequestCount(0);
       setDataFetchedForCampaign("");
       setDashboardTab("Overview");
@@ -2958,6 +3002,15 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               : null,
             spark: dailyStats.map(d => d.sent).map((_, i) => totalStats.errors > 0 ? totalStats.errors : 0),
             icon: <><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></>,
+          },
+          {
+            id: "bounceback", label: "Bounce back", color: "#f97316", bg: "#fff7ed",
+            value: loading ? null : !selectedCampaign ? null : totalStats.bounceback,
+            sub: !loading && selectedCampaign
+              ? `${requestCount > 0 ? ((totalStats.bounceback / requestCount) * 100).toFixed(1) : "0.0"}%`
+              : null,
+            spark: dailyStats.map(d => d.sent).map(() => totalStats.bounceback > 0 ? totalStats.bounceback : 0),
+            icon: <><path d="M21 12a9 9 0 1 1-3.2-6.9"/><polyline points="21 3 21 9 15 9"/><path d="M9 12h6"/><path d="M12 9v6"/></>,
           },
         ]).map(card => (
           <div key={card.id} className="md-stat-v2">

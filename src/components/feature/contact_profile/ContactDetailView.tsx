@@ -231,6 +231,7 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [pinningEmailId, setPinningEmailId] = useState<string | null>(null);
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isRefreshingContactEmails, setIsRefreshingContactEmails] = useState(false);
   const [contactMailTab, setContactMailTab] = useState<"allmessages" | "sent">("allmessages");
   const [selectedContactThread, setSelectedContactThread] = useState<any | null>(null);
   const [contactCollapsedEmails, setContactCollapsedEmails] = useState<{ [key: string]: boolean }>({});
@@ -1432,6 +1433,25 @@ const handleGenerateInsights = async () => {
     setToastMessage(message);
     setShowErrorToast(true);
     setTimeout(() => setShowErrorToast(false), 3000);
+  };
+
+  const refreshContactEmailGrid = async () => {
+    if (!contactId || isRefreshingContactEmails) return;
+
+    setIsRefreshingContactEmails(true);
+    try {
+      const refreshedThreads = await fetchContactEmailThreads(Number(contactId));
+      setSelectedContactThread((currentThread: any) => {
+        if (!currentThread) return refreshedThreads[0] || null;
+        return refreshedThreads.find((thread: any) => thread.trackingId === currentThread.trackingId) || refreshedThreads[0] || null;
+      });
+      showContactMailSuccess("Emails refreshed.");
+    } catch (error: any) {
+      console.error("Failed to refresh contact emails:", error);
+      showContactMailError(error.message || "Failed to refresh emails.");
+    } finally {
+      setIsRefreshingContactEmails(false);
+    }
   };
 
   const contactReplyTrailMarker = 'data-reply-email-trail="true"';
@@ -2938,7 +2958,10 @@ dispatch(closePanel());
         .filter(Boolean);
     }
 
-    return contactMailThreads;
+    return contactMailThreads.filter((thread: any) => {
+      const threadMessages = Array.isArray(thread.messages) ? thread.messages : [];
+      return threadMessages.some((message: any) => String(message.type || "").toLowerCase() !== "sent");
+    });
   }, [contactMailTab, contactMailThreads]);
 
   useEffect(() => {
@@ -3084,7 +3107,7 @@ dispatch(closePanel());
     }
 
     if (visibleContactMailThreads.length === 0) {
-      return <div className="no-mails">No {contactMailTab === "sent" ? "sent emails" : "messages"} found</div>;
+      return <div className="no-mails">No {contactMailTab === "sent" ? "sent emails" : "inbox emails"} found</div>;
     }
 
     return (
@@ -3267,19 +3290,19 @@ dispatch(closePanel());
               </div>
             );
           })}
+          {!showContactReplySection && (
+            <div className="reply-button-sticky">
+              <button
+                type="button"
+                className="reply-pill-button"
+                onClick={() => setShowContactReplySection(true)}
+              >
+                <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
+                Reply
+              </button>
+            </div>
+          )}
         </div>
-        {!showContactReplySection && (
-          <div className="reply-button-sticky contact-reply-floating">
-            <button
-              type="button"
-              className="reply-pill-button"
-              onClick={() => setShowContactReplySection(true)}
-            >
-              <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
-              Reply
-            </button>
-          </div>
-        )}
         {showContactReplySection && (
           <div
             className="reply-section"
@@ -5697,6 +5720,8 @@ dispatch(closePanel());
                   setContactMailTab={setContactMailTab}
                   renderMailList={renderContactMailList}
                   renderMailReader={renderContactMailReader}
+                  onRefresh={refreshContactEmailGrid}
+                  isRefreshing={isRefreshingContactEmails}
                 />
               )}
 
