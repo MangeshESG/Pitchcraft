@@ -1788,7 +1788,11 @@ case "boolean":
                 </button>
                 <button
                   type='submit'
-                  className="rounded-lg bg-[#e2f1e3] border border-[#cfecd6] px-5 py-2.5 text-[15px] font-semibold text-[#3f9f42] transition hover:bg-[#d6ecd9] disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={{
+                    ...defaultButtonStyle,
+                    cursor: isSubmitting || !formData.email?.trim() ? 'not-allowed' : 'pointer',
+                    opacity: isSubmitting || !formData.email?.trim() ? 0.5 : 1,
+                  }}
                   disabled={isSubmitting || !formData.email?.trim()}
                   onClick={handleSubmit}
                 >

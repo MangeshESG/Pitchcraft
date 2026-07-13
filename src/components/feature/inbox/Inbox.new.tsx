@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGear, faInbox, faArrowRight } from "@fortawesome/free-solid-svg-icons";
-import inboxHeroImage from "../../../assets/images/Email-inbox.jpg";
+import inboxHeroImage from "../../../assets/images/Email-inbox.png";
 import "../Output.new.css";
 
 interface InboxDropdownItem {

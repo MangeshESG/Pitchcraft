@@ -376,7 +376,6 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
   // ---------- Sort ----------
   const handleSort = (columnKey: string) => {
-    if (serverSidePagination) return;
     setSortConfig((prev) => ({
       key: columnKey,
       direction: prev.key === columnKey && prev.direction === "asc" ? "desc" : "asc",
@@ -384,7 +383,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   };
 
   const sortedData = useMemo(() => {
-    if (serverSidePagination) return filteredData;
+    // Under server-side pagination we can only sort the rows currently loaded
+    // (the active page), which is enough to keep header click-to-sort working.
     if (!sortConfig.key) return filteredData;
     const k = sortConfig.key;
     return [...filteredData].sort((a, b) => {
@@ -631,7 +631,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
               <tr>
                 {visibleColumns.map((column) => {
                   const isSorted = sortConfig.key === column.key;
-                  const sortable = !serverSidePagination && column.key !== "checkbox" && column.sortable !== false;
+                  const sortable = column.key !== "checkbox" && column.sortable !== false;
                   return (
                     <th
                       key={column.key}

@@ -11,7 +11,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import mailDashboardNewUserImage from "../../assets/images/mail_dashboard_old_user.png";
+import mailDashboardNewUserImage from "../../assets/images/mail_dashboard_new_user.png";
 import mailDashboardSelectImage from "../../assets/images/mail_dashboard_new_user.png";
 
 import {
@@ -242,7 +242,7 @@ const MailDashboardEmptyState: React.FC<{
               sent emails, opens, clicks, and delivery performance in real time.
             </p>
             <div className="mde-empty-actions">
-              <button className="mde-btn-primary" onClick={onGoToCampaigns}>
+              <button className="btn-default" onClick={onGoToCampaigns}>
                 <FontAwesomeIcon icon={faPlus} />
                 Create your first campaign
               </button>
@@ -2667,6 +2667,50 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   const getCampaignLabel = (campaign: Campaign) =>
     `${campaign.campaignName}${campaign.dataSource === "Segment" && campaign.segmentName ? ` (${campaign.segmentName})` : ""}`;
 
+  const handleExportReport = () => {
+    const campaign = availableCampaigns.find(
+      (c) => String(c.id) === String(selectedCampaign)
+    );
+    const campaignName = campaign ? getCampaignLabel(campaign) : "All campaigns";
+
+    const esc = (v: any) => {
+      const s = String(v ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const lines: string[] = [];
+    lines.push(`Mail report,${esc(campaignName)}`);
+    if (startDate || endDate) {
+      lines.push(`Date range,${esc(`${startDate || "—"} to ${endDate || "—"}`)}`);
+    }
+    lines.push("");
+    lines.push("Metric,Value");
+    lines.push(`Sent,${requestCount}`);
+    lines.push(`Unique opens,${totalStats.opens}`);
+    lines.push(`Open rate,${openRate}%`);
+    lines.push(`Clicks,${totalStats.totalClicks}`);
+    lines.push(`Unique clicks,${totalStats.clicks}`);
+    lines.push(`Click rate,${clickRate}%`);
+    lines.push(`Errors,${totalStats.errors}`);
+    lines.push("");
+    lines.push("Date,Sent,Opens,Clicks");
+    dailyStats.forEach((d) => {
+      lines.push(`${esc(d.date)},${d.sent},${d.opens},${d.clicks}`);
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `Mail_report_${campaignName.replace(/[^a-z0-9]+/gi, "_")}_${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const getCampaignSentCount = (campaignId: string) => {
     if (campaignId === ALL_CAMPAIGNS_VALUE) {
       return Object.values(campaignEmailCounts).reduce((sum, count) => sum + count, 0);
@@ -2736,7 +2780,11 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   if (campaignsLoaded && !isLoading && availableCampaigns.length === 0) {
     return (
       <div className="md-root" style={{ display: isVisible ? "block" : "none" }}>
-        <MailDashboardEmptyState />
+        <MailDashboardEmptyState
+          onGoToCampaigns={() => {
+            window.location.href = "/#/main?tab=Campaigns";
+          }}
+        />
       </div>
     );
   }
@@ -2854,10 +2902,16 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
           {/* Right-side actions */}
           <div className="md-control-actions">
-            <button className="md-export-btn" title="Export Report">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            <button
+              className="md-export-btn"
+              title="Export report (CSV)"
+              onClick={handleExportReport}
+              disabled={!selectedCampaign || loading}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v12"/>
+                <path d="m7 12 5 5 5-5"/>
+                <path d="M5 21h14"/>
               </svg>
               Export Report
             </button>
@@ -2869,7 +2923,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       {selectedCampaign && <div className="md-stats-grid">
         {([
           {
-            id: "sent", label: "Sent", color: "#00C49F", bg: "#e0faf3",
+            id: "sent", label: "Sent", color: "#3f9f42", bg: "#e8f3e9",
             value: loading ? null : !selectedCampaign ? null : requestCount,
             sub: !loading && selectedCampaign ? "100%" : null,
             spark: dailyStats.map(d => d.sent),
@@ -2952,7 +3006,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               <div className="md-chart-header">
                 <h2 className="md-chart-title">Statistics overview</h2>
                 <div className="md-chart-legend-tags">
-                  <span className="md-legend-tag" style={{ background: "#e0faf3", color: "#00C49F" }}>● Sent</span>
+                  <span className="md-legend-tag" style={{ background: "#e8f3e9", color: "#3f9f42" }}>● Sent</span>
                   <span className="md-legend-tag" style={{ background: "#fff4e5", color: "#FF8042" }}>● Unique opens</span>
                   <span className="md-legend-tag" style={{ background: "#f0eeff", color: "#8b5cf6" }}>● Unique clicks</span>
                 </div>
@@ -2966,7 +3020,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                       margin={{ top: 6, right: 8, left: 0, bottom: 4 }}
                     >
                       <defs>
-                        <linearGradient id="gSent"   x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#00C49F" stopOpacity={0.22}/><stop offset="95%" stopColor="#00C49F" stopOpacity={0}/></linearGradient>
+                        <linearGradient id="gSent"   x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3f9f42" stopOpacity={0.22}/><stop offset="95%" stopColor="#3f9f42" stopOpacity={0}/></linearGradient>
                         <linearGradient id="gOpens"  x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FF8042" stopOpacity={0.18}/><stop offset="95%" stopColor="#FF8042" stopOpacity={0}/></linearGradient>
                         <linearGradient id="gClicks" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.16}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient>
                       </defs>
@@ -2974,7 +3028,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                       <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", fontSize: 12 }} />
-                      <Area type="monotone" dataKey="sent"   stroke="#00C49F" strokeWidth={2} fill="url(#gSent)"   dot={false} activeDot={{ r: 5 }} />
+                      <Area type="monotone" dataKey="sent"   stroke="#3f9f42" strokeWidth={2} fill="url(#gSent)"   dot={false} activeDot={{ r: 5 }} />
                       <Area type="monotone" dataKey="opens"  stroke="#FF8042" strokeWidth={2} fill="url(#gOpens)"  dot={false} activeDot={{ r: 5 }} />
                       <Area type="monotone" dataKey="clicks" stroke="#8b5cf6" strokeWidth={2} fill="url(#gClicks)" dot={false} activeDot={{ r: 5 }} />
                     </AreaChart>
@@ -3013,7 +3067,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                     const best = [...filteredStats].sort((a, b) => b.opens - a.opens)[0];
                     return best ? (
                       <>
-                        <p className="md-insight-val" style={{ color: "#00C49F" }}>{best.date}</p>
+                        <p className="md-insight-val" style={{ color: "#3f9f42" }}>{best.date}</p>
                         <p className="md-insight-hint">Opens: {best.opens} · Clicks: {best.clicks}</p>
                       </>
                     ) : <p className="md-insight-val">—</p>;
@@ -3031,12 +3085,12 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           {/* Filter pills */}
           <div className="md-filter-bar">
             {([
-              { key: "opens",            label: "Opens",             color: "#3f9f42" },
-              { key: "clicks",           label: "Clicks",            color: "#2196f3" },
+              { key: "opens",            label: "Opens",             color: "#FF8042" },
+              { key: "clicks",           label: "Clicks",            color: "#8b5cf6" },
               { key: "opens-no-clicks",  label: "Opens not clicked", color: "#f59e0b" },
               { key: "opens-and-clicks", label: "Opens & clicks",    color: "#8b5cf6" },
               { key: "all",              label: "All",               color: "#64748b" },
-              { key: "email-logs",       label: "Sent",              color: "#10b981" },
+              { key: "email-logs",       label: "Sent",              color: "#3f9f42" },
               { key: "missing-logs",     label: "Not sent",          color: "#ef4444" },
             ] as const).map(({ key, label, color }) => (
               <button

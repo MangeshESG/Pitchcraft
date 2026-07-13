@@ -11,6 +11,7 @@ import DomainAuthColumn from "./DomainAuthColumn";
 import API_BASE_URL from "../../config";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import { MailConfigurationEmptyState } from "./MailConfiguration.new";
+import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
 
 interface MailConfigurationProps {
   [key: string]: any;
@@ -229,6 +230,28 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
       index % 6
     ];
 
+  // ── Local pagination for BCC + Domain tables (same control as Campaigns/Schedule) ──
+  const [bccPageLocal, setBccPageLocal] = React.useState(1);
+  const [bccPageSizeLocal, setBccPageSizeLocal] = React.useState<number | "All">(10);
+  const [domainPage, setDomainPage] = React.useState(1);
+  const [domainPageSize, setDomainPageSize] = React.useState<number | "All">(10);
+
+  const bccRows: any[] = Array.isArray(sortedBccEmails) ? sortedBccEmails : [];
+  const bccTotalPagesLocal =
+    bccPageSizeLocal === "All" ? 1 : Math.max(1, Math.ceil(bccRows.length / bccPageSizeLocal));
+  const bccPaginatedLocal =
+    bccPageSizeLocal === "All"
+      ? bccRows
+      : bccRows.slice((bccPageLocal - 1) * bccPageSizeLocal, bccPageLocal * bccPageSizeLocal);
+
+  const domainRows: any[] = Array.isArray(sortedDomainData) ? sortedDomainData : [];
+  const domainTotalPages =
+    domainPageSize === "All" ? 1 : Math.max(1, Math.ceil(domainRows.length / domainPageSize));
+  const domainPaginated =
+    domainPageSize === "All"
+      ? domainRows
+      : domainRows.slice((domainPage - 1) * domainPageSize, domainPage * domainPageSize);
+
   return (
         <div style={{ padding: "24px 28px" }}>
           {!hasMailboxConfig && !smtpListLoading ? (
@@ -326,11 +349,11 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   })}
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
                   <input
                     type="text"
                     className="search-input"
-                    style={{ width: 360, height: 38, borderRadius: 6 }}
+                    style={{ width: 360, height: 38, borderRadius: 6, flexShrink: 0 }}
                     placeholder="Search by email or server"
                     value={mailboxSearch}
                     onChange={(e) => {
@@ -338,6 +361,18 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                       setCurrentPageMailbox(1);
                     }}
                   />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <PaginationControls
+                      currentPage={currentPageMailbox}
+                      totalPages={mailboxTotalPages}
+                      totalRecords={filteredMailboxRows.length}
+                      pageSize={pageSize}
+                      setCurrentPage={setCurrentPageMailbox}
+                      setPageSize={(size) => setPageSize(Number(size))}
+                      showPageSizeDropdown={true}
+                      pageLabel="Page:"
+                    />
+                  </div>
                 </div>
 
                 <div style={{ overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff" }}>
@@ -513,19 +548,6 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                       )}
                     </tbody>
                   </table>
-                </div>
-
-                <div style={{ marginTop: 14 }}>
-                  <PaginationControls
-                    currentPage={currentPageMailbox}
-                    totalPages={mailboxTotalPages}
-                    totalRecords={filteredMailboxRows.length}
-                    pageSize={pageSize}
-                    setCurrentPage={setCurrentPageMailbox}
-                    setPageSize={(size) => setPageSize(Number(size))}
-                    showPageSizeDropdown={true}
-                    pageLabel="Page:"
-                  />
                 </div>
 
                 <CommonSidePanel
@@ -759,19 +781,25 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                     gap: 16,
                   }}
                 >
-                  {/* <input
-                    type="email"
-                    className="search-input"
-                    style={{ width: 340 }}
-                    placeholder="Enter BCC email address"
-                    value={newBccEmail}
-                    onChange={(e) => setNewBccEmail(e.target.value)}
-                  /> */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <PaginationControls
+                      currentPage={bccPageLocal}
+                      totalPages={bccTotalPagesLocal}
+                      totalRecords={bccRows.length}
+                      pageSize={bccPageSizeLocal}
+                      setCurrentPage={setBccPageLocal}
+                      setPageSize={(s) => {
+                        setBccPageSizeLocal(s);
+                        setBccPageLocal(1);
+                      }}
+                      pageSizeOptions={[10, 30, 50, "All"]}
+                    />
+                  </div>
                   <button
                     className="btn-default"
-                    style={{ marginLeft: "auto" }}
+                    style={{ flexShrink: 0 }}
                     // onClick={handleAddBcc}
-                    onClick={() => 
+                    onClick={() =>
                      // setShowPopup(true)
                       dispatch(openPanel("bcc-email-modal"))
                     }
@@ -798,26 +826,33 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                           Loading BCC emails...
                         </td>
                       </tr>
-                    ) : paginatedBccEmails.length === 0 ? (
+                    ) : bccPaginatedLocal.length === 0 ? (
                       <tr>
                         <td colSpan={2} style={{ textAlign: "center" }}>
                           No BCC emails configured.
                         </td>
                       </tr>
                     ) : (
-                      paginatedBccEmails.map((email: any) => (
+                      bccPaginatedLocal.map((email: any) => (
                         <tr key={email.id}>
                           <td>{email.bccEmailAddress}</td>
                           <td>
                             {!isDemoAccount && (
                               <button
-                                className="btn-default"
-                                onClick={() => handleDeleteBcc(email.id)}
+                                onClick={() =>
+                                  appModal.showConfirm(
+                                    "Are you sure you want to delete this BCC email? This action cannot be undone.",
+                                    () => handleDeleteBcc(email.id),
+                                    "Delete BCC email",
+                                    "Delete",
+                                    "Cancel"
+                                  )
+                                }
                                 disabled={bccLoading}
                                 style={{
+                                  ...lessPriorityButtonStyle,
                                   padding: "6px 12px",
                                   fontSize: "14px",
-                                  border: "none",
                                   borderRadius: "12px",
                                   cursor: bccLoading ? "not-allowed" : "pointer",
                                 }}
@@ -831,16 +866,6 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                     )}
                   </tbody>
                 </table>
-                <PaginationControls
-                  currentPage={bccPage}
-                  totalPages={totalPagesBCC}
-                  totalRecords={sortedBccEmails.length}
-                  pageSize={pageSize}
-                  setCurrentPage={setBccPage}
-                   setPageSize={(size) => setPageSize(Number(size))}
-                   showPageSizeDropdown={true}
-                   pageLabel="Page:"
-                />
                 {/* Popup Modal */}
                 <CommonSidePanel
                   isOpen={showBCCEmailModal}
@@ -924,6 +949,20 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                     gap: 16,
                   }}
                 >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <PaginationControls
+                      currentPage={domainPage}
+                      totalPages={domainTotalPages}
+                      totalRecords={domainRows.length}
+                      pageSize={domainPageSize}
+                      setCurrentPage={setDomainPage}
+                      setPageSize={(s) => {
+                        setDomainPageSize(s);
+                        setDomainPage(1);
+                      }}
+                      pageSizeOptions={[10, 30, 50, "All"]}
+                    />
+                  </div>
                 </div>
 
                 <table className="contacts-table" style={{ background: "#fff" }}>
@@ -942,8 +981,8 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                           Loading domain data...
                         </td>
                       </tr>
-                    ) : sortedDomainData.length > 0 ? (
-                      sortedDomainData.map((domain: any, index: number) => (
+                    ) : domainPaginated.length > 0 ? (
+                      domainPaginated.map((domain: any, index: number) => (
                         <tr key={domain.emailDomainId || index}>
                           <td>{domain.domain || "-"}</td>
                           <td>
@@ -981,12 +1020,11 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                           </td>
                           <td>
                             <button
-                            className="btn-default"
                               onClick={() => handleDomainDeleteClick(domain)}
                               style={{
+                                ...lessPriorityButtonStyle,
                                 padding: "6px 12px",
                                 fontSize: "14px",
-                                border: "none",
                                 borderRadius: "12px",
                                 cursor: "pointer",
                               }}

@@ -831,7 +831,11 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   )}
                   {allStepsCompleted && (
                     <div className="bp-empty-actions">
-                      <button className="bp-btn-default" onClick={openCreateCampaignPanel}>
+                      <button
+                        className="btn-default"
+                        onClick={openCreateCampaignPanel}
+                        style={{ height: 48, padding: "0 20px", borderRadius: 12, fontSize: 14.5 }}
+                      >
                         <Plus className="h-4 w-4" />
                         Create your first campaign
                       </button>

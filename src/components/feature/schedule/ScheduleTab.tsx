@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import moment from "moment-timezone";
 import axios from "axios";
 import API_BASE_URL from "../../../config";
@@ -10,6 +11,7 @@ import { RootState } from "../../../Redux/store";
 import "../blueprint/Template.new.css";
 import schedulingNewUserImage from "../../../assets/images/scheduling_new_user.png";
 import CommonSidePanel from "../../common/CommonSidePanel";
+import PaginationControls from "../PaginationControls";
 import { closePanel, openPanel } from "../../../slices/panelSlice";
 import {
   CalendarClock,
@@ -21,6 +23,9 @@ import {
   Trash2,
   CalendarCheck,
   Send,
+  Mailbox,
+  Megaphone,
+  CheckCircle2,
 } from "lucide-react";
 
 interface scheduleFetch {
@@ -271,6 +276,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
   setExistingResponse,
 }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const appModal = useAppModal();
 
   const activePanel = useSelector((state: RootState) => state.panel.activePanel);
@@ -297,7 +303,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
   const [scheduleActionsAnchor, setScheduleActionsAnchor] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 10;
+  const [pageSize, setPageSize] = useState<number | "All">(10);
 
   const isFormValid = (formData.title || "").trim() !== "";
 
@@ -588,16 +594,43 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
   // ── derived ──────────────────────────────────────────────────────────────────
 
   const safeScheduleList = asArray<scheduleFetch>(scheduleList);
+
+  // A schedule needs both a campaign and a mailbox. When either prerequisite is
+  // missing, guide the user to create it (mirrors the Kraft Email setup checklist).
+  const hasCampaign = scheduleCampaigns.length > 0;
+  const hasMailbox = smtpUsers.length > 0;
+  const prerequisitesMissing = !hasCampaign || !hasMailbox;
+  const setupSteps = [
+    {
+      done: hasCampaign,
+      icon: Megaphone,
+      title: "At least one campaign",
+      subtitle: "Link your contacts and a blueprint together in a campaign to schedule.",
+      addLabel: "Add campaign",
+      onAdd: () => navigate("/main?tab=Campaigns"),
+    },
+    {
+      done: hasMailbox,
+      icon: Mailbox,
+      title: "At least one mailbox",
+      subtitle: "Connect a mailbox so PitchKraft has an address to send sends from.",
+      addLabel: "Add mailbox",
+      onAdd: () => navigate("/main?tab=Mail&mailSubTab=Configuration"),
+    },
+  ];
+
   const filteredList = safeScheduleList.filter(
     (item) =>
       item.title?.toLowerCase().includes(scheduleSearch.toLowerCase()) ||
       item.zohoviewName?.toLowerCase().includes(scheduleSearch.toLowerCase())
   );
-  const totalPages = Math.ceil(filteredList.length / rowsPerPage);
-  const paginatedList = filteredList.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const totalPages = pageSize === "All" ? 1 : Math.ceil(filteredList.length / pageSize);
+  const paginatedList =
+    pageSize === "All"
+      ? filteredList
+      : filteredList.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const sentCount = safeScheduleList.filter((s) => s.isSent).length;
   const upcomingCount = safeScheduleList.filter((s) => !s.isSent).length;
-  const goToPage = (p: number) => setCurrentPage(Math.min(Math.max(p, 1), totalPages || 1));
 
   // ── render ───────────────────────────────────────────────────────────────────
 
@@ -638,6 +671,63 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
           <div className="bp-list-body">
             <div className="bp-rows__msg">Loading schedules…</div>
           </div>
+        ) : prerequisitesMissing && safeScheduleList.length === 0 ? (
+
+          /* ── Setup checklist (no campaign and/or no mailbox yet) ── */
+          <div className="bp-empty-body">
+            <div className="bp-empty-hero">
+              <div className="bp-empty-hero__bg" />
+              <div className="bp-empty-hero__content">
+                <div className="bp-empty-hero__copy">
+                  <span className="bp-start-pill">Start here</span>
+                  <h2 className="bp-empty-headline">A little setup before you schedule.</h2>
+                  <p className="bp-empty-body-text">
+                    To schedule a send you first need a campaign to send and a mailbox
+                    to send it from. Finish the steps below to get going.
+                  </p>
+
+                  {!isDemoAccount && (
+                    <div className="sch-setup-checklist">
+                      {setupSteps.map((step) => {
+                        const StepIcon = step.icon;
+                        return (
+                          <div key={step.addLabel} className="sch-setup-card">
+                            <span className="sch-setup-card__icon">
+                              <StepIcon className="h-4 w-4" />
+                            </span>
+                            <div className="sch-setup-card__text">
+                              <div className="sch-setup-card__title">{step.title}</div>
+                              <div className="sch-setup-card__subtitle">{step.subtitle}</div>
+                            </div>
+                            {step.done ? (
+                              <span className="sch-setup-badge sch-setup-badge--done">
+                                <CheckCircle2 className="h-4 w-4" />
+                                Done
+                              </span>
+                            ) : (
+                              <button className="btn-default sch-setup-card__btn" onClick={step.onAdd}>
+                                <Plus className="h-4 w-4" />
+                                {step.addLabel}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="bp-empty-hero__art">
+                  <img
+                    src={schedulingNewUserImage}
+                    alt=""
+                    style={{ width: 460, height: "auto", maxWidth: "100%" }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
         ) : safeScheduleList.length === 0 ? (
 
           /* ── Empty state ── */
@@ -746,18 +836,18 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                     />
                   </div>
                 </div>
-                <div className="bp-pagination">
-                  <span>
-                    Showing <strong>{paginatedList.length}</strong> of {filteredList.length}
-                  </span>
-                  <div className="bp-pagination__nav">
-                    <button onClick={() => goToPage(1)} disabled={currentPage === 1}>&laquo;</button>
-                    <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>&lsaquo;</button>
-                    <span className="bp-pagination__page">{currentPage} / {totalPages || 1}</span>
-                    <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= totalPages}>&rsaquo;</button>
-                    <button onClick={() => goToPage(totalPages)} disabled={currentPage >= totalPages}>&raquo;</button>
-                  </div>
-                </div>
+                <PaginationControls
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalRecords={filteredList.length}
+                  pageSize={pageSize}
+                  setCurrentPage={setCurrentPage}
+                  setPageSize={(s) => {
+                    setPageSize(s);
+                    setCurrentPage(1);
+                  }}
+                  pageSizeOptions={[10, 30, 50, "All"]}
+                />
               </div>
 
               <div className="bp-rows sch-rows">
@@ -998,7 +1088,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
               onChange={(e) => setIsFollowUp(e.target.checked)}
               className="sch-checkbox"
             />
-            <label htmlFor="isFollowUp" className="sch-checkbox-label">Is follow up</label>
+            <label htmlFor="isFollowUp" className="sch-checkbox-label">Include email trail</label>
           </div>
         </form>
       </CommonSidePanel>
@@ -1034,6 +1124,50 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
           gap: 12px;
           align-items: center;
         }
+
+        /* Setup checklist (missing campaign / mailbox) */
+        .sch-setup-checklist {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-top: 24px;
+          max-width: 620px;
+        }
+        .sch-setup-card {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 14px 16px;
+          border: 1px solid #eef0f3;
+          border-radius: 12px;
+          background: #fafbfc;
+        }
+        .sch-setup-card__icon {
+          flex-shrink: 0;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: #e8f3e9;
+          color: #3f9f42;
+        }
+        .sch-setup-card__text { flex: 1; min-width: 0; }
+        .sch-setup-card__title { font-size: 14px; font-weight: 600; color: #0b1220; }
+        .sch-setup-card__subtitle { font-size: 12.5px; color: #6b7280; margin-top: 2px; }
+        .sch-setup-badge {
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 999px;
+          font-size: 12.5px;
+          font-weight: 600;
+        }
+        .sch-setup-badge--done { background: #e8f3e9; color: #2d7a30; }
+        .sch-setup-card__btn { flex-shrink: 0; padding: 8px 14px; font-size: 12.5px; }
 
         .sch-sent-badge {
           display: inline-flex;
