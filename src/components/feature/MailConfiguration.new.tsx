@@ -20,9 +20,9 @@ export const MailConfigurationEmptyState: React.FC<{
             <span className="mce-start-pill">⚙️ Start here</span>
             <h2 className="mce-empty-headline">Connect your first mailbox.</h2>
             <p className="mce-empty-body-text">
-              Add mailboxes to send and respond to your email campaigns, 
-              Inbuilt tools check your domains to ensure they have the highest deliverability. 
-              IMAP, Outlook, Google, O365 all supported.
+              Add mailboxes to send and respond to your email campaigns. IMAP, Outlook, 
+              Google, O365 all supported. Inbuilt tools check your domains to ensure they have 
+              he highest deliverability. 
             </p>
             {!isDemoAccount && (
               <div className="mce-empty-actions">
