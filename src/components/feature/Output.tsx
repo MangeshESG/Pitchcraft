@@ -3339,8 +3339,8 @@ useEffect(() => {
                             alignItems: "start", // changed from flex-start to center
                           }}
                         >
-                          {/* Subject field - 48% width */}
-                          <div style={{ flex: "0 0 100%", display: "flex", alignItems: "center", gap: "10px" }}>
+                          {/* Subject field - flexible width, leaves room for dates */}
+                          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "10px" }}>
                             <label
                               style={{
                                 flexShrink: 0,
@@ -3426,6 +3426,29 @@ useEffect(() => {
                             </div>
 
                           </div>
+
+                          {/* Krafted / Emailed dates — shown at the end of the subject row */}
+                          {combinedResponses[currentIndex] && (
+                            <div
+                              style={{
+                                flexShrink: 0,
+                                marginLeft: "16px",
+                                textAlign: "right",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "#666",
+                                lineHeight: 1.5,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              <div>
+                                Krafted: {formatDateTimeLocal(combinedResponses[currentIndex]?.lastemailupdateddate)}
+                              </div>
+                              <div>
+                                Emailed: {formatDateTimeLocal(combinedResponses[currentIndex]?.emailsentdate)}
+                              </div>
+                            </div>
+                          )}
 
                         </div>
                       </div>

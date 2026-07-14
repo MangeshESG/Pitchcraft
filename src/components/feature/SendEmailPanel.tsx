@@ -2,7 +2,6 @@ import { faAngleLeft, faAngleRight, faCircleLeft } from "@fortawesome/free-solid
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 
 interface SendEmailPanelProps {
   isOpen: boolean;
@@ -154,9 +153,6 @@ setOverwriteDatabase,
 //     hour12: true,
 //   }).replace(",", "");
 // };
- const formatDateTimeIST = formatDateTimeLocal;
- const formatTimeIST = formatTimeLocal;
-
   return (
     <>
 
@@ -308,23 +304,8 @@ setOverwriteDatabase,
             </div>
           )}
 
-          {/* Krafted & Emailed Dates */}
-          {combinedResponses[currentIndex] && (
-            <div className="mb-[12px] text-[13px] italic text-gray-600 text-right">
-              {combinedResponses[currentIndex]?.lastemailupdateddate && (
-                <div>
-                  Krafted:{" "}
-                  {formatDateTimeIST(combinedResponses[currentIndex]?.lastemailupdateddate)}
-                </div>
-              )}
-              {combinedResponses[currentIndex]?.emailsentdate && (
-                <div>
-                  Emailed:{" "}
-                  {formatDateTimeIST(combinedResponses[currentIndex]?.emailsentdate)}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Krafted & Emailed dates are now shown at the end of the subject
+              row in the Output panel (see Output.tsx). */}
         </div>
         )}
 
@@ -546,7 +527,7 @@ setOverwriteDatabase,
                       style={{ marginRight: 8, cursor: "pointer" }}
                       className="!w-[auto]"
                     />
-                    <label htmlFor="enableDelay" style={{ fontSize: "inherit", fontWeight: 600, marginBottom:0, cursor: "pointer", fontFamily: "inherit" }}>
+                    <label htmlFor="enableDelay" style={{ fontSize: "14px", fontWeight: 600, marginBottom:0, cursor: "pointer", fontFamily: "inherit" }}>
                       Delay (seconds)
                     </label>
                   </div>
