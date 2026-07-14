@@ -3649,7 +3649,7 @@ dispatch(closePanel());
                   fontWeight: 500,
                 }}
               >
-                {isSendingContactReply ? "Sending..." : "Send Reply"}
+                {isSendingContactReply ? "Sending..." : "Send reply"}
               </button>
               <button
                 type="button"
@@ -4394,6 +4394,7 @@ dispatch(closePanel());
                       { key: "all", label: "All" },
                       { key: "notes", label: "Notes" },
                       { key: "attachments", label: "Attachments" },
+                      { key: "emails", label: "Emails" },
                     ].map(item => (
                     <button
                       key={item.key}
@@ -4950,7 +4951,10 @@ dispatch(closePanel());
                       )}
 
                       {/* 🔹 EMAIL TIMELINE — moved to the standalone "Emails" tab */}
-                      {false && (historyFilter === "emails") &&
+                      {historyFilter === "emails" && emailTimeline.length === 0 && (
+                        <p style={{ color: "#666" }}>No emails found.</p>
+                      )}
+                      {(historyFilter === "emails") &&
                         emailTimeline.map((email: any, index: number) => {
                           const isInboxEmail = email.emailType === 'inbox';
                           const threadMessageCount = email.messages?.length || 0;

@@ -41,9 +41,8 @@ export const InboxEmptyState: React.FC<{
               <span className="ke-start-pill">Get started</span>
               <h2 className="ke-empty-headline">Connect an inbox to read your replies</h2>
               <p className="ke-empty-body-text">
-                You haven't added an inbox yet. Add your email inbox in
-                Configuration to start receiving, reading and replying to your
-                contacts' emails right here.
+                You haven't added a mailbox yet. 
+                Add mailboxes to start receiving and replying to your contacts' emails.
               </p>
 
               <div className="ke-empty-actions">

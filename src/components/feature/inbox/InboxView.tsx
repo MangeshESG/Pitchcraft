@@ -3094,7 +3094,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       fontWeight: '500'
                     }}
                   >
-                    {isSending ? 'Sending...' : 'Send Reply'}
+                    {isSending ? 'Sending...' : 'Send reply'}
                   </button>
                   <button
                     onClick={() => {
@@ -3936,7 +3936,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         fontWeight: '500'
                       }}
                     >
-                      {isSending ? 'Sending...' : 'Send Reply'}
+                      {isSending ? 'Sending...' : 'Send reply'}
                     </button>
                     <button
                       onClick={() => {
@@ -4531,7 +4531,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         fontWeight: '500'
                       }}
                     >
-                      {isSending ? 'Sending...' : 'Send Reply'}
+                      {isSending ? 'Sending...' : 'Send reply'}
                     </button>
                     <button
                       onClick={() => {
