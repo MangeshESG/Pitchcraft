@@ -382,6 +382,19 @@ interface RowsProps {
   formatDate: (d?: string | null) => string;
 }
 
+// System (non-user-created) lists that should render with the "system" icon
+// instead of the green bullet used for ordinary lists. Matched case-insensitively
+// on the list name; the super list also matches by its sentinel id (-1).
+const SYSTEM_LIST_NAMES = [
+  "all contacts",
+  "all manually added contacts",
+  "contacts involved in conversations",
+];
+
+const isSystemFile = (file: DataFile): boolean =>
+  file.id === -1 ||
+  SYSTEM_LIST_NAMES.includes((file.name || "").trim().toLowerCase());
+
 export const ContactsListsRows: React.FC<RowsProps> = (p) => (
   <div className="ct-rows">
     <div className="ct-rows__head">
@@ -408,10 +421,7 @@ export const ContactsListsRows: React.FC<RowsProps> = (p) => (
       <div className="ct-rows__msg">No lists found.</div>
     ) : (
       p.data.map((file) => {
-        const isSystemList =
-          file.id === -1 ||
-          file.name === "All contacts" ||
-          file.name === "All manually added contacts";
+        const isSystemList = isSystemFile(file);
         return (
         <div key={file.id} className="ct-row">
           {isSystemList ? (

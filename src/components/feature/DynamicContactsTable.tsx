@@ -418,6 +418,49 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const showProfileCol = !!onOpenProfile && !fullNameVisible;
   const totalColSpan = visibleColumns.length + (showProfileCol ? 1 : 0);
 
+  // Profile-link column cells. Rendered as the first data column (immediately
+  // after the selection checkbox) so there is always a leading way to reach the
+  // contact profile when the "Full name" column is hidden.
+  const profileHeaderCell = showProfileCol ? (
+    <th key="__profile__" style={{ width: "70px" }}>
+      <span className="dt-th-label">Profile</span>
+    </th>
+  ) : null;
+
+  const renderProfileBodyCell = (item: any) =>
+    showProfileCol ? (
+      <td key="__profile__">
+        <button
+          type="button"
+          title="Open contact profile"
+          onClick={(e) => { e.stopPropagation(); onOpenProfile!(item); }}
+          style={{
+            background: "none",
+            border: "none",
+            padding: 4,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="#3f9f42"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="8" r="3.2" />
+            <path d="M5.5 19a6.5 6.5 0 0 1 13 0" />
+          </svg>
+        </button>
+      </td>
+    ) : null;
+
   // ---------- Cell rendering ----------
   const getFormattedValue = (item: any, column: ColumnConfig, index?: number): React.ReactNode => {
     if (column.key === "checkbox") {
@@ -629,10 +672,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           <table className="dt-table">
             <thead>
               <tr>
+                {showProfileCol && !showCheckboxes && profileHeaderCell}
                 {visibleColumns.map((column) => {
                   const isSorted = sortConfig.key === column.key;
                   const sortable = column.key !== "checkbox" && column.sortable !== false;
-                  return (
+                  const headerCell = (
                     <th
                       key={column.key}
                       onClick={() => sortable && handleSort(column.key)}
@@ -665,12 +709,16 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                       )}
                     </th>
                   );
+                  if (column.key === "checkbox" && showProfileCol) {
+                    return (
+                      <React.Fragment key={column.key}>
+                        {headerCell}
+                        {profileHeaderCell}
+                      </React.Fragment>
+                    );
+                  }
+                  return headerCell;
                 })}
-                {showProfileCol && (
-                  <th style={{ width: "70px" }}>
-                    <span className="dt-th-label">Profile</span>
-                  </th>
-                )}
               </tr>
             </thead>
             <tbody>
@@ -713,10 +761,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                   const isSelected = !!selectedItems?.has(id);
                   return (
                     <tr key={id || index} className={isSelected ? "is-selected" : ""}>
+                      {showProfileCol && !showCheckboxes && renderProfileBodyCell(item)}
                       {visibleColumns.map((column) => {
                         const isNameCol = ["name", "full_name", "first_name"].includes(column.key);
                         const hasCustomFormatter = !!customFormatters[column.key];
-                        return (
+                        const bodyCell = (
                           <td
                             key={column.key}
                             className={column.key === "checkbox" ? "dt-td-check" : ""}
@@ -726,39 +775,16 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                               : getFormattedValue(item, column, index)}
                           </td>
                         );
+                        if (column.key === "checkbox" && showProfileCol) {
+                          return (
+                            <React.Fragment key={column.key}>
+                              {bodyCell}
+                              {renderProfileBodyCell(item)}
+                            </React.Fragment>
+                          );
+                        }
+                        return bodyCell;
                       })}
-                      {showProfileCol && (
-                        <td>
-                          <button
-                            type="button"
-                            title="Open contact profile"
-                            onClick={(e) => { e.stopPropagation(); onOpenProfile!(item); }}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor: "pointer",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              width="18"
-                              height="18"
-                              fill="none"
-                              stroke="#3f9f42"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <circle cx="12" cy="8" r="3.2" />
-                              <path d="M5.5 19a6.5 6.5 0 0 1 13 0" />
-                            </svg>
-                          </button>
-                        </td>
-                      )}
                     </tr>
                   );
                 })
