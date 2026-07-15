@@ -10,6 +10,8 @@ import {
   faPlayCircle,
   faCheck,
 } from "@fortawesome/free-solid-svg-icons";
+import ToastMessage from "../common/ToastMessage";
+import { useToast } from "../../hooks/useToast";
 
 import CreateATemplete from "../../assets/images/Dashboard-blueprint.jpg";
 import ImportContact from "../../assets/images/Dashboard-contact.jpg";
@@ -542,6 +544,7 @@ const PostOnboardingView: React.FC<{
   clientId?: number | string;
 }> = ({ firstName, kpis, clientId }) => {
   const navigate = useNavigate();
+  const { toast, showToast, hideToast } = useToast();
   const [contacts, setContacts] = useState<ContactApiRow[]>([]);
   const [contactTotal, setContactTotal] = useState(0);
   const [hasNextContactPage, setHasNextContactPage] = useState(false);
@@ -554,6 +557,7 @@ const PostOnboardingView: React.FC<{
   const [contactsLoading, setContactsLoading] = useState(false);
   const contactRequestRef = useRef(0);
   const activeContactClientRef = useRef<string>("");
+  const lastNoContactSearchRef = useRef("");
 
   const fetchContactList = () => {
     if (!clientId) return Promise.resolve();
@@ -594,6 +598,14 @@ const PostOnboardingView: React.FC<{
         setContacts(pageContacts);
         setContactTotal(total);
         setHasNextContactPage(Boolean(data?.hasNextPage ?? clientFilteredList.length > contactPage * PAGE_SIZE));
+        const noSearchResults = Boolean(trimmedSearch) && pageContacts.length === 0;
+        if (noSearchResults && lastNoContactSearchRef.current !== trimmedSearch) {
+          lastNoContactSearchRef.current = trimmedSearch;
+          showToast("No contact available", "warning", 3000);
+        }
+        if (!noSearchResults) {
+          lastNoContactSearchRef.current = "";
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -636,6 +648,7 @@ const PostOnboardingView: React.FC<{
       setContactTotal(0);
       setHasNextContactPage(false);
       setContactsLoading(false);
+      lastNoContactSearchRef.current = "";
       return;
     }
     const currentClientId = String(clientId);
@@ -647,6 +660,7 @@ const PostOnboardingView: React.FC<{
       setContactTotal(0);
       setHasNextContactPage(false);
       setContactsLoading(true);
+      lastNoContactSearchRef.current = "";
       if (contactPage !== 1) setContactPage(1);
       if (contactSearch) setContactSearch("");
       if (contactPage !== 1 || contactSearch) return;
@@ -848,7 +862,7 @@ const PostOnboardingView: React.FC<{
       </div>
 
       {/* All Contacts */}
-      {(contacts.length > 0 || contactTotal > 0 || contactsLoading) && (
+      {(contacts.length > 0 || contactTotal > 0 || contactsLoading || contactSearch.trim()) && (
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
@@ -935,6 +949,15 @@ const PostOnboardingView: React.FC<{
           })()}
         </div>
       )}
+
+      <ToastMessage
+        show={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={hideToast}
+        duration={3}
+        position="top-right"
+      />
 
     </div>
   );
