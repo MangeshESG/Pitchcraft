@@ -2266,10 +2266,12 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     definitions.forEach((placeholder) => {
       const currentValue = withDefaults[placeholder.placeholderKey];
       const defaultValue = placeholder.defaultValue;
+      // Only backfill a default when the field was never set (missing/null).
+      // An explicit empty string means the user intentionally cleared the
+      // field, so we must NOT restore the default — otherwise clearing a
+      // placeholder (e.g. AVOID WORDS) can never be saved as empty.
       const shouldUseDefault =
-        (currentValue === null ||
-          currentValue === undefined ||
-          currentValue === "") &&
+        (currentValue === null || currentValue === undefined) &&
         defaultValue != null &&
         defaultValue !== "";
 
