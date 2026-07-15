@@ -161,16 +161,12 @@ setOverwriteDatabase,
       >
         {/* Shared controls — apply to both Kraft and Send tabs */}
         {!actionsCollapsed && (
-        <div className="p-[20px] pb-[0px] flex flex-col w-[100%]">
-          {/* Filter Dropdown */}
+        <div className="px-[20px] pt-[8px] pb-[0px] flex flex-col w-[100%]">
+          {/* Filter Dropdown — borderless to save vertical space */}
           <div
             className="form-group"
             style={{
-              padding: "12px",
-              border: "1px solid #cccccc",
-              borderRadius: "8px",
               marginBottom: "12px",
-              backgroundColor: "#fff",
             }}
           >
             <label style={{ display: "block", marginBottom: 6, fontSize: "14px", fontWeight: 600, fontFamily: "inherit" }}>
@@ -311,7 +307,7 @@ setOverwriteDatabase,
 
         {/* Tabs Header — matches Output / Stages / Insights underline tabs, 50/50 split */}
         {!actionsCollapsed && (
-          <div className="tabs secondary d-flex align-center px-[20px]">
+          <div className="tabs secondary d-flex align-center px-[20px] !mb-[4px]">
             <ul className="d-flex w-[100%]">
               {panelTabs.map((tab) => (
                 <li key={tab.id} className="basis-1/2 flex-1">
@@ -330,7 +326,7 @@ setOverwriteDatabase,
 
         {/* CONTENT */}
         {!actionsCollapsed && panelTab === "kraft" && (
-  <div className="p-[20px] flex flex-col w-[100%] h-[100%]">
+  <div className="px-[20px] pt-[6px] pb-[20px] flex flex-col w-[100%] h-[100%]">
 
     {/* Overwrite + Start in one compact row */}
     <div
@@ -356,7 +352,7 @@ setOverwriteDatabase,
             setOverwriteDatabase?.(checked);
           }}
         />
-        <label htmlFor="overwrite-existing-emails" style={{ fontWeight: 400, cursor: "pointer" }}>
+        <label htmlFor="overwrite-existing-emails" style={{ fontSize: "14px", fontWeight: 400, cursor: "pointer", fontFamily: "inherit" }}>
           Overwrite existing emails
         </label>
       </div>
@@ -404,7 +400,7 @@ setOverwriteDatabase,
   </div>
 )}
         {!actionsCollapsed && panelTab === "send" && (
-          <div className="p-[20px] flex items-start flex-col w-[100%] h-[100%]">
+          <div className="px-[20px] pt-[6px] pb-[20px] flex items-start flex-col w-[100%] h-[100%]">
 
             <>
               {/* <div

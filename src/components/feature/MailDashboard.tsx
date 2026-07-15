@@ -10,7 +10,7 @@ import BulkUpdatePanel from "./BulkUpdatePanel";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faDownload } from "@fortawesome/free-solid-svg-icons";
 import mailDashboardNewUserImage from "../../assets/images/mail_dashboard_new_user.png";
 import mailDashboardSelectImage from "../../assets/images/mail_dashboard_new_user.png";
 
@@ -25,6 +25,7 @@ import {
 } from "recharts";
 import ContactsTable from "./ContactsTable";
 import API_BASE_URL from "../../config";
+import { defaultButtonStyle } from "../../styles/buttonStyles";
 import { useAppData } from "../../contexts/AppDataContext";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import ContactDetailView from "./contact_profile/ContactDetailView";
@@ -32,6 +33,25 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import { useSearchParams } from "react-router-dom";
+import WebsiteGlobeIcon from "../common/WebsiteGlobeIcon";
+
+// Green LinkedIn glyph — matches the LinkedIn icon in the Kraft emails contact
+// panel (Output.tsx) so links look consistent across the app.
+const LinkedInIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    style={{ display: "block" }}
+  >
+    <path d="M6.5 8C7.32843 8 8 7.32843 8 6.5C8 5.67157 7.32843 5 6.5 5C5.67157 5 5 5.67157 5 6.5C5 7.32843 5.67157 8 6.5 8Z" fill="#3f9f42" />
+    <path d="M5 10C5 9.44772 5.44772 9 6 9H7C7.55228 9 8 9.44771 8 10V18C8 18.5523 7.55228 19 7 19H6C5.44772 19 5 18.5523 5 18V10Z" fill="#3f9f42" />
+    <path d="M11 19H12C12.5523 19 13 18.5523 13 18V13.5C13 12 16 11 16 13V18.0004C16 18.5527 16.4477 19 17 19H18C18.5523 19 19 18.5523 19 18V12C19 10 17.5 9 15.5 9C13.5 9 13 10.5 13 10.5V10C13 9.44771 12.5523 9 12 9H11C10.4477 9 10 9.44772 10 10V18C10 18.5523 10.4477 19 11 19Z" fill="#3f9f42" />
+    <path fillRule="evenodd" clipRule="evenodd" d="M20 1C21.6569 1 23 2.34315 23 4V20C23 21.6569 21.6569 23 20 23H4C2.34315 23 1 21.6569 1 20V4C1 2.34315 2.34315 1 4 1H20ZM20 3C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3H20Z" fill="#3f9f42" />
+  </svg>
+);
 
 // Interfaces
 interface DailyStats {
@@ -242,7 +262,15 @@ const MailDashboardEmptyState: React.FC<{
               sent emails, opens, clicks, and delivery performance in real time.
             </p>
             <div className="mde-empty-actions">
-              <button className="btn-default" onClick={onGoToCampaigns}>
+              <button
+                onClick={onGoToCampaigns}
+                style={{
+                  ...defaultButtonStyle,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
                 <FontAwesomeIcon icon={faPlus} />
                 Create your first campaign
               </button>
@@ -2952,11 +2980,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               onClick={handleExportReport}
               disabled={!selectedCampaign || loading}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3v12"/>
-                <path d="m7 12 5 5 5-5"/>
-                <path d="M5 21h14"/>
-              </svg>
+              <FontAwesomeIcon icon={faDownload} />
               Export Report
             </button>
           </div>
@@ -3402,10 +3426,12 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                     href={cleanUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: "#3f9f42", textDecoration: "underline" }}
+                    title="Open LinkedIn profile"
+                    aria-label="LinkedIn profile"
+                    style={{ display: "inline-flex", alignItems: "center" }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    LinkedIn Profile
+                    <LinkedInIcon size={18} />
                   </a>
                 );
               },
@@ -3417,10 +3443,12 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: "#3f9f42", textDecoration: "underline" }}
+                    title="Open LinkedIn profile"
+                    aria-label="LinkedIn profile"
+                    style={{ display: "inline-flex", alignItems: "center" }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    LinkedIn Profile
+                    <LinkedInIcon size={18} />
                   </a>
                 );
               },
@@ -3434,10 +3462,12 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                     href={cleanUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: "#3f9f42", textDecoration: "underline" }}
+                    title="Open LinkedIn profile"
+                    aria-label="LinkedIn profile"
+                    style={{ display: "inline-flex", alignItems: "center" }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    LinkedIn Profile
+                    <LinkedInIcon size={18} />
                   </a>
                 );
               },
@@ -3451,10 +3481,12 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: "#3f9f42", textDecoration: "underline" }}
+                    title="Open website"
+                    aria-label="Website"
+                    style={{ display: "inline-flex", alignItems: "center" }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    Website
+                    <WebsiteGlobeIcon size={18} />
                   </a>
                 );
               },

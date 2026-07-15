@@ -102,7 +102,7 @@ const buildSteps = (
       cta: "Import contacts",
       ctaPath: "/main?tab=DataCampaigns&subtab=List",
       illustration: ImportContact,
-      videoSrc: "https://www.youtube.com/embed/pYhwq2rwtmo",
+      videoSrc: "https://www.youtube.com/embed/tO7r20HDjUo",
       tipsUrl: "https://www.pitchkraft.ai/contacts",
     },
     {
@@ -617,7 +617,7 @@ const ContactStatusBadge: React.FC<{ row: ContactApiRow }> = ({ row }) => {
     );
   if (row.updated_at)
     return (
-      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#e8f0fe] text-[#3b82f6]">
         Krafted
       </span>
     );
@@ -799,7 +799,7 @@ const PostOnboardingView: React.FC<{
             {greeting}{firstName !== "there" ? `, ${firstName}` : ""}
           </h1>
           <p className="text-[14px] text-gray-600 mt-1">
-            Here's how PitchKraft is performing this week.
+            Here's how PitchKraft is  performing.
           </p>
         </div>
         <div className="flex items-center gap-2">

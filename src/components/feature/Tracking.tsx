@@ -220,7 +220,7 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
         </div>
 
         <p className="bp-tip" style={{ marginTop: 16 }}>
-          Changes take effect immediately for all future emails in this client's campaigns.
+         Changes take effect immediately for all future emails in all campaigns.
         </p>
       </div>
 

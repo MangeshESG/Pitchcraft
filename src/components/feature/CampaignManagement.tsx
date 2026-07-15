@@ -16,12 +16,12 @@ import campaignIllustration2 from "../../assets/images/Campgains_old_user.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlay, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import PaginationControls from "./PaginationControls";
+import { defaultButtonStyle, lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import {
   FileText,
   MoreVertical,
   Pencil,
   Plus,
-  Rocket,
   Search,
   Trash2,
   Users,
@@ -31,6 +31,7 @@ import {
   ChevronDown,
   ChevronRight,
   Check,
+  Send,
 } from "lucide-react";
 
 interface CampaignManagementProps {
@@ -280,6 +281,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     return "-";
   };
 
+  // Open the campaign in the Kraft emails (Output) page. MainPage reads
+  // "kraftCampaignId" once the Output tab is active and selects that campaign.
+  const handleOpenInKraft = (campaign: Campaign) => {
+    sessionStorage.setItem("kraftCampaignId", campaign.id.toString());
+    window.location.href = `/#/main?tab=Output&t=${Date.now()}`;
+  };
+
   const handleDataSourceClick = (campaign: Campaign) => {
     // Clear any previous view state from sessionStorage
     const viewStateKey = `crm_view_state_${effectiveUserId}`;
@@ -457,6 +465,25 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       fetchCampaignBlueprints();
     }
   }, [effectiveUserId, refreshTrigger]);
+
+  // Auto-open the edit panel when navigated here via the "Edit campaign" icon
+  // on the Kraft emails page (which sets "editCampaignId" in sessionStorage).
+  // Handles both a fresh mount (effect below) and an already-mounted, preserved
+  // tab panel (the "openCampaignEdit" window event).
+  useEffect(() => {
+    const openEditFromRequest = () => {
+      const editId = sessionStorage.getItem("editCampaignId");
+      if (!editId || campaigns.length === 0) return;
+      if (!campaigns.some((c) => c.id.toString() === editId)) return;
+      sessionStorage.removeItem("editCampaignId");
+      handleCampaignSelect(editId);
+      dispatch(openPanel("campaign-create"));
+    };
+
+    openEditFromRequest();
+    window.addEventListener("openCampaignEdit", openEditFromRequest);
+    return () => window.removeEventListener("openCampaignEdit", openEditFromRequest);
+  }, [campaigns]);
 
   // ================== HANDLERS ==================
 
@@ -684,6 +711,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
             listSortDirection
           );
 
+        case "dataSource":
+          return compareStrings(
+            getDataSourceName(a),
+            getDataSourceName(b),
+            listSortDirection
+          );
+
         case "description":
           return compareStrings(a.description, b.description, listSortDirection);
 
@@ -764,8 +798,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     {
       done: dataFiles.length > 0 || segments.length > 0 || views.length > 0,
       icon: <Users className="h-4 w-4" />,
-      title: "At least one contact",
-      subtitle: "Add or import contacts to build your audience.",
+      title: "Add at least one contact",
+      subtitle: "Add contacts to build your audience.",
       addLabel: "Add contacts",
       onAdd: () => {
         window.location.href = `/#/main?tab=DataCampaigns&subtab=List`;
@@ -774,8 +808,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     {
       done: campaignBlueprints.length > 0,
       icon: <FileText className="h-4 w-4" />,
-      title: "At least one blueprint",
-      subtitle: "Create a blueprint to use AI and its wisdom for your emails.",
+      title: "Add at least one blueprint",
+      subtitle: "Create a blueprint to use in your campaign.",
       addLabel: "Add blueprint",
       onAdd: () => {
         window.location.href = `/#/main?tab=TestTemplate`;
@@ -829,8 +863,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                       ))}
                     </div>
                   )}
-                  {allStepsCompleted && (
-                    <div className="bp-empty-actions">
+                  <div className="bp-empty-actions">
+                    {allStepsCompleted && (
                       <button
                         className="btn-default"
                         onClick={openCreateCampaignPanel}
@@ -839,18 +873,19 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                         <Plus className="h-4 w-4" />
                         Create your first campaign
                       </button>
-                      <button
-                        className="bp-btn-secondary"
-                        type="button"
-                        onClick={() => setShowCampaignVideo(true)}
-                      >
-                        <FontAwesomeIcon icon={faPlay} style={{ color: "#3f9f42" }} />
-                        Watch demo
-                      </button>
-                    </div>
-                  )}
+                    )}
+                    <a
+                      className="bp-btn-secondary"
+                      href="https://youtu.be/A9v62GRIXfs?si=H0OCXGEgFYSNK3li"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <FontAwesomeIcon icon={faPlay} style={{ color: "#3f9f42" }} />
+                      Watch demo
+                    </a>
+                  </div>
                   <div className="bp-empty-meta">
-                    Takes about 4 minutes. You can edit the campaign later.
+                    Takes seconds. You can edit the campaign anytime.
                   </div>
                 </div>
                 <div className="bp-empty-hero__art">
@@ -884,7 +919,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                 subtitle={
                   <>
                     You have created <strong>{campaigns.length}</strong> campaign{campaigns.length !== 1 ? "s" : ""}.
-                    Keep refining sources and blueprints to improve every outbound run.
+                    Create more campaigns by linking a contact list or view and a blueprint.
                   </>
                 }
                 primaryLabel="Create campaign"
@@ -932,14 +967,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                     setPageSize(s);
                     setCurrentPage(1);
                   }}
-                  pageSizeOptions={[10, 30, 50, "All"]}
                 />
               </div>
 
               <div className="bp-rows">
                 <div
                   className="bp-rows__head"
-                  style={{ gridTemplateColumns: "14px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 145px 130px 110px" }}
+                  style={{ gridTemplateColumns: "14px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 145px 130px 90px 110px" }}
                 >
                   <div />
                   <div className="bp-th" onClick={() => handleListSort("campaignName")}>
@@ -948,7 +982,9 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   <div className="bp-th" onClick={() => handleListSort("templateName")}>
                     Blueprint {renderSortIcon("templateName")}
                   </div>
-                  <div>Data source</div>
+                  <div className="bp-th" onClick={() => handleListSort("dataSource")}>
+                    Data source {renderSortIcon("dataSource")}
+                  </div>
                   <div className="bp-th" onClick={() => handleListSort("description")}>
                     Description {renderSortIcon("description")}
                   </div>
@@ -956,6 +992,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                     Creation date {renderSortIcon("createdAt")}
                   </div>
                   <div className="campaign-analytics-cell">Analytics</div>
+                  <div className="campaign-analytics-cell">Kraft</div>
                   <div />
                 </div>
 
@@ -966,13 +1003,14 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                     <div
                       key={campaign.id}
                       className="bp-row"
-                      style={{ gridTemplateColumns: "14px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 145px 130px 110px" }}
+                      style={{ gridTemplateColumns: "14px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 145px 130px 90px 110px" }}
                     >
                       <div className="bp-row__rail" />
-                      <div className="bp-row__name">
+                      <div className="bp-row__name" title={campaign.campaignName}>
                         <button
                           type="button"
                           className="bp-row__link"
+                          title={campaign.campaignName}
                           onClick={() => {
                             handleCampaignSelect(campaign.id.toString());
                             dispatch(openPanel("campaign-create"));
@@ -1031,6 +1069,20 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                           className="campaign-analytics-button"
                         >
                           <AnalyticsIcon />
+                        </button>
+                      </div>
+                      <div className="bp-row__id campaign-analytics-cell">
+                        <button
+                          type="button"
+                          aria-label={`Open ${campaign.campaignName} in Kraft emails`}
+                          title="Open in Kraft emails"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenInKraft(campaign);
+                          }}
+                          className="campaign-analytics-button"
+                        >
+                          <Send className="h-4 w-4" />
                         </button>
                       </div>
                       <div className="bp-row__actions">{renderCampaignActions(campaign)}</div>
@@ -1237,7 +1289,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                 dispatch(closePanel());
                 resetCampaignForm();
               }}
-              className="h-10 rounded-lg border border-[#dadde2] px-5 text-[13.5px] font-semibold text-[#374151] hover:bg-[#f5f6f8]"
+              style={lessPriorityButtonStyle}
             >
               Cancel
             </button>
@@ -1245,11 +1297,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               type="button"
               onClick={selectedCampaign ? updateCampaign : createCampaign}
               disabled={isCreateDisabled}
-              className={`inline-flex h-10 items-center gap-2 rounded-lg px-5 text-[13.5px] font-semibold ${
-                isCreateDisabled
-                  ? "cursor-not-allowed bg-[#eef0f3] text-[#9ca3af]"
-                  : "border border-[#cfecd6] bg-[#e2f1e3] text-[#3f9f42] hover:bg-[#d6ecd9]"
-              }`}
+              style={{
+                ...defaultButtonStyle,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                ...(isCreateDisabled ? { opacity: 0.5, cursor: "not-allowed" } : {}),
+              }}
             >
               {isLoading
                 ? selectedCampaign
@@ -1282,7 +1336,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[12.5px] font-semibold text-[#374151]">List / segment / view <span className="text-[#dc2626]">*</span></label>
+            <label className="mb-1.5 block text-[12.5px] font-semibold text-[#374151]">List / view / segment <span className="text-[#dc2626]">*</span></label>
+            <p className="mb-1.5 text-[11.5px] text-[#6b7280]">Select the data you wish to contact in this campaign.</p>
             <div className="relative">
               <select
                 onChange={(e) => {
@@ -1322,15 +1377,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
             <label className="mb-1.5 block text-[12.5px] font-semibold text-[#374151]">Description</label>
             <textarea name="description" value={campaignForm.description} onChange={handleCampaignFormChange} placeholder="What is this campaign about?" className="min-h-[96px] w-full resize-y rounded-lg border border-[#dadde2] px-3 py-2.5 text-[13.5px] outline-none placeholder:text-[#9ca3af] focus:border-[#3f9f42] focus:ring-2 focus:ring-[#3f9f42]/15" rows={4} />
             <div className="mt-1 flex items-center justify-between"><p className="text-[11.5px] text-[#6b7280]">Optional. Shown in the campaigns list.</p><span className="text-[11.5px] text-[#9ca3af]">{campaignForm.description.length} / 240</span></div>
-          </div>
-
-          <div className="mt-2 rounded-xl border border-[#eef0f3] bg-[#fafbfc] p-3.5">
-            <div className="text-[11.5px] font-semibold uppercase tracking-wide text-[#6b7280]">Summary</div>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              <div className="min-w-0 rounded-lg border border-[#eef0f3] bg-white p-2.5"><div className="flex items-center gap-1.5 text-[11px] text-[#6b7280]"><Users className="h-3.5 w-3.5 text-[#3f9f42]" />Source</div><div className="mt-1 truncate text-[13px] font-semibold text-[#111827]">{campaignForm.zohoViewId || campaignForm.segmentId ? "Selected" : "-"}</div></div>
-              <div className="min-w-0 rounded-lg border border-[#eef0f3] bg-white p-2.5"><div className="flex items-center gap-1.5 text-[11px] text-[#6b7280]"><FileText className="h-3.5 w-3.5 text-[#3f9f42]" />Blueprint</div><div className="mt-1 truncate text-[13px] font-semibold text-[#111827]">{campaignForm.templateId ? "Selected" : "-"}</div></div>
-              <div className="min-w-0 rounded-lg border border-[#eef0f3] bg-white p-2.5"><div className="flex items-center gap-1.5 text-[11px] text-[#6b7280]"><Rocket className="h-3.5 w-3.5 text-[#3f9f42]" />Status</div><div className="mt-1 truncate text-[13px] font-semibold text-[#111827]">{selectedCampaign ? "Active" : "Draft"}</div></div>
-            </div>
           </div>
         </div>
       </CommonSidePanel>

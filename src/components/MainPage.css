@@ -1456,7 +1456,23 @@ textarea {
    aligned to the right edge now that the expand icon is gone. */
 .output-email-floated-icons.floated-icons-green {
   right: 15px;
-  top: 8px;
+  top: 2px;
+}
+
+/* Compact the email-body action icons so they intrude less on the body text
+   (they float over the top-right corner of the email body). */
+.floated-icons-green .button.square-40 {
+  width: 30px;
+  height: 30px;
+  padding: 4px;
+}
+.floated-icons-green .device-icon {
+  width: 34px !important;
+  padding: 4px !important;
+}
+.floated-icons-green svg {
+  width: 18px !important;
+  height: 18px !important;
 }
 
 /* Recolour the email-body action icons to brand green. Overriding the CSS

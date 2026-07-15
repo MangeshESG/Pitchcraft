@@ -94,7 +94,7 @@ export const KraftEmailEmptyState: React.FC<{
     {
       done: hasContacts,
       icon: faUsers,
-      title: "At least one contact",
+      title: "Add at least one contact",
       subtitle: "Add or import contacts to build your audience.",
       addLabel: "Add contacts",
       onAdd: () => navigate("/main?tab=DataCampaigns&subtab=List"),
@@ -102,7 +102,7 @@ export const KraftEmailEmptyState: React.FC<{
     {
       done: hasBlueprint,
       icon: faFileLines,
-      title: "At least one blueprint",
+      title: "Add at least one blueprint",
       subtitle: "Create a blueprint to use AI and its wisdom for your emails.",
       addLabel: "Add blueprint",
       onAdd: () => navigate("/main?tab=TestTemplate"),
@@ -110,7 +110,7 @@ export const KraftEmailEmptyState: React.FC<{
     {
       done: hasCampaign,
       icon: faPaperPlane,
-      title: "At least one campaign",
+      title: "Add at least one campaign",
       subtitle: "Link contacts and a blueprint together in a campaign.",
       addLabel: "Add campaign",
       onAdd: () => navigate("/main?tab=Campaigns"),
