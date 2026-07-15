@@ -51,6 +51,7 @@ import { saveUserCredit } from "../../../slices/authSLice";
 import "../inbox/InboxView.css";
 import { copyToClipboard } from "../../../utils/utils";
 
+const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
 
 interface Contact {
   id: number;
@@ -1634,7 +1635,7 @@ const handleGenerateInsights = async () => {
     setIsKraftingContactReply(true);
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        `${PITCH_GENERATION_API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
         {
           blueprintId: selectedContactReplyBlueprint,
           contactId: thread.contactId,
@@ -1680,7 +1681,7 @@ const handleGenerateInsights = async () => {
 
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        `${PITCH_GENERATION_API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
         {
           blueprintId,
           contactId: Number(contactId),
