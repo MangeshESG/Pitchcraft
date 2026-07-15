@@ -60,6 +60,15 @@ interface ContactApiRow {
   unsubscribe: string;
 }
 
+interface DashboardSummary {
+  totalContacts: number;
+  emailsGenerated: number;
+  emailsSent: number;
+  sendRate: number;
+  kraftRate: number;
+  chartData: { label: string; gen: number; sent: number }[];
+}
+
 export interface DashboardProps {
   /** Override automatic detection: if you know setup is complete, pass true. */
   setupComplete?: boolean;
@@ -482,6 +491,14 @@ const DualLineAreaChart: React.FC<{
 };
 
 const PAGE_SIZE = 8;
+const emptyDashboardSummary: DashboardSummary = {
+  totalContacts: 0,
+  emailsGenerated: 0,
+  emailsSent: 0,
+  sendRate: 0,
+  kraftRate: 0,
+  chartData: [],
+};
 
 type DateRange = "1d" | "24h" | "yesterday" | "7d" | "30d" | "all";
 
@@ -493,120 +510,6 @@ const DATE_RANGE_LABELS: Record<DateRange, string> = {
   "30d": "Last month",
   "all": "All time",
 };
-
-function getDateWindow(range: DateRange): { from: Date | null; to: Date | null } {
-  if (range === "all") return { from: null, to: null };
-  const d = new Date();
-  if (range === "1d") {
-    const from = new Date(d);
-    from.setHours(0, 0, 0, 0);
-    return { from, to: null };
-  }
-  if (range === "24h") {
-    d.setHours(d.getHours() - 24);
-    return { from: d, to: null };
-  }
-  if (range === "yesterday") {
-    const from = new Date(d);
-    from.setDate(from.getDate() - 1);
-    from.setHours(0, 0, 0, 0);
-    const to = new Date(from);
-    to.setHours(23, 59, 59, 999);
-    return { from, to };
-  }
-  else if (range === "7d") d.setDate(d.getDate() - 7);
-  else if (range === "30d") d.setDate(d.getDate() - 30);
-  return { from: d, to: null };
-}
-
-const toValidDate = (value: string | null | undefined): Date | null => {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const countBetween = (
-  contacts: ContactApiRow[],
-  field: "updated_at" | "email_sent_at",
-  start: Date,
-  end: Date
-) =>
-  contacts.filter((c) => {
-    const t = toValidDate(c[field]);
-    return !!t && t >= start && t <= end;
-  }).length;
-
-function buildChartData(
-  contacts: ContactApiRow[],
-  range: DateRange
-): { label: string; gen: number; sent: number }[] {
-  if (range === "all") {
-    const map = new Map<string, { gen: number; sent: number }>();
-    contacts.forEach((c) => {
-      const updatedAt = toValidDate(c.updated_at);
-      const sentAt = toValidDate(c.email_sent_at);
-      if (updatedAt) {
-        const key = updatedAt.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
-        const e = map.get(key) ?? { gen: 0, sent: 0 };
-        e.gen++;
-        map.set(key, e);
-      }
-      if (sentAt) {
-        const key = sentAt.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
-        const e = map.get(key) ?? { gen: 0, sent: 0 };
-        e.sent++;
-        map.set(key, e);
-      }
-    });
-    return Array.from(map.entries())
-      .sort((a, b) => new Date("01 " + a[0]).getTime() - new Date("01 " + b[0]).getTime())
-      .map(([label, v]) => ({ label, ...v }));
-  }
-
-  const days = range === "7d" ? 7 : 30;
-  const result: { label: string; gen: number; sent: number }[] = [];
-
-  if (range === "1d" || range === "yesterday") {
-    const day = new Date();
-    if (range === "yesterday") day.setDate(day.getDate() - 1);
-    for (let h = 0; h < 24; h++) {
-      const start = new Date(day); start.setHours(h, 0, 0, 0);
-      const end   = new Date(day); end.setHours(h, 59, 59, 999);
-      const label = `${String(h).padStart(2, "0")}:00`;
-      const gen  = countBetween(contacts, "updated_at", start, end);
-      const sent = countBetween(contacts, "email_sent_at", start, end);
-      result.push({ label, gen, sent });
-    }
-    return result;
-  }
-
-  if (range === "24h") {
-    const now = new Date();
-    for (let i = 23; i >= 0; i--) {
-      const start = new Date(now);
-      start.setHours(now.getHours() - i, 0, 0, 0);
-      const end = new Date(start);
-      end.setHours(start.getHours(), 59, 59, 999);
-      const label = start.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
-      const gen  = countBetween(contacts, "updated_at", start, end);
-      const sent = countBetween(contacts, "email_sent_at", start, end);
-      result.push({ label, gen, sent });
-    }
-    return result;
-  }
-
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(d);   dayEnd.setHours(23, 59, 59, 999);
-    const label = d.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
-    const gen = countBetween(contacts, "updated_at", dayStart, dayEnd);
-    const sent = countBetween(contacts, "email_sent_at", dayStart, dayEnd);
-    result.push({ label, gen, sent });
-  }
-  return result;
-}
 
 const ContactStatusBadge: React.FC<{ row: ContactApiRow }> = ({ row }) => {
   if (row.email_sent_at)
@@ -636,61 +539,66 @@ const PostOnboardingView: React.FC<{
   const navigate = useNavigate();
   const [contacts, setContacts] = useState<ContactApiRow[]>([]);
   const [contactTotal, setContactTotal] = useState(0);
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(emptyDashboardSummary);
   const [contactPage, setContactPage] = useState(1);
   const [contactSearch, setContactSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("1d");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchDashboardData = () => {
-    if (!clientId) { setLoading(false); return; }
-    setLoading(true);
-    fetch(`${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId?clientId=${clientId}`)
+  const fetchContactList = () => {
+    if (!clientId) return Promise.resolve();
+    return fetch(`${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId?clientId=${clientId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { contacts?: ContactApiRow[]; contactCount?: number } | null) => {
         const list = Array.isArray(data?.contacts) ? data!.contacts! : [];
         setContacts(list);
         setContactTotal(data?.contactCount ?? list.length);
       })
-      .catch(() => {})
-      .finally(() => {
-        setLoading(false);
-        setRefreshing(false);
+      .catch(() => {});
+  };
+
+  const fetchDashboardSummary = () => {
+    if (!clientId) return Promise.resolve();
+    return fetch(`${API_BASE_URL}/api/Crm/dashboard-summary?clientId=${clientId}&dateRange=${dateRange}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: Partial<DashboardSummary> | null) => {
+        setDashboardSummary({
+          totalContacts: Number(data?.totalContacts ?? 0),
+          emailsGenerated: Number(data?.emailsGenerated ?? 0),
+          emailsSent: Number(data?.emailsSent ?? 0),
+          sendRate: Number(data?.sendRate ?? 0),
+          kraftRate: Number(data?.kraftRate ?? 0),
+          chartData: Array.isArray(data?.chartData) ? data.chartData : [],
+        });
+      })
+      .catch(() => {
+        setDashboardSummary(emptyDashboardSummary);
       });
   };
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchDashboardData();
+    fetchDashboardSummary().finally(() => setRefreshing(false));
+    fetchContactList();
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchContactList();
   }, [clientId]);
 
-  const dateWindow = useMemo(() => getDateWindow(dateRange), [dateRange]);
+  useEffect(() => {
+    if (!clientId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    fetchDashboardSummary().finally(() => setLoading(false));
+  }, [clientId, dateRange]);
 
-  const filteredByRange = useMemo(() => {
-    const { from, to } = dateWindow;
-    if (!from && !to) return contacts;
-    return contacts.filter((c) => {
-      const genDate = toValidDate(c.updated_at);
-      const sentDate = toValidDate(c.email_sent_at);
-      const isInWindow = (date: Date | null) =>
-        !!date && (!from || date >= from) && (!to || date <= to);
-      return isInWindow(genDate) || isInWindow(sentDate);
-    });
-  }, [contacts, dateWindow]);
-
-  const chartData = useMemo(() => buildChartData(filteredByRange, dateRange), [filteredByRange, dateRange]);
-  const emailsGeneratedCount = useMemo(
-    () => chartData.reduce((total, point) => total + point.gen, 0),
-    [chartData]
-  );
-  const emailsSentCount = useMemo(
-    () => chartData.reduce((total, point) => total + point.sent, 0),
-    [chartData]
-  );
+  const chartData = dashboardSummary.chartData;
+  const emailsGeneratedCount = dashboardSummary.emailsGenerated;
+  const emailsSentCount = dashboardSummary.emailsSent;
 
   const greeting = (() => {
     const h = new Date().getHours();
@@ -752,39 +660,42 @@ const PostOnboardingView: React.FC<{
     </div>
   );
 
-  const kraftRate = contactTotal > 0 ? Math.round((emailsGeneratedCount / contactTotal) * 100) : 0;
-  const sendRate  = emailsGeneratedCount > 0 ? Math.round((emailsSentCount / emailsGeneratedCount) * 100) : 0;
+  const kraftRate = dashboardSummary.kraftRate;
+  const sendRate = dashboardSummary.sendRate;
+  const totalContactsCount = dashboardSummary.totalContacts || contactTotal;
+  const generatedSeries = chartData.length > 0 ? chartData.map((point) => point.gen) : [0, 0, 0, 0, 0, 0, 0];
+  const sentSeries = chartData.length > 0 ? chartData.map((point) => point.sent) : [0, 0, 0, 0, 0, 0, 0];
 
   const tiles: KpiTileData[] = [
     {
       label: "Total contacts",
-      value: kpis.totalContacts ?? (contactTotal > 0 ? contactTotal.toLocaleString() : "—"),
+      value: kpis.totalContacts ?? (totalContactsCount > 0 ? totalContactsCount.toLocaleString() : "—"),
       delta: "",
       series: [120, 132, 128, 145, 160, 178, 196],
       onClick: () => navigate("/main?tab=DataCampaigns&subtab=List&dataFileId=-1"),
     },
     {
       label: "Emails krafted",
-      value: kpis.emailsGenerated ?? (contacts.length > 0 ? emailsGeneratedCount.toLocaleString() : "—"),
+      value: kpis.emailsGenerated ?? (totalContactsCount > 0 ? emailsGeneratedCount.toLocaleString() : "—"),
       delta: "",
-      series: [60, 88, 72, 110, 132, 148, 165],
+      series: generatedSeries,
     },
     {
       label: "Emails sent",
-      value: kpis.emailsSent ?? (contacts.length > 0 ? emailsSentCount.toLocaleString() : "—"),
+      value: kpis.emailsSent ?? (totalContactsCount > 0 ? emailsSentCount.toLocaleString() : "—"),
       delta: "",
-      series: [58, 76, 92, 88, 110, 138, 162],
+      series: sentSeries,
       onClick: () => navigate("/main?tab=Mail&mailSubTab=Dashboard"),
     },
     {
       label: "Send rate",
-      value: contacts.length > 0 ? `${sendRate}%` : "—",
+      value: totalContactsCount > 0 ? `${sendRate}%` : "—",
       delta: "",
       series: [15, 22, 30, 40, 50, 58, sendRate],
     },
     {
       label: "Kraft rate",
-      value: contacts.length > 0 ? `${kraftRate}%` : "—",
+      value: totalContactsCount > 0 ? `${kraftRate}%` : "—",
       delta: "",
       series: [10, 18, 24, 30, 38, 42, kraftRate],
     },
