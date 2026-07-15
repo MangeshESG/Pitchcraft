@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import API_BASE_URL from "../../config";
 import {
@@ -67,6 +67,11 @@ interface DashboardSummary {
   sendRate: number;
   kraftRate: number;
   chartData: { label: string; gen: number; sent: number }[];
+}
+
+interface ContactListResponse {
+  contacts?: ContactApiRow[];
+  hasNextPage?: boolean;
 }
 
 export interface DashboardProps {
@@ -539,23 +544,63 @@ const PostOnboardingView: React.FC<{
   const navigate = useNavigate();
   const [contacts, setContacts] = useState<ContactApiRow[]>([]);
   const [contactTotal, setContactTotal] = useState(0);
+  const [hasNextContactPage, setHasNextContactPage] = useState(false);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(emptyDashboardSummary);
   const [contactPage, setContactPage] = useState(1);
   const [contactSearch, setContactSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("1d");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const contactRequestRef = useRef(0);
+  const activeContactClientRef = useRef<string>("");
 
   const fetchContactList = () => {
     if (!clientId) return Promise.resolve();
-    return fetch(`${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId?clientId=${clientId}`)
+    const requestedClientId = String(clientId);
+    const requestId = ++contactRequestRef.current;
+    const params = new URLSearchParams({
+      clientId: requestedClientId,
+      pageNumber: String(contactPage),
+      pageSize: String(PAGE_SIZE),
+    });
+    const trimmedSearch = contactSearch.trim();
+    if (trimmedSearch) params.set("search", trimmedSearch);
+
+    setContactsLoading(true);
+    return fetch(`${API_BASE_URL}/api/Crm/dashboard-contacts?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { contacts?: ContactApiRow[]; contactCount?: number } | null) => {
+      .then((data: ContactListResponse | null) => {
+        if (requestId !== contactRequestRef.current || requestedClientId !== activeContactClientRef.current) {
+          return;
+        }
         const list = Array.isArray(data?.contacts) ? data!.contacts! : [];
-        setContacts(list);
-        setContactTotal(data?.contactCount ?? list.length);
+        const clientFilteredList =
+          trimmedSearch && list.length > PAGE_SIZE
+            ? list.filter((c) => {
+                const q = trimmedSearch.toLowerCase();
+                return (
+                  c.full_name?.toLowerCase().includes(q) ||
+                  c.email?.toLowerCase().includes(q) ||
+                  c.company_name?.toLowerCase().includes(q)
+                );
+              })
+            : list;
+        const total = clientFilteredList.length;
+        const pageContacts =
+          clientFilteredList.length > PAGE_SIZE
+            ? clientFilteredList.slice((contactPage - 1) * PAGE_SIZE, contactPage * PAGE_SIZE)
+            : clientFilteredList;
+        setContacts(pageContacts);
+        setContactTotal(total);
+        setHasNextContactPage(Boolean(data?.hasNextPage ?? clientFilteredList.length > contactPage * PAGE_SIZE));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (requestId === contactRequestRef.current && requestedClientId === activeContactClientRef.current) {
+          setContactsLoading(false);
+        }
+      });
   };
 
   const fetchDashboardSummary = () => {
@@ -584,8 +629,34 @@ const PostOnboardingView: React.FC<{
   };
 
   useEffect(() => {
-    fetchContactList();
-  }, [clientId]);
+    if (!clientId) {
+      contactRequestRef.current += 1;
+      activeContactClientRef.current = "";
+      setContacts([]);
+      setContactTotal(0);
+      setHasNextContactPage(false);
+      setContactsLoading(false);
+      return;
+    }
+    const currentClientId = String(clientId);
+    const clientChanged = activeContactClientRef.current !== currentClientId;
+    if (clientChanged) {
+      contactRequestRef.current += 1;
+      activeContactClientRef.current = currentClientId;
+      setContacts([]);
+      setContactTotal(0);
+      setHasNextContactPage(false);
+      setContactsLoading(true);
+      if (contactPage !== 1) setContactPage(1);
+      if (contactSearch) setContactSearch("");
+      if (contactPage !== 1 || contactSearch) return;
+    }
+    const delay = contactSearch.trim() ? 300 : 150;
+    const timer = window.setTimeout(() => {
+      fetchContactList();
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [clientId, contactPage, contactSearch]);
 
   useEffect(() => {
     if (!clientId) {
@@ -777,13 +848,13 @@ const PostOnboardingView: React.FC<{
       </div>
 
       {/* All Contacts */}
-      {contacts.length > 0 && (
+      {(contacts.length > 0 || contactTotal > 0 || contactsLoading) && (
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <div className="text-[15px] font-semibold text-gray-900">All contacts</div>
               <div className="text-[12px] text-gray-500 mt-0.5">
-                {contactTotal.toLocaleString()} total
+                {contactsLoading ? "Loading contacts..." : `Page ${contactPage}`}
               </div>
             </div>
             <input
@@ -807,18 +878,7 @@ const PostOnboardingView: React.FC<{
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {contacts
-                .filter((c) => {
-                  if (!contactSearch) return true;
-                  const q = contactSearch.toLowerCase();
-                  return (
-                    c.full_name?.toLowerCase().includes(q) ||
-                    c.email?.toLowerCase().includes(q) ||
-                    c.company_name?.toLowerCase().includes(q)
-                  );
-                })
-                .slice((contactPage - 1) * PAGE_SIZE, contactPage * PAGE_SIZE)
-                .map((c) => (
+              {contacts.slice(0, PAGE_SIZE).map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="py-2.5 max-w-[160px] truncate">
                       <a
@@ -839,46 +899,37 @@ const PostOnboardingView: React.FC<{
                     </td>
                   </tr>
                 ))}
+              {!contactsLoading && contacts.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-6 text-center text-gray-400">
+                    No contacts found
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
 
           {/* Pagination */}
           {(() => {
-            const filtered = contacts.filter((c) => {
-              if (!contactSearch) return true;
-              const q = contactSearch.toLowerCase();
-              return (
-                c.full_name?.toLowerCase().includes(q) ||
-                c.email?.toLowerCase().includes(q) ||
-                c.company_name?.toLowerCase().includes(q)
-              );
-            });
-            const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-            if (totalPages <= 1) return null;
+            if (contactPage === 1 && !hasNextContactPage) return null;
             return (
-              <div className="flex items-center justify-between mt-4 text-[12px] text-gray-500">
-                <span>
-                  {(contactPage - 1) * PAGE_SIZE + 1}–
-                  {Math.min(contactPage * PAGE_SIZE, filtered.length)} of {filtered.length}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={contactPage === 1}
-                    onClick={() => setContactPage((p) => p - 1)}
-                    className="h-7 px-3 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
-                  >
-                    Prev
-                  </button>
-                  <button
-                    type="button"
-                    disabled={contactPage === totalPages}
-                    onClick={() => setContactPage((p) => p + 1)}
-                    className="h-7 px-3 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
-                  >
-                    Next
-                  </button>
-                </div>
+              <div className="flex items-center justify-end gap-2 mt-4 text-[12px] text-gray-500">
+                <button
+                  type="button"
+                  disabled={contactPage === 1 || contactsLoading}
+                  onClick={() => setContactPage((p) => p - 1)}
+                  className="h-7 px-3 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  disabled={!hasNextContactPage || contactsLoading}
+                  onClick={() => setContactPage((p) => p + 1)}
+                  className="h-7 px-3 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                >
+                  Next
+                </button>
               </div>
             );
           })()}
