@@ -1283,8 +1283,9 @@ const fetchDashboardCardCounts = async (campaignId: string) => {
   try {
     const campaignIdNumber =
       campaignId === ALL_CAMPAIGNS_VALUE ? undefined : Number(campaignId);
-    const response = await axios.get(`${API_BASE_URL}/api/Crm/dashboard-card-counts`, {
-      params: {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/Crm/dashboard-card-counts`,
+      {
         clientId: Number(effectiveUserId),
         ...(campaignIdNumber ? { campaignId: campaignIdNumber } : {}),
         ...(startDate ? { startDate } : {}),
@@ -1292,8 +1293,10 @@ const fetchDashboardCardCounts = async (campaignId: string) => {
         ...(selectedSender ? { outboxId: Number(selectedSender) } : {}),
         excludeBots,
       },
-      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-    });
+      {
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      }
+    );
 
     const counts = response.data || {};
     const sent = Number(counts.sent ?? 0);
