@@ -30,7 +30,12 @@ interface ContactComposeEmailPopupProps {
   signatureHtml: string;
   isSignatureLoading?: boolean;
   onGenerate: (blueprintId: number) => Promise<{ emailBody: string; emailSubject: string }>;
-  onSend: (payload: { emailSubject: string; emailBody: string; bccEmail: string }) => Promise<boolean>;
+  onSend: (payload: {
+    emailSubject: string;
+    emailBody: string;
+    ccEmails: string[] | null;
+    bccEmails: string[] | null;
+  }) => Promise<boolean>;
   isSending: boolean;
 }
 
@@ -59,6 +64,150 @@ const compactFieldStyle: React.CSSProperties = {
   flex: "0 0 390px",
 };
 
+const parseRecipientInput = (value: string) =>
+  value
+    .split(/[,\n;]/)
+    .map((email) => email.trim())
+    .filter(Boolean);
+
+const mergeRecipients = (current: string[], next: string[]) => {
+  const seen = new Set(current.map((email) => email.toLowerCase()));
+  const merged = [...current];
+  next.forEach((email) => {
+    if (!seen.has(email.toLowerCase())) {
+      seen.add(email.toLowerCase());
+      merged.push(email);
+    }
+  });
+  return merged;
+};
+
+interface RecipientChipInputProps {
+  recipients: string[];
+  draft: string;
+  onRecipientsChange: (recipients: string[]) => void;
+  onDraftChange: (draft: string) => void;
+  placeholder: string;
+}
+
+const RecipientChipInput: React.FC<RecipientChipInputProps> = ({
+  recipients,
+  draft,
+  onRecipientsChange,
+  onDraftChange,
+  placeholder,
+}) => {
+  const commitDraft = () => {
+    const nextRecipients = parseRecipientInput(draft);
+    if (!nextRecipients.length) {
+      onDraftChange("");
+      return;
+    }
+    onRecipientsChange(mergeRecipients(recipients, nextRecipients));
+    onDraftChange("");
+  };
+
+  const removeRecipient = (recipientToRemove: string) => {
+    onRecipientsChange(recipients.filter((recipient) => recipient !== recipientToRemove));
+  };
+
+  return (
+    <div
+      style={{
+        ...compactFieldStyle,
+        minHeight: 42,
+        border: "1px solid #d8dee8",
+        borderRadius: 6,
+        padding: "4px 8px",
+        display: "flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 6,
+        background: "#fff",
+      }}
+      onClick={(event) => {
+        const input = event.currentTarget.querySelector("input");
+        input?.focus();
+      }}
+    >
+      {recipients.map((recipient) => (
+        <span
+          key={recipient}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            maxWidth: "100%",
+            border: "1px solid #c7d0dc",
+            borderRadius: 999,
+            padding: "5px 9px",
+            background: "#f8fafc",
+            color: "#0f172a",
+            fontSize: 13,
+            lineHeight: 1,
+          }}
+        >
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {recipient}
+          </span>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              removeRecipient(recipient);
+            }}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "#334155",
+              cursor: "pointer",
+              padding: 0,
+              lineHeight: 1,
+              display: "inline-flex",
+            }}
+            aria-label={`Remove ${recipient}`}
+          >
+            <FontAwesomeIcon icon={faTimes} />
+          </button>
+        </span>
+      ))}
+      <input
+        value={draft}
+        onChange={(event) => {
+          const value = event.target.value;
+          if (/[,\n;]/.test(value)) {
+            onRecipientsChange(mergeRecipients(recipients, parseRecipientInput(value)));
+            onDraftChange("");
+            return;
+          }
+          onDraftChange(value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === "Tab") {
+            if (draft.trim()) {
+              event.preventDefault();
+              commitDraft();
+            }
+          } else if (event.key === "Backspace" && !draft && recipients.length) {
+            onRecipientsChange(recipients.slice(0, -1));
+          }
+        }}
+        onBlur={commitDraft}
+        style={{
+          flex: "1 1 120px",
+          minWidth: 90,
+          border: "none",
+          outline: "none",
+          height: 28,
+          fontSize: 13,
+          color: "#111827",
+        }}
+        placeholder={recipients.length ? "" : placeholder}
+      />
+    </div>
+  );
+};
+
 const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   isOpen,
   onClose,
@@ -76,8 +225,12 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   const [selectedBlueprintId, setSelectedBlueprintId] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
+  const [showCc, setShowCc] = useState(false);
+  const [ccEmails, setCcEmails] = useState<string[]>([]);
+  const [ccEmailDraft, setCcEmailDraft] = useState("");
   const [showBcc, setShowBcc] = useState(false);
-  const [bccEmail, setBccEmail] = useState("");
+  const [bccEmails, setBccEmails] = useState<string[]>([]);
+  const [bccEmailDraft, setBccEmailDraft] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGeneratedBody, setHasGeneratedBody] = useState(false);
   const signatureSelector = "[data-compose-email-signature]";
@@ -108,8 +261,12 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       setSelectedBlueprintId("");
       setEmailBody("");
       setEmailSubject("");
+      setShowCc(false);
+      setCcEmails([]);
+      setCcEmailDraft("");
       setShowBcc(false);
-      setBccEmail("");
+      setBccEmails([]);
+      setBccEmailDraft("");
       setIsGenerating(false);
       setHasGeneratedBody(false);
     }
@@ -158,10 +315,13 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
 
   const handleSend = async () => {
     if (isSending) return;
+    const finalCcEmails = showCc ? mergeRecipients(ccEmails, parseRecipientInput(ccEmailDraft)) : [];
+    const finalBccEmails = showBcc ? mergeRecipients(bccEmails, parseRecipientInput(bccEmailDraft)) : [];
     const sent = await onSend({
       emailSubject,
       emailBody,
-      bccEmail: showBcc ? bccEmail : "",
+      ccEmails: finalCcEmails.length ? finalCcEmails : null,
+      bccEmails: finalBccEmails.length ? finalBccEmails : null,
     });
 
     if (sent) {
@@ -342,29 +502,66 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
               }}
               placeholder="Contact email not available"
             />
-            <button
-              type="button"
-              onClick={() => setShowBcc((current) => !current)}
-              style={{ border: "none", background: "transparent", color: "#16822f", fontWeight: 700, cursor: "pointer" }}
-            >
-              {showBcc ? "Hide Bcc" : "Bcc"}
-            </button>
+            {!showCc && (
+              <button
+                type="button"
+                onClick={() => setShowCc(true)}
+                style={{ border: "none", background: "transparent", color: "#16822f", fontWeight: 700, cursor: "pointer" }}
+              >
+                Cc
+              </button>
+            )}
+            {!showBcc && (
+              <button
+                type="button"
+                onClick={() => setShowBcc(true)}
+                style={{ border: "none", background: "transparent", color: "#16822f", fontWeight: 700, cursor: "pointer" }}
+              >
+                Bcc
+              </button>
+            )}
           </div>
+
+          {showCc && (
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
+              <label style={labelStyle}>Cc</label>
+              <RecipientChipInput
+                recipients={ccEmails}
+                draft={ccEmailDraft}
+                onRecipientsChange={setCcEmails}
+                onDraftChange={setCcEmailDraft}
+                placeholder="Enter Cc email..."
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCc(false);
+                  setCcEmails([]);
+                  setCcEmailDraft("");
+                }}
+                style={{ border: "none", background: "transparent", color: "#64748b", fontWeight: 700, cursor: "pointer" }}
+              >
+                X
+              </button>
+            </div>
+          )}
 
           {showBcc && (
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
               <label style={labelStyle}>Bcc</label>
-              <input
-                value={bccEmail}
-                onChange={(event) => setBccEmail(event.target.value)}
-                style={{ ...inputStyle, ...compactFieldStyle }}
-                placeholder="Enter Bcc email address..."
+              <RecipientChipInput
+                recipients={bccEmails}
+                draft={bccEmailDraft}
+                onRecipientsChange={setBccEmails}
+                onDraftChange={setBccEmailDraft}
+                placeholder="Enter Bcc email..."
               />
               <button
                 type="button"
                 onClick={() => {
                   setShowBcc(false);
-                  setBccEmail("");
+                  setBccEmails([]);
+                  setBccEmailDraft("");
                 }}
                 style={{ border: "none", background: "transparent", color: "#64748b", fontWeight: 700, cursor: "pointer" }}
               >
@@ -387,30 +584,18 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
             <RichTextEditor value={emailBody} onChange={setEmailBody} height={360} />
             <div
               style={{
-                height: 48,
+                minHeight: 28,
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "flex-end",
-                padding: "0 16px",
+                justifyContent: "space-between",
+                padding: "4px 12px 0",
                 color: "#64748b",
                 fontSize: 12,
               }}
             >
-              {plainBody.trim() ? plainBody.trim().split(/\s+/).length : 0} words
+              <span>Characters: {plainBody.length}</span>
+              <span>{plainBody.trim() ? plainBody.trim().split(/\s+/).length : 0} words</span>
             </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginTop: 22,
-              color: "#64748b",
-              fontSize: 13,
-            }}
-          >
-            <span>Characters: {plainBody.length}</span>
           </div>
         </div>
       </div>
