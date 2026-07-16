@@ -2,7 +2,6 @@ import { faAngleLeft, faAngleRight, faCircleLeft } from "@fortawesome/free-solid
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 
 interface SendEmailPanelProps {
   isOpen: boolean;
@@ -154,9 +153,6 @@ setOverwriteDatabase,
 //     hour12: true,
 //   }).replace(",", "");
 // };
- const formatDateTimeIST = formatDateTimeLocal;
- const formatTimeIST = formatTimeLocal;
-
   return (
     <>
 
@@ -165,16 +161,12 @@ setOverwriteDatabase,
       >
         {/* Shared controls — apply to both Kraft and Send tabs */}
         {!actionsCollapsed && (
-        <div className="p-[20px] pb-[0px] flex flex-col w-[100%]">
-          {/* Filter Dropdown */}
+        <div className="px-[20px] pt-[8px] pb-[0px] flex flex-col w-[100%]">
+          {/* Filter Dropdown — borderless to save vertical space */}
           <div
             className="form-group"
             style={{
-              padding: "12px",
-              border: "1px solid #cccccc",
-              borderRadius: "8px",
               marginBottom: "12px",
-              backgroundColor: "#fff",
             }}
           >
             <label style={{ display: "block", marginBottom: 6, fontSize: "14px", fontWeight: 600, fontFamily: "inherit" }}>
@@ -308,29 +300,14 @@ setOverwriteDatabase,
             </div>
           )}
 
-          {/* Krafted & Emailed Dates */}
-          {combinedResponses[currentIndex] && (
-            <div className="mb-[12px] text-[13px] italic text-gray-600 text-right">
-              {combinedResponses[currentIndex]?.lastemailupdateddate && (
-                <div>
-                  Krafted:{" "}
-                  {formatDateTimeIST(combinedResponses[currentIndex]?.lastemailupdateddate)}
-                </div>
-              )}
-              {combinedResponses[currentIndex]?.emailsentdate && (
-                <div>
-                  Emailed:{" "}
-                  {formatDateTimeIST(combinedResponses[currentIndex]?.emailsentdate)}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Krafted & Emailed dates are now shown at the end of the subject
+              row in the Output panel (see Output.tsx). */}
         </div>
         )}
 
         {/* Tabs Header — matches Output / Stages / Insights underline tabs, 50/50 split */}
         {!actionsCollapsed && (
-          <div className="tabs secondary d-flex align-center px-[20px]">
+          <div className="tabs secondary d-flex align-center px-[20px] !mb-[4px]">
             <ul className="d-flex w-[100%]">
               {panelTabs.map((tab) => (
                 <li key={tab.id} className="basis-1/2 flex-1">
@@ -349,7 +326,7 @@ setOverwriteDatabase,
 
         {/* CONTENT */}
         {!actionsCollapsed && panelTab === "kraft" && (
-  <div className="p-[20px] flex flex-col w-[100%] h-[100%]">
+  <div className="px-[20px] pt-[6px] pb-[20px] flex flex-col w-[100%] h-[100%]">
 
     {/* Overwrite + Start in one compact row */}
     <div
@@ -375,7 +352,7 @@ setOverwriteDatabase,
             setOverwriteDatabase?.(checked);
           }}
         />
-        <label htmlFor="overwrite-existing-emails" style={{ fontWeight: 400, cursor: "pointer" }}>
+        <label htmlFor="overwrite-existing-emails" style={{ fontSize: "14px", fontWeight: 400, cursor: "pointer", fontFamily: "inherit" }}>
           Overwrite existing emails
         </label>
       </div>
@@ -423,7 +400,7 @@ setOverwriteDatabase,
   </div>
 )}
         {!actionsCollapsed && panelTab === "send" && (
-          <div className="p-[20px] flex items-start flex-col w-[100%] h-[100%]">
+          <div className="px-[20px] pt-[6px] pb-[20px] flex items-start flex-col w-[100%] h-[100%]">
 
             <>
               {/* <div
@@ -546,7 +523,7 @@ setOverwriteDatabase,
                       style={{ marginRight: 8, cursor: "pointer" }}
                       className="!w-[auto]"
                     />
-                    <label htmlFor="enableDelay" style={{ fontSize: "inherit", fontWeight: 600, marginBottom:0, cursor: "pointer", fontFamily: "inherit" }}>
+                    <label htmlFor="enableDelay" style={{ fontSize: "14px", fontWeight: 600, marginBottom:0, cursor: "pointer", fontFamily: "inherit" }}>
                       Delay (seconds)
                     </label>
                   </div>

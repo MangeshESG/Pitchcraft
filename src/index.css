@@ -76,6 +76,21 @@ code {
     monospace;
 }
 
+/* Browsers do NOT inherit the page font into form controls by default,
+   so <select>/<input>/<textarea>/<button> render in a system font that
+   looked inconsistent next to surrounding text (e.g. the Kraft emails
+   panel dropdowns vs. the email body on the right). Make them inherit
+   the body font so everything stays visually consistent. Font size is
+   intentionally left alone to avoid layout shifts (sizes are set per
+   control). */
+button,
+input,
+select,
+optgroup,
+textarea {
+  font-family: inherit;
+}
+
 
 
 

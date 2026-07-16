@@ -1,7 +1,7 @@
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import mailConfigEmptyImage from "../../assets/images/Email-Configuration.jpg";
+import mailConfigEmptyImage from "../../assets/images/Email-Configuration.png";
 import "./MailConfiguration.new.css";
 
 // ============================================================

@@ -3947,6 +3947,25 @@ try {
 }
 };
 
+  // When the Kraft emails tab becomes active with a pending "kraftCampaignId"
+  // request (set by the Kraft icon on the Campaigns page), auto-select that
+  // campaign so its contacts load in the Output panel.
+  useEffect(() => {
+    if (tab !== "Output") return;
+    const kraftId = sessionStorage.getItem("kraftCampaignId");
+    if (!kraftId) return;
+    if (!campaigns || campaigns.length === 0) return;
+    if (!normalizeCampaigns(campaigns).some((c) => String(c?.id) === kraftId)) return;
+    if (String(selectedCampaign) === kraftId) {
+      sessionStorage.removeItem("kraftCampaignId");
+      return;
+    }
+    sessionStorage.removeItem("kraftCampaignId");
+    handleCampaignChange({
+      target: { value: kraftId },
+    } as React.ChangeEvent<HTMLSelectElement>);
+  }, [tab, campaigns]);
+
   const handleClearAll = () => {
     stopRef.current = true;
     kraftResumeIndexRef.current = null;

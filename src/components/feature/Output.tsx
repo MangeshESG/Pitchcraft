@@ -24,7 +24,7 @@ import ReactMarkdown from "react-markdown";
 import toggleOn from "../../assets/images/on-button.png";
 import toggleOff from "../../assets/images/off-button.png";
 import DOMPurify from "dompurify";
-import { faAngleRight, faAngleLeft, faCircleRight, faDownload } from "@fortawesome/free-solid-svg-icons";
+import { faAngleRight, faAngleLeft, faCircleRight, faDownload, faBullhorn } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus,faBell    } from "@fortawesome/free-regular-svg-icons";
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
@@ -1646,6 +1646,17 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     return "Source";
   };
 
+  // Navigate to the Campaigns page and auto-open the edit panel for this
+  // campaign (CampaignManagement reads "editCampaignId" on mount).
+  const handleCampaignEditClick = (campaign?: Campaign) => {
+    if (!campaign) return;
+    sessionStorage.setItem("editCampaignId", campaign.id.toString());
+    window.location.href = `/#/main?tab=Campaigns&t=${Date.now()}`;
+    // Covers the case where the Campaigns tab is already mounted (preserved
+    // panel) so the mount effect won't re-run.
+    window.dispatchEvent(new CustomEvent("openCampaignEdit"));
+  };
+
   const handleCampaignSourceClick = (campaign?: Campaign) => {
     if (!campaign || !effectiveUserId) return;
 
@@ -2520,7 +2531,7 @@ useEffect(() => {
           {/* LEFT CARD */}
           <div className="bg-white rounded-2xl border p-5" style={{ borderColor: '#e8eaee' }}>
             {/* Campaign section */}
-            <div className="mb-3">
+            <div className="mb-1">
               <div className="flex items-center gap-2">
                 <div className="form-group !mb-0 flex-1">
                   <select
@@ -2556,7 +2567,7 @@ useEffect(() => {
 
             {/* Campaign banner */}
             {selectedCampaign ? (
-              <div className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 mb-4 text-[13px] font-medium" style={{ background: 'transparent', color: '#2d7a30' }}>
+              <div className="flex items-center justify-between gap-2 rounded-lg px-3 py-1 mb-2 text-[13px] font-medium" style={{ background: 'transparent', color: '#2d7a30' }}>
                 <span className="flex items-center gap-2">✓ Campaign loaded</span>
                 {/* Grouped, right-aligned campaign action icons */}
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -2570,7 +2581,7 @@ useEffect(() => {
                   </ReactTooltip>
                   <button
                     id="refresh-campaign-tooltip"
-                    className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
+                    className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
                     style={{ borderColor: '#e8eaee', background: '#ffffff' }}
                     onClick={async () => {
                       const indexToPreserve = currentIndex;
@@ -2593,6 +2604,26 @@ useEffect(() => {
                       <g fill="#3f9f42"><path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/></g>
                     </svg>
                   </button>
+
+                  {/* Edit campaign */}
+                  <ReactTooltip
+                    anchorSelect="#edit-campaign-tooltip"
+                    place="top"
+                    positionStrategy="fixed"
+                    style={{ zIndex: 99999 }}
+                  >
+                    Edit campaign
+                  </ReactTooltip>
+                  <button
+                    id="edit-campaign-tooltip"
+                    className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
+                    style={{ borderColor: '#e8eaee', background: '#ffffff' }}
+                    onClick={() => handleCampaignEditClick(selectedCampaignDetails)}
+                    aria-label="Edit campaign"
+                  >
+                    <FontAwesomeIcon icon={faBullhorn} style={{ color: "#3f9f42", fontSize: 16 }} />
+                  </button>
+
                   {(selectedCampaignDetails?.zohoViewId || selectedCampaignDetails?.segmentId || selectedCampaignDetails?.dataSource) && (
                     <>
                       <ReactTooltip
@@ -2601,14 +2632,14 @@ useEffect(() => {
                         positionStrategy="fixed"
                         style={{ zIndex: 99999 }}
                       >
-                        Edit {getCampaignSourceLabel(selectedCampaignDetails)}
+                        Edit data
                       </ReactTooltip>
                       <button
                         id="go-source-tooltip"
-                        className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
+                        className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
                         style={{ borderColor: '#e8eaee', background: '#ffffff' }}
                         onClick={() => handleCampaignSourceClick(selectedCampaignDetails)}
-                        aria-label={`Edit ${getCampaignSourceLabel(selectedCampaignDetails)}`}
+                        aria-label="Edit data"
                       >
                         <FontAwesomeIcon icon={faCircleRight} style={{ color: "#3f9f42", fontSize: 18 }} />
                       </button>
@@ -2626,7 +2657,7 @@ useEffect(() => {
                       </ReactTooltip>
                       <button
                         id="edit-blueprint-tooltip"
-                        className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
+                        className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
                         style={{ borderColor: '#e8eaee', background: '#ffffff' }}
                         onClick={async () => {
                           const campaign = selectedCampaignDetails;
@@ -2956,7 +2987,7 @@ useEffect(() => {
             {/* New Tab */}
             {tab === "New" && (
               <>
-                <div className="tabs secondary d-flex align-center flex-col-991 justify-between">
+                <div className="tabs secondary d-flex align-center flex-col-991 justify-between !mb-[4px]">
                   <ul className="d-flex">
                     <li>
                       <button
@@ -3013,10 +3044,10 @@ useEffect(() => {
                 {tab2 === "Output" && (
                   <>
 
-                    <div className="form-group mb-0 mt-2">
+                    <div className="form-group mb-0 mt-0">
                       <div className="d-flex justify-between w-full">
                         <div
-                          className="contact-info !text-[18px] self-start leading-[35px] inline-block break-words break-all text-[#111] px-[10px] py-[5px] bg-[#f5f6fa] rounded-[5px] mt-[10px] mb-[10px] mr-[5px] ml-0 border border-[#b3b3b3]"
+                          className="contact-info !text-[18px] self-start leading-[35px] inline-block break-words break-all text-[#111] px-[10px] py-[5px] bg-[#f5f6fa] rounded-[5px] mt-0 mb-[10px] mr-[5px] ml-0 border border-[#b3b3b3]"
                           style={{ color: "#111111" }}
                         >
                           {/* <strong style={{ whiteSpace: "pre" }}>Contact: </strong> */}
@@ -3339,8 +3370,8 @@ useEffect(() => {
                             alignItems: "start", // changed from flex-start to center
                           }}
                         >
-                          {/* Subject field - 48% width */}
-                          <div style={{ flex: "0 0 100%", display: "flex", alignItems: "center", gap: "10px" }}>
+                          {/* Subject field - flexible width, leaves room for dates */}
+                          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "10px" }}>
                             <label
                               style={{
                                 flexShrink: 0,
@@ -3426,6 +3457,29 @@ useEffect(() => {
                             </div>
 
                           </div>
+
+                          {/* Krafted / Emailed dates — shown at the end of the subject row */}
+                          {combinedResponses[currentIndex] && (
+                            <div
+                              style={{
+                                flexShrink: 0,
+                                marginLeft: "16px",
+                                textAlign: "right",
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: "#666",
+                                lineHeight: 1.5,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              <div>
+                                Krafted: {formatDateTimeLocal(combinedResponses[currentIndex]?.lastemailupdateddate)}
+                              </div>
+                              <div>
+                                Emailed: {formatDateTimeLocal(combinedResponses[currentIndex]?.emailsentdate)}
+                              </div>
+                            </div>
+                          )}
 
                         </div>
                       </div>

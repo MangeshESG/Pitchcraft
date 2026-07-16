@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Plus, Mic, ArrowUp } from "lucide-react";
 import API_BASE_URL from "../../../config";
+import { lessPriorityButtonStyle } from "../../../styles/buttonStyles";
+import witchLogo from "../../../assets/images/Witch_logo_AI.png";
 import "./ContactQA.css";
 
 type ContactQARole = "user" | "assistant";
@@ -833,7 +836,6 @@ const ContactQA: React.FC<ContactQAProps> = ({
     <div ref={qaShellRef} className="contact-qa-shell">
       <div className="contact-qa-header">
         <div>
-          <h2 className="contact-qa-title">Q&amp;A</h2>
           <p className="contact-qa-subtitle">
             Interrogate the CRM to quickly find information about this contact from the contact profile, all internal notes, all email communications, stored contact career details, and all activity stored in the CRM.          </p>
           <div className="contact-qa-badges">
@@ -888,6 +890,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
           <button
             type="button"
             className="contact-qa-reset"
+            style={lessPriorityButtonStyle}
             onClick={handleReset}
             disabled={isSending}
           >
@@ -932,6 +935,9 @@ const ContactQA: React.FC<ContactQAProps> = ({
                 }
                 className={`contact-qa-row ${message.role}`}
               >
+                {message.role === "assistant" && (
+                  <img src={witchLogo} alt="" className="contact-qa-avatar" />
+                )}
                 <div className={`contact-qa-bubble ${message.role}`}>
                   {message.role === "assistant" ? (
                     <div className="contact-qa-markdown">
@@ -953,6 +959,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
 
           {isSending && (
             <div className="contact-qa-row assistant">
+              <img src={witchLogo} alt="" className="contact-qa-avatar" />
               <div className="contact-qa-bubble assistant">
                 Looking through the contact profile, notes, and email history...
                 <div className="contact-qa-meta">Generating answer</div>
@@ -970,30 +977,42 @@ const ContactQA: React.FC<ContactQAProps> = ({
             <textarea
               className="contact-qa-textarea"
               value={question}
-              onChange={(event) => setQuestion(event.target.value)}
+              rows={1}
+              onChange={(event) => {
+                setQuestion(event.target.value);
+                event.target.style.height = "auto";
+                event.target.style.height = `${Math.min(event.target.scrollHeight, 200)}px`;
+              }}
               onKeyDown={handleQuestionKeyDown}
               placeholder={
                 hasContext
-                  ? "Ask about previous questions, objections, intent, next best question, or anything else grounded in this contact's history..."
+                  ? "Ask about previous questions, objections, intent, or anything else grounded in this contact's history..."
                   : "Contact context is still loading..."
               }
               disabled={loading || isSending || !hasContext}
             />
 
             <div className="contact-qa-actions">
-              <div className="contact-qa-hint">
-                Press Enter to send. Use Shift + Enter for a new line.
-              </div>
+              {/* + attach (visual, matches the Blueprint composer) */}
+              <span className="contact-qa-attach" title="Attach file" aria-hidden="true">
+                <Plus size={18} />
+              </span>
 
-              <button
-                type="button"
-                className="contact-qa-send"
-                onClick={() => sendQuestion()}
-                disabled={loading || isSending || !question.trim() || !hasContext}
-              >
-                {isSending && <span className="contact-qa-loader" />}
-                Ask 
-              </button>
+              <div className="contact-qa-actions-right">
+                <span className="contact-qa-mic" title="Voice">
+                  <Mic size={18} />
+                </span>
+                <button
+                  type="button"
+                  className="contact-qa-send"
+                  onClick={() => sendQuestion()}
+                  disabled={loading || isSending || !question.trim() || !hasContext}
+                  title="Send"
+                  aria-label="Send"
+                >
+                  {isSending ? <span className="contact-qa-loader" /> : <ArrowUp size={18} />}
+                </button>
+              </div>
             </div>
           </div>
         </div>

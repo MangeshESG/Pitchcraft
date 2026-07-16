@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import API_BASE_URL from "../../config";
 import "./ContactList.css";
@@ -2825,7 +2826,7 @@ const filterFields: any = useMemo(() => {
               </CommonSidePanel>
 
               {/* Delete confirmation modal - FIXED VERSION */}
-              {editingList && showConfirmListDelete && (
+              {editingList && showConfirmListDelete && createPortal(
                 <div
                   style={{
                     position: "fixed",
@@ -2888,7 +2889,8 @@ const filterFields: any = useMemo(() => {
                       </button>
                     </div>
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
               {editingContact && (
                 <EditContactModal
@@ -4186,7 +4188,7 @@ const filterFields: any = useMemo(() => {
       </CommonSidePanel>
 
       {/* Delete Segment Confirmation Modal */}
-      {editingSegment && showConfirmSegmentDelete && (
+      {editingSegment && showConfirmSegmentDelete && createPortal(
         <div
           style={{
             position: "fixed",
@@ -4244,7 +4246,8 @@ const filterFields: any = useMemo(() => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <SegmentModal
