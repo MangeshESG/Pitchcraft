@@ -38,6 +38,13 @@ interface EmailLog {
   sentAt: string;
   isSuccess: boolean;
   errorMessage: string | null;
+  isBounced?: boolean;
+  bounceReason?: string | null;
+  bounceDate?: string | null;
+  bounceType?: string | null;
+  statusCode?: string | null;
+  diagnosticCode?: string | null;
+  remoteServer?: string | null;
   toEmail: string;
   process_name: string;
   name: string | null;

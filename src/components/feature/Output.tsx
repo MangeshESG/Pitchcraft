@@ -1731,6 +1731,12 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     }));
   };
 
+  const parseBccEmailList = (value: string) =>
+    value
+      .split(/[,\n;\r]+/)
+      .map((email) => email.trim())
+      .filter(Boolean);
+
   const handleSendEmail = async (
     subjectFromButton: string,
 
@@ -1772,7 +1778,7 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
         contactid: currentContact.id,
         campaignid: selectedCampaign ? parseInt(selectedCampaign) : null,
         isFollowUp: followupEnabled || false,
-        BccEmail: emailFormData.BccEmail || "",
+        BccEmail: parseBccEmailList(emailFormData.BccEmail || ""),
         OutboxId: parseInt(selectedSmtpUser || "0"),
         Type: selectedSmtp?.type || selectedSmtp?.smtpType || "",
         SegmentId: currentContact.segmentId &&
@@ -2229,7 +2235,7 @@ const sleepWithCountdown = async (ms: number) => {
           contactid: contact.id,
           campaignid: selectedCampaign ? parseInt(selectedCampaign) : null,
           isFollowUp: followupEnabled || false,
-          BccEmail: emailFormData.BccEmail || "",
+          BccEmail: parseBccEmailList(emailFormData.BccEmail || ""),
           OutboxId: parseInt(selectedSmtpUser || "0"),
           Type: selectedSmtp?.type || selectedSmtp?.smtpType || "",
           SegmentId: contact.segmentId &&

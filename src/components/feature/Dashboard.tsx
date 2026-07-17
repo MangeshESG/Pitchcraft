@@ -868,7 +868,7 @@ const PostOnboardingView: React.FC<{
             <div>
               <div className="text-[15px] font-semibold text-gray-900">All contacts</div>
               <div className="text-[12px] text-gray-500 mt-0.5">
-                {contactsLoading ? "Loading contacts..." : `Page ${contactPage}`}
+                Page {contactPage}
               </div>
             </div>
             <input
@@ -880,19 +880,20 @@ const PostOnboardingView: React.FC<{
             />
           </div>
 
-          <table className="w-full mt-4 text-[13px]">
-            <thead>
-              <tr className="text-left text-gray-400 text-[11px] uppercase tracking-wider border-b border-gray-100">
-                <th className="font-medium pb-2">Name</th>
-                <th className="font-medium pb-2">Email</th>
-                <th className="font-medium pb-2">Company</th>
-                <th className="font-medium pb-2">Job title</th>
-                <th className="font-medium pb-2">Country</th>
-                <th className="font-medium pb-2">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {contacts.slice(0, PAGE_SIZE).map((c) => (
+          <div className="relative mt-4 min-h-[160px] overflow-hidden rounded-xl border border-gray-100">
+            <table className={`w-full text-[13px] transition-opacity ${contactsLoading ? "opacity-40" : "opacity-100"}`}>
+              <thead>
+                <tr className="text-left text-gray-400 text-[11px] uppercase tracking-wider border-b border-gray-100">
+                  <th className="font-medium pb-2">Name</th>
+                  <th className="font-medium pb-2">Email</th>
+                  <th className="font-medium pb-2">Company</th>
+                  <th className="font-medium pb-2">Job title</th>
+                  <th className="font-medium pb-2">Country</th>
+                  <th className="font-medium pb-2">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {contacts.slice(0, PAGE_SIZE).map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="py-2.5 max-w-[160px] truncate">
                       <a
@@ -913,15 +914,25 @@ const PostOnboardingView: React.FC<{
                     </td>
                   </tr>
                 ))}
-              {!contactsLoading && contacts.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-6 text-center text-gray-400">
-                    No contacts found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                {!contactsLoading && contacts.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-gray-400">
+                      No contacts found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            {contactsLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
+                <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
+                  <div className="w-8 h-8 rounded-full border-[3px] border-[#e8f5e9] border-t-[#3f9f42] animate-spin" />
+                  <div className="text-[12px] font-medium text-gray-500">Loading contacts...</div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Pagination */}
           {(() => {

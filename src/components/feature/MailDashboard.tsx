@@ -464,6 +464,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [missingLogs, setMissingLogs] = useState<any[]>([]);
   const [detailEventPageData, setDetailEventPageData] = useState<EventItem[]>([]);
   const [detailEmailLogPageData, setDetailEmailLogPageData] = useState<EmailLog[]>([]);
+  const [detailBounceBackPageData, setDetailBounceBackPageData] = useState<EmailLog[]>([]);
   const [detailMissingLogPageData, setDetailMissingLogPageData] = useState<any[]>([]);
   const [detailTotalItems, setDetailTotalItems] = useState(0);
   const [detailPageLoading, setDetailPageLoading] = useState(false);
@@ -505,6 +506,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     | "opens-no-clicks"
     | "opens-and-clicks"
     | "email-logs"
+    | "bounceback"
     | "missing-logs"
   >("all");
   const [detailSelectedContacts, setDetailSelectedContacts] = useState<
@@ -513,13 +515,18 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [selectedEmailLogs, setSelectedEmailLogs] = useState<Set<string>>(
     new Set()
   );
+  const [selectedBounceBackLogs, setSelectedBounceBackLogs] = useState<Set<string>>(
+    new Set()
+  );
   const [selectedMissingLogs, setSelectedMissingLogs] = useState<Set<string>>(
     new Set()
   );
   const [detailSearchQuery, setDetailSearchQuery] = useState("");
   const [emailLogsSearch, setEmailLogsSearch] = useState("");
+  const [bounceBackSearch, setBounceBackSearch] = useState("");
   const [missingLogsSearch, setMissingLogsSearch] = useState("");
   const [emailLogsCurrentPage, setEmailLogsCurrentPage] = useState(1);
+  const [bounceBackCurrentPage, setBounceBackCurrentPage] = useState(1);
   const [missingLogsCurrentPage, setMissingLogsCurrentPage] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
@@ -539,6 +546,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     setMissingLogs([]);
     setDetailEventPageData([]);
     setDetailEmailLogPageData([]);
+    setDetailBounceBackPageData([]);
     setDetailMissingLogPageData([]);
     setDetailTotalItems(0);
     setDetailEmailLogSummary({ successCount: 0, failedCount: 0 });
@@ -548,6 +556,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     setRequestCount(0);
     setCurrentPage(1);
     setEmailLogsCurrentPage(1);
+    setBounceBackCurrentPage(1);
     setMissingLogsCurrentPage(1);
   };
 
@@ -585,6 +594,23 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "linkedIn", label: "LinkedIn", visible: true },
     { key: "website", label: "Website", visible: true },
     { key: "errorMessage", label: "Error Message", visible: false },
+  ]);
+
+  const [bounceBackColumns, setBounceBackColumns] = useState([
+    { key: "checkbox", label: "", visible: true, width: "40px" },
+    { key: "name", label: "Full Name", visible: true },
+    { key: "toEmail", label: "Email Address", visible: true },
+    { key: "company", label: "Company", visible: true },
+    { key: "jobTitle", label: "Job title", visible: true },
+    { key: "subject", label: "Subject", visible: true },
+    { key: "bounceReason", label: "Bounce Reason", visible: true },
+    { key: "bounceType", label: "Bounce Type", visible: true },
+    { key: "statusCode", label: "Status Code", visible: true },
+    { key: "bounceDate", label: "Bounce Date", visible: true },
+    { key: "sentAt", label: "Sent At", visible: true },
+    { key: "senderEmailId", label: "Sender", visible: false },
+    { key: "diagnosticCode", label: "Diagnostic", visible: false },
+    { key: "remoteServer", label: "Remote Server", visible: false },
   ]);
 
   const [missingLogsColumns, setMissingLogsColumns] = useState([
@@ -1085,21 +1111,25 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   useEffect(() => {
     setCurrentPage(1);
     setEmailLogsCurrentPage(1);
+    setBounceBackCurrentPage(1);
     setMissingLogsCurrentPage(1);
     setDetailSelectedContacts(new Set());
     setSelectedEmailLogs(new Set());
+    setSelectedBounceBackLogs(new Set());
     setSelectedMissingLogs(new Set());
   }, [selectedCampaign, emailFilterType, startDate, endDate, selectedSender, excludeBots]);
 
   useEffect(() => {
     if (emailFilterType === "email-logs") {
       setEmailLogsCurrentPage(1);
+    } else if (emailFilterType === "bounceback") {
+      setBounceBackCurrentPage(1);
     } else if (emailFilterType === "missing-logs") {
       setMissingLogsCurrentPage(1);
     } else {
       setCurrentPage(1);
     }
-  }, [detailSearchQuery, emailLogsSearch, missingLogsSearch, emailFilterType]);
+  }, [detailSearchQuery, emailLogsSearch, bounceBackSearch, missingLogsSearch, emailFilterType]);
 
   useEffect(() => {
     if (!isVisible || dashboardTab !== "Details" || !effectiveUserId || !selectedCampaign) return;
@@ -1120,12 +1150,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     emailFilterType,
     currentPage,
     emailLogsCurrentPage,
+    bounceBackCurrentPage,
     missingLogsCurrentPage,
     startDate,
     endDate,
     excludeBots,
     detailSearchQuery,
     emailLogsSearch,
+    bounceBackSearch,
     missingLogsSearch,
   ]);
 
@@ -1421,12 +1453,14 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
   const getCurrentDetailPage = () => {
     if (emailFilterType === "email-logs") return emailLogsCurrentPage;
+    if (emailFilterType === "bounceback") return bounceBackCurrentPage;
     if (emailFilterType === "missing-logs") return missingLogsCurrentPage;
     return currentPage;
   };
 
   const getCurrentDetailSearch = () => {
     if (emailFilterType === "email-logs") return emailLogsSearch;
+    if (emailFilterType === "bounceback") return bounceBackSearch;
     if (emailFilterType === "missing-logs") return missingLogsSearch;
     return detailSearchQuery;
   };
@@ -1469,6 +1503,30 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           successCount: meta.successCount,
           failedCount: meta.failedCount,
         });
+        return;
+      }
+
+      if (emailFilterType === "bounceback") {
+        const response = await axios.post(
+          `${API_BASE_URL}/api/Crm/dashboard-bounceback-details`,
+          {
+            clientId,
+            ...(campaignIdNumber ? { campaignId: campaignIdNumber } : {}),
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {}),
+            ...(outboxId ? { outboxId } : {}),
+            pageNumber,
+            pageSize: DETAIL_PAGE_SIZE,
+            ...(search ? { search } : {}),
+          },
+          {
+            headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+          }
+        );
+
+        const items = asArray<EmailLog>(response.data);
+        setDetailBounceBackPageData(items);
+        setDetailTotalItems(Number(response.data?.totalCount ?? items.length));
         return;
       }
 
@@ -1542,6 +1600,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       console.error("Error loading paged details:", error);
       setDetailEventPageData([]);
       setDetailEmailLogPageData([]);
+      setDetailBounceBackPageData([]);
       setDetailMissingLogPageData([]);
       setDetailTotalItems(0);
       setDetailEmailLogSummary({ successCount: 0, failedCount: 0 });
@@ -2057,6 +2116,30 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     }));
   };
 
+  const transformBounceBackLogsForTable = (logs: EmailLog[]): any[] => {
+    return logs.map((log: EmailLog | any) => ({
+      id: log.id,
+      contactId: log.contactId,
+      name: log.name || "-",
+      toEmail: log.toEmail || "-",
+      company: log.company || "-",
+      jobTitle: log.jobTitle || "-",
+      subject:
+        log.subject && log.subject.length > 50
+          ? log.subject.substring(0, 50) + "..."
+          : log.subject || "-",
+      fullSubject: log.subject || "-",
+      bounceReason: log.bounceReason || log.errorMessage || "-",
+      bounceType: log.bounceType || "-",
+      statusCode: log.statusCode || "-",
+      bounceDate: log.bounceDate || "-",
+      sentAt: log.sentAt || "-",
+      senderEmailId: log.senderEmailId || "-",
+      diagnosticCode: log.diagnosticCode || "-",
+      remoteServer: log.remoteServer || "-",
+    }));
+  };
+
   // Get filtered missing logs
   const getFilteredMissingLogs = () => {
     let filteredLogs = missingLogs;
@@ -2300,6 +2383,10 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     toggleSelection(setSelectedEmailLogs, logId);
   };
 
+  const handleSelectBounceBackLog = (logId: string) => {
+    toggleSelection(setSelectedBounceBackLogs, logId);
+  };
+
   const handleSelectMissingLog = (logId: string) => {
     toggleSelection(setSelectedMissingLogs, logId);
   };
@@ -2349,6 +2436,13 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       contactIds = selectedLogs
         .map((log) => log.contactId)
         .filter((id): id is number => id !== null && id !== undefined);
+    } else if (emailFilterType === "bounceback") {
+      const selectedLogs = detailBounceBackPageData.filter((log) =>
+        selectedBounceBackLogs.has(log.id.toString())
+      );
+      contactIds = selectedLogs
+        .map((log) => log.contactId)
+        .filter((id): id is number => id !== null && id !== undefined);
     } else if (emailFilterType === "missing-logs") {
       const selectedLogs = detailMissingLogPageData.filter((log) =>
         selectedMissingLogs.has(log.id.toString())
@@ -2379,6 +2473,13 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       contactIds = selectedLogs
         .map((log) => log.contactId)
         .filter((id): id is number => id !== null && id !== undefined);
+    } else if (emailFilterType === "bounceback") {
+      const selectedLogs = detailBounceBackPageData.filter((log) =>
+        selectedBounceBackLogs.has(log.id.toString())
+      );
+      contactIds = selectedLogs
+        .map((log) => log.contactId)
+        .filter((id): id is number => id !== null && id !== undefined);
     } else if (emailFilterType === "missing-logs") {
       const selectedLogs = detailMissingLogPageData.filter((log) =>
         selectedMissingLogs.has(log.id.toString())
@@ -2404,6 +2505,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   const clearSegmentSelections = () => {
     if (emailFilterType === "email-logs") {
       setSelectedEmailLogs(new Set());
+    } else if (emailFilterType === "bounceback") {
+      setSelectedBounceBackLogs(new Set());
     } else if (emailFilterType === "missing-logs") {
       setSelectedMissingLogs(new Set());
     } else {
@@ -2578,19 +2681,23 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   };
 
   // Header Components
-  const getSelectionHeader = (type: 'email-logs' | 'missing-logs' | 'engagement') => {
+  const getSelectionHeader = (type: 'email-logs' | 'bounceback' | 'missing-logs' | 'engagement') => {
     const size = type === 'email-logs' ? selectedEmailLogs.size
+      : type === 'bounceback' ? selectedBounceBackLogs.size
       : type === 'missing-logs' ? selectedMissingLogs.size
       : detailSelectedContacts.size;
 
     if (size === 0) return null;
 
-    const label = type === 'email-logs' 
+    const label = type === 'email-logs'
       ? `${size} email log${size > 1 ? 's' : ''} selected`
+      : type === 'bounceback'
+      ? `${size} bounce back email${size > 1 ? 's' : ''} selected`
       : `${size} contact${size > 1 ? 's' : ''} selected`;
 
     const onClear = () => {
       if (type === 'email-logs') setSelectedEmailLogs(new Set());
+      else if (type === 'bounceback') setSelectedBounceBackLogs(new Set());
       else if (type === 'missing-logs') setSelectedMissingLogs(new Set());
       else setDetailSelectedContacts(new Set());
     };
@@ -3171,6 +3278,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               { key: "opens-and-clicks", label: "Opens & clicks",    color: "#8b5cf6" },
               { key: "all",              label: "All",               color: "#64748b" },
               { key: "email-logs",       label: "Sent",              color: "#3f9f42" },
+              { key: "bounceback",       label: "Bounce back",       color: "#f97316" },
               { key: "missing-logs",     label: "Not sent",          color: "#ef4444" },
             ] as const).map(({ key, label, color }) => (
               <button
@@ -3206,6 +3314,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             data={
               emailFilterType === "email-logs"
                 ? transformEmailLogsForTable(detailEmailLogPageData)
+                : emailFilterType === "bounceback"
+                ? transformBounceBackLogsForTable(detailBounceBackPageData)
                 : emailFilterType === "missing-logs"
                 ? detailMissingLogPageData
                 : transformEventDataForTable(detailEventPageData)
@@ -3214,6 +3324,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             search={
               emailFilterType === "email-logs"
                 ? emailLogsSearch
+                : emailFilterType === "bounceback"
+                ? bounceBackSearch
                 : emailFilterType === "missing-logs"
                 ? missingLogsSearch
                 : detailSearchQuery
@@ -3221,6 +3333,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             setSearch={
               emailFilterType === "email-logs"
                 ? setEmailLogsSearch
+                : emailFilterType === "bounceback"
+                ? setBounceBackSearch
                 : emailFilterType === "missing-logs"
                 ? setMissingLogsSearch
                 : setDetailSearchQuery
@@ -3232,6 +3346,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             currentPage={
               emailFilterType === "email-logs"
                 ? emailLogsCurrentPage
+                : emailFilterType === "bounceback"
+                ? bounceBackCurrentPage
                 : emailFilterType === "missing-logs"
                 ? missingLogsCurrentPage
                 : currentPage
@@ -3240,6 +3356,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             onPageChange={
               emailFilterType === "email-logs"
                 ? setEmailLogsCurrentPage
+                : emailFilterType === "bounceback"
+                ? setBounceBackCurrentPage
                 : emailFilterType === "missing-logs"
                 ? setMissingLogsCurrentPage
                 : setCurrentPage
@@ -3247,6 +3365,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             selectedItems={
               emailFilterType === "email-logs"
                 ? selectedEmailLogs
+                : emailFilterType === "bounceback"
+                ? selectedBounceBackLogs
                 : emailFilterType === "missing-logs"
                 ? selectedMissingLogs
                 : detailSelectedContacts
@@ -3254,6 +3374,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             onSelectItem={
               emailFilterType === "email-logs"
                 ? handleSelectEmailLog
+                : emailFilterType === "bounceback"
+                ? handleSelectBounceBackLog
                 : emailFilterType === "missing-logs"
                 ? handleSelectMissingLog
                 : (id: string) => toggleSelection(setDetailSelectedContacts, id)
@@ -3265,7 +3387,9 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             autoGenerateColumns={false}
             customColumns={
               emailFilterType === "email-logs" 
-                ? emailLogsColumns 
+                ? emailLogsColumns
+                : emailFilterType === "bounceback"
+                ? bounceBackColumns
                 : emailFilterType === "missing-logs"
                 ? missingLogsColumns
                 : emailColumns
@@ -3274,6 +3398,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               // Date formatting
               timestamp: (value: any) => formatMailTimestamp(value),
               sentAt: (value: any) => formatMailTimestamp(value),
+              bounceDate: (value: any) => formatMailTimestamp(value),
 
               // Status formatting
               isSuccess: (value: any) => {
@@ -3546,6 +3671,18 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                   "process_name",
                   "address",
                 ]
+                : emailFilterType === "bounceback"
+                ? [
+                  "name",
+                  "toEmail",
+                  "company",
+                  "jobTitle",
+                  "subject",
+                  "bounceReason",
+                  "bounceType",
+                  "statusCode",
+                  "senderEmailId",
+                ]
                 : emailFilterType === "missing-logs"
                 ? [
                   "first_name",
@@ -3564,6 +3701,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             customHeader={
               emailFilterType === "email-logs"
                 ? getSelectionHeader('email-logs')
+                : emailFilterType === "bounceback"
+                ? getSelectionHeader('bounceback')
                 : emailFilterType === "missing-logs"
                 ? getSelectionHeader('missing-logs')
                 : getSelectionHeader('engagement')
@@ -3571,6 +3710,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             onColumnsChange={
               emailFilterType === "email-logs"
                 ? setEmailLogsColumns
+                : emailFilterType === "bounceback"
+                ? setBounceBackColumns
                 : emailFilterType === "missing-logs"
                 ? setMissingLogsColumns
                 : setEmailColumns
@@ -3609,6 +3750,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             selectedContactsCount={
               emailFilterType === "email-logs"
                 ? selectedEmailLogs.size
+                : emailFilterType === "bounceback"
+                ? selectedBounceBackLogs.size
                 : emailFilterType === "missing-logs"
                 ? selectedMissingLogs.size
                 : detailSelectedContacts.size
@@ -3638,6 +3781,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               // Clear selections after update
               if (emailFilterType === "email-logs") {
                 setSelectedEmailLogs(new Set());
+              } else if (emailFilterType === "bounceback") {
+                setSelectedBounceBackLogs(new Set());
               } else if (emailFilterType === "missing-logs") {
                 setSelectedMissingLogs(new Set());
               } else {
