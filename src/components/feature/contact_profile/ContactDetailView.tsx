@@ -1786,11 +1786,13 @@ const handleGenerateInsights = async () => {
   const handleSendComposeEmail = async ({
     emailSubject,
     emailBody,
-    bccEmail,
+    ccEmails,
+    bccEmails,
   }: {
     emailSubject: string;
     emailBody: string;
-    bccEmail: string;
+    ccEmails: string[] | null;
+    bccEmails: string[] | null;
   }): Promise<boolean> => {
     const emailBodyToSave = emailBody;
     const plainBody = getPlainText(emailBodyToSave || "").trim();
@@ -1855,7 +1857,8 @@ const handleGenerateInsights = async () => {
           contactid: Number(contactId),
           campaignid: null,
           isFollowUp: false,
-          BccEmail: bccEmail || "",
+          CcEmail: ccEmails,
+          BccEmail: bccEmails,
           OutboxId: outboxId,
           Type: selectedSmtp?.type || selectedSmtp?.smtpType || "",
           SegmentId:
