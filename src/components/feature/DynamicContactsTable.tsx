@@ -2,6 +2,7 @@ import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import React from "react";
 import PaginationControls from "./PaginationControls";
 import CommonSidePanel from "../common/CommonSidePanel";
+import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import "./DynamicContactsTable.css";
 
 // ---------- Types ----------
@@ -53,6 +54,7 @@ interface DynamicContactsTableProps {
   detailTitle?: string;
   detailDescription?: string;
   onBack?: () => void;
+  backLabel?: string;
   onAddItem?: () => void;
   hideSearch?: boolean;
   customHeader?: React.ReactNode;
@@ -153,6 +155,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   detailTitle,
   detailDescription,
   onBack,
+  backLabel = "Back",
   onAddItem,
   hideSearch = false,
   customHeader,
@@ -572,11 +575,19 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       {viewMode === "detail" && (
         <div className="dt-detail-header">
           {onBack && (
-            <button className="dt-btn-secondary" onClick={onBack}>
+            <button
+              onClick={onBack}
+              style={{
+                ...lessPriorityButtonStyle,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
               <svg viewBox="0 0 24 24" width="14" height="14">
                 <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6"/>
               </svg>
-              Back
+              {backLabel}
             </button>
           )}
           <div className="dt-detail-header__info">
