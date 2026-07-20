@@ -604,16 +604,16 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
     {
       done: hasCampaign,
       icon: Megaphone,
-      title: "At least one campaign",
-      subtitle: "Link your contacts and a blueprint together in a campaign to schedule.",
+      title: "Add at least one campaign",
+      subtitle: "Link contacts and a blueprint together in a campaign",
       addLabel: "Add campaign",
       onAdd: () => navigate("/main?tab=Campaigns"),
     },
     {
       done: hasMailbox,
       icon: Mailbox,
-      title: "At least one mailbox",
-      subtitle: "Connect a mailbox so PitchKraft has an address to send sends from.",
+      title: "Add at least one mailbox",
+      subtitle: "Connect a mailbox to send send emails from.",
       addLabel: "Add mailbox",
       onAdd: () => navigate("/main?tab=Mail&mailSubTab=Configuration"),
     },
@@ -680,7 +680,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
               <div className="bp-empty-hero__content">
                 <div className="bp-empty-hero__copy">
                   <span className="bp-start-pill">Start here</span>
-                  <h2 className="bp-empty-headline">A little setup before you schedule.</h2>
+                  <h2 className="bp-empty-headline">Schedule email sending.</h2>
                   <p className="bp-empty-body-text">
                     To schedule a send you first need a campaign to send and a mailbox
                     to send it from. Finish the steps below to get going.
