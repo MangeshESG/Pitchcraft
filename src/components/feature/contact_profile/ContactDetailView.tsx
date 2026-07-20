@@ -23,6 +23,7 @@ import {
   faReply,
   faFloppyDisk,
   faPen,
+  faShare,
 } from "@fortawesome/free-solid-svg-icons";
 import { faEdit, faTrashAlt, faSquarePlus } from "@fortawesome/free-regular-svg-icons";
 import EditContactModal from "./EditContactModal";
@@ -260,6 +261,12 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [contactReplyEmailWidth, setContactReplyEmailWidth] = useState<string>("");
   const [isSavingContactReplyDraft, setIsSavingContactReplyDraft] = useState(false);
   const [isContactReplyExpanded, setIsContactReplyExpanded] = useState(false);
+  const [showContactForwardSection, setShowContactForwardSection] = useState(false);
+  const [contactForwardEmail, setContactForwardEmail] = useState("");
+  const [contactForwardBccEmail, setContactForwardBccEmail] = useState("");
+  const [contactForwardMessage, setContactForwardMessage] = useState("");
+  const [showContactForwardBcc, setShowContactForwardBcc] = useState(false);
+  const [isForwardingContactEmail, setIsForwardingContactEmail] = useState(false);
   const contactReplyKraftInFlightRef = useRef(false);
   const contactMailDetailRef = useRef<HTMLDivElement | null>(null);
 
@@ -2018,6 +2025,94 @@ const handleGenerateInsights = async () => {
     }
   };
 
+  const getContactThreadProvider = (thread: any) => {
+    const messages = Array.isArray(thread?.messages) ? thread.messages : [];
+    return (
+      getProviderValue(thread) ||
+      getProviderValue(thread?.lastMessage) ||
+      getProviderValue(messages.find((message: any) => getProviderValue(message))) ||
+      ""
+    );
+  };
+
+  const openContactForwardSection = (thread: any) => {
+    setContactForwardEmail("");
+    setContactForwardBccEmail("");
+    setContactForwardMessage("");
+    setShowContactForwardBcc(false);
+    setShowContactReplySection(false);
+    setShowContactForwardSection(true);
+  };
+
+  const closeContactForwardSection = () => {
+    if (isForwardingContactEmail) return;
+    setContactForwardEmail("");
+    setContactForwardBccEmail("");
+    setContactForwardMessage("");
+    setShowContactForwardBcc(false);
+    setShowContactForwardSection(false);
+  };
+
+  const handleForwardContactEmail = async (thread: any) => {
+    if (!thread?.trackingId || !contactForwardEmail.trim() || !contactForwardMessage.trim()) return;
+
+    const threadMessages = Array.isArray(thread?.messages) ? thread.messages : [];
+    const forwardOutboxId =
+      getInboxIdValue(thread) ??
+      getInboxIdValue(thread?.lastMessage) ??
+      threadMessages.map(getInboxIdValue).find(Boolean);
+
+    if (!forwardOutboxId) {
+      showContactMailError("Thread inbox id not found.");
+      return;
+    }
+
+    const forwardProvider = getContactThreadProvider(thread);
+    if (!forwardProvider) {
+      showContactMailError("Thread provider not found.");
+      return;
+    }
+
+    setIsForwardingContactEmail(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Forward/forward-email`,
+        {
+          trackingId: thread.trackingId,
+          clientId: Number(effectiveUserId),
+          forwardToEmail: contactForwardEmail.trim(),
+          forwardMessage: contactForwardMessage,
+          outboxId: forwardOutboxId,
+          bccEmail: contactForwardBccEmail.trim(),
+          Provider: forwardProvider,
+        },
+        {
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data?.success === false) {
+        throw new Error(response.data?.message || "Failed to forward email");
+      }
+
+      showContactMailSuccess("Email forwarded successfully!");
+      setContactForwardEmail("");
+      setContactForwardBccEmail("");
+      setContactForwardMessage("");
+      setShowContactForwardBcc(false);
+      setShowContactForwardSection(false);
+    } catch (error: any) {
+      console.error("Failed to forward contact email:", error);
+      showContactMailError(error.response?.data?.message || error.message || "Failed to forward email.");
+    } finally {
+      setIsForwardingContactEmail(false);
+    }
+  };
+
   const handleSaveContactReplyDraft = async (thread: any) => {
     const draftBody = getDraftContactReplyBody(contactReplyText || "");
 
@@ -3030,6 +3125,11 @@ dispatch(closePanel());
     setShowContactReplySection(false);
     setIsContactReplyExpanded(false);
     setOpenContactReplyDeviceDropdown(false);
+    setShowContactForwardSection(false);
+    setContactForwardEmail("");
+    setContactForwardBccEmail("");
+    setContactForwardMessage("");
+    setShowContactForwardBcc(false);
   }, [contactMailTab, contactId]);
 
   useEffect(() => {
@@ -3050,6 +3150,11 @@ dispatch(closePanel());
       setShowContactReplySection(false);
       setIsContactReplyExpanded(false);
       setOpenContactReplyDeviceDropdown(false);
+      setShowContactForwardSection(false);
+      setContactForwardEmail("");
+      setContactForwardBccEmail("");
+      setContactForwardMessage("");
+      setShowContactForwardBcc(false);
       return;
     }
 
@@ -3089,6 +3194,11 @@ dispatch(closePanel());
     setShowContactReplySection(false);
     setIsContactReplyExpanded(false);
     setOpenContactReplyDeviceDropdown(false);
+    setShowContactForwardSection(false);
+    setContactForwardEmail("");
+    setContactForwardBccEmail("");
+    setContactForwardMessage("");
+    setShowContactForwardBcc(false);
     setContactCollapsedEmails(buildDefaultContactCollapseState(thread));
   };
 
@@ -3205,7 +3315,7 @@ dispatch(closePanel());
         <div
           className="mail-detail contact-mail-detail"
           ref={contactMailDetailRef}
-          style={{ paddingBottom: !showContactReplySection ? 82 : 0 }}
+          style={{ paddingBottom: !showContactReplySection && !showContactForwardSection ? 82 : 0 }}
         >
           {sortedMessages.map((message: any, index: number) => {
             const uniqueKey = getContactMessageCollapseKey(activeThread, message, index);
@@ -3270,7 +3380,32 @@ dispatch(closePanel());
                         </div>
                       )}
                     </div>
-                    <div className="mail-detail-date">{formatDateTimeIST(message.date)}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <button
+                        type="button"
+                        title="Forward"
+                        aria-label="Forward email"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openContactForwardSection(activeThread);
+                        }}
+                        style={{
+                          width: 34,
+                          height: 34,
+                          padding: 0,
+                          ...primarySoftButtonStyle,
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          fontSize: 13,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faShare} />
+                      </button>
+                      <div className="mail-detail-date">{formatDateTimeIST(message.date)}</div>
+                    </div>
                   </div>
                 </div>
                 {isCollapsed ? (
@@ -3294,12 +3429,15 @@ dispatch(closePanel());
               </div>
             );
           })}
-          {!showContactReplySection && (
+          {!showContactReplySection && !showContactForwardSection && (
             <div className="reply-button-sticky">
               <button
                 type="button"
                 className="reply-pill-button"
-                onClick={() => setShowContactReplySection(true)}
+                onClick={() => {
+                  setShowContactForwardSection(false);
+                  setShowContactReplySection(true);
+                }}
               >
                 <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
                 Reply
@@ -3307,6 +3445,126 @@ dispatch(closePanel());
             </div>
           )}
         </div>
+        {showContactForwardSection && (
+          <form
+            className="reply-section"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleForwardContactEmail(activeThread);
+            }}
+            style={{
+              marginTop: 24,
+              padding: "24px 24px 20px",
+              borderTop: "1px solid #e5e7eb",
+              background: "#fff",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <label style={{ fontWeight: 500, fontSize: 14, color: "#374151" }}>Forward</label>
+            </div>
+            <style>
+              {`
+                .contact-email-workspace .reply-section .rich-text-editor > div {
+                  min-height: 160px !important;
+                  height: auto !important;
+                  overflow-y: visible !important;
+                }
+              `}
+            </style>
+            <div style={{ display: "grid", gap: 12, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="email"
+                  value={contactForwardEmail}
+                  onChange={(event) => setContactForwardEmail(event.target.value)}
+                  placeholder="To"
+                  required
+                  style={{
+                    flex: 1,
+                    width: "100%",
+                    padding: "10px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    fontSize: 14,
+                  }}
+                />
+                {!showContactForwardBcc && (
+                  <button
+                    type="button"
+                    onClick={() => setShowContactForwardBcc(true)}
+                    style={{ padding: "10px 12px", background: "#fff", color: "#2563eb", border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 500, whiteSpace: "nowrap" }}
+                  >
+                    BCC
+                  </button>
+                )}
+              </div>
+              {showContactForwardBcc && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    type="email"
+                    value={contactForwardBccEmail}
+                    onChange={(event) => setContactForwardBccEmail(event.target.value)}
+                    placeholder="BCC"
+                    style={{
+                      flex: 1,
+                      width: "100%",
+                      padding: "10px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: 6,
+                      fontSize: 14,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContactForwardBccEmail("");
+                      setShowContactForwardBcc(false);
+                    }}
+                    title="Hide BCC"
+                    aria-label="Hide BCC"
+                    style={{ width: 38, height: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}
+                  >
+                    x
+                  </button>
+                </div>
+              )}
+              <RichTextEditor value={contactForwardMessage} onChange={setContactForwardMessage} />
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                type="submit"
+                disabled={isForwardingContactEmail || !contactForwardEmail.trim() || !contactForwardMessage.trim()}
+                style={{
+                  padding: "10px 24px",
+                  ...((isForwardingContactEmail || !contactForwardEmail.trim() || !contactForwardMessage.trim())
+                    ? { background: "#e5e7eb", color: "#9ca3af", border: "1px solid #d1d5db" }
+                    : primarySoftButtonStyle),
+                  borderRadius: 6,
+                  cursor: isForwardingContactEmail || !contactForwardEmail.trim() || !contactForwardMessage.trim() ? "not-allowed" : "pointer",
+                  fontSize: 14,
+                  fontWeight: 500,
+                }}
+              >
+                {isForwardingContactEmail ? "Forwarding..." : "Forward"}
+              </button>
+              <button
+                type="button"
+                onClick={closeContactForwardSection}
+                disabled={isForwardingContactEmail}
+                style={{
+                  padding: "10px 24px",
+                  ...secondaryButtonStyle,
+                  borderRadius: 6,
+                  cursor: isForwardingContactEmail ? "not-allowed" : "pointer",
+                  fontSize: 14,
+                  fontWeight: 500,
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
         {showContactReplySection && (
           <div
             className="reply-section"
