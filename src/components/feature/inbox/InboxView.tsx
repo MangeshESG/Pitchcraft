@@ -301,6 +301,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   }, [
     activeTab,
     selectedThread?.trackingId,
+    selectedSentThread?.trackingId,
     selectedUnassignedThread?.trackingId,
     selectedAllMessagesThread?.trackingId
   ]);
@@ -3258,7 +3259,32 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             {extractEmailAddress(message.fromEmail)}
                           </div>
                         </div>
-                        <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <button
+                            type="button"
+                            title="Forward"
+                            aria-label="Forward email"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openForwardModal(selectedSentThread);
+                            }}
+                            style={{
+                              width: '34px',
+                              height: '34px',
+                              padding: 0,
+                              ...primarySoftButtonStyle,
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faShare} />
+                          </button>
+                          <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                        </div>
                       </div>
                     </div>
                     {(collapsedEmails[uniqueKey] ?? index !== 0) ? (
@@ -3319,6 +3345,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     {renderMessageAttachments(message.attachments)}
                   </div>
                 );})}
+                {showForwardSection && renderForwardSection()}
               </div>
             ) : selectedUnassignedThread ? (
               <div className="mail-detail" ref={mailDetailRef}>
