@@ -270,6 +270,22 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const contactReplyKraftInFlightRef = useRef(false);
   const contactMailDetailRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    if (!showContactReplySection) return;
+
+    const scrollToReplySection = () => {
+      const el = contactMailDetailRef.current;
+      if (el) {
+        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      }
+    };
+
+    requestAnimationFrame(() => {
+      scrollToReplySection();
+      window.setTimeout(scrollToReplySection, 120);
+    });
+  }, [showContactReplySection, selectedContactThread?.trackingId]);
+
   const appModal = useAppModal();
   const {
     credits,
