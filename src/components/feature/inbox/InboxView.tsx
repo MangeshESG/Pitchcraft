@@ -226,7 +226,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowReplyBcc(false);
     setCollapsedEmails({});
   }, [initialTab]);
-  
+
   const handleTabChange = (tab: 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages') => {
     setActiveTab(tab);
     // Clear all selected threads when switching tabs
@@ -272,6 +272,23 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [refreshUnassignedTab, setRefreshUnassignedTab] = useState(0);
   const [refreshAllMessagesTab, setRefreshAllMessagesTab] = useState(0);
   const [selectedAllMessagesThread, setSelectedAllMessagesThread] = useState<InboxThread | null>(null);
+
+  useEffect(() => {
+    if (!showReplySection) return;
+
+    const scrollToReplySection = () => {
+      const el = mailDetailRef.current;
+      if (el) {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      }
+    };
+
+    requestAnimationFrame(() => {
+      scrollToReplySection();
+      window.setTimeout(scrollToReplySection, 120);
+    });
+  }, [showReplySection, selectedThread, selectedSentThread, selectedUnassignedThread, selectedAllMessagesThread]);
+
   const [unreadCounts, setUnreadCounts] = useState<{ inboxReplies: number; unassigned: number }>({ inboxReplies: 0, unassigned: 0 });
   const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([]);
   const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
