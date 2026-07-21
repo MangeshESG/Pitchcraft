@@ -1332,12 +1332,11 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
             </div>
-            <p className="mt-1.5 text-[11.5px] text-[#6b7280]">The blueprint defines how each email is personalized.</p>
+            <p className="mt-0.5 text-[11.5px] text-[#6b7280]">The blueprint defines how each email is personalized.</p>
           </div>
 
           <div>
             <label className="mb-1.5 block text-[12.5px] font-semibold text-[#374151]">List / view / segment <span className="text-[#dc2626]">*</span></label>
-            <p className="mb-1.5 text-[11.5px] text-[#6b7280]">Select the data you wish to contact in this campaign.</p>
             <div className="relative">
               <select
                 onChange={(e) => {
@@ -1371,6 +1370,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
             </div>
+            <p className="mt-0.5 text-[11.5px] text-[#6b7280]">Select the data you wish to contact in this campaign.</p>
           </div>
 
           <div>
