@@ -64,13 +64,13 @@ const compactFieldStyle: React.CSSProperties = {
   flex: "0 0 390px",
 };
 
-const parseRecipientInput = (value: string) =>
+export const parseRecipientInput = (value: string) =>
   value
     .split(/[,\n;]/)
     .map((email) => email.trim())
     .filter(Boolean);
 
-const mergeRecipients = (current: string[], next: string[]) => {
+export const mergeRecipients = (current: string[], next: string[]) => {
   const seen = new Set(current.map((email) => email.toLowerCase()));
   const merged = [...current];
   next.forEach((email) => {
@@ -88,14 +88,16 @@ interface RecipientChipInputProps {
   onRecipientsChange: (recipients: string[]) => void;
   onDraftChange: (draft: string) => void;
   placeholder: string;
+  containerStyle?: React.CSSProperties;
 }
 
-const RecipientChipInput: React.FC<RecipientChipInputProps> = ({
+export const RecipientChipInput: React.FC<RecipientChipInputProps> = ({
   recipients,
   draft,
   onRecipientsChange,
   onDraftChange,
   placeholder,
+  containerStyle,
 }) => {
   const commitDraft = () => {
     const nextRecipients = parseRecipientInput(draft);
@@ -124,6 +126,7 @@ const RecipientChipInput: React.FC<RecipientChipInputProps> = ({
         flexWrap: "wrap",
         gap: 6,
         background: "#fff",
+        ...containerStyle,
       }}
       onClick={(event) => {
         const input = event.currentTarget.querySelector("input");

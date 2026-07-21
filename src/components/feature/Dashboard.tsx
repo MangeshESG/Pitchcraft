@@ -871,17 +871,25 @@ const PostOnboardingView: React.FC<{
                 Page {contactPage}
               </div>
             </div>
-            <input
-              type="text"
-              placeholder="Search name, email or company…"
-              value={contactSearch}
-              onChange={(e) => { setContactSearch(e.target.value); setContactPage(1); }}
-              className="h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#3f9f42] w-72"
-            />
+            <div className="flex items-center gap-3">
+              {contactsLoading && (
+                <div className="flex items-center gap-2 text-[12px] font-medium text-gray-500" aria-live="polite">
+                  <div className="w-5 h-5 rounded-full border-2 border-[#e8f5e9] border-t-[#3f9f42] animate-spin" />
+                  <span>Loading contacts...</span>
+                </div>
+              )}
+              <input
+                type="text"
+                placeholder="Search name, email or company…"
+                value={contactSearch}
+                onChange={(e) => { setContactSearch(e.target.value); setContactPage(1); }}
+                className="h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#3f9f42] w-72"
+              />
+            </div>
           </div>
 
           <div className="relative mt-4 min-h-[160px] overflow-hidden rounded-xl border border-gray-100">
-            <table className={`w-full text-[13px] transition-opacity ${contactsLoading ? "opacity-40" : "opacity-100"}`}>
+            <table className="w-full text-[13px]">
               <thead>
                 <tr className="text-left text-gray-400 text-[11px] uppercase tracking-wider border-b border-gray-100">
                   <th className="font-medium pb-2">Name</th>
@@ -923,15 +931,6 @@ const PostOnboardingView: React.FC<{
                 )}
               </tbody>
             </table>
-
-            {contactsLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
-                <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
-                  <div className="w-8 h-8 rounded-full border-[3px] border-[#e8f5e9] border-t-[#3f9f42] animate-spin" />
-                  <div className="text-[12px] font-medium text-gray-500">Loading contacts...</div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Pagination */}
