@@ -43,7 +43,7 @@ import { Pin, PinOff } from 'lucide-react';
 import CommonSidePanel from '../../common/CommonSidePanel';
 import { defaultButtonStyle } from "../../../styles/buttonStyles";
 import ContactQA from "./ContactQA";
-import ContactComposeEmailPopup from "./ContactComposeEmailPopup";
+import ContactComposeEmailPopup, { RecipientChipInput, mergeRecipients, parseRecipientInput } from "./ContactComposeEmailPopup";
 import ContactEmailsTab from "./ContactEmailsTab";
 import { pinEmail } from "../inbox/inboxPin";
 import EmailIframe from "../inbox/EmailIframe";
@@ -240,8 +240,10 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [expandedContactMessageHeaders, setExpandedContactMessageHeaders] = useState<{ [key: string]: boolean }>({});
   const [contactReplyText, setContactReplyText] = useState("");
   const [contactReplyTrailHtml, setContactReplyTrailHtml] = useState("");
-  const [contactReplyCc, setContactReplyCc] = useState("");
-  const [contactReplyBcc, setContactReplyBcc] = useState("");
+  const [contactReplyCcEmails, setContactReplyCcEmails] = useState<string[]>([]);
+  const [contactReplyCcDraft, setContactReplyCcDraft] = useState("");
+  const [contactReplyBccEmails, setContactReplyBccEmails] = useState<string[]>([]);
+  const [contactReplyBccDraft, setContactReplyBccDraft] = useState("");
   const [showContactReplyCc, setShowContactReplyCc] = useState(false);
   const [showContactReplyBcc, setShowContactReplyBcc] = useState(false);
   const [contactReplyAttachments, setContactReplyAttachments] = useState<File[]>([]);
@@ -263,17 +265,21 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [isContactReplyExpanded, setIsContactReplyExpanded] = useState(false);
   const [showContactForwardSection, setShowContactForwardSection] = useState(false);
   const [contactForwardEmail, setContactForwardEmail] = useState("");
-  const [contactForwardBccEmail, setContactForwardBccEmail] = useState("");
+  const [contactForwardCcEmails, setContactForwardCcEmails] = useState<string[]>([]);
+  const [contactForwardCcDraft, setContactForwardCcDraft] = useState("");
+  const [contactForwardBccEmails, setContactForwardBccEmails] = useState<string[]>([]);
+  const [contactForwardBccDraft, setContactForwardBccDraft] = useState("");
   const [contactForwardMessage, setContactForwardMessage] = useState("");
   const [showContactForwardBcc, setShowContactForwardBcc] = useState(false);
+  const [showContactForwardCc, setShowContactForwardCc] = useState(false);
   const [isForwardingContactEmail, setIsForwardingContactEmail] = useState(false);
   const contactReplyKraftInFlightRef = useRef(false);
   const contactMailDetailRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!showContactReplySection) return;
+    if (!showContactReplySection && !showContactForwardSection) return;
 
-    const scrollToReplySection = () => {
+    const scrollToComposer = () => {
       const el = contactMailDetailRef.current;
       if (el) {
         el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
@@ -281,10 +287,10 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
     };
 
     requestAnimationFrame(() => {
-      scrollToReplySection();
-      window.setTimeout(scrollToReplySection, 120);
+      scrollToComposer();
+      window.setTimeout(scrollToComposer, 120);
     });
-  }, [showContactReplySection, selectedContactThread?.trackingId]);
+  }, [showContactReplySection, showContactForwardSection, selectedContactThread?.trackingId]);
 
   const appModal = useAppModal();
   const {
@@ -1970,8 +1976,8 @@ const handleGenerateInsights = async () => {
     formData.append("ClientId", String(Number(effectiveUserId)));
     formData.append("ReplyBody", sendableReplyBody);
     formData.append("Outboxid", String(replyOutboxId));
-    formData.append("CC", contactReplyCc);
-    formData.append("BCC", contactReplyBcc);
+    formData.append("CC", mergeRecipients(contactReplyCcEmails, parseRecipientInput(contactReplyCcDraft)).join(","));
+    formData.append("BCC", mergeRecipients(contactReplyBccEmails, parseRecipientInput(contactReplyBccDraft)).join(","));
     formData.append("Provider", replyProvider);
     contactReplyAttachments.forEach((file) => {
       formData.append("Attachments", file);
@@ -2022,8 +2028,10 @@ const handleGenerateInsights = async () => {
       setSelectedContactThread((prev: any) => (prev?.trackingId === thread.trackingId ? updateThreadWithReply(prev) : prev));
       setContactReplyText("");
       setContactReplyTrailHtml("");
-      setContactReplyCc("");
-      setContactReplyBcc("");
+      setContactReplyCcEmails([]);
+      setContactReplyCcDraft("");
+      setContactReplyBccEmails([]);
+      setContactReplyBccDraft("");
       setShowContactReplyCc(false);
       setShowContactReplyBcc(false);
       setContactReplyAttachments([]);
@@ -2041,6 +2049,56 @@ const handleGenerateInsights = async () => {
     }
   };
 
+  const handleKraftContactForward = async (thread: any) => {
+    if (!selectedContactReplyBlueprint || !thread?.contactId) {
+      showContactMailError("Please select a blueprint first.");
+      return;
+    }
+
+    if (contactReplyKraftInFlightRef.current) return;
+    contactReplyKraftInFlightRef.current = true;
+
+    const canKraft = await ensureCanDeductCredit();
+    if (!canKraft) {
+      contactReplyKraftInFlightRef.current = false;
+      return;
+    }
+
+    setIsKraftingContactReply(true);
+    try {
+      const response = await axios.post(
+        `${PITCH_GENERATION_API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        {
+          blueprintId: selectedContactReplyBlueprint,
+          contactId: thread.contactId,
+          clientId: String(effectiveUserId),
+          overwriteExisting: true,
+        },
+        {
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data?.success && response.data?.emailBody) {
+        setContactForwardMessage(response.data.emailBody);
+        refreshCreditsAfterDeduction();
+        window.dispatchEvent(new CustomEvent("creditUpdated", { detail: { clientId: effectiveUserId } }));
+      } else {
+        throw new Error(response.data?.message || "Failed to generate email");
+      }
+    } catch (error: any) {
+      console.error("Failed to kraft contact forward:", error);
+      showContactMailError(error.response?.data?.message || error.message || "Failed to generate email.");
+    } finally {
+      setIsKraftingContactReply(false);
+      contactReplyKraftInFlightRef.current = false;
+    }
+  };
+
   const getContactThreadProvider = (thread: any) => {
     const messages = Array.isArray(thread?.messages) ? thread.messages : [];
     return (
@@ -2053,9 +2111,13 @@ const handleGenerateInsights = async () => {
 
   const openContactForwardSection = (thread: any) => {
     setContactForwardEmail("");
-    setContactForwardBccEmail("");
+    setContactForwardCcEmails([]);
+    setContactForwardCcDraft("");
+    setContactForwardBccEmails([]);
+    setContactForwardBccDraft("");
     setContactForwardMessage("");
     setShowContactForwardBcc(false);
+    setShowContactForwardCc(false);
     setShowContactReplySection(false);
     setShowContactForwardSection(true);
   };
@@ -2063,9 +2125,13 @@ const handleGenerateInsights = async () => {
   const closeContactForwardSection = () => {
     if (isForwardingContactEmail) return;
     setContactForwardEmail("");
-    setContactForwardBccEmail("");
+    setContactForwardCcEmails([]);
+    setContactForwardCcDraft("");
+    setContactForwardBccEmails([]);
+    setContactForwardBccDraft("");
     setContactForwardMessage("");
     setShowContactForwardBcc(false);
+    setShowContactForwardCc(false);
     setShowContactForwardSection(false);
   };
 
@@ -2099,7 +2165,8 @@ const handleGenerateInsights = async () => {
           forwardToEmail: contactForwardEmail.trim(),
           forwardMessage: contactForwardMessage,
           outboxId: forwardOutboxId,
-          bccEmail: contactForwardBccEmail.trim(),
+          ccEmail: mergeRecipients(contactForwardCcEmails, parseRecipientInput(contactForwardCcDraft)).join(","),
+          bccEmail: mergeRecipients(contactForwardBccEmails, parseRecipientInput(contactForwardBccDraft)).join(","),
           Provider: forwardProvider,
         },
         {
@@ -2117,9 +2184,13 @@ const handleGenerateInsights = async () => {
 
       showContactMailSuccess("Email forwarded successfully!");
       setContactForwardEmail("");
-      setContactForwardBccEmail("");
+      setContactForwardCcEmails([]);
+      setContactForwardCcDraft("");
+      setContactForwardBccEmails([]);
+      setContactForwardBccDraft("");
       setContactForwardMessage("");
       setShowContactForwardBcc(false);
+      setShowContactForwardCc(false);
       setShowContactForwardSection(false);
     } catch (error: any) {
       console.error("Failed to forward contact email:", error);
@@ -3133,8 +3204,10 @@ dispatch(closePanel());
     setExpandedContactMessageHeaders({});
     setContactReplyText("");
     setContactReplyTrailHtml("");
-    setContactReplyCc("");
-    setContactReplyBcc("");
+    setContactReplyCcEmails([]);
+    setContactReplyCcDraft("");
+    setContactReplyBccEmails([]);
+    setContactReplyBccDraft("");
     setShowContactReplyCc(false);
     setShowContactReplyBcc(false);
     setContactReplyAttachments([]);
@@ -3143,8 +3216,12 @@ dispatch(closePanel());
     setOpenContactReplyDeviceDropdown(false);
     setShowContactForwardSection(false);
     setContactForwardEmail("");
-    setContactForwardBccEmail("");
+    setContactForwardCcEmails([]);
+    setContactForwardCcDraft("");
+    setContactForwardBccEmails([]);
+    setContactForwardBccDraft("");
     setContactForwardMessage("");
+    setShowContactForwardCc(false);
     setShowContactForwardBcc(false);
   }, [contactMailTab, contactId]);
 
@@ -3158,8 +3235,10 @@ dispatch(closePanel());
       setExpandedContactMessageHeaders({});
       setContactReplyText("");
       setContactReplyTrailHtml("");
-      setContactReplyCc("");
-      setContactReplyBcc("");
+      setContactReplyCcEmails([]);
+      setContactReplyCcDraft("");
+      setContactReplyBccEmails([]);
+      setContactReplyBccDraft("");
       setShowContactReplyCc(false);
       setShowContactReplyBcc(false);
       setContactReplyAttachments([]);
@@ -3168,8 +3247,12 @@ dispatch(closePanel());
       setOpenContactReplyDeviceDropdown(false);
       setShowContactForwardSection(false);
       setContactForwardEmail("");
-      setContactForwardBccEmail("");
+      setContactForwardCcEmails([]);
+      setContactForwardCcDraft("");
+      setContactForwardBccEmails([]);
+      setContactForwardBccDraft("");
       setContactForwardMessage("");
+      setShowContactForwardCc(false);
       setShowContactForwardBcc(false);
       return;
     }
@@ -3202,8 +3285,10 @@ dispatch(closePanel());
     setSelectedContactThread(thread);
     setContactReplyText("");
     setContactReplyTrailHtml("");
-    setContactReplyCc("");
-    setContactReplyBcc("");
+    setContactReplyCcEmails([]);
+    setContactReplyCcDraft("");
+    setContactReplyBccEmails([]);
+    setContactReplyBccDraft("");
     setShowContactReplyCc(false);
     setShowContactReplyBcc(false);
     setContactReplyAttachments([]);
@@ -3212,8 +3297,12 @@ dispatch(closePanel());
     setOpenContactReplyDeviceDropdown(false);
     setShowContactForwardSection(false);
     setContactForwardEmail("");
-    setContactForwardBccEmail("");
+    setContactForwardCcEmails([]);
+    setContactForwardCcDraft("");
+    setContactForwardBccEmails([]);
+    setContactForwardBccDraft("");
     setContactForwardMessage("");
+    setShowContactForwardCc(false);
     setShowContactForwardBcc(false);
     setContactCollapsedEmails(buildDefaultContactCollapseState(thread));
   };
@@ -3475,8 +3564,34 @@ dispatch(closePanel());
               background: "#fff",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <label style={{ fontWeight: 500, fontSize: 14, color: "#374151" }}>Forward</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <select
+                  value={selectedContactReplyBlueprint || ""}
+                  onChange={(event) => setSelectedContactReplyBlueprint(event.target.value ? Number(event.target.value) : null)}
+                  style={{ padding: "6px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, background: "#fff" }}
+                >
+                  <option value="">Select Blueprint</option>
+                  {contactReplyBlueprints.map((blueprint) => (
+                    <option key={blueprint.id} value={blueprint.id}>{blueprint.templateName}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => handleKraftContactForward(activeThread)}
+                  disabled={!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId}
+                  style={{
+                    padding: "6px 16px",
+                    background: (!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId) ? "#ccc" : "#e2f1e3",
+                    color: "#3f9f42", border: "none", borderRadius: 6,
+                    cursor: (!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId) ? "not-allowed" : "pointer",
+                    fontSize: 13, fontWeight: 500, whiteSpace: "nowrap",
+                  }}
+                >
+                  {isKraftingContactReply ? "Krafting..." : "Kraft"}
+                </button>
+              </div>
             </div>
             <style>
               {`
@@ -3504,6 +3619,15 @@ dispatch(closePanel());
                     fontSize: 14,
                   }}
                 />
+                {!showContactForwardCc && (
+                  <button
+                    type="button"
+                    onClick={() => setShowContactForwardCc(true)}
+                    style={{ padding: "10px 12px", background: "#fff", color: "#2563eb", border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 500, whiteSpace: "nowrap" }}
+                  >
+                    CC
+                  </button>
+                )}
                 {!showContactForwardBcc && (
                   <button
                     type="button"
@@ -3514,26 +3638,34 @@ dispatch(closePanel());
                   </button>
                 )}
               </div>
+              {showContactForwardCc && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <RecipientChipInput
+                    recipients={contactForwardCcEmails}
+                    draft={contactForwardCcDraft}
+                    onRecipientsChange={setContactForwardCcEmails}
+                    onDraftChange={setContactForwardCcDraft}
+                    placeholder="Enter CC email"
+                    containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
+                  />
+                  <button type="button" onClick={() => { setContactForwardCcEmails([]); setContactForwardCcDraft(""); setShowContactForwardCc(false); }} title="Hide CC" aria-label="Hide CC" style={{ width: 38, height: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>x</button>
+                </div>
+              )}
               {showContactForwardBcc && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <input
-                    type="email"
-                    value={contactForwardBccEmail}
-                    onChange={(event) => setContactForwardBccEmail(event.target.value)}
-                    placeholder="BCC"
-                    style={{
-                      flex: 1,
-                      width: "100%",
-                      padding: "10px 12px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: 6,
-                      fontSize: 14,
-                    }}
+                  <RecipientChipInput
+                    recipients={contactForwardBccEmails}
+                    draft={contactForwardBccDraft}
+                    onRecipientsChange={setContactForwardBccEmails}
+                    onDraftChange={setContactForwardBccDraft}
+                    placeholder="Enter BCC email"
+                    containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
                   />
                   <button
                     type="button"
                     onClick={() => {
-                      setContactForwardBccEmail("");
+                      setContactForwardBccEmails([]);
+                      setContactForwardBccDraft("");
                       setShowContactForwardBcc(false);
                     }}
                     title="Hide BCC"
@@ -3694,24 +3826,28 @@ dispatch(closePanel());
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
                 {showContactReplyCc && (
                   <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      value={contactReplyCc}
-                      onChange={(event) => setContactReplyCc(event.target.value)}
-                      placeholder="CC"
-                      style={{ flex: 1, width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14 }}
+                    <RecipientChipInput
+                      recipients={contactReplyCcEmails}
+                      draft={contactReplyCcDraft}
+                      onRecipientsChange={setContactReplyCcEmails}
+                      onDraftChange={setContactReplyCcDraft}
+                      placeholder="Enter CC email"
+                      containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
                     />
-                    <button type="button" onClick={() => { setContactReplyCc(""); setShowContactReplyCc(false); }} style={{ width: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>x</button>
+                    <button type="button" onClick={() => { setContactReplyCcEmails([]); setContactReplyCcDraft(""); setShowContactReplyCc(false); }} style={{ width: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>x</button>
                   </div>
                 )}
                 {showContactReplyBcc && (
                   <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      value={contactReplyBcc}
-                      onChange={(event) => setContactReplyBcc(event.target.value)}
-                      placeholder="BCC"
-                      style={{ flex: 1, width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14 }}
+                    <RecipientChipInput
+                      recipients={contactReplyBccEmails}
+                      draft={contactReplyBccDraft}
+                      onRecipientsChange={setContactReplyBccEmails}
+                      onDraftChange={setContactReplyBccDraft}
+                      placeholder="Enter BCC email"
+                      containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
                     />
-                    <button type="button" onClick={() => { setContactReplyBcc(""); setShowContactReplyBcc(false); }} style={{ width: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>x</button>
+                    <button type="button" onClick={() => { setContactReplyBccEmails([]); setContactReplyBccDraft(""); setShowContactReplyBcc(false); }} style={{ width: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>x</button>
                   </div>
                 )}
               </div>
@@ -3935,8 +4071,10 @@ dispatch(closePanel());
                   setShowContactReplySection(false);
                   setContactReplyText("");
                   setContactReplyTrailHtml("");
-                  setContactReplyCc("");
-                  setContactReplyBcc("");
+                  setContactReplyCcEmails([]);
+                  setContactReplyCcDraft("");
+                  setContactReplyBccEmails([]);
+                  setContactReplyBccDraft("");
                   setShowContactReplyCc(false);
                   setShowContactReplyBcc(false);
                   setContactReplyAttachments([]);
