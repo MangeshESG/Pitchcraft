@@ -73,7 +73,8 @@
       "Bash(cp asset_4_360c48bd.jsx app_main.jsx)",
       "Bash(cp asset_5_b2d6f30b.jsx app_helpers.jsx)",
       "Bash(cd /c/Users/Radhika/AppData/Local/Temp/claude/d--New-Pitchcraft-Pitchcraft/3dbe959a-5a6f-4e2f-871d-d75951ad187b/scratchpad/bundle && grep -nE \"G_BG|G_DARK|const G|BORDER|TEXT_MUTED|G_BG_SOFT|Object.assign\\\\\\(window\" app_helpers.jsx | head -30)",
-      "Read(//c/Users/Radhika/AppData/Local/Temp/claude/d--New-Pitchcraft-Pitchcraft/3dbe959a-5a6f-4e2f-871d-d75951ad187b/scratchpad/bundle/**)"
+      "Read(//c/Users/Radhika/AppData/Local/Temp/claude/d--New-Pitchcraft-Pitchcraft/3dbe959a-5a6f-4e2f-871d-d75951ad187b/scratchpad/bundle/**)",
+      "Bash(./node_modules/.bin/tsc --noEmit --jsx react-jsx --esModuleInterop --skipLibCheck --moduleResolution node --target es2017 --lib es2020,dom src/components/MainPage.tsx)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Radhika\\AppData\\Local\\Temp\\claude\\d--New-Pitchcraft-Pitchcraft\\3dbe959a-5a6f-4e2f-871d-d75951ad187b\\scratchpad\\bundle"
