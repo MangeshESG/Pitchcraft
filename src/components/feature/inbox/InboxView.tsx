@@ -8,6 +8,7 @@ import CreditCheckModal from '../../common/CreditCheckModal';
 import { useCreditCheck } from '../../../hooks/useCreditCheck';
 import { useSoundAlert } from '../../common/useSoundAlert';
 import RichTextEditor from '../../common/RTEEditor';
+import { RecipientChipInput, mergeRecipients, parseRecipientInput } from '../contact_profile/ContactComposeEmailPopup';
 import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import { copyToClipboard } from '../../../utils/utils';
@@ -142,8 +143,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [error, setError] = useState<string>('');
   const [replyText, setReplyText] = useState<string>('');
   const [replyAttachments, setReplyAttachments] = useState<File[]>([]);
-  const [replyCc, setReplyCc] = useState<string>('');
-  const [replyBcc, setReplyBcc] = useState<string>('');
+  const [replyCcEmails, setReplyCcEmails] = useState<string[]>([]);
+  const [replyCcDraft, setReplyCcDraft] = useState('');
+  const [replyBccEmails, setReplyBccEmails] = useState<string[]>([]);
+  const [replyBccDraft, setReplyBccDraft] = useState('');
   const [showReplyCc, setShowReplyCc] = useState(false);
   const [showReplyBcc, setShowReplyBcc] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -170,11 +173,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showBulkDeleteDropdown, setShowBulkDeleteDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages'>(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages');
   const [forwardEmail, setForwardEmail] = useState('');
-  const [forwardBccEmail, setForwardBccEmail] = useState('');
+  const [forwardCcEmails, setForwardCcEmails] = useState<string[]>([]);
+  const [forwardCcDraft, setForwardCcDraft] = useState('');
+  const [forwardBccEmails, setForwardBccEmails] = useState<string[]>([]);
+  const [forwardBccDraft, setForwardBccDraft] = useState('');
   const [forwardMessage, setForwardMessage] = useState('');
   const [forwardTrackingId, setForwardTrackingId] = useState('');
   const [isForwarding, setIsForwarding] = useState(false);
   const [showForwardBcc, setShowForwardBcc] = useState(false);
+  const [showForwardCc, setShowForwardCc] = useState(false);
   const [contactPanelOpen, setContactPanelOpen] = useState(false);
   const inboxFetchRequestRef = useRef(0);
   const { credits, showCreditModal, checkUserCredits, closeCreditModal, handleSkipModal } = useCreditCheck();
@@ -220,8 +227,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowForwardSection(false);
     setReplyText('');
     setReplyAttachments([]);
-    setReplyCc('');
-    setReplyBcc('');
+    setReplyCcEmails([]);
+    setReplyCcDraft('');
+    setReplyBccEmails([]);
+    setReplyBccDraft('');
     setShowReplyCc(false);
     setShowReplyBcc(false);
     setCollapsedEmails({});
@@ -238,8 +247,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowForwardSection(false);
     setReplyText('');
     setReplyAttachments([]);
-    setReplyCc('');
-    setReplyBcc('');
+    setReplyCcEmails([]);
+    setReplyCcDraft('');
+    setReplyBccEmails([]);
+    setReplyBccDraft('');
     setShowReplyCc(false);
     setShowReplyBcc(false);
     setCollapsedEmails({});
@@ -274,9 +285,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [selectedAllMessagesThread, setSelectedAllMessagesThread] = useState<InboxThread | null>(null);
 
   useEffect(() => {
-    if (!showReplySection) return;
+    if (!showReplySection && !showForwardSection) return;
 
-    const scrollToReplySection = () => {
+    const scrollToComposer = () => {
       const el = mailDetailRef.current;
       if (el) {
         el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
@@ -284,10 +295,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     };
 
     requestAnimationFrame(() => {
-      scrollToReplySection();
-      window.setTimeout(scrollToReplySection, 120);
+      scrollToComposer();
+      window.setTimeout(scrollToComposer, 120);
     });
-  }, [showReplySection, selectedThread, selectedSentThread, selectedUnassignedThread, selectedAllMessagesThread]);
+  }, [showReplySection, showForwardSection, selectedThread, selectedSentThread, selectedUnassignedThread, selectedAllMessagesThread]);
 
   const [unreadCounts, setUnreadCounts] = useState<{ inboxReplies: number; unassigned: number }>({ inboxReplies: 0, unassigned: 0 });
   const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([]);
@@ -310,10 +321,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   useEffect(() => {
     setShowForwardSection(false);
     setForwardEmail('');
-    setForwardBccEmail('');
+    setForwardCcEmails([]);
+    setForwardCcDraft('');
+    setForwardBccEmails([]);
+    setForwardBccDraft('');
     setForwardMessage('');
     setForwardTrackingId('');
     setShowForwardBcc(false);
+    setShowForwardCc(false);
     setReplyAttachments([]);
   }, [
     activeTab,
@@ -976,6 +991,60 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }
   };
 
+  const handleKraftForwardEmail = async () => {
+    const forwardThread = activeTab === 'inbox'
+      ? selectedThread
+      : activeTab === 'sent'
+        ? selectedSentThread
+        : activeTab === 'unassigned'
+          ? selectedUnassignedThread
+          : selectedAllMessagesThread;
+
+    if (!selectedBlueprint || !forwardThread?.contactId || kraftInFlightRef.current) return;
+
+    kraftInFlightRef.current = true;
+    const canKraft = await ensureCanKraft();
+    if (!canKraft) {
+      kraftInFlightRef.current = false;
+      return;
+    }
+
+    setIsKrafting(true);
+    setError('');
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        {
+          blueprintId: selectedBlueprint,
+          contactId: forwardThread.contactId,
+          clientId: effectiveUserId,
+          overwriteExisting: true
+        },
+        {
+          headers: {
+            accept: '*/*',
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data?.success && response.data?.emailBody) {
+        setForwardMessage(response.data.emailBody);
+        playSound();
+        window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
+      } else {
+        throw new Error(response.data?.message || 'Failed to generate email');
+      }
+    } catch (err: any) {
+      console.error('Error krafting forward email:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to generate email');
+    } finally {
+      setIsKrafting(false);
+      kraftInFlightRef.current = false;
+    }
+  };
+
   const sendReplyEmail = (trackingId: string) => {
     const sendableReplyBody = getSendableReplyBody(replyText);
     const formData = new FormData();
@@ -983,8 +1052,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     formData.append('ClientId', String(parseInt(effectiveUserId)));
     formData.append('ReplyBody', sendableReplyBody);
     formData.append('Outboxid', String(selectedInboxId || 0));
-    formData.append('CC', replyCc);
-    formData.append('BCC', replyBcc);
+    formData.append('CC', mergeRecipients(replyCcEmails, parseRecipientInput(replyCcDraft)).join(','));
+    formData.append('BCC', mergeRecipients(replyBccEmails, parseRecipientInput(replyBccDraft)).join(','));
     formData.append('Provider', selectedProvider);
     replyAttachments.forEach((file) => {
       formData.append('Attachments', file);
@@ -1573,17 +1642,20 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const collapseReplyCc = () => {
-    setReplyCc('');
+    setReplyCcEmails([]);
+    setReplyCcDraft('');
     setShowReplyCc(false);
   };
 
   const collapseReplyBcc = () => {
-    setReplyBcc('');
+    setReplyBccEmails([]);
+    setReplyBccDraft('');
     setShowReplyBcc(false);
   };
 
   const collapseForwardBcc = () => {
-    setForwardBccEmail('');
+    setForwardBccEmails([]);
+    setForwardBccDraft('');
     setShowForwardBcc(false);
   };
 
@@ -1643,12 +1715,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     <>
       {showReplyCc && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <input
-            type="text"
-            value={replyCc}
-            onChange={(e) => setReplyCc(e.target.value)}
-            placeholder="CC"
-            style={recipientInputStyle}
+          <RecipientChipInput
+            recipients={replyCcEmails}
+            draft={replyCcDraft}
+            onRecipientsChange={setReplyCcEmails}
+            onDraftChange={setReplyCcDraft}
+            placeholder="Enter CC email"
+            containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
           />
           <button
             type="button"
@@ -1663,12 +1736,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       )}
       {showReplyBcc && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <input
-            type="text"
-            value={replyBcc}
-            onChange={(e) => setReplyBcc(e.target.value)}
-            placeholder="BCC"
-            style={recipientInputStyle}
+          <RecipientChipInput
+            recipients={replyBccEmails}
+            draft={replyBccDraft}
+            onRecipientsChange={setReplyBccEmails}
+            onDraftChange={setReplyBccDraft}
+            placeholder="Enter BCC email"
+            containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
           />
           <button
             type="button"
@@ -1687,9 +1761,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const openForwardModal = (thread: InboxThread) => {
     setForwardTrackingId(thread.trackingId);
     setForwardEmail('');
-    setForwardBccEmail('');
+    setForwardCcEmails([]);
+    setForwardCcDraft('');
+    setForwardBccEmails([]);
+    setForwardBccDraft('');
     setForwardMessage('');
     setShowForwardBcc(false);
+    setShowForwardCc(false);
     setShowReplySection(false);
     setShowForwardSection(true);
   };
@@ -1697,10 +1775,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const closeForwardModal = () => {
     if (isForwarding) return;
     setForwardEmail('');
-    setForwardBccEmail('');
+    setForwardCcEmails([]);
+    setForwardCcDraft('');
+    setForwardBccEmails([]);
+    setForwardBccDraft('');
     setForwardMessage('');
     setForwardTrackingId('');
     setShowForwardBcc(false);
+    setShowForwardCc(false);
     setShowForwardSection(false);
   };
 
@@ -1717,7 +1799,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           forwardToEmail: forwardEmail.trim(),
           forwardMessage,
           outboxId: selectedInboxId || 0,
-          bccEmail: forwardBccEmail.trim(),
+          ccEmail: mergeRecipients(forwardCcEmails, parseRecipientInput(forwardCcDraft)).join(','),
+          bccEmail: mergeRecipients(forwardBccEmails, parseRecipientInput(forwardBccDraft)).join(','),
           Provider: selectedProvider
         },
         {
@@ -1738,10 +1821,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
       setForwardEmail('');
-      setForwardBccEmail('');
+      setForwardCcEmails([]);
+      setForwardCcDraft('');
+      setForwardBccEmails([]);
+      setForwardBccDraft('');
       setForwardMessage('');
       setForwardTrackingId('');
       setShowForwardBcc(false);
+      setShowForwardCc(false);
       setShowForwardSection(false);
     } catch (err: any) {
       console.error('Error forwarding email:', err);
@@ -1768,8 +1855,34 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         padding: '24px'
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
         <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Forward</label>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <select
+            value={selectedBlueprint || ''}
+            onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
+            style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', background: '#fff' }}
+          >
+            <option value="">Select Blueprint</option>
+            {blueprints.map((blueprint) => (
+              <option key={blueprint.id} value={blueprint.id}>{blueprint.templateName}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleKraftForwardEmail}
+            disabled={!selectedBlueprint || isKrafting}
+            style={{
+              padding: '6px 16px',
+              background: (!selectedBlueprint || isKrafting) ? '#ccc' : '#e2f1e3',
+              color: '#3f9f42', border: 'none', borderRadius: '6px',
+              cursor: (!selectedBlueprint || isKrafting) ? 'not-allowed' : 'pointer',
+              fontSize: '13px', fontWeight: '500', whiteSpace: 'nowrap'
+            }}
+          >
+            {isKrafting ? 'Krafting...' : 'Kraft'}
+          </button>
+        </div>
       </div>
 
       <style>
@@ -1799,6 +1912,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
               fontSize: '14px'
             }}
           />
+          {!showForwardCc && (
+            <button
+              type="button"
+              onClick={() => setShowForwardCc(true)}
+              style={{ padding: '10px 12px', background: '#fff', color: '#2563eb', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', whiteSpace: 'nowrap' }}
+            >
+              CC
+            </button>
+          )}
           {!showForwardBcc && (
             <button
               type="button"
@@ -1819,14 +1941,30 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             </button>
           )}
         </div>
+        {showForwardCc && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <RecipientChipInput
+              recipients={forwardCcEmails}
+              draft={forwardCcDraft}
+              onRecipientsChange={setForwardCcEmails}
+              onDraftChange={setForwardCcDraft}
+              placeholder="Enter CC email"
+              containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
+            />
+            <button type="button" onClick={() => { setForwardCcEmails([]); setForwardCcDraft(''); setShowForwardCc(false); }} title="Hide CC" aria-label="Hide CC" style={recipientIconButtonStyle}>
+              <X size={16} strokeWidth={2.5} />
+            </button>
+          </div>
+        )}
         {showForwardBcc && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="email"
-              value={forwardBccEmail}
-              onChange={(e) => setForwardBccEmail(e.target.value)}
-              placeholder="BCC"
-              style={recipientInputStyle}
+            <RecipientChipInput
+              recipients={forwardBccEmails}
+              draft={forwardBccDraft}
+              onRecipientsChange={setForwardBccEmails}
+              onDraftChange={setForwardBccDraft}
+              placeholder="Enter BCC email"
+              containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
             />
             <button
               type="button"
@@ -3119,8 +3257,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       setShowReplySection(false);
                       setReplyText('');
                       setReplyAttachments([]);
-                      setReplyCc('');
-                      setReplyBcc('');
+                      setReplyCcEmails([]);
+                      setReplyCcDraft('');
+                      setReplyBccEmails([]);
+                      setReplyBccDraft('');
                       setShowReplyCc(false);
                       setShowReplyBcc(false);
                     }}
@@ -3987,8 +4127,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         setShowReplySection(false);
                         setReplyText('');
                         setReplyAttachments([]);
-                        setReplyCc('');
-                        setReplyBcc('');
+                        setReplyCcEmails([]);
+                        setReplyCcDraft('');
+                        setReplyBccEmails([]);
+                        setReplyBccDraft('');
                         setShowReplyCc(false);
                         setShowReplyBcc(false);
                       }}
@@ -4582,8 +4724,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         setShowReplySection(false);
                         setReplyText('');
                         setReplyAttachments([]);
-                        setReplyCc('');
-                        setReplyBcc('');
+                        setReplyCcEmails([]);
+                        setReplyCcDraft('');
+                        setReplyBccEmails([]);
+                        setReplyBccDraft('');
                         setShowReplyCc(false);
                         setShowReplyBcc(false);
                       }}
