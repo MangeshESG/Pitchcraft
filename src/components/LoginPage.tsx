@@ -17,8 +17,38 @@ import { usePageTitle } from "../hooks/usePageTitle";
 import API_BASE_URL from "../config";
 import "./LoginPage.css";
 import { RootState } from "../Redux/store";
+import pitchLogo from "../assets/images/pitch_logo.png";
 
 type ViewMode = "login" | "register" | "forgot" | "otp";
+
+/* ---------------- ICONS ---------------- */
+const UserIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+const LockIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+);
+
+const EyeIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+    <line x1="1" y1="1" x2="23" y2="23" />
+  </svg>
+);
 
 interface ViewProps {
   setView: React.Dispatch<React.SetStateAction<ViewMode>>;
@@ -66,10 +96,21 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     console.log("User ID from Redux:", reduxUserId);
   }, [reduxUserId]);
+
+  // Prefill remembered username
+  useEffect(() => {
+    const remembered = localStorage.getItem("rememberedUsername");
+    if (remembered) {
+      setUsername(remembered);
+      setRememberMe(true);
+    }
+  }, []);
 
   const getUserIdFromToken = (token: string) => {
     try {
@@ -146,6 +187,11 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
 
       if (response.ok && data.token) {
         localStorage.setItem("token", data.token);   // ✅ ADD THIS LINE
+        if (rememberMe) {
+          localStorage.setItem("rememberedUsername", username);
+        } else {
+          localStorage.removeItem("rememberedUsername");
+        }
         dispatch(setToken(data.token));
         clearSelectedClientContext();
 
@@ -236,25 +282,59 @@ useEffect(() => {
 
 
   return (
-    <div>
-      <h2>Login to PitchKraft</h2>
+    <div className="login-view">
+      <div className="login-logo">
+        <img src={pitchLogo} alt="PitchKraft" />
+      </div>
       <form onSubmit={handleLogin}>
-        <label>User name</label>
-        <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-        />
-        <label>Password</label>
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        <div className="input-group">
+          <span className="input-icon">
+            <UserIcon />
+          </span>
+          <input
+            type="text"
+            placeholder="Enter your email"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="input-group">
+          <span className="input-icon">
+            <LockIcon />
+          </span>
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <span
+            className="password-eye"
+            onClick={() => setShowPassword((prev) => !prev)}
+            role="button"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+          </span>
+        </div>
+
+        <div className="login-options">
+          <label className="remember-me">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            <span>Remember me</span>
+          </label>
+          <a className="forgot-link" onClick={() => setView("forgot")}>
+            Forgot password?
+          </a>
+        </div>
+
         <button type="submit" className="login-button" disabled={isLoading}>
           {isLoading ? (
             <>
@@ -267,8 +347,8 @@ useEffect(() => {
         </button>
       </form>
       {error && <div className="error-message">{error}</div>}
-      <div className="register-link">
-        <a onClick={() => setView("forgot")}>Forgot password?</a> |{" "}
+      <div className="register-link create-account-link">
+        Don&apos;t have an account?{" "}
         <a onClick={() => setView("register")}>Create account</a>
       </div>
     </div>

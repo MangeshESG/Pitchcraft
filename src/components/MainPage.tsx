@@ -976,25 +976,6 @@ const handleClientChange = async (
   const [cachedContacts, setCachedContacts] = useState<any[]>([]);
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
-  //  Close popup when clicking outside for support details
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        popupRef.current &&
-        !popupRef.current.contains(event.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(event.target as Node)
-      ) {
-        setShowSupportPopup(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
   const handleSubjectTextChange = (value: string) => {};
   const cleanHtml = (value?: string) => {
   if (!value) return "";
@@ -3639,9 +3620,6 @@ totalEmailCostRef.current += subjectCost;
   }
 
   const IsAdmin = sessionStorage.getItem("IsAdmin");
-  const [showSupportPopup, setShowSupportPopup] = useState(false);
-  const popupRef = useRef<HTMLDivElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   // State for data files
   const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
@@ -4194,7 +4172,7 @@ try {
               </button>
             </div>
           </div>
-          <div className="overflow-y-auto h-full">
+          <div className="overflow-y-auto flex-1 min-h-0 sidebar-scroll">
             <nav className="flex-1 py-4 space-y-2">
               {/* Side Menu */}
               <div className="side-menu" onClick={handleSidebarNavigation}>
@@ -4614,6 +4592,36 @@ try {
               </div>
             </nav>
           </div>
+
+          {/* Support details — pinned to the bottom-left of the menu.
+              Hidden while any submenu is expanded so the menu never needs to
+              scroll. Extra bottom padding keeps the email line clear of the
+              fixed Live Chat widget in the bottom-left corner. */}
+          {!showContactsSubmenu && !showMailSubmenu && !showSettingsSubmenu && (
+            <div className="mt-auto border-t border-gray-200 px-4 pt-4 pb-24">
+              <h4 className="text-[13px] font-semibold text-gray-800 mb-2">
+                Need support?
+              </h4>
+              <div className="text-[12px] text-gray-600 space-y-1">
+                <p>
+                  <span className="font-medium text-gray-700">London:</span>{" "}
+                  +44 (0) 207 660 4243
+                </p>
+                <p>
+                  <span className="font-medium text-gray-700">New York:</span>{" "}
+                  +1 (0) 315 400 2402
+                </p>
+                <p>
+                  <a
+                    href="mailto:support@pitchkraft.co"
+                    className="text-[#3f9f42] hover:underline break-all"
+                  >
+                    support@pitchkraft.co
+                  </a>
+                </p>
+              </div>
+            </div>
+          )}
         </aside>
       )}
 

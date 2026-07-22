@@ -3,21 +3,23 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  /*background-color: #f4f4f4;*/
+  min-height: 100vh;
+  padding: 24px;
+  box-sizing: border-box;
   background: url('../assets/images/background.jpeg') center center/cover no-repeat #f4f4f4;
 }
 
 /* 🌟 Box Wrapper */
 .login-boxx {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  background: #ffffff;
+  padding: 2.5rem 2.25rem;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
   width: 400px;
+  max-width: 100%;
+  box-sizing: border-box;
   animation: fadeIn 0.4s ease-in-out;
   position: relative;
-  margin-top: 100px;
 }
 
 /* Fade-in animation for smooth UX */
@@ -267,4 +269,130 @@
 
 .consent-field a:hover {
   text-decoration: underline;
+}
+
+/* ============ REDESIGNED LOGIN VIEW ============ */
+.login-view {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Brand logo */
+.login-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.75rem;
+}
+.login-logo img {
+  height: 90px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Input with leading icon */
+.login-view .input-group {
+  position: relative;
+  margin-bottom: 1rem;
+}
+.login-view .input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  color: #9aa0a6;
+  pointer-events: none;
+}
+.login-view .input-group input {
+  width: 100%;
+  height: 48px;
+  box-sizing: border-box;
+  padding: 0 44px;
+  margin: 0;
+  border: 1.5px solid #e2e5e9;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1f2937;
+  background: #fafbfc;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.login-view .input-group input::placeholder {
+  color: #9aa0a6;
+}
+.login-view .input-group input:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: #3f9f42;
+  box-shadow: 0 0 0 3px rgba(63, 159, 66, 0.15);
+}
+
+/* Password show/hide toggle */
+.login-view .password-eye {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  color: #9aa0a6;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.login-view .password-eye:hover {
+  color: #3f9f42;
+}
+
+/* Remember me + Forgot password row */
+.login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0.25rem 0 1.5rem;
+  font-size: 13px;
+}
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4b5563;
+  font-weight: 500;
+  cursor: pointer;
+  margin: 0;
+}
+.remember-me input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #3f9f42;
+  cursor: pointer;
+}
+.forgot-link {
+  color: #3f9f42;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
+/* Full-width Log in button */
+.login-view .login-button {
+  width: 100%;
+  height: 48px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 0;
+}
+
+/* Create account footer link */
+.create-account-link {
+  color: #6b7280;
+  font-weight: 400;
+}
+.create-account-link a {
+  color: #3f9f42;
+  font-weight: 600;
 }
