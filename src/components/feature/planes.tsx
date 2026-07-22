@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import "./planes.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCloudDownloadAlt } from "@fortawesome/free-solid-svg-icons";
+import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import AeroplaneImg from "../../assets/images/aeroplane.png";
@@ -15,6 +15,8 @@ import { stripePromise } from "../../config/stripe";
 export type Plan = {
   icon: string;
   title: string;
+  description?: string;
+  popular?: boolean;
   price: number; // USD
   period: string;
   features: string[];
@@ -26,7 +28,8 @@ const plans: Plan[] = [
   {
     icon: RocketImg,
     title: "Standard",
-    price: 199,
+    description: "Best value for growing teams",
+    price: 99,
     period: "/month",
     features: [
       "10 templates generation",
@@ -36,13 +39,15 @@ const plans: Plan[] = [
       "Unlimited emails sending & analytics",
       "Additional hyper-personalized emails $0.20",
     ],
-    buttonText: "Upgrade",
+    buttonText: "Get Started",
     planCode: "price_1SuX1aFNcXTjravQlGph5Xom",
   },
   {
     icon: AeroplaneImg,
     title: "Premium",
-    price: 299,
+    description: "Built for high-volume outreach",
+    popular: true,
+    price: 199,
     period: "/month",
     features: [
       "20 templates generation",
@@ -52,12 +57,13 @@ const plans: Plan[] = [
       "Unlimited emails sending & analytics",
       "Additional hyper-personalized emails $0.15",
     ],
-    buttonText: "Upgrade",
+    buttonText: "Get Started",
     planCode: "price_1SuX36FNcXTjravQ9pemJ0nJ",
   },
   {
     icon: PetrolPumpImg,
     title: "Pay-as-you-go",
+    description: "Pay only for the credits you use",
     price: 0.20,
     period: "/credit",
     features: [
@@ -336,31 +342,31 @@ const [errorPopup, setErrorPopup] = useState<string | null>(null);
   }
 
   return (
-    <div>
+    <div className="pricing-page">
+      {/* Heading */}
+      <div className="pricing-heading">
+        <h1 className="pricing-title">Pricing</h1>
+        <p className="pricing-subtitle">Choose the perfect plan for your outreach needs.</p>
+      </div>
+
       {/* Billing Toggle */}
-      <div className="flex justify-center mb-8">
-        <div className="bg-gray-100 p-1 rounded-lg flex items-center">
-          <button
-            onClick={() => setIsYearly(false)}
-            className={`px-4 py-2 rounded-md transition-colors ${
-              !isYearly ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
-            }`}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => setIsYearly(true)}
-            className={`px-4 py-2 rounded-md transition-colors ${
-              isYearly ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
-            }`}
-          >
-            Yearly <span className="text-green-600 text-sm font-medium">-20%</span>
-          </button>
-        </div>
+      <div className="billing-toggle">
+        <button
+          onClick={() => setIsYearly(false)}
+          className={`toggle-option ${!isYearly ? 'active' : ''}`}
+        >
+          Monthly
+        </button>
+        <button
+          onClick={() => setIsYearly(true)}
+          className={`toggle-option ${isYearly ? 'active' : ''}`}
+        >
+          Yearly <span className="toggle-discount">-20%</span>
+        </button>
       </div>
       <div className="pricing-table">
         {plans.map((plan, index) => {
-          const yearlyPrice = plan.planCode !== 'credits' ? (plan.title.toLowerCase() === 'standard' ? 1899 : plan.title.toLowerCase() === 'premium' ? 2849 : plan.price * 12 * 0.8) : plan.price;
+          const yearlyPrice = plan.planCode !== 'credits' ? (plan.title.toLowerCase() === 'standard' ? 949 : plan.title.toLowerCase() === 'premium' ? 1899 : plan.price * 12 * 0.8) : plan.price;
           const displayPrice = isYearly && plan.planCode !== 'credits' ? yearlyPrice : plan.price;
           const displayPeriod = isYearly && plan.planCode !== 'credits' ? '/year' : plan.period;
           const currentBillingType = isYearly ? 'Yearly' : 'Monthly';
@@ -370,44 +376,42 @@ const [errorPopup, setErrorPopup] = useState<string | null>(null);
           const cannotBuyAgain = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && plan.title.toLowerCase() !== 'pay-as-you-go';
           const cannotBuy = !!currentPlan && plan.title.toLowerCase() !== 'pay-as-you-go' && ((currentPlan.toLowerCase() === 'premium' && plan.title.toLowerCase() === 'standard') || (currentInterval?.toLowerCase() === 'yearly' && !isYearly) || cannotBuyAgain);
           
+          const isDisabled = isExactSamePlan || cannotBuy;
           return (
-          <div className="card" key={index} title={isExactSamePlan ? 'You already have this plan with same billing' : cannotBuy ? 'Cannot downgrade to lower plan' : canSwitchInterval ? 'Switch billing interval' : ''}>
-            <div className="container">
-              {plan.icon.startsWith('http') || plan.icon.includes('.') ? (
-                <img src={plan.icon} alt={plan.title} className="x mr-10" />
-              ) : (
-                <div className="x mr-10 text-4xl flex items-center justify-center">{plan.icon}</div>
-              )}
-              <div className="yz">
-                <h3 className="y">{plan.title}</h3>
-                <div className="z"> ${Number.isInteger(displayPrice) ? displayPrice : displayPrice.toFixed(2)}</div>
+          <div className={`plan-card ${plan.popular ? 'popular' : ''}`} key={index} title={isExactSamePlan ? 'You already have this plan with same billing' : cannotBuy ? 'Cannot downgrade to lower plan' : canSwitchInterval ? 'Switch billing interval' : ''}>
+            {plan.popular && (
+              <div className="popular-badge">★ Most Popular</div>
+            )}
+            <div className="plan-header">
+              <h3 className="plan-title">{plan.title}</h3>
+              {plan.description && <p className="plan-desc">{plan.description}</p>}
+              <div className="plan-price">
+                <span className="price-amount">${Number.isInteger(displayPrice) ? displayPrice : displayPrice.toFixed(2)}</span>
                 {isYearly && plan.planCode !== 'credits' && (
-                  <div style={{fontSize: '14px', opacity: 0.75, textDecoration: 'line-through'}}>
-                    ${Math.round(plan.price * 12)}
-                  </div>
+                  <span className="price-original">${Math.round(plan.price * 12)}</span>
                 )}
-                <div className="A">{displayPeriod}</div>
+                <span className="price-period">{displayPeriod}</span>
               </div>
             </div>
             <ul className="features-list">
               {plan.features.map((feature, i) => (
                 <li key={i}>
-                  <span className="check-icon">✔</span>
+                  <span className="check-icon">✓</span>
                   {feature}
                 </li>
               ))}
             </ul>
-            <button 
-              className={`try-button ${(isExactSamePlan || cannotBuy) ? 'disabled' : ''}`}
+            <button
+              className={`plan-button ${plan.popular ? 'primary' : ''} ${isDisabled ? 'disabled' : ''}`}
               onClick={() => {
-                if (isExactSamePlan || cannotBuy) return;
+                if (isDisabled) return;
                  setLoadingPlanCode(plan.planCode);
                 handleTryItNowClick({...plan, price: displayPrice, period: displayPeriod});
               }}
-              disabled={isExactSamePlan || cannotBuy ||loadingPlanCode === plan.planCode}
+              disabled={isDisabled || loadingPlanCode === plan.planCode}
             >
-              <FontAwesomeIcon icon={faCloudDownloadAlt} /> 
-              {loadingPlanCode === plan.planCode?"Processing...":isExactSamePlan ? 'Current plan' : cannotBuyAgain ? 'Already purchased this month' : cannotBuy ? 'Cannot downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
+              {loadingPlanCode === plan.planCode ? "Processing..." : isExactSamePlan ? 'Current plan' : cannotBuyAgain ? 'Already purchased this month' : cannotBuy ? 'Cannot downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
+              {!isDisabled && loadingPlanCode !== plan.planCode && <FontAwesomeIcon icon={faArrowRight} className="btn-arrow" />}
             </button>
           </div>
         )})}

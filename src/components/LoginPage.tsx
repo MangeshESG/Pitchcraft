@@ -48,6 +48,15 @@ const clearSelectedClientContext = () => {
   sessionStorage.removeItem("selectedClientId");
 };
 
+// Persist login flags to BOTH sessionStorage (per-tab) and localStorage.
+// localStorage is shared across tabs, so a Dashboard opened in a new tab can
+// still read the admin status / client id even though sessionStorage does not
+// reliably copy into a newly opened tab.
+const setSessionAndLocal = (key: string, value: string) => {
+  sessionStorage.setItem(key, value);
+  localStorage.setItem(key, value);
+};
+
 /* ---------------- LOGIN FORM ---------------- */
 const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
@@ -152,9 +161,9 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
         if (userRole) dispatch(saveUserRole(userRole));
         if (data.email) dispatch(saveEmail(data.email));
 
-        sessionStorage.setItem("clientId", data.clientId || data.clientID || userId?.toString() || "");
-        sessionStorage.setItem("isAdmin", data.isAdmin || "false");
-        sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
+        setSessionAndLocal("clientId", data.clientId || data.clientID || userId?.toString() || "");
+        setSessionAndLocal("isAdmin", data.isAdmin || "false");
+        setSessionAndLocal("isDemoAccount", data.isDemoAccount || "false");
 
         // Fix: Ensure firstName from token is dispatched
         if (firstName) dispatch(saveFirstName(firstName));
@@ -656,9 +665,9 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           if (userRole) dispatch(saveUserRole(userRole));
           if (registerEmail) dispatch(saveEmail(registerEmail));
 
-          sessionStorage.setItem("clientId", userId?.toString() || "");
-          sessionStorage.setItem("isAdmin", data.isAdmin?.toString() || "false");
-          sessionStorage.setItem("isDemoAccount", "false");
+          setSessionAndLocal("clientId", userId?.toString() || "");
+          setSessionAndLocal("isAdmin", data.isAdmin?.toString() || "false");
+          setSessionAndLocal("isDemoAccount", "false");
 
           if (firstName) dispatch(saveFirstName(firstName));
           if (data.lastName) dispatch(saveLastName(data.lastName));
@@ -759,9 +768,9 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           if (userRole) dispatch(saveUserRole(userRole));
           if (data.email) dispatch(saveEmail(data.email));
 
-          sessionStorage.setItem("clientId", data.clientId || data.clientID || userId?.toString() || "");
-          sessionStorage.setItem("isAdmin", data.isAdmin || "false");
-          sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
+          setSessionAndLocal("clientId", data.clientId || data.clientID || userId?.toString() || "");
+          setSessionAndLocal("isAdmin", data.isAdmin || "false");
+          setSessionAndLocal("isDemoAccount", data.isDemoAccount || "false");
 
           if (firstName) dispatch(saveFirstName(firstName));
           if (data.firstName) dispatch(saveFirstName(data.firstName));

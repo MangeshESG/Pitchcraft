@@ -1,180 +1,248 @@
-/* Container for all pricing cards */
+/* ---------- Pricing page ---------- */
+.pricing-page {
+  width: 100%;
+}
+
+.pricing-heading {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.pricing-title {
+  font-size: 40px;
+  font-weight: 800;
+  color: #101828;
+  margin: 0 0 8px;
+}
+
+.pricing-subtitle {
+  font-size: 16px;
+  color: #667085;
+  margin: 0;
+}
+
+/* ---------- Billing toggle ---------- */
+.billing-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f2f4f7;
+  padding: 4px;
+  border-radius: 10px;
+  margin: 0 auto 32px;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.toggle-option {
+  border: none;
+  background: transparent;
+  color: #667085;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-option.active {
+  background: #ffffff;
+  color: #101828;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12);
+}
+
+.toggle-discount {
+  color: #3f9f42;
+  font-size: 13px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+/* ---------- Cards ---------- */
 .pricing-table {
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: stretch;
   flex-wrap: wrap;
-  gap: 30px;
-  padding: 40px 20px;
-  background-color: #f4f4f4;
-  overflow-x: auto;
+  gap: 24px;
+  padding: 24px 20px 48px;
+  background: transparent;
 }
 
-/* Individual card styles */
-.card {
+.plan-card {
+  position: relative;
   background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-  width: 300px;
-  min-height: 500px;
-  text-align: center;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid #eaecf0;
+  border-radius: 20px;
+  box-shadow: 0 6px 24px rgba(16, 24, 40, 0.06);
+  width: 288px;
+  padding: 28px 24px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  flex: 0 0 auto;
+  text-align: left;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.card:hover {
-  transform: scale(1.05);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+.plan-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 32px rgba(16, 24, 40, 0.12);
 }
 
-/* ✅ Green header section */
-/* .card-header {
-  background-color: #00b300;
-  color: white;
-  padding: 24px 16px;
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
-} */
- .card-header {
-  background-color: #00b300;
-  color: white;
-  padding: 24px 16px;
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
+.plan-card.popular {
+  border: 1.5px solid #3f9f42;
+  box-shadow: 0 14px 34px rgba(63, 159, 66, 0.18);
+}
+
+/* Most Popular badge */
+.popular-badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f9d2b;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(31, 157, 43, 0.35);
+}
+
+/* Header */
+.plan-header {
+  margin-bottom: 20px;
+}
+
+.plan-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #101828;
+  margin: 0 0 6px;
+}
+
+.plan-desc {
+  font-size: 14px;
+  color: #667085;
+  margin: 0 0 18px;
+  min-height: 20px;
+}
+
+.plan-price {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  align-items: baseline;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.icon {
+.price-amount {
   font-size: 40px;
-  margin-bottom: 10px;
+  font-weight: 800;
+  color: #101828;
+  line-height: 1;
 }
 
-.card-header h3 {
-  font-size: 16px;
-  margin: 0;
-  font-weight: 600;
+.price-original {
+  font-size: 15px;
+  color: #98a2b3;
+  text-decoration: line-through;
 }
 
-.card-header .price {
-  font-size: 28px;
-  font-weight: bold;
-  color: white;
-  margin-top: 5px;
+.price-period {
+  font-size: 15px;
+  color: #667085;
 }
 
-.card-header .period {
-  font-size: 18px;
-  color: white;
-  margin-top: -5px;
-  font-weight: 500;
-}
-
-/* Feature list */
-.card ul {
-  text-align: left;
-  padding: 0 20px;
+/* Features */
+.features-list {
   list-style: none;
-  margin: 20px 0;
-  font-size: 14px;
+  padding: 0;
+  margin: 0 0 24px;
+  flex: 1;
 }
 
-/* .card li {
-  margin-bottom: 10px;
-  color: #333;
-} */
-/* Add rounded checkmark to each feature */
-/* .card li::before {
-  content: "✔"; 
-  background-color: #00b300; 
-  color: white;
-  border-radius: 50%; 
-  padding: 5px;
-  font-size: 8px;
-  width: 24px;
-  height: 24px;
-  text-align: center;
-  line-height: 24px; 
-} */
+.features-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #344054;
+  line-height: 1.45;
+}
 
-/* Try it now button */
-.try-button {
+.check-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3f9f42;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+/* Button */
+.plan-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background-color: transparent;
-  border: 2px solid green;
-  color: green;
-  padding: 10px 22px;
-  border-radius: 40px;
-  font-size: 14px;
+  width: 100%;
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: 2px solid #3f9f42;
+  background: transparent;
+  color: #3f9f42;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  margin: 20px auto 30px;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
+  margin-top: auto;
 }
 
-.try-button:hover {
-  background-color: green;
-  color: white;
+.plan-button:hover:not(.disabled) {
+  background: #3f9f42;
+  color: #ffffff;
 }
 
-.try-button:hover .download-icon {
-  color: white;
+.plan-button.primary {
+  background: #1f9d2b;
+  border-color: #1f9d2b;
+  color: #ffffff;
 }
 
-.download-icon {
-  font-size: 16px;
-}
-/* Row with icon + title */
-.title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.plan-button.primary:hover:not(.disabled) {
+  background: #178523;
+  border-color: #178523;
 }
 
-.title-row h3 {
-  font-size: 16px;
-  margin: 0;
-  font-weight: 600;
+.plan-button.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-color: #d0d5dd;
+  color: #98a2b3;
+  background: transparent;
 }
 
-/* Price + period below */
-.price-row {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.btn-arrow {
+  font-size: 13px;
 }
 
-.price-row .amount {
-  font-size: 28px;
-  font-weight: bold;
-  color: white;
-}
-
-.price-row .period {
-  font-size: 18px;
-  color: white;
-  font-weight: 500;
-  margin-top: -4px;
-}
-
-/* Icon style */
-.icon {
-  font-size: 20px; /* smaller like screenshot */
-}.modal-overlay {
+/* ---------- Generic modal (used by payment/credits flows) ---------- */
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -188,7 +256,7 @@
   width: 500px;
   max-width: 90%;
   position: relative;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
 }
 
 .close-btn {
@@ -199,83 +267,4 @@
   border: none;
   font-size: 20px;
   cursor: pointer;
-}
-
-
-.container {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  background-color: green;
-  color: white;
-  padding: 24px 16px;
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
-  min-height: 120px;
-}
-
-.x {
-  background: white;
-  padding: 10px;
-  border-radius: 15px;
-  width: 60px;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.yz {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  text-align: left;
-}
-
-.y {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.z {
-  font-size: 32px;
-  font-weight: 700;
-  margin: 0;
-}
-.A {
-  font-size: 16px;
-  font-weight: 500;
-  margin: 0;
-  opacity: 0.9;
-}
-.features-list {
-  text-align: left;
-  padding: 0 20px;
-  list-style: none;
-  margin: 20px 0;
-  font-size: 14px;
-}
-
-.features-list li {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-  color: #333;
-}
-
-.check-icon {
-  color: white; /* White color for the checkmark */
-  font-weight: bold;
-  margin-right: 10px;
-  font-size: 16px;
-  width: 24px; /* Adjust the size */
-  height: 24px; /* Adjust the size */
-  border-radius: 50%; /* Makes it a circle */
-  background-color: green; /* Green background for the checkmark */
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }

@@ -48,6 +48,14 @@ const logoutHandler = () => {
   localStorage.removeItem("selectedClientId");
   sessionStorage.removeItem("selectedClientId");
 
+  // Clear the shared login flags mirrored to localStorage (isAdmin/clientId/
+  // isDemoAccount) so a different user logging in on this browser does not
+  // inherit stale admin status or client context.
+  ["isAdmin", "clientId", "isDemoAccount"].forEach((key) => {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  });
+
   navigate("/");
 };
 

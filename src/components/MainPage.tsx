@@ -305,7 +305,7 @@ const MainPage: React.FC = () => {
   const ensureCanGenerateWithCredits = async (
     clientId?: string | number | null,
   ) => {
-    if (sessionStorage.getItem("isDemoAccount") === "true") {
+    if ((sessionStorage.getItem("isDemoAccount") ?? localStorage.getItem("isDemoAccount")) === "true") {
       return true;
     }
 
@@ -684,7 +684,8 @@ const MainPage: React.FC = () => {
   }, [showDataFileUpload]);
 
   const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
-  const clientID = sessionStorage.getItem("clientId");
+  const clientID =
+    sessionStorage.getItem("clientId") ?? localStorage.getItem("clientId");
   const [lastLoadedClientId, setLastLoadedClientId] = useState<string | null>(
     null,
   );
@@ -899,7 +900,19 @@ const handleClientChange = async (
 };
 
   useEffect(() => {
-    const isAdminString = sessionStorage.getItem("isAdmin");
+    // Mirror per-tab login flags into localStorage so a Dashboard opened in a
+    // new tab (where sessionStorage is empty) can still read them. Covers the
+    // already-logged-in session without requiring a fresh login.
+    ["isAdmin", "clientId", "isDemoAccount"].forEach((key) => {
+      const value = sessionStorage.getItem(key);
+      if (value !== null) localStorage.setItem(key, value);
+    });
+
+    // sessionStorage is per-tab and is not reliably copied into a newly opened
+    // tab (e.g. Dashboard opened via the logo), so fall back to the shared
+    // localStorage mirror written at login.
+    const isAdminString =
+      sessionStorage.getItem("isAdmin") ?? localStorage.getItem("isAdmin");
     const isAdmin = isAdminString === "true"; // Correct comparison
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
@@ -1858,7 +1871,7 @@ const resolvePromptSafely = async () => {
     if (
       tab === "Output" &&
       !options?.regenerate &&
-      sessionStorage.getItem("isDemoAccount") !== "true"
+      (sessionStorage.getItem("isDemoAccount") ?? localStorage.getItem("isDemoAccount")) !== "true"
     ) {
       const canGenerate = await ensureCanGenerateWithCredits(tempEffectiveUserId);
       if (!canGenerate) {
@@ -3857,7 +3870,8 @@ const lastPitch =
   };
 
   // Get the demo account status directly from session storage
-  const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
+  const isDemoAccount =
+    (sessionStorage.getItem("isDemoAccount") ?? localStorage.getItem("isDemoAccount")) === "true";
 
   // Set default delay for demo users
   useEffect(() => {
@@ -4156,11 +4170,19 @@ try {
         >
           <div className="p-2 text-xl font-bold border-b">
             <div className="flex justify-between items-start">
-              <img
-                src={pitchLogo}
-                alt="Pitchcraft Logo"
-                style={{ height: "100px" }}
-              />
+              <a
+                href={`${window.location.pathname}#/main?tab=Dashboard${
+                  selectedClient ? `&clientId=${selectedClient}` : ""
+                }`}
+                target="_blank"
+                title="Open Dashboard in a new tab"
+              >
+                <img
+                  src={pitchLogo}
+                  alt="Pitchcraft Logo"
+                  style={{ height: "100px", cursor: "pointer" }}
+                />
+              </a>
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                 className="w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 mt-[10px]"
@@ -4622,16 +4644,16 @@ try {
 
         {/* Inner Main Content */}
         <main className={`flex-1 overflow-y-auto h-[calc(100%-87px)] ${
-          tab === "Dashboard"
+          tab === "Dashboard" || tab === "MyPlan"
             ? "bg-white"
             : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Mail"
               ? "bg-[#fafbfc]"
               : "bg-[#eeeeee]"
-        } ${tab === "Dashboard" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Output" || tab === "Mail" ? "p-0" : "p-[20px]"}`}>
+        } ${tab === "Dashboard" || tab === "MyPlan" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Output" || tab === "Mail" ? "p-0" : "p-[20px]"}`}>
           <div
             className={`
                rounded-md
-              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" && tab !== "Output" && tab !== "Mail" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
+              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "MyPlan" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" && tab !== "Output" && tab !== "Mail" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
             `}
           >
             {/* Main Content Area */}
