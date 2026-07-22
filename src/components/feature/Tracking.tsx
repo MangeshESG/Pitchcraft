@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL from '../../config';
 import './blueprint/Template.new.css';
-import { Mail } from 'lucide-react';
+import { Mail, RotateCcw } from 'lucide-react';
 
 interface TrackingProps {
   selectedClient?: string;
@@ -9,7 +9,9 @@ interface TrackingProps {
 
 const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
   const [isTracking, setIsTracking] = useState(false);
+  const [isBounceBack, setIsBounceBack] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [bounceBackLoading, setBounceBackLoading] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -30,6 +32,12 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
         if (response.ok) {
           const data = await response.json();
           setIsTracking(data.isTracking || false);
+          const bounceBack = data.bounceBack;
+          setIsBounceBack(
+            bounceBack === true ||
+            bounceBack === 1 ||
+            (typeof bounceBack === 'string' && bounceBack.toLowerCase() === 'true')
+          );
         } else {
           showToast('Failed to load tracking status', 'error');
         }
@@ -74,6 +82,27 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
     }
   };
 
+  const handleToggleBounceBack = async () => {
+    setBounceBackLoading(true);
+    const newState = !isBounceBack;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/updatebounceback?clientId=${getClientId()}&bounceBack=${newState}`,
+        { method: 'POST', headers: { accept: '*/*' }, body: '' }
+      );
+      if (response.ok) {
+        setIsBounceBack(newState);
+        showToast(`Bounce back ${newState ? 'enabled' : 'disabled'} successfully!`, 'success');
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch {
+      showToast('Failed to update bounce back setting. Please try again.', 'error');
+    } finally {
+      setBounceBackLoading(false);
+    }
+  };
+
   return (
     <div className="bp-list-wrap">
       <style>{`
@@ -90,6 +119,9 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
           justify-content: space-between;
           gap: 20px;
           padding: 20px 24px;
+        }
+        .tracking-row + .tracking-row {
+          border-top: 1px solid var(--bp-line);
         }
         .tracking-row__left {
           display: flex;
@@ -213,6 +245,42 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
                 <span
                   className="tracking-toggle__knob"
                   style={{ left: isTracking ? 22 : 3 }}
+                />
+              </button>
+            </div>
+          </div>
+
+          <div className="tracking-row">
+            <div className="tracking-row__left">
+              <div className="tracking-row__icon">
+                <RotateCcw className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="tracking-row__title">Delete bounceback emails</div>
+                <div className="tracking-row__sub">
+                  Show whether bounce-back handling is enabled for this client.
+                </div>
+              </div>
+            </div>
+            <div className="tracking-row__right">
+              <span
+                className={`tracking-status-badge ${
+                  loading || bounceBackLoading ? 'loading' : isBounceBack ? 'enabled' : 'disabled'
+                }`}
+              >
+                {loading ? 'Loading…' : bounceBackLoading ? 'Updating…' : isBounceBack ? 'Enabled' : 'Disabled'}
+              </span>
+              <button
+                className="tracking-toggle"
+                style={{ background: isBounceBack ? '#3f9f42' : '#e5e7eb' }}
+                onClick={handleToggleBounceBack}
+                disabled={loading || bounceBackLoading}
+                aria-label="Toggle bounce back"
+                aria-pressed={isBounceBack}
+              >
+                <span
+                  className="tracking-toggle__knob"
+                  style={{ left: isBounceBack ? 22 : 3 }}
                 />
               </button>
             </div>
