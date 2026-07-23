@@ -1872,13 +1872,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             type="button"
             onClick={handleKraftForwardEmail}
             disabled={!selectedBlueprint || isKrafting}
-            style={{
-              padding: '6px 16px',
-              background: (!selectedBlueprint || isKrafting) ? '#ccc' : '#e2f1e3',
-              color: '#3f9f42', border: 'none', borderRadius: '6px',
-              cursor: (!selectedBlueprint || isKrafting) ? 'not-allowed' : 'pointer',
-              fontSize: '13px', fontWeight: '500', whiteSpace: 'nowrap'
-            }}
+            className="btn-default"
           >
             {isKrafting ? 'Krafting...' : 'Kraft'}
           </button>
@@ -1984,16 +1978,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         <button
           type="submit"
           disabled={isForwarding || !forwardEmail.trim() || !forwardMessage.trim()}
-          style={{
-            padding: '10px 24px',
-            ...(isForwarding || !forwardEmail.trim() || !forwardMessage.trim()
-              ? { background: '#e5e7eb', color: '#9ca3af', border: '1px solid #d1d5db' }
-              : primarySoftButtonStyle),
-            borderRadius: '6px',
-            cursor: isForwarding || !forwardEmail.trim() || !forwardMessage.trim() ? 'not-allowed' : 'pointer',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}
+          className="btn-default"
         >
           {isForwarding ? 'Forwarding...' : 'Forward'}
         </button>
@@ -2883,6 +2868,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             {extractEmailAddress(message.toEmail || selectedThread.contactEmail)}
                           </span>
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleMessageExpand(message.messageId);
@@ -2935,21 +2921,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           type="button"
                           title="Forward"
                           aria-label="Forward email"
+                          className="btn-default"
                           onClick={(e) => {
                             e.stopPropagation();
                             openForwardModal(selectedThread);
-                          }}
-                          style={{
-                            width: '34px',
-                            height: '34px',
-                            padding: 0,
-                            ...primarySoftButtonStyle,
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
                           }}
                         >
                           <FontAwesomeIcon icon={faShare} />
@@ -3024,7 +2999,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 <div className="reply-button-sticky">
                   <button
                     type="button"
-                    className="reply-pill-button"
+                    className="btn-default"
                     onClick={async () => {
                       const signature = await fetchDefaultSignature();
                       setReplyText(signature);
@@ -3070,17 +3045,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     <button
                       onClick={handleKraftEmail}
                       disabled={!selectedBlueprint || isKrafting}
-                      style={{
-                        padding: '6px 16px',
-                        background: (!selectedBlueprint || isKrafting) ? '#ccc' : '#e2f1e3',
-                        color: '#3f9f42',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: (!selectedBlueprint || isKrafting) ? 'not-allowed' : 'pointer',
-                        fontSize: '13px',
-                        fontWeight: '500',
-                        whiteSpace: 'nowrap'
-                      }}
+                      className="btn-default"
                     >
                       {isKrafting ? 'Krafting...' : 'Kraft'}
                     </button>
@@ -3239,16 +3204,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <button
                     onClick={handleSendReply}
                     disabled={!replyText.trim() || isSending}
-                    style={{
-                      padding: '10px 24px',
-                      ...((!replyText.trim() || isSending)
-                        ? { background: '#e5e7eb', color: '#9ca3af', border: '1px solid #d1d5db' }
-                        : primarySoftButtonStyle),
-                      borderRadius: '6px',
-                      cursor: (!replyText.trim() || isSending) ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '500'
-                    }}
+                    className="btn-default"
                   >
                     {isSending ? 'Sending...' : 'Send reply'}
                   </button>
@@ -3421,21 +3377,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             type="button"
                             title="Forward"
                             aria-label="Forward email"
+                            className="btn-default"
                             onClick={(e) => {
                               e.stopPropagation();
                               openForwardModal(selectedSentThread);
-                            }}
-                            style={{
-                              width: '34px',
-                              height: '34px',
-                              padding: 0,
-                              ...primarySoftButtonStyle,
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
                             }}
                           >
                             <FontAwesomeIcon icon={faShare} />
@@ -3644,6 +3589,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               {extractEmailAddress(message.toEmail || selectedUnassignedThread.contactEmail)}
                             </span>
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 toggleMessageExpand(message.messageId);
@@ -3696,21 +3642,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             type="button"
                             title="Forward"
                             aria-label="Forward email"
+                            className="btn-default"
                             onClick={(e) => {
                               e.stopPropagation();
                               openForwardModal(selectedUnassignedThread);
-                            }}
-                            style={{
-                              width: '34px',
-                              height: '34px',
-                              padding: 0,
-                              ...primarySoftButtonStyle,
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
                             }}
                           >
                             <FontAwesomeIcon icon={faShare} />
@@ -3784,7 +3719,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <div className="reply-button-sticky">
                     <button
                       type="button"
-                      className="reply-pill-button"
+                      className="btn-default"
                       onClick={async () => {
                         const signature = await fetchDefaultSignature();
                         setReplyText(signature);
@@ -3874,17 +3809,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           }
                         }}
                         disabled={!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId}
-                        style={{
-                          padding: '6px 16px',
-                          background: (!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId) ? '#ccc' : '#e2f1e3',
-                          color: '#3f9f42',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: (!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId) ? 'not-allowed' : 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '500',
-                          whiteSpace: 'nowrap'
-                        }}
+                        className="btn-default"
                       >
                         {isKrafting ? 'Krafting...' : 'Kraft'}
                       </button>
@@ -4109,16 +4034,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         }
                       }}
                       disabled={!replyText.trim() || isSending}
-                      style={{
-                        padding: '10px 24px',
-                        ...((!replyText.trim() || isSending)
-                          ? { background: '#e5e7eb', color: '#9ca3af', border: '1px solid #d1d5db' }
-                          : primarySoftButtonStyle),
-                        borderRadius: '6px',
-                        cursor: (!replyText.trim() || isSending) ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}
+                      className="btn-default"
                     >
                       {isSending ? 'Sending...' : 'Send reply'}
                     </button>
@@ -4346,21 +4262,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             type="button"
                             title="Forward"
                             aria-label="Forward email"
+                            className="btn-default"
                             onClick={(e) => {
                               e.stopPropagation();
                               openForwardModal(selectedAllMessagesThread);
-                            }}
-                            style={{
-                              width: '34px',
-                              height: '34px',
-                              padding: 0,
-                              ...primarySoftButtonStyle,
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
                             }}
                           >
                             <FontAwesomeIcon icon={faShare} />
@@ -4434,7 +4339,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <div className="reply-button-sticky">
                     <button
                       type="button"
-                      className="reply-pill-button"
+                      className="btn-default"
                       onClick={async () => {
                         const signature = await fetchDefaultSignature();
                         setReplyText(signature);
@@ -4530,17 +4435,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           }
                         }}
                         disabled={!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId}
-                        style={{
-                          padding: '6px 16px',
-                          background: (!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId) ? '#ccc' : '#e2f1e3',
-                          color: '#3f9f42',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: (!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId) ? 'not-allowed' : 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '500',
-                          whiteSpace: 'nowrap'
-                        }}
+                        className="btn-default"
                       >
                         {isKrafting ? 'Krafting...' : 'Kraft'}
                       </button>
@@ -4706,16 +4601,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         }
                       }}
                       disabled={!replyText.trim() || isSending}
-                      style={{
-                        padding: '10px 24px',
-                        ...((!replyText.trim() || isSending)
-                          ? { background: '#e5e7eb', color: '#9ca3af', border: '1px solid #d1d5db' }
-                          : primarySoftButtonStyle),
-                        borderRadius: '6px',
-                        cursor: (!replyText.trim() || isSending) ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}
+                      className="btn-default"
                     >
                       {isSending ? 'Sending...' : 'Send reply'}
                     </button>

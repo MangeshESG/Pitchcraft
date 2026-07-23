@@ -507,9 +507,9 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: none;
-  background: #e2f1e3;
-  color: #3f9f42;
+  border: 1px solid var(--btn-default-border);
+  background: var(--btn-default-bg);
+  color: var(--btn-default-fg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -519,7 +519,7 @@
   transition: background 0.15s ease, transform 0.15s ease;
 }
 .scroll-to-bottom-btn:hover {
-  background: #e2f1e3;
+  background: var(--btn-default-bg-hover);
   transform: translateY(-2px);
 }
 

@@ -3490,21 +3490,10 @@ dispatch(closePanel());
                         type="button"
                         title="Forward"
                         aria-label="Forward email"
+                        className="btn-default"
                         onClick={(event) => {
                           event.stopPropagation();
                           openContactForwardSection(activeThread);
-                        }}
-                        style={{
-                          width: 34,
-                          height: 34,
-                          padding: 0,
-                          ...primarySoftButtonStyle,
-                          borderRadius: 6,
-                          cursor: "pointer",
-                          fontSize: 13,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
                         }}
                       >
                         <FontAwesomeIcon icon={faShare} />
@@ -3538,7 +3527,7 @@ dispatch(closePanel());
             <div className="reply-button-sticky">
               <button
                 type="button"
-                className="reply-pill-button"
+                className="btn-default"
                 onClick={() => {
                   setShowContactForwardSection(false);
                   setShowContactReplySection(true);
@@ -3581,13 +3570,7 @@ dispatch(closePanel());
                   type="button"
                   onClick={() => handleKraftContactForward(activeThread)}
                   disabled={!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId}
-                  style={{
-                    padding: "6px 16px",
-                    background: (!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId) ? "#ccc" : "#e2f1e3",
-                    color: "#3f9f42", border: "none", borderRadius: 6,
-                    cursor: (!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId) ? "not-allowed" : "pointer",
-                    fontSize: 13, fontWeight: 500, whiteSpace: "nowrap",
-                  }}
+                  className="btn-default"
                 >
                   {isKraftingContactReply ? "Krafting..." : "Kraft"}
                 </button>
@@ -3682,16 +3665,7 @@ dispatch(closePanel());
               <button
                 type="submit"
                 disabled={isForwardingContactEmail || !contactForwardEmail.trim() || !contactForwardMessage.trim()}
-                style={{
-                  padding: "10px 24px",
-                  ...((isForwardingContactEmail || !contactForwardEmail.trim() || !contactForwardMessage.trim())
-                    ? { background: "#e5e7eb", color: "#9ca3af", border: "1px solid #d1d5db" }
-                    : primarySoftButtonStyle),
-                  borderRadius: 6,
-                  cursor: isForwardingContactEmail || !contactForwardEmail.trim() || !contactForwardMessage.trim() ? "not-allowed" : "pointer",
-                  fontSize: 14,
-                  fontWeight: 500,
-                }}
+                className="btn-default"
               >
                 {isForwardingContactEmail ? "Forwarding..." : "Forward"}
               </button>
@@ -3806,17 +3780,7 @@ dispatch(closePanel());
                   type="button"
                   onClick={() => handleKraftContactReply(activeThread)}
                   disabled={!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId}
-                  style={{
-                    padding: "6px 16px",
-                    background: (!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId) ? "#ccc" : "#e2f1e3",
-                    color: "#3f9f42",
-                    border: "none",
-                    borderRadius: 6,
-                    cursor: (!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId) ? "not-allowed" : "pointer",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    whiteSpace: "nowrap",
-                  }}
+                  className="btn-default"
                 >
                   {isKraftingContactReply ? "Krafting..." : "Kraft"}
                 </button>
@@ -4052,16 +4016,7 @@ dispatch(closePanel());
                 type="button"
                 onClick={() => handleSendContactReply(activeThread)}
                 disabled={!getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() || isSendingContactReply}
-                style={{
-                  padding: "10px 24px",
-                  ...((!getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() || isSendingContactReply)
-                    ? { background: "#e5e7eb", color: "#9ca3af", border: "1px solid #d1d5db" }
-                    : primarySoftButtonStyle),
-                  borderRadius: 6,
-                  cursor: (!getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() || isSendingContactReply) ? "not-allowed" : "pointer",
-                  fontSize: 14,
-                  fontWeight: 500,
-                }}
+                className="btn-default"
               >
                 {isSendingContactReply ? "Sending..." : "Send reply"}
               </button>
