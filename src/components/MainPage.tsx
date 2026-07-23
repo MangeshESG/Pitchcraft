@@ -305,7 +305,7 @@ const MainPage: React.FC = () => {
   const ensureCanGenerateWithCredits = async (
     clientId?: string | number | null,
   ) => {
-    if (sessionStorage.getItem("isDemoAccount") === "true") {
+    if ((sessionStorage.getItem("isDemoAccount") ?? localStorage.getItem("isDemoAccount")) === "true") {
       return true;
     }
 
@@ -684,7 +684,8 @@ const MainPage: React.FC = () => {
   }, [showDataFileUpload]);
 
   const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
-  const clientID = sessionStorage.getItem("clientId");
+  const clientID =
+    sessionStorage.getItem("clientId") ?? localStorage.getItem("clientId");
   const [lastLoadedClientId, setLastLoadedClientId] = useState<string | null>(
     null,
   );
@@ -899,7 +900,19 @@ const handleClientChange = async (
 };
 
   useEffect(() => {
-    const isAdminString = sessionStorage.getItem("isAdmin");
+    // Mirror per-tab login flags into localStorage so a Dashboard opened in a
+    // new tab (where sessionStorage is empty) can still read them. Covers the
+    // already-logged-in session without requiring a fresh login.
+    ["isAdmin", "clientId", "isDemoAccount"].forEach((key) => {
+      const value = sessionStorage.getItem(key);
+      if (value !== null) localStorage.setItem(key, value);
+    });
+
+    // sessionStorage is per-tab and is not reliably copied into a newly opened
+    // tab (e.g. Dashboard opened via the logo), so fall back to the shared
+    // localStorage mirror written at login.
+    const isAdminString =
+      sessionStorage.getItem("isAdmin") ?? localStorage.getItem("isAdmin");
     const isAdmin = isAdminString === "true"; // Correct comparison
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
@@ -962,25 +975,6 @@ const handleClientChange = async (
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [cachedContacts, setCachedContacts] = useState<any[]>([]);
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-
-  //  Close popup when clicking outside for support details
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        popupRef.current &&
-        !popupRef.current.contains(event.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(event.target as Node)
-      ) {
-        setShowSupportPopup(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
 
   const handleSubjectTextChange = (value: string) => {};
   const cleanHtml = (value?: string) => {
@@ -1070,12 +1064,22 @@ const handleClientChange = async (
     toneSettings: any,
     scrappedData?: string,
   ): Record<string, any> => {
+    // ✅ first/last name — contact rows don't always carry them, so fall back
+    // to splitting the full name (same rule the backend upload uses).
+    const fullNameValue = entry.full_name || entry.name || "";
+    const nameParts = String(fullNameValue).trim().split(/\s+/).filter(Boolean);
+    const firstName = entry.first_name || nameParts[0] || "";
+    const lastName =
+      entry.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(" ") : "");
+
     return {
       company_name: entry.company_name || entry.company || "",
       company_name_friendly: entry.company_name_friendly || entry.company || "",
       job_title: entry.job_title || entry.title || "",
       location: entry.country_or_address || entry.location || "",
-      full_name: entry.full_name || entry.name || "",
+      full_name: fullNameValue,
+      first_name: firstName,
+      last_name: lastName,
       linkedin_url: entry.linkedin_url || entry.linkedin || "",
       website: entry.website || "",
       date: currentDate,
@@ -1099,6 +1103,35 @@ const handleClientChange = async (
       dateGreeting: toneSettings.dateGreeting || "",
       dateFarewell: toneSettings.dateFarewell || "",
     };
+  };
+
+  // ✅ Campaign "email history" setting: {use_email_history} = yes | no
+  const isEmailHistoryEnabled = (promptConfig?: any): boolean => {
+    const pv = (promptConfig?.placeholderValues || {}) as Record<string, any>;
+
+    return (pv.use_email_history ?? "").toString().trim().toLowerCase() === "yes";
+  };
+
+  // Appends the past conversation when email history is ON but the blueprint
+  // has no {use_emails}/{use_email} placeholder left to receive it.
+  // (The campaign endpoint pre-fills placeholders, so {use_emails} is often
+  // already stripped from the blueprint text before it reaches the frontend.)
+  const appendEmailHistoryIfNeeded = (
+    promptText: string,
+    promptConfig: any,
+    emailConversationContext: string,
+  ): string => {
+    if (!isEmailHistoryEnabled(promptConfig)) return promptText;
+    if (!emailConversationContext) return promptText;
+
+    const blueprintText = promptConfig?.text || "";
+    const hasPlaceholder =
+      shouldInjectPlaceholder("use_email", blueprintText) ||
+      shouldInjectPlaceholder("use_emails", blueprintText);
+
+    if (hasPlaceholder) return promptText;
+
+    return `${promptText}\n\nPrevious email conversation with this contact:\n${emailConversationContext}`;
   };
 
   const [isFetchingContacts, setIsFetchingContacts] = useState(false);
@@ -1219,6 +1252,9 @@ const handleClientChange = async (
           dataFileId: dataFileId || entry.dataFileId || entry.DataFileId || entry.data_file_id || "null", // Add dataFileId to response
           segmentId: segmentId || "null", // Add segmentId to response
           name: entry.full_name || "N/A",
+          // ✅ carry first/last name so {first_name}/{last_name} can be replaced
+          first_name: entry.first_name || "",
+          last_name: entry.last_name || "",
           title: entry.job_title || "N/A",
           company: entry.company_name || "N/A",
           location: entry.country_or_address || "N/A",
@@ -1816,7 +1852,7 @@ const resolvePromptSafely = async () => {
     if (
       tab === "Output" &&
       !options?.regenerate &&
-      sessionStorage.getItem("isDemoAccount") !== "true"
+      (sessionStorage.getItem("isDemoAccount") ?? localStorage.getItem("isDemoAccount")) !== "true"
     ) {
       const canGenerate = await ensureCanGenerateWithCredits(tempEffectiveUserId);
       if (!canGenerate) {
@@ -2187,7 +2223,10 @@ const resolvePromptSafely = async () => {
           effectiveUserId,
           entry.id,
         );
+        // ✅ Fetch past conversation when email history is ON, OR when the
+        // blueprint explicitly uses {use_email}/{use_emails}.
         const emailConversationContext = (
+          isEmailHistoryEnabled(safePrompt) ||
           shouldInjectPlaceholder(
             "use_email",
             systemInstructionsA,
@@ -2222,6 +2261,13 @@ const resolvePromptSafely = async () => {
         let replacedPromptText = replaceAllPlaceholders(
           safePrompt.text || "",
           replacements,
+        );
+
+        // ✅ Email history ON but no {use_email} placeholder → append conversation
+        replacedPromptText = appendEmailHistoryIfNeeded(
+          replacedPromptText,
+          safePrompt,
+          emailConversationContext,
         );
 
         const webSearchResult = await fillWebSearchDataForNonGpt(
@@ -2824,7 +2870,10 @@ const resolvePromptSafely = async () => {
             effectiveUserId,
             entry.id,
           );
+          // ✅ Fetch past conversation when email history is ON, OR when the
+          // blueprint explicitly uses {use_email}/{use_emails}.
           const emailConversationContext = (
+            isEmailHistoryEnabled(promptForRun) ||
             shouldInjectPlaceholder(
               "use_email",
               systemInstructionsA,
@@ -2875,6 +2924,13 @@ const resolvePromptSafely = async () => {
           let replacedPromptText = replaceAllPlaceholders(
             promptForRun?.text || "",
             replacements,
+          );
+
+          // ✅ Email history ON but no {use_email} placeholder → append conversation
+          replacedPromptText = appendEmailHistoryIfNeeded(
+            replacedPromptText,
+            promptForRun,
+            emailConversationContext,
           );
 
           const webSearchResult = await fillWebSearchDataForNonGpt(
@@ -3564,9 +3620,6 @@ totalEmailCostRef.current += subjectCost;
   }
 
   const IsAdmin = sessionStorage.getItem("IsAdmin");
-  const [showSupportPopup, setShowSupportPopup] = useState(false);
-  const popupRef = useRef<HTMLDivElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   // State for data files
   const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
@@ -3795,7 +3848,8 @@ const lastPitch =
   };
 
   // Get the demo account status directly from session storage
-  const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
+  const isDemoAccount =
+    (sessionStorage.getItem("isDemoAccount") ?? localStorage.getItem("isDemoAccount")) === "true";
 
   // Set default delay for demo users
   useEffect(() => {
@@ -4094,11 +4148,19 @@ try {
         >
           <div className="p-2 text-xl font-bold border-b">
             <div className="flex justify-between items-start">
-              <img
-                src={pitchLogo}
-                alt="Pitchcraft Logo"
-                style={{ height: "100px" }}
-              />
+              <a
+                href={`${window.location.pathname}#/main?tab=Dashboard${
+                  selectedClient ? `&clientId=${selectedClient}` : ""
+                }`}
+                target="_blank"
+                title="Open Dashboard in a new tab"
+              >
+                <img
+                  src={pitchLogo}
+                  alt="Pitchcraft Logo"
+                  style={{ height: "100px", cursor: "pointer" }}
+                />
+              </a>
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                 className="w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 mt-[10px]"
@@ -4110,7 +4172,7 @@ try {
               </button>
             </div>
           </div>
-          <div className="overflow-y-auto h-full">
+          <div className="overflow-y-auto flex-1 min-h-0 sidebar-scroll">
             <nav className="flex-1 py-4 space-y-2">
               {/* Side Menu */}
               <div className="side-menu" onClick={handleSidebarNavigation}>
@@ -4530,6 +4592,36 @@ try {
               </div>
             </nav>
           </div>
+
+          {/* Support details — pinned to the bottom-left of the menu.
+              Hidden while any submenu is expanded so the menu never needs to
+              scroll. Extra bottom padding keeps the email line clear of the
+              fixed Live Chat widget in the bottom-left corner. */}
+          {!showContactsSubmenu && !showMailSubmenu && !showSettingsSubmenu && (
+            <div className="mt-auto border-t border-gray-200 px-4 pt-4 pb-24">
+              <h4 className="text-[13px] font-semibold text-gray-800 mb-2">
+                Need support?
+              </h4>
+              <div className="text-[12px] text-gray-600 space-y-1">
+                <p>
+                  <span className="font-medium text-gray-700">London:</span>{" "}
+                  +44 (0) 207 660 4243
+                </p>
+                <p>
+                  <span className="font-medium text-gray-700">New York:</span>{" "}
+                  +1 (0) 315 400 2402
+                </p>
+                <p>
+                  <a
+                    href="mailto:support@pitchkraft.co"
+                    className="text-[#3f9f42] hover:underline break-all"
+                  >
+                    support@pitchkraft.co
+                  </a>
+                </p>
+              </div>
+            </div>
+          )}
         </aside>
       )}
 
@@ -4560,16 +4652,16 @@ try {
 
         {/* Inner Main Content */}
         <main className={`flex-1 overflow-y-auto h-[calc(100%-87px)] ${
-          tab === "Dashboard"
+          tab === "Dashboard" || tab === "MyPlan"
             ? "bg-white"
             : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Mail"
               ? "bg-[#fafbfc]"
               : "bg-[#eeeeee]"
-        } ${tab === "Dashboard" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Output" || tab === "Mail" ? "p-0" : "p-[20px]"}`}>
+        } ${tab === "Dashboard" || tab === "MyPlan" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Output" || tab === "Mail" ? "p-0" : "p-[20px]"}`}>
           <div
             className={`
                rounded-md
-              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" && tab !== "Output" && tab !== "Mail" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
+              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "MyPlan" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" && tab !== "Output" && tab !== "Mail" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
             `}
           >
             {/* Main Content Area */}

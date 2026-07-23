@@ -1,13 +1,110 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
 import { Tooltip as ReactTooltip } from "react-tooltip";
-import Modal from "../common/Modal";
 import ValidationErrorModal from "../common/ValidationErrorModal";
+import { defaultButtonStyle, lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import "./datafile.css";
 import API_BASE_URL from "../../config";
 import { useAppData } from "../../contexts/AppDataContext";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
+
+/* ===========================================================
+   Pitchkraft import redesign — theme + shared UI primitives
+   (green #3f9f42, Inter, white surfaces)
+   =========================================================== */
+const G = "#3f9f42";
+const G_DARK = "#2d7a30";
+const G_BG = "#e8f3e9";
+const G_BG_SOFT = "#f1f8f2";
+const BORDER = "#e8eaee";
+const TEXT_MUTED = "#6b7280";
+
+type IconProps = React.SVGProps<SVGSVGElement>;
+const FI: Record<string, (p: IconProps) => JSX.Element> = {
+  user: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="8" r="3.4" /><path d="M5 20c1.2-3.4 4-5 7-5s5.8 1.6 7 5" /></svg>),
+  mail: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="5.5" width="18" height="13" rx="2.2" /><path d="m4 8 8 5.2L20 8" /></svg>),
+  building: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 10h4a1 1 0 0 1 1 1v10M4 21h17M8 8h3M8 12h3M8 16h3" /></svg>),
+  briefcase: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="7.5" width="18" height="12" rx="2.2" /><path d="M8.5 7.5V6a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v1.5M3 12.5h18" /></svg>),
+  phone: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6.5 3.5h3l1.5 4-2 1.5a11 11 0 0 0 5 5l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5Z" /></svg>),
+  globe: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.3 3.6 8.5S14.4 18.2 12 20.5c-2.4-2.3-3.6-5.3-3.6-8.5S9.6 5.8 12 3.5Z" /></svg>),
+  pin: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 21s6.5-5.7 6.5-10.5A6.5 6.5 0 0 0 5.5 10.5C5.5 15.3 12 21 12 21Z" /><circle cx="12" cy="10.5" r="2.4" /></svg>),
+  linkedin: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3.5" y="3.5" width="17" height="17" rx="3" /><path d="M8 10.5V16M8 7.6v.01M12 16v-3.2a1.8 1.8 0 0 1 3.6 0V16" /></svg>),
+  tag: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 4h7l9 9-7 7-9-9V4Z" /><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" /></svg>),
+  swap: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 8h13l-3-3M20 16H7l3 3" /></svg>),
+  info: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 7.6v.01" /></svg>),
+  bulb: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9.5 18h5M10 21h4M12 3a6 6 0 0 0-3.7 10.7c.7.6 1.2 1.4 1.2 2.3h5c0-.9.5-1.7 1.2-2.3A6 6 0 0 0 12 3Z" /></svg>),
+  check: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m5 12.5 4.5 4.5L19 6.5" /></svg>),
+  arrow: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M5 12h14M13 6l6 6-6 6" /></svg>),
+  arrowL: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M19 12H5M11 6l-6 6 6 6" /></svg>),
+  chev: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m6 9 6 6 6-6" /></svg>),
+  cloud: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 15V4m0 0-3.5 3.5M12 4l3.5 3.5" /><path d="M5 15.5A4 4 0 0 1 6 8a5.5 5.5 0 0 1 10.6-1A4.2 4.2 0 0 1 19 15.5" /></svg>),
+  file: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9Z" /><path d="M13 3v6h6" /><path d="M8.5 13h7M8.5 16.5h5" /></svg>),
+  download: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 4v10m0 0 4-4m-4 4-4-4M5 19h14" /></svg>),
+  x: (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 6l12 12M18 6 6 18" /></svg>),
+};
+
+// Choose a glyph for a mapped contact field (used on the map + review rows)
+const iconForField = (fieldKey: string): ((p: IconProps) => JSX.Element) => {
+  if (!fieldKey) return FI.file;
+  if (fieldKey.startsWith("custom_")) return FI.tag;
+  const map: Record<string, (p: IconProps) => JSX.Element> = {
+    full_name: FI.user, first_name: FI.user, last_name: FI.user, name: FI.user,
+    email: FI.mail, company: FI.building, job_title: FI.briefcase,
+    company_telephone: FI.phone, company_website: FI.globe, location: FI.pin,
+    linkedin: FI.linkedin, company_linkedin_url: FI.linkedin,
+    company_industry: FI.tag, company_employee_count: FI.tag,
+    linkedIninformation: FI.linkedin,
+  };
+  return map[fieldKey] || FI.file;
+};
+
+/* ---- 3-step progress header ---- */
+const STEP_LABELS = ["Upload CSV", "Map columns", "Review & confirm"];
+const Stepper: React.FC<{ current: number }> = ({ current }) => (
+  <div className="bg-white rounded-2xl border px-8 py-7 shadow-[0_1px_2px_rgba(16,24,40,0.04)]" style={{ borderColor: BORDER }}>
+    <div className="flex items-center">
+      {STEP_LABELS.map((label, i) => {
+        const n = i + 1;
+        const done = n < current, active = n === current;
+        return (
+          <React.Fragment key={label}>
+            <div className="flex items-center gap-3.5 shrink-0">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center text-[16px] font-bold transition"
+                style={done || active ? { background: G, color: "#fff" } : { background: "#eef1ef", color: "#9aa3a0" }}>
+                {done ? <FI.check className="w-5 h-5" /> : n}
+              </div>
+              <div className="leading-tight">
+                <div className="text-[15px] font-semibold" style={{ color: done || active ? "#111827" : "#9aa3a0" }}>{label}</div>
+                {active && <div className="text-[12.5px] mt-0.5" style={{ color: G }}>You are here</div>}
+              </div>
+            </div>
+            {i < STEP_LABELS.length - 1 && (
+              <div className="flex-1 h-[3px] mx-5 rounded-full" style={{ background: n < current ? G : "#e7eae8" }} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  </div>
+);
+
+const Heading: React.FC<{ title: string; sub: string }> = ({ title, sub }) => (
+  <div>
+    <h1 className="text-[28px] font-extrabold tracking-tight text-[#111827] leading-tight">{title}</h1>
+    <p className="text-[15px] mt-1.5" style={{ color: TEXT_MUTED }}>{sub}</p>
+  </div>
+);
+
+const Stat: React.FC<{ value: React.ReactNode; label: string; tone: "green" | "amber" | "slate" }> = ({ value, label, tone }) => {
+  const c = tone === "green" ? { fg: G } : tone === "amber" ? { fg: "#c07a11" } : { fg: "#4b5563" };
+  return (
+    <div className="flex-1 rounded-2xl border bg-white px-6 py-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]" style={{ borderColor: BORDER }}>
+      <span className="text-[30px] font-extrabold" style={{ color: c.fg, fontVariantNumeric: "tabular-nums" }}>{value}</span>
+      <div className="text-[13.5px] font-medium mt-0.5" style={{ color: TEXT_MUTED }}>{label}</div>
+    </div>
+  );
+};
 interface DataFileProps {
   selectedClient: string;
   onDataProcessed: (data: any[]) => void;
@@ -95,7 +192,6 @@ const DataFile: React.FC<DataFileProps> = ({
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
  const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
 
-  const [showDataFileModal, setShowDataFileModal] = useState(false);
   const [dataFileInfo, setDataFileInfo] = useState<DataFileInfo>({
     name: "",
     description: "",
@@ -471,13 +567,11 @@ useEffect(() => {
     );
 
     if (contactsToUpload.length === 0) {
-      setShowDataFileModal(false);
       setErrors(["No valid contacts found. Please fix the invalid email rows before saving."]);
       setCurrentStep(3);
       return;
     }
 
-    setShowDataFileModal(false);
     setCurrentStep(4);
     setUploadProgress(0);
     setErrors([]);
@@ -617,96 +711,83 @@ useEffect(() => {
     XLSX.utils.book_append_sheet(wb, ws, "Contacts");
     XLSX.writeFile(wb, "contact_template.xlsx");
   };
-  const handleButtonClick = () => {
-  setShowDataFileModal(true);
-};
+
+  // First data-row value for a given CSV column (map-stage preview)
+  const firstRowValue = (header: string): string => {
+    if (!excelData.length) return "";
+    const idx = columnHeaders.indexOf(header);
+    if (idx === -1) return "";
+    const v = excelData[0][idx];
+    return v === undefined || v === null ? "" : String(v).trim();
+  };
+
+  // Sentence-cased label for a target field key (map-stage dropdown + row subtitle)
+  const fieldLabel = (fieldKey: string): string => {
+    if (!fieldKey) return "";
+    if (fieldKey.startsWith("custom_")) return fieldKey.replace("custom_", "");
+    if (fieldKey === "company") return "Company name";
+    if (fieldKey === "location") return "Company location";
+    return fieldKey
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/^\w/, (c) => c.toUpperCase());
+  };
+
+  const canContinueMapping =
+    Object.values(columnMappings).includes("email") &&
+    (Object.values(columnMappings).includes("first_name") ||
+      Object.values(columnMappings).includes("full_name"));
+
   return (
-    <div className="full-width d-flex">
-      <div className="input-section edit-section w-[100%]">
-        <div className="col-12">
-          {onBack && (
-            <div className="mb-20">
-              <button className="button secondary" onClick={onBack} style={{ borderRadius:"12px" }}>
-                ← Back to contacts
+    <div className="w-full" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <div className="w-full p-6">
+        {/* ===========================================================
+            STAGE 1 — Upload
+            =========================================================== */}
+        {currentStep === 1 && (
+          <>
+            <div className="flex items-start justify-between gap-6 flex-wrap">
+              <div>
+                {onBack && (
+                  <button
+                    onClick={onBack}
+                    className="mb-3"
+                    style={{ ...lessPriorityButtonStyle, display: "inline-flex", alignItems: "center", gap: 6 }}
+                  >
+                    <FI.arrowL className="w-4 h-4" /> Back to list
+                  </button>
+                )}
+                <Heading
+                  title="Import your contacts"
+                  sub="Upload a CSV or Excel file to bring your contacts into Pitchkraft."
+                />
+              </div>
+              <button
+                onClick={downloadTemplate}
+                className="shrink-0 transition"
+                style={{ ...lessPriorityButtonStyle, display: "inline-flex", alignItems: "center", gap: 8 }}
+              >
+                <FI.download className="w-[18px] h-[18px]" style={{ color: G }} /> Download template
               </button>
             </div>
-          )}
-          <h3 className="section-title mb-20">Contacts data file upload</h3>
 
-          {/* Progress Steps */}
-          <div className="upload-steps d-flex justify-between mb-30">
-            <div className={`step-item ${currentStep >= 1 ? "active" : ""}`}>
-              <div className="step-number">1</div>
-              <div className="step-label">Upload file</div>
+            <div className="mt-6">
+              <Stepper current={1} />
             </div>
-            <div
-              className={`step-connector ${currentStep >= 2 ? "active" : ""}`}
-            ></div>
-            <div className={`step-item ${currentStep >= 2 ? "active" : ""}`}>
-              <div className="step-number">2</div>
-              <div className="step-label">Map columns</div>
-            </div>
-            <div
-              className={`step-connector ${currentStep >= 3 ? "active" : ""}`}
-            ></div>
-            <div className={`step-item ${currentStep >= 3 ? "active" : ""}`}>
-              <div className="step-number">3</div>
-              <div className="step-label">Preview & continue</div>
-            </div>
-            <div
-              className={`step-connector ${currentStep >= 4 ? "active" : ""}`}
-            ></div>
-            <div className={`step-item ${currentStep >= 4 ? "active" : ""}`}>
-              <div className="step-number">4</div>
-              <div className="step-label">Process data</div>
-            </div>
-          </div>
 
-          {/* Step 1: Upload File */}
-          {currentStep === 1 && (
-            <div className="upload-section">
-              <div className="d-flex justify-between items-center mb-10">
-                <h4 className="!mb-0">Upload your contacts data file</h4>
-                <button
-                  className="button secondary small flex items-center"
-                  style={{ borderRadius:"12px" }}
-                  onClick={downloadTemplate}
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="mr-5"
-                  >
-                    <path
-                      d="M12 15L12 3M12 15L8 11M12 15L16 11"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M3 17V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V17"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  Download template
-                </button>
-              </div>
-
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
+              {/* dropzone */}
               <div
-                className={`dropzone justify-center text-center flex flex-col items-center ${
-                  isDragActive ? "active" : ""
-                }`}
                 onDragEnter={handleDragIn}
                 onDragLeave={handleDragOut}
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
+                className="cursor-pointer rounded-2xl bg-white border-2 border-dashed transition-all px-8 py-16 flex flex-col items-center text-center"
+                style={{
+                  borderColor: isDragActive ? G : "#c9d2ce",
+                  background: isDragActive ? G_BG_SOFT : "#fff",
+                }}
               >
                 <input
                   ref={fileInputRef}
@@ -715,349 +796,577 @@ useEffect(() => {
                   onChange={handleFileInputChange}
                   style={{ display: "none" }}
                 />
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M7 10L12 15L17 10"
-                    stroke="#666"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M12 15V3"
-                    stroke="#666"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M3 17V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V17"
-                    stroke="#666"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <p className="mt-20 mb-10">
-                  {isDragActive
-                    ? "Drop the file here..."
-                    : "Drag & drop your contacts data file here, or click to select"}
-                </p>
-                <small className="text-muted">
-                  Supports: .xlsx, .xls, .csv (Max size: 10MB)
-                </small>
-              </div>
-
-              {uploadedFile && (
-                <div className="file-info mt-20">
-                  <p className="d-flex align-center">
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      className="mr-10"
-                    >
-                      <path
-                        d="M14 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2Z"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M14 2V8H20"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    <span>{uploadedFile.name}</span>
-                    <span className="ml-10 text-muted">
-                      ({(uploadedFile.size / 1024).toFixed(2)} KB)
-                    </span>
-                  </p>
-                </div>
-              )}
-
-              {errors.length > 0 && (
-                <div className="alert alert-error mt-20">
-                  {errors.map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 2: Map Columns */}
-          {currentStep === 2 && (
-            <div className="mapping-section mt-20">
-              <h4
-                className="mt-[20px] sub-title"
-                style={{ marginBottom: "5px" }}
-              >
-                Map your contacts data file columns
-              </h4>
-              <p className="text-muted mb-20">
-                Please map your contacts data file to the fields in the pick lists below.<br />
-                Mandatory fields are 'Email address' and 'Full name'. Important, but not mandatory fields are 'Company name', 'Job title'.
-              </p>
-
-<div className="mapping-container">
-  {columnHeaders.map((header) => (
-    <div key={header} className="form-group">
-      <label>{header}</label>
-
-      <select
-        value={columnMappings[header] || ""}
-        onChange={(e) =>
-          setColumnMappings({
-            ...columnMappings,
-            [header]: e.target.value,
-          })
-        }
-      >
-        <option value="">--Do not include--</option>
-
-        {allFields
-          .filter(
-            (field) =>
-              !Object.values(columnMappings).includes(field.key) ||
-              columnMappings[header] === field.key
-          )
-          .map((field) => {
-            // Custom label mapping for specific fields
-            let displayLabel;
-            if (field.key === 'company') {
-              displayLabel = 'Company name';
-            } else if (field.key === 'location') {
-              displayLabel = 'Company location';
-            } else {
-              // Use sentence casing: capitalize only the first letter
-              displayLabel = field.key
-                .replace(/_/g, " ")
-                .toLowerCase()
-                .replace(/^\w/, (c) => c.toUpperCase());
-            }
-            
-            return (
-              <option key={field.key} value={field.key}>
-                {displayLabel}
-              </option>
-            );
-          })}
-      </select>
-    </div>
-  ))}
-</div>
-
-              <div
-                className="
-              flex justify-end gap-2"
-              >
-                <button onClick={resetUpload} className="button secondary"style={{ borderRadius:"12px" }}>
-                  Back
-                </button>
-                <button
-                  onClick={generatePreview}
-                  className="button action-button"
-                  style={{ borderRadius:"12px" }}
-                  disabled={
-                    !Object.values(columnMappings).includes("email") ||
-                    !(Object.values(columnMappings).includes("first_name") ||
-                      Object.values(columnMappings).includes("full_name"))
-                  }
+                <div
+                  className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6"
+                  style={{ background: G_BG, color: G }}
                 >
-                  Continue to preview
-                </button>
+                  <FI.cloud className="w-10 h-10" />
+                </div>
+                <div className="text-[19px] font-bold text-[#111827]">
+                  {isDragActive ? "Drop the file here…" : "Drag & drop your file here"}
+                </div>
+                <div className="text-[14px] mt-1.5" style={{ color: TEXT_MUTED }}>
+                  or click to browse from your computer
+                </div>
+                <span
+                  className="mt-6 shadow-sm"
+                  style={{ ...defaultButtonStyle, display: "inline-flex", alignItems: "center", gap: 8 }}
+                >
+                  <FI.file className="w-[18px] h-[18px]" /> Choose file
+                </span>
+                <div className="text-[12.5px] mt-6" style={{ color: "#9aa3a0" }}>
+                  Supports .csv, .xlsx, .xls · up to 10&nbsp;MB
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Step 3: Preview */}
-          {currentStep === 3 && (
-            <div className="preview-section">
-              <div className="d-flex justify-between align-center mb-20">
-                <h4 style={{ marginBottom: 0 }}>Preview Your Data</h4>
-                <div className="stats-info">
-                  <span className="badge badge-info">
-                    Total: {processingStats.total}
-                  </span>
-                  <span className="badge badge-success ml-10">
-                    Valid: {processingStats.valid}
-                  </span>
-                  {processingStats.invalid > 0 && (
-                    <span className="badge badge-error ml-10">
-                      Invalid: {processingStats.invalid}
-                    </span>
+              {/* helper card */}
+              <div
+                className="rounded-2xl bg-white border p-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+                style={{ borderColor: BORDER }}
+              >
+                <div className="text-[14px] font-bold text-[#111827]">Before you upload</div>
+                <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: TEXT_MUTED }}>
+                  Make sure the first row of your file holds column headers. We’ll match
+                  them automatically in the next step.
+                </p>
+                <div className="h-px my-5" style={{ background: BORDER }} />
+                <div
+                  className="text-[12px] font-semibold uppercase tracking-wide mb-3"
+                  style={{ color: "#9aa3a0" }}
+                >
+                  Required fields
+                </div>
+                <div className="flex flex-col gap-2.5">
+                  {([["Full name", FI.user], ["Email address", FI.mail]] as const).map(
+                    ([l, Ic]) => (
+                      <div
+                        key={l}
+                        className="flex items-center gap-2.5 text-[13.5px] font-medium text-[#374151]"
+                      >
+                        <span
+                          className="w-7 h-7 rounded-lg flex items-center justify-center"
+                          style={{ background: G_BG, color: G }}
+                        >
+                          <Ic className="w-4 h-4" />
+                        </span>
+                        {l}
+                      </div>
+                    )
                   )}
                 </div>
-              </div>
-              <p className="text-muted mb-20">
-                Please review the first 5 rows of your mapped data:
-              </p>
-
-              {errors.length > 0 && (
-                <div className="alert alert-error mt-20 mb-20">
-                  {errors.map((error, index) => (
-                    <p key={index}>{error}</p>
+                <div
+                  className="text-[12px] font-semibold uppercase tracking-wide mt-5 mb-3"
+                  style={{ color: "#9aa3a0" }}
+                >
+                  Recommended
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {["Company", "Job title", "Phone", "Website"].map((t) => (
+                    <span
+                      key={t}
+                      className="text-[12.5px] font-medium px-2.5 py-1 rounded-lg"
+                      style={{ background: "#f2f4f3", color: "#4b5563" }}
+                    >
+                      {t}
+                    </span>
                   ))}
                 </div>
-              )}
+              </div>
+            </div>
 
-              <div className="table-container">
-                <table className="preview-table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Job title</th>
-                      <th>Company</th>
-                      <th>Location</th>
-                      <th>LinkedIn</th>
-                      <th>Website</th>
-                      <th>Phone</th>
-                      <th>Industry</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewData.map((row, index) => (
-                      <tr key={index}>
-                        <td>{row.name || "-"}</td>
-                        <td>{row.email || "-"}</td>
-                        <td>{row.job_title || "-"}</td>
-                        <td>{row.company || "-"}</td>
-                        <td>{row.location || "-"}</td>
-                        <td>{row.linkedin || "-"}</td>
-                        <td>{row.company_website || "-"}</td>
-                        <td>{row.company_telephone || "-"}</td>
-                        <td>{row.company_industry || "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {uploadedFile && (
+              <div
+                className="mt-5 flex items-center gap-3 rounded-xl border bg-white px-4 py-3"
+                style={{ borderColor: BORDER }}
+              >
+                <span
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "#ede9fe", color: "#7c5cff" }}
+                >
+                  <FI.file className="w-5 h-5" />
+                </span>
+                <span className="text-[14px] font-semibold text-[#111827]">
+                  {uploadedFile.name}
+                </span>
+                <span className="text-[12.5px]" style={{ color: TEXT_MUTED }}>
+                  ({(uploadedFile.size / 1024).toFixed(2)} KB)
+                </span>
+              </div>
+            )}
+
+            {errors.length > 0 && (
+              <div
+                className="mt-4 rounded-xl px-4 py-3 text-[13.5px]"
+                style={{ background: "#fdecec", color: "#b42318" }}
+              >
+                {errors.map((error, index) => (
+                  <p key={index}>{error}</p>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ===========================================================
+            STAGE 2 — Map columns
+            =========================================================== */}
+        {currentStep === 2 && (
+          <>
+            <Heading
+              title="Map your contacts"
+              sub="Match the columns from your file to the Pitchkraft contact fields."
+            />
+
+            <div className="mt-6">
+              <Stepper current={2} />
+            </div>
+
+            <div
+              className="mt-6 bg-white rounded-2xl border overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+              style={{ borderColor: BORDER }}
+            >
+              {/* header */}
+              <div className="grid grid-cols-[1fr_360px_240px] items-center gap-6 px-8 py-4">
+                <div className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#111827]">
+                  Your file column
+                  <span
+                    className="w-7 h-7 rounded-full flex items-center justify-center ml-1"
+                    style={{ background: G_BG, color: G }}
+                  >
+                    <FI.swap className="w-4 h-4" />
+                  </span>
+                </div>
+                <div className="text-[13px] font-bold uppercase tracking-wide text-[#111827]">
+                  Maps to contact field
+                </div>
+                <div className="text-[13px] font-bold uppercase tracking-wide text-[#111827] flex items-center gap-1.5">
+                  Preview <FI.info className="w-4 h-4" style={{ color: "#9aa3a0" }} />
+                </div>
               </div>
 
-              {validationErrors.length > 0 && (
-                <div className="alert alert-warning mt-20">
-                  <h5>Data Quality Summary:</h5>
-                  <p>{validationErrors.length} issue{validationErrors.length > 1 ? 's' : ''} found in your data. 
-                     Only valid rows will be processed during import.</p>
-                  <button 
-                    onClick={() => setShowValidationModal(true)}
-                    style={{
-                      background: '#ffc107',
-                      color: '#000',
-                      border: 'none',
-                      padding: '6px 12px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      marginTop: '8px'
-                    }}
+              {columnHeaders.map((header) => {
+                const mapped = columnMappings[header] || "";
+                const Ic = iconForField(mapped);
+                const pv = firstRowValue(header);
+                return (
+                  <div
+                    key={header}
+                    className="grid grid-cols-[1fr_360px_240px] items-center gap-6 px-8 py-4 border-t"
+                    style={{ borderColor: "#f0f2f1" }}
                   >
-                    View Details
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <span
+                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                        style={{
+                          background: mapped ? G : "#eef1ef",
+                          color: mapped ? "#fff" : "#9aa3a0",
+                        }}
+                      >
+                        <Ic className="w-[19px] h-[19px]" />
+                      </span>
+                      <div className="leading-tight min-w-0">
+                        <div className="text-[14.5px] font-semibold text-[#111827] truncate">
+                          {header}
+                        </div>
+                        <div className="text-[12.5px] truncate" style={{ color: TEXT_MUTED }}>
+                          {mapped ? `Mapped to ${fieldLabel(mapped)}` : "Not imported"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <select
+                        value={mapped}
+                        onChange={(e) =>
+                          setColumnMappings({
+                            ...columnMappings,
+                            [header]: e.target.value,
+                          })
+                        }
+                        className="appearance-none w-full h-11 pl-4 pr-10 text-[14px] rounded-xl border bg-white outline-none focus:border-[#3f9f42] cursor-pointer transition"
+                        style={{
+                          borderColor: mapped ? "#cfd8d4" : "#e6a6a6",
+                          color: mapped ? "#111827" : "#9aa3a0",
+                        }}
+                      >
+                        <option value="">— Don’t include —</option>
+                        {allFields
+                          .filter(
+                            (field) =>
+                              !Object.values(columnMappings).includes(field.key) ||
+                              mapped === field.key
+                          )
+                          .map((field) => (
+                            <option key={field.key} value={field.key}>
+                              {fieldLabel(field.key)}
+                            </option>
+                          ))}
+                      </select>
+                      <FI.chev
+                        className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                        style={{ color: "#6b7280" }}
+                      />
+                    </div>
+
+                    <div
+                      className="text-[14px] truncate"
+                      style={{ color: !mapped ? "#c0c7c3" : "#374151" }}
+                    >
+                      {mapped ? pv || "—" : "not mapped"}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* footer */}
+              <div
+                className="border-t px-8 py-5 flex items-center justify-between flex-wrap gap-4"
+                style={{ borderColor: "#f0f2f1" }}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: G_BG, color: G }}
+                  >
+                    <FI.bulb className="w-[18px] h-[18px]" />
+                  </span>
+                  <div className="text-[13.5px]">
+                    <span className="font-bold" style={{ color: G }}>
+                      Required:{" "}
+                    </span>
+                    <span style={{ color: TEXT_MUTED }}>
+                      map an <b>Email address</b> and a <b>Full name</b> (or first name) to
+                      continue.
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={resetUpload}
+                    className="transition"
+                    style={lessPriorityButtonStyle}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={generatePreview}
+                    disabled={!canContinueMapping}
+                    className="shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ ...defaultButtonStyle, display: "inline-flex", alignItems: "center", gap: 8 }}
+                  >
+                    Continue to review <FI.arrow className="w-[18px] h-[18px]" />
                   </button>
                 </div>
-              )}
+              </div>
+            </div>
+          </>
+        )}
 
-              <div className="button-group mt-30">
-                <button
-                  onClick={() => setCurrentStep(2)}
-                  style={{ borderRadius:"12px" }}
-                  className="button secondary"
+        {/* ===========================================================
+            STAGE 3 — Review & confirm
+            =========================================================== */}
+        {currentStep === 3 && (
+          <>
+            <Heading
+              title="Review & confirm"
+              sub="Check the parsed rows, name your data file, then bring your contacts in."
+            />
+
+            <div className="mt-6">
+              <Stepper current={3} />
+            </div>
+
+            <div className="mt-6 flex gap-4 flex-wrap">
+              <Stat value={processingStats.total} label="Rows in file" tone="slate" />
+              <Stat value={processingStats.valid} label="Ready to import" tone="green" />
+              <Stat value={processingStats.invalid} label="Need attention" tone="amber" />
+            </div>
+
+            {errors.length > 0 && (
+              <div
+                className="mt-4 rounded-xl px-4 py-3 text-[13.5px]"
+                style={{ background: "#fdecec", color: "#b42318" }}
+              >
+                {errors.map((error, index) => (
+                  <p key={index}>{error}</p>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
+              {/* preview table */}
+              <div
+                className="bg-white rounded-2xl border overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+                style={{ borderColor: BORDER }}
+              >
+                <div
+                  className="px-6 py-4 flex items-center justify-between border-b"
+                  style={{ borderColor: "#f0f2f1" }}
                 >
-                  Back to mapping
+                  <div className="text-[14px] font-bold text-[#111827]">
+                    Data preview{" "}
+                    <span className="font-normal" style={{ color: TEXT_MUTED }}>
+                      · first {previewData.length} row{previewData.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr
+                        className="text-[11.5px] font-bold uppercase tracking-wide"
+                        style={{ color: "#9aa3a0" }}
+                      >
+                        {["", "Name", "Email", "Company", "Job title", "Website"].map(
+                          (h, i) => (
+                            <th
+                              key={i}
+                              className="px-4 py-3 whitespace-nowrap"
+                              style={{ background: "#fafbfb" }}
+                            >
+                              {h}
+                            </th>
+                          )
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewData.map((r, i) => {
+                        const ok = !!r.email && isValidEmail(r.email);
+                        return (
+                          <tr
+                            key={i}
+                            className="text-[13.5px] border-t"
+                            style={{ borderColor: "#f0f2f1" }}
+                          >
+                            <td className="px-4 py-3.5">
+                              {ok ? (
+                                <span
+                                  className="w-6 h-6 rounded-full flex items-center justify-center"
+                                  style={{ background: G_BG, color: G }}
+                                >
+                                  <FI.check className="w-3.5 h-3.5" />
+                                </span>
+                              ) : (
+                                <span
+                                  className="w-6 h-6 rounded-full flex items-center justify-center"
+                                  style={{ background: "#fdf1dc", color: "#c07a11" }}
+                                >
+                                  <FI.info className="w-3.5 h-3.5" />
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5 font-medium text-[#111827] whitespace-nowrap">
+                              {r.name || "—"}
+                            </td>
+                            <td
+                              className="px-4 py-3.5 whitespace-nowrap"
+                              style={{
+                                color: ok ? "#374151" : "#c07a11",
+                                fontWeight: ok ? 400 : 600,
+                              }}
+                            >
+                              {r.email || "—"}
+                            </td>
+                            <td
+                              className="px-4 py-3.5 whitespace-nowrap"
+                              style={{ color: "#374151" }}
+                            >
+                              {r.company || "—"}
+                            </td>
+                            <td
+                              className="px-4 py-3.5 whitespace-nowrap"
+                              style={{ color: "#374151" }}
+                            >
+                              {r.job_title || "—"}
+                            </td>
+                            <td
+                              className="px-4 py-3.5 whitespace-nowrap font-medium"
+                              style={{ color: G }}
+                            >
+                              {r.company_website || "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {validationErrors.length > 0 && (
+                  <div
+                    className="px-6 py-3.5 border-t text-[12.5px] flex items-center justify-between gap-3 flex-wrap"
+                    style={{ borderColor: "#f0f2f1", color: "#c07a11", background: "#fffaf0" }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <FI.info className="w-4 h-4" /> {validationErrors.length} row
+                      {validationErrors.length > 1 ? "s" : ""} with invalid or missing
+                      emails will be skipped during import.
+                    </span>
+                    <button
+                      onClick={() => setShowValidationModal(true)}
+                      className="font-semibold underline"
+                    >
+                      View details
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* data file details */}
+              <div
+                className="rounded-2xl bg-white border p-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+                style={{ borderColor: BORDER }}
+              >
+                <div className="text-[14px] font-bold text-[#111827]">Data file details</div>
+                <div className="mt-4">
+                  <label className="text-[12.5px] font-semibold text-[#374151]">
+                    Data file name <span style={{ color: "#e11d48" }}>*</span>
+                  </label>
+                  <input
+                    value={dataFileInfo.name}
+                    onChange={(e) =>
+                      setDataFileInfo((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="e.g. Q3 outbound list"
+                    className="mt-1.5 w-full h-11 px-3.5 text-[14px] rounded-xl border bg-white outline-none focus:border-[#3f9f42] transition"
+                    style={{ borderColor: "#cfd8d4" }}
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="text-[12.5px] font-semibold text-[#374151]">
+                    Description
+                  </label>
+                  <textarea
+                    value={dataFileInfo.description}
+                    onChange={(e) =>
+                      setDataFileInfo((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                    rows={4}
+                    placeholder="Optional notes about this list"
+                    className="mt-1.5 w-full px-3.5 py-2.5 text-[14px] rounded-xl border bg-white outline-none focus:border-[#3f9f42] transition resize-none"
+                    style={{ borderColor: "#cfd8d4" }}
+                  />
+                </div>
+                <button
+                  onClick={processData}
+                  disabled={
+                    isProcessing || processingStats.valid === 0 || !dataFileInfo.name.trim()
+                  }
+                  className="mt-5 shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ ...defaultButtonStyle, width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                >
+                  <FI.check className="w-[18px] h-[18px]" />{" "}
+                  {isProcessing
+                    ? "Processing…"
+                    : `Import ${processingStats.valid} contact${
+                        processingStats.valid === 1 ? "" : "s"
+                      }`}
                 </button>
                 <button
-                  //onClick={() => {console.log("Process & Save Data button clicked!");setShowDataFileModal(true)}}
-                  onClick={handleButtonClick}
-                  style={{ borderRadius:"12px" }}
-                  className="button action-button"
-                  disabled={isProcessing || processingStats.valid === 0}
+                  onClick={() => setCurrentStep(2)}
+                  className="mt-2.5 transition"
+                  style={{ ...lessPriorityButtonStyle, width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
                 >
-                  {isProcessing ? "Processing..." : "Process & save data"}
+                  <FI.arrowL className="w-[18px] h-[18px]" /> Back to mapping
                 </button>
               </div>
             </div>
-          )}
+          </>
+        )}
 
-          {/* Step 4: Complete */}
-          {currentStep === 4 && (
-            <div className="complete-section text-center">
+        {/* ===========================================================
+            STAGE 4 — Processing / complete
+            =========================================================== */}
+        {currentStep === 4 && (
+          <>
+            <Heading
+              title={uploadProgress < 100 ? "Importing your contacts" : "All done"}
+              sub="Bringing your contacts into Pitchkraft."
+            />
+
+            <div className="mt-6">
+              <Stepper current={3} />
+            </div>
+
+            <div
+              className="mt-6 bg-white rounded-2xl border p-10 shadow-[0_1px_2px_rgba(16,24,40,0.04)] flex flex-col items-center text-center"
+              style={{ borderColor: BORDER }}
+            >
               {uploadProgress < 100 ? (
-                <>
-                  <div className="progress-container mb-20">
-                    <div className="progress-bar">
-                      <div
-                        className="progress-fill"
-                        style={{ width: `${uploadProgress}%` }}
-                      ></div>
-                    </div>
-                    <p className="mt-10">Processing... {uploadProgress}%</p>
+                <div className="w-full max-w-[460px]">
+                  <div
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5 mx-auto"
+                    style={{ background: G_BG, color: G }}
+                  >
+                    <FI.cloud className="w-8 h-8" />
                   </div>
-                </>
+                  <div className="text-[17px] font-bold text-[#111827] mb-4">
+                    Processing… {uploadProgress}%
+                  </div>
+                  <div
+                    className="h-2.5 w-full rounded-full overflow-hidden"
+                    style={{ background: "#eef1ef" }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${uploadProgress}%`, background: G }}
+                    />
+                  </div>
+                </div>
               ) : (
                 <>
-                  <svg
-                    className="success-icon mb-20"
-                    width="64"
-                    height="64"
-                    viewBox="0 0 24 24"
-                    fill="none"
+                  <div
+                    className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
+                    style={{ background: G_BG, color: G }}
                   >
-                    <path
-                      d="M20 6L9 17L4 12"
-                      stroke="#4CAF50"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <circle
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="#4CAF50"
-                      strokeWidth="2"
-                    />
-                  </svg>
-                  <h3 className="mb-10">Upload Complete!</h3>
-                  <p className="text-muted mb-10">
+                    <FI.check className="w-10 h-10" />
+                  </div>
+                  <h3 className="text-[22px] font-extrabold text-[#111827]">
+                    Import complete!
+                  </h3>
+                  <p className="text-[14px] mt-2" style={{ color: TEXT_MUTED }}>
                     Your contacts have been successfully imported.
                   </p>
-                  <div className="stats-summary mb-30">
-                    <p className="text-large">
-                      {processingStats.valid} records processed successfully
-                    </p>
+                  <div className="mt-5 flex gap-5">
+                    <span className="text-[15px] font-semibold" style={{ color: G }}>
+                      {processingStats.valid} imported
+                    </span>
                     {processingStats.invalid > 0 && (
-                      <p className="text-error">
-                        {processingStats.invalid} records skipped due to errors
-                      </p>
+                      <span
+                        className="text-[15px] font-semibold"
+                        style={{ color: "#c07a11" }}
+                      >
+                        {processingStats.invalid} skipped
+                      </span>
                     )}
                   </div>
-                  <div className="button-group">
-                    <button onClick={resetUpload} className="button secondary">
-                      Upload Another File
+                  <div className="mt-7 flex items-center gap-3 flex-wrap justify-center">
+                    <button
+                      onClick={resetUpload}
+                      className="transition"
+                      style={lessPriorityButtonStyle}
+                    >
+                      Upload another file
                     </button>
                     <button
-                      className="button action-button"
-                      onClick={() => {
-                        // Navigate to email generation or close the upload section
-                        resetUpload();
-                      }}
+                      onClick={resetUpload}
+                      className="shadow-sm transition"
+                      style={{ ...defaultButtonStyle, display: "inline-flex", alignItems: "center", gap: 8 }}
                     >
-                      Continue to email generation
+                      Done <FI.arrow className="w-[18px] h-[18px]" />
                     </button>
                   </div>
                 </>
               )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
+      {/* ---- toasts ---- */}
       <style>{toastAnimation}</style>
 
       {showSuccessToast && (
@@ -1093,7 +1402,6 @@ useEffect(() => {
               animation: "toastProgress 3s linear forwards",
             }}
           />
-
           <div
             style={{
               width: 28,
@@ -1109,11 +1417,9 @@ useEffect(() => {
               flexShrink: 0,
             }}
           >
-            {"\u2713"}
+            {"✓"}
           </div>
-
           <div style={{ flex: 1 }}>{toastMessage}</div>
-
           <div
             onClick={() => setShowSuccessToast(false)}
             style={{
@@ -1124,7 +1430,7 @@ useEffect(() => {
               lineHeight: 1,
             }}
           >
-            {"\u00d7"}
+            {"×"}
           </div>
         </div>
       )}
@@ -1162,7 +1468,6 @@ useEffect(() => {
               animation: "toastProgress 3s linear forwards",
             }}
           />
-
           <div
             style={{
               width: 28,
@@ -1180,9 +1485,7 @@ useEffect(() => {
           >
             !
           </div>
-
           <div style={{ flex: 1 }}>{toastMessage}</div>
-
           <div
             onClick={() => setShowErrorToast(false)}
             style={{
@@ -1193,69 +1496,10 @@ useEffect(() => {
               lineHeight: 1,
             }}
           >
-            {"\u00d7"}
+            {"×"}
           </div>
         </div>
       )}
-
-      {/* Data File Info Modal */}
-      <Modal
-        show={showDataFileModal}
-        closeModal={() => setShowDataFileModal(false)}
-        buttonLabel=""
-        size="auto-width"
-      >
-        {/* <div className="datafile-modal" > */}
-          <h2  style={{
-          fontSize: "20px",
-          fontWeight: "600",
-          marginBottom: "24px",
-          color: "#222",
-        }}>Enter data file information</h2>
-          <div className="form-group">
-            <label>
-              Data file name <span className="required">*</span>
-            </label>
-            <input
-              type="text"
-              value={dataFileInfo.name}
-              onChange={(e) =>
-                setDataFileInfo((prev) => ({ ...prev, name: e.target.value }))
-              }
-              placeholder="Enter data file name"
-            />
-          </div>
-          <div className="form-group">
-            <label>Description</label>
-            <textarea
-              value={dataFileInfo.description}
-              onChange={(e) =>
-                setDataFileInfo((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              placeholder="Enter description (optional)"
-              rows={4}
-            />
-          </div>
-          <div className="button-group">
-            <button
-              className="button secondary"
-              onClick={() => setShowDataFileModal(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="button action-button"
-              onClick={processData}
-              disabled={!dataFileInfo.name.trim()}
-            >
-              Save data
-            </button>
-          </div>
-        {/* </div> */}
-      </Modal>
 
       {/* Validation Error Modal */}
       <ValidationErrorModal

@@ -48,7 +48,7 @@ import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
 import LoadingSpinner from "../../common/LoadingSpinner";
 import { OPENAI_MODELS, isDeepSeekModel } from "../../../utils/aiModels";
-import { defaultButtonStyle } from "../../../styles/buttonStyles";
+import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 
 // The blueprint builder / instruction set must never run on a DeepSeek model.
 // Coerce any DeepSeek (or empty) value back to a safe OpenAI default so loading
@@ -4431,33 +4431,25 @@ const parsePlaceholdersSafe = (block: string) => {
   // ====================================================================
   return (
     <div className="email-campaign-builder !p-[0]">
-      {/* ================= FLOATING BACK-TO-BLUEPRINTS BUTTON ================= */}
-      {/* Single, always-visible exit control shown on every step/UI of the builder
-          (replaces the per-step "Cancel" buttons). */}
-      <button
-        onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())}
-        title="Back to blueprints"
-        style={{
-          position: "fixed",
-          top: 64,
-          right: 24,
-          zIndex: 50,
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "8px 16px",
-          borderRadius: 999,
-          border: "1px solid #86efac",
-          background: "#fff",
-          color: "#3f9f42",
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: "pointer",
-          boxShadow: "0 4px 12px rgba(15,23,42,0.12)",
-        }}
-      >
-        <FontAwesomeIcon icon={faAngleLeft} /> Back to blueprints
-      </button>
+      {/* ================= BACK-TO-BLUEPRINTS BUTTON ================= */}
+      {/* Single, always-visible exit control shown at the top of every step/UI
+          of the builder (replaces the per-step "Cancel" buttons). Rendered in
+          normal flow above the main container so it sits above each step's
+          content instead of floating over it. */}
+      <div style={{ display: "flex", padding: "12px 16px 0" }}>
+        <button
+          onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())}
+          title="Back to blueprints"
+          style={{
+            ...lessPriorityButtonStyle,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <FontAwesomeIcon icon={faAngleLeft} /> Back to blueprints
+        </button>
+      </div>
 
       {/* ================= LOADING OVERLAYS ================= */}
       {isLoadingTemplate && <LoadingSpinner message="Loading template for editing..." />}

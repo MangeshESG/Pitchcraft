@@ -45,6 +45,7 @@ interface KpiTileData {
   delta: string;
   deltaPos?: boolean;
   series: number[];
+  color?: string;
   onClick?: () => void;
 }
 
@@ -419,7 +420,7 @@ const Sparkline: React.FC<{
   );
 };
 
-const KpiTile: React.FC<KpiTileData> = ({ label, value, series, onClick }) => {
+const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, onClick }) => {
   const clickable = typeof onClick === "function";
   return (
     <div
@@ -450,7 +451,7 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series, onClick }) => {
         <div className="text-[30px] font-bold text-gray-900 leading-none tabular-nums tracking-tight">
           {value}
         </div>
-        <Sparkline data={series} />
+        <Sparkline data={series} color={color} />
       </div>
     </div>
   );
@@ -757,6 +758,7 @@ const PostOnboardingView: React.FC<{
       value: kpis.totalContacts ?? (totalContactsCount > 0 ? totalContactsCount.toLocaleString() : "—"),
       delta: "",
       series: [120, 132, 128, 145, 160, 178, 196],
+      color: "#111827",
       onClick: () => navigate("/main?tab=DataCampaigns&subtab=List&dataFileId=-1"),
     },
     {
@@ -764,12 +766,14 @@ const PostOnboardingView: React.FC<{
       value: kpis.emailsGenerated ?? (totalContactsCount > 0 ? emailsGeneratedCount.toLocaleString() : "—"),
       delta: "",
       series: generatedSeries,
+      color: "#3b82f6",
     },
     {
       label: "Emails sent",
       value: kpis.emailsSent ?? (totalContactsCount > 0 ? emailsSentCount.toLocaleString() : "—"),
       delta: "",
       series: sentSeries,
+      color: BRAND,
       onClick: () => navigate("/main?tab=Mail&mailSubTab=Dashboard"),
     },
     {
@@ -777,12 +781,14 @@ const PostOnboardingView: React.FC<{
       value: totalContactsCount > 0 ? `${sendRate}%` : "—",
       delta: "",
       series: [15, 22, 30, 40, 50, 58, sendRate],
+      color: BRAND,
     },
     {
       label: "Kraft rate",
       value: totalContactsCount > 0 ? `${kraftRate}%` : "—",
       delta: "",
       series: [10, 18, 24, 30, 38, 42, kraftRate],
+      color: "#3b82f6",
     },
   ];
 

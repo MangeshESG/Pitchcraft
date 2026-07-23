@@ -1375,7 +1375,30 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isLogExpanded, setIsLogExpanded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // Shows the right-panel loader immediately when the campaign is refreshed or
+  // selected, covering the gap before fetchAndDisplayEmailBodies flips
+  // isFetchingContacts (e.g. while the campaign blueprint is still loading).
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const quillRef = useRef<any>(null);
+
+  // Wraps the parent campaign-change handler so the loader stays visible for the
+  // entire flow: selecting the campaign, loading its blueprint, and fetching its
+  // contact data.
+  const handleCampaignChangeWithLoader = async (
+    e: React.ChangeEvent<HTMLSelectElement>,
+  ) => {
+    // No loader needed when clearing the selection.
+    if (!e?.target?.value) {
+      handleCampaignChange?.(e);
+      return;
+    }
+    setIsRefreshing(true);
+    try {
+      await handleCampaignChange?.(e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Add this function to handle content changes
   const handleContentInput = (e: React.FormEvent<HTMLDivElement>) => {
@@ -2095,14 +2118,12 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     console.log("Current index:", currentIndex);
     console.log("Current contact:", combinedResponses[currentIndex]);
 
-    // Force a re-render if we have data but UI shows NA
-    if (combinedResponses.length > 0 && currentIndex === 0) {
-      const contact = combinedResponses[0];
-      if (contact && contact.name !== "N/A") {
-        // Data is valid, force update
-        setCurrentIndex(0);
-      }
-    }
+    // NOTE: Do NOT reset currentIndex here. This effect runs in the same commit
+    // as the "Restore contact index after campaign refresh" effect above, and a
+    // setCurrentIndex(0) here would clobber the restored index (sending the user
+    // back to the first contact after clicking refresh). Setting the index to the
+    // value it already has does not force a re-render anyway, so there is nothing
+    // to gain and a real bug to lose.
   }, [combinedResponses]);
 
   useEffect(() => {
@@ -2497,7 +2518,7 @@ useEffect(() => {
       <KraftCampaignSelectState
         campaigns={safeCampaigns}
         selectedCampaign={selectedCampaign}
-        handleCampaignChange={handleCampaignChange}
+        handleCampaignChange={handleCampaignChangeWithLoader}
       />
     );
   }
@@ -2541,7 +2562,7 @@ useEffect(() => {
               <div className="flex items-center gap-2">
                 <div className="form-group !mb-0 flex-1">
                   <select
-                    onChange={handleCampaignChange}
+                    onChange={handleCampaignChangeWithLoader}
                     value={selectedCampaign}
                     className="w-full"
                   >
@@ -2595,14 +2616,19 @@ useEffect(() => {
                       sessionStorage.removeItem("selectedPrompt");
                       sessionStorage.removeItem("campaignSubjectConfig");
                       setJumpToNewLast(false);
+                      setIsRefreshing(true); // show the right-panel loader right away
                       setCombinedResponses([]);
                       setAllResponses([]);
                       setexistingResponse([]);
                       setSelectedPrompt?.(null);
                       setCurrentIndex(0);
-                      handleCampaignChange?.({
-                        target: { value: selectedCampaign },
-                      } as React.ChangeEvent<HTMLSelectElement>);
+                      try {
+                        await handleCampaignChange?.({
+                          target: { value: selectedCampaign },
+                        } as React.ChangeEvent<HTMLSelectElement>);
+                      } finally {
+                        setIsRefreshing(false);
+                      }
                     }}
                     aria-label="Refresh campaign"
                   >
@@ -2850,7 +2876,7 @@ useEffect(() => {
           {/* RIGHT PANEL */}
           <div ref={editableArea} className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: '#e8eaee', position: 'relative' }}>
             {/* Right-panel overlay: loading contacts */}
-            {isFetchingContacts && (
+            {(isFetchingContacts || isRefreshing) && (
               <div style={{ position: 'absolute', inset: 0, background: '#fff', zIndex: 10, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '48px' }}>
                 <KraftLoadingState />
               </div>
