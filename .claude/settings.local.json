@@ -75,7 +75,8 @@
       "Bash(cd /c/Users/Radhika/AppData/Local/Temp/claude/d--New-Pitchcraft-Pitchcraft/3dbe959a-5a6f-4e2f-871d-d75951ad187b/scratchpad/bundle && grep -nE \"G_BG|G_DARK|const G|BORDER|TEXT_MUTED|G_BG_SOFT|Object.assign\\\\\\(window\" app_helpers.jsx | head -30)",
       "Read(//c/Users/Radhika/AppData/Local/Temp/claude/d--New-Pitchcraft-Pitchcraft/3dbe959a-5a6f-4e2f-871d-d75951ad187b/scratchpad/bundle/**)",
       "Bash(./node_modules/.bin/tsc --noEmit --jsx react-jsx --esModuleInterop --skipLibCheck --moduleResolution node --target es2017 --lib es2020,dom src/components/MainPage.tsx)",
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "PowerShell(npx tsc --noEmit > \"$env:TEMP\\\\tsc-out.txt\"; Select-String -Path \"$env:TEMP\\\\tsc-out.txt\" -Pattern \"Output\\\\.tsx|RTEEditor\\\\.tsx\" | Select-Object -First 20)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Radhika\\AppData\\Local\\Temp\\claude\\d--New-Pitchcraft-Pitchcraft\\3dbe959a-5a6f-4e2f-871d-d75951ad187b\\scratchpad\\bundle"

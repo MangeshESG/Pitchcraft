@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 interface RichTextEditorProps {
   value: string;
@@ -17,6 +17,140 @@ interface RichTextEditorProps {
   onExpandEditor?: () => void;
 }
 
+// Gmail-style font list
+const FONT_FAMILIES: { label: string; value: string }[] = [
+  { label: "Sans Serif", value: "arial, helvetica, sans-serif" },
+  { label: "Serif", value: "'times new roman', serif" },
+  { label: "Fixed Width", value: "'courier new', monospace" },
+  { label: "Wide", value: "'arial black', sans-serif" },
+  { label: "Narrow", value: "'arial narrow', sans-serif" },
+  { label: "Comic Sans MS", value: "'comic sans ms', cursive" },
+  { label: "Garamond", value: "garamond, serif" },
+  { label: "Georgia", value: "georgia, serif" },
+  { label: "Tahoma", value: "tahoma, sans-serif" },
+  { label: "Trebuchet MS", value: "'trebuchet ms', sans-serif" },
+  { label: "Verdana", value: "verdana, sans-serif" },
+];
+
+// Gmail-style sizes mapped to execCommand fontSize values (1-7)
+const FONT_SIZES: { label: string; value: string }[] = [
+  { label: "Small", value: "1" },
+  { label: "Normal", value: "3" },
+  { label: "Large", value: "5" },
+  { label: "Huge", value: "7" },
+];
+
+// Gmail-style color palette
+const COLOR_PALETTE: string[] = [
+  "#000000", "#434343", "#666666", "#999999", "#b7b7b7", "#cccccc", "#efefef", "#ffffff",
+  "#980000", "#ff0000", "#ff9900", "#ffff00", "#00ff00", "#00ffff", "#4a86e8", "#0000ff",
+  "#9900ff", "#ff00ff", "#e06666", "#f6b26b", "#ffd966", "#93c47d", "#76a5af", "#6fa8dc",
+  "#8e7cc3", "#c27ba0", "#cc0000", "#e69138", "#f1c232", "#6aa84f", "#45818e", "#3d85c6",
+];
+
+/* Self-contained toolbar styles (inline) so host-page CSS — full-width
+ * selects, global button rules, etc. — cannot distort the toolbar. The
+ * editor is used in Output, Inbox and Contact notes which all have very
+ * different surrounding styles. */
+const tbStyles: Record<string, React.CSSProperties> = {
+  toolbar: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: "2px",
+    padding: "4px 6px",
+    background: "#f8f9fa",
+    border: "1px solid #d1d5db",
+    borderTopLeftRadius: "6px",
+    borderTopRightRadius: "6px",
+  },
+  select: {
+    flex: "0 0 auto",
+    width: "auto",
+    height: "28px",
+    fontSize: "12.5px",
+    lineHeight: "26px",
+    padding: "0 4px",
+    margin: 0,
+    border: "1px solid #d1d5db",
+    borderRadius: "4px",
+    background: "#ffffff",
+    color: "#374151",
+    cursor: "pointer",
+    boxSizing: "border-box",
+  },
+  btn: {
+    flex: "0 0 auto",
+    height: "28px",
+    minWidth: "28px",
+    padding: "0 5px",
+    margin: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "none",
+    borderRadius: "4px",
+    fontSize: "13px",
+    lineHeight: 1,
+    color: "#374151",
+    cursor: "pointer",
+    boxSizing: "border-box",
+  },
+  divider: {
+    flex: "0 0 auto",
+    width: "1px",
+    height: "20px",
+    background: "#d1d5db",
+    margin: "0 4px",
+  },
+  menu: {
+    position: "absolute",
+    zIndex: 50,
+    top: "100%",
+    left: 0,
+    marginTop: "4px",
+    padding: "8px",
+    background: "#ffffff",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+  },
+  swatch: {
+    width: "18px",
+    height: "18px",
+    padding: 0,
+    border: "1px solid #e5e7eb",
+    borderRadius: "2px",
+    cursor: "pointer",
+  },
+};
+
+/** Toolbar icon button — inline styles + transparent background so the
+ *  page's global `button` / `.button` rules can't restyle it. */
+const TbButton: React.FC<{
+  title: string;
+  onAction: () => void;
+  children: React.ReactNode;
+}> = ({ title, onAction, children }) => (
+  <button
+    type="button"
+    title={title}
+    onMouseDown={(e) => {
+      e.preventDefault();
+      onAction();
+    }}
+    style={{ ...tbStyles.btn, background: "transparent" }}
+    onMouseEnter={(e) => {
+      (e.currentTarget as HTMLButtonElement).style.background = "#e5e7eb";
+    }}
+    onMouseLeave={(e) => {
+      (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+    }}
+  >
+    {children}
+  </button>
+);
+
 const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value,
   height = 400,
@@ -25,6 +159,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 }) => {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const [openMenu, setOpenMenu] = useState<
+    null | "color" | "highlight" | "align"
+  >(null);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -37,6 +175,17 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       editorRef.current.innerHTML = html;
     }
   }, [value]);
+
+  // Close any open toolbar dropdown when clicking outside of it
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
 
   const isSelectionInsideEditor = (range: Range) => {
     const editor = editorRef.current;
@@ -82,8 +231,22 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   const handleCommand = (command: string, value?: string) => {
+    // Produce inline-style spans (email friendly) instead of <font> tags
+    try {
+      document.execCommand("styleWithCSS", false, "true");
+    } catch {
+      /* ignore — not supported by every browser */
+    }
     document.execCommand(command, false, value);
     syncEditorValue();
+  };
+
+  /** Restore the remembered selection, then run the command. Used by
+   *  dropdown menus (selects / palettes) where interaction steals focus. */
+  const commandWithSelection = (command: string, value?: string) => {
+    editorRef.current?.focus();
+    restoreSelection();
+    handleCommand(command, value);
   };
 
   const handleCreateLink = () => {
@@ -111,119 +274,324 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full" style={{ width: "100%" }}>
       {/* Toolbar */}
-      <div className="flex flex-wrap gap-2 p-2 border border-gray-300 bg-gray-100 rounded-t">
+      <div ref={toolbarRef} style={tbStyles.toolbar}>
+        {/* Font family */}
         <select
+          onMouseDown={rememberSelection}
           onChange={(e) => {
-            handleCommand("formatBlock", e.target.value);
-            e.target.value = "p";
+            if (e.target.value) commandWithSelection("fontName", e.target.value);
+            e.target.value = "";
           }}
-          className="border px-2 py-1 rounded"
-          defaultValue="p"
+          style={{ ...tbStyles.select, width: "104px" }}
+          defaultValue=""
+          title="Font"
         >
+          <option value="" disabled>
+            Sans Serif
+          </option>
+          {FONT_FAMILIES.map((font) => (
+            <option key={font.label} value={font.value} style={{ fontFamily: font.value }}>
+              {font.label}
+            </option>
+          ))}
+        </select>
+
+        {/* Font size */}
+        <select
+          onMouseDown={rememberSelection}
+          onChange={(e) => {
+            if (e.target.value) commandWithSelection("fontSize", e.target.value);
+            e.target.value = "";
+          }}
+          style={{ ...tbStyles.select, width: "72px" }}
+          defaultValue=""
+          title="Size"
+        >
+          <option value="" disabled>
+            Size
+          </option>
+          {FONT_SIZES.map((size) => (
+            <option key={size.value} value={size.value}>
+              {size.label}
+            </option>
+          ))}
+        </select>
+
+        {/* Heading */}
+        <select
+          onMouseDown={rememberSelection}
+          onChange={(e) => {
+            if (e.target.value) commandWithSelection("formatBlock", e.target.value);
+            e.target.value = "";
+          }}
+          style={{ ...tbStyles.select, width: "76px" }}
+          defaultValue=""
+          title="Paragraph style"
+        >
+          <option value="" disabled>
+            Normal
+          </option>
           <option value="p">Normal</option>
           <option value="h1">H1</option>
           <option value="h2">H2</option>
           <option value="h3">H3</option>
         </select>
 
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleCommand("bold");
-          }}
-          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
-          title="Bold (Ctrl+B)"
-        >
-          <b>B</b>
-        </button>
+        <span style={tbStyles.divider} />
 
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleCommand("italic");
-          }}
-          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
-          title="Italic (Ctrl+I)"
-        >
-          <i>I</i>
-        </button>
+        {/* Bold / Italic / Underline / Strikethrough */}
+        <TbButton title="Bold (Ctrl+B)" onAction={() => handleCommand("bold")}>
+          <b style={{ fontSize: "13px" }}>B</b>
+        </TbButton>
+        <TbButton title="Italic (Ctrl+I)" onAction={() => handleCommand("italic")}>
+          <i style={{ fontSize: "13px", fontFamily: "georgia, serif" }}>I</i>
+        </TbButton>
+        <TbButton title="Underline (Ctrl+U)" onAction={() => handleCommand("underline")}>
+          <u style={{ fontSize: "13px" }}>U</u>
+        </TbButton>
+        <TbButton title="Strikethrough" onAction={() => handleCommand("strikeThrough")}>
+          <s style={{ fontSize: "13px" }}>S</s>
+        </TbButton>
 
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleCommand("underline");
-          }}
-          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
-          title="Underline (Ctrl+U)"
-        >
-          <u>U</u>
-        </button>
+        {/* Text color */}
+        <div style={{ position: "relative", flex: "0 0 auto" }}>
+          <TbButton
+            title="Text color"
+            onAction={() => {
+              rememberSelection();
+              setOpenMenu(openMenu === "color" ? null : "color");
+            }}
+          >
+            <span
+              style={{
+                fontSize: "13px",
+                fontWeight: 600,
+                borderBottom: "3px solid #ef4444",
+                lineHeight: 1.1,
+              }}
+            >
+              A
+            </span>
+          </TbButton>
+          {openMenu === "color" && (
+            <div
+              style={{
+                ...tbStyles.menu,
+                display: "grid",
+                gridTemplateColumns: "repeat(8, 18px)",
+                gap: "4px",
+              }}
+            >
+              {COLOR_PALETTE.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  title={color}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    commandWithSelection("foreColor", color);
+                    setOpenMenu(null);
+                  }}
+                  style={{ ...tbStyles.swatch, backgroundColor: color }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleCommand("strikeThrough");
-          }}
-          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
-          title="Strikethrough"
-        >
-          <s>S</s>
-        </button>
+        {/* Highlight color */}
+        <div style={{ position: "relative", flex: "0 0 auto" }}>
+          <TbButton
+            title="Highlight color"
+            onAction={() => {
+              rememberSelection();
+              setOpenMenu(openMenu === "highlight" ? null : "highlight");
+            }}
+          >
+            <span
+              style={{
+                fontSize: "13px",
+                fontWeight: 600,
+                background: "#fde047",
+                padding: "0 3px",
+                lineHeight: 1.2,
+                borderRadius: "2px",
+              }}
+            >
+              A
+            </span>
+          </TbButton>
+          {openMenu === "highlight" && (
+            <div style={{ ...tbStyles.menu, width: "184px" }}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  commandWithSelection("hiliteColor", "transparent");
+                  setOpenMenu(null);
+                }}
+                style={{
+                  width: "100%",
+                  marginBottom: "6px",
+                  fontSize: "11px",
+                  padding: "2px 4px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                None
+              </button>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(8, 18px)",
+                  gap: "4px",
+                }}
+              >
+                {COLOR_PALETTE.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    title={color}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      commandWithSelection("hiliteColor", color);
+                      setOpenMenu(null);
+                    }}
+                    style={{ ...tbStyles.swatch, backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleCommand("insertUnorderedList");
-          }}
-          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
-          title="Bullet List"
-        >
-          •
-        </button>
+        <span style={tbStyles.divider} />
 
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleCommand("insertOrderedList");
-          }}
-          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
-          title="Numbered List"
-        >
-          1.
-        </button>
+        {/* Alignment */}
+        <div style={{ position: "relative", flex: "0 0 auto" }}>
+          <TbButton
+            title="Align"
+            onAction={() => {
+              rememberSelection();
+              setOpenMenu(openMenu === "align" ? null : "align");
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="1" y="2" width="14" height="2" rx="1" />
+              <rect x="1" y="7" width="9" height="2" rx="1" />
+              <rect x="1" y="12" width="12" height="2" rx="1" />
+            </svg>
+          </TbButton>
+          {openMenu === "align" && (
+            <div style={{ ...tbStyles.menu, display: "flex", gap: "2px", padding: "4px" }}>
+              <TbButton title="Align left" onAction={() => { commandWithSelection("justifyLeft"); setOpenMenu(null); }}>
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="1" y="2" width="14" height="2" rx="1" /><rect x="1" y="7" width="9" height="2" rx="1" /><rect x="1" y="12" width="12" height="2" rx="1" />
+                </svg>
+              </TbButton>
+              <TbButton title="Align center" onAction={() => { commandWithSelection("justifyCenter"); setOpenMenu(null); }}>
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="1" y="2" width="14" height="2" rx="1" /><rect x="3.5" y="7" width="9" height="2" rx="1" /><rect x="2" y="12" width="12" height="2" rx="1" />
+                </svg>
+              </TbButton>
+              <TbButton title="Align right" onAction={() => { commandWithSelection("justifyRight"); setOpenMenu(null); }}>
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="1" y="2" width="14" height="2" rx="1" /><rect x="6" y="7" width="9" height="2" rx="1" /><rect x="3" y="12" width="12" height="2" rx="1" />
+                </svg>
+              </TbButton>
+              <TbButton title="Justify" onAction={() => { commandWithSelection("justifyFull"); setOpenMenu(null); }}>
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="1" y="2" width="14" height="2" rx="1" /><rect x="1" y="7" width="14" height="2" rx="1" /><rect x="1" y="12" width="14" height="2" rx="1" />
+                </svg>
+              </TbButton>
+            </div>
+          )}
+        </div>
 
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleCreateLink();
-          }}
-          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
-          title="Insert Link"
-        >
-          🔗
-        </button>
+        {/* Lists */}
+        <TbButton title="Numbered list" onAction={() => handleCommand("insertOrderedList")}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+            <text x="0" y="4.5" fontSize="4.5" fontFamily="arial">1</text>
+            <text x="0" y="9.5" fontSize="4.5" fontFamily="arial">2</text>
+            <text x="0" y="14.5" fontSize="4.5" fontFamily="arial">3</text>
+            <rect x="5" y="1.5" width="10" height="1.8" rx="0.9" />
+            <rect x="5" y="6.5" width="10" height="1.8" rx="0.9" />
+            <rect x="5" y="11.5" width="10" height="1.8" rx="0.9" />
+          </svg>
+        </TbButton>
+        <TbButton title="Bulleted list" onAction={() => handleCommand("insertUnorderedList")}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+            <circle cx="2" cy="2.5" r="1.4" />
+            <circle cx="2" cy="7.5" r="1.4" />
+            <circle cx="2" cy="12.5" r="1.4" />
+            <rect x="5" y="1.5" width="10" height="1.8" rx="0.9" />
+            <rect x="5" y="6.5" width="10" height="1.8" rx="0.9" />
+            <rect x="5" y="11.5" width="10" height="1.8" rx="0.9" />
+          </svg>
+        </TbButton>
 
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault();
+        {/* Indent / Outdent */}
+        <TbButton title="Indent less" onAction={() => handleCommand("outdent")}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+            <rect x="1" y="1.5" width="14" height="1.8" rx="0.9" />
+            <rect x="7" y="5" width="8" height="1.8" rx="0.9" />
+            <rect x="7" y="8.5" width="8" height="1.8" rx="0.9" />
+            <rect x="1" y="12" width="14" height="1.8" rx="0.9" />
+            <path d="M4.5 6l-3 2 3 2z" />
+          </svg>
+        </TbButton>
+        <TbButton title="Indent more" onAction={() => handleCommand("indent")}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+            <rect x="1" y="1.5" width="14" height="1.8" rx="0.9" />
+            <rect x="7" y="5" width="8" height="1.8" rx="0.9" />
+            <rect x="7" y="8.5" width="8" height="1.8" rx="0.9" />
+            <rect x="1" y="12" width="14" height="1.8" rx="0.9" />
+            <path d="M1.5 6l3 2-3 2z" />
+          </svg>
+        </TbButton>
+
+        {/* Quote */}
+        <TbButton title="Quote" onAction={() => handleCommand("formatBlock", "blockquote")}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M3.5 4C2 4 1 5.3 1 7c0 1.6 1 2.7 2.4 2.7-.2 1.2-1 2-2.1 2.4l.5 1.2C4 12.7 5.5 11 5.5 8.4 5.5 5.7 4.7 4 3.5 4zM10.5 4C9 4 8 5.3 8 7c0 1.6 1 2.7 2.4 2.7-.2 1.2-1 2-2.1 2.4l.5 1.2c2.2-.6 3.7-2.3 3.7-4.9C12.5 5.7 11.7 4 10.5 4z" />
+          </svg>
+        </TbButton>
+
+        <span style={tbStyles.divider} />
+
+        {/* Link / Image */}
+        <TbButton title="Insert link" onAction={handleCreateLink}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+        </TbButton>
+        <TbButton
+          title="Insert image"
+          onAction={() => {
             const url = prompt("Enter image URL");
             if (url) handleCommand("insertImage", url);
           }}
-          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
-          title="Insert Image"
         >
-          🖼️
-        </button>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
+        </TbButton>
+
+        {/* Remove formatting */}
+        <TbButton title="Remove formatting" onAction={() => handleCommand("removeFormat")}>
+          <span style={{ fontSize: "12px" }}>
+            <s>T</s>
+            <sub style={{ fontSize: "9px" }}>x</sub>
+          </span>
+        </TbButton>
       </div>
 
       {/* Editor */}
@@ -231,12 +599,29 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <div
           ref={editorRef}
           contentEditable
-          className={`border border-t-0 border-gray-300 p-3 outline-none rounded-b ${autoGrow ? "" : "overflow-auto"}`}
-          style={
-            autoGrow
-              ? { minHeight: height, overflowY: "visible" }
-              : { height, overflowY: "auto" }
-          }
+          className={`p-3 outline-none ${autoGrow ? "" : "overflow-auto"}`}
+          style={{
+            border: "1px solid #d1d5db",
+            borderTop: "none",
+            borderBottomLeftRadius: "6px",
+            borderBottomRightRadius: "6px",
+            padding: "12px",
+            outline: "none",
+            background: "#ffffff",
+            width: "100%",
+            maxWidth: "100%",
+            boxSizing: "border-box",
+            wordWrap: "break-word",
+            overflowWrap: "break-word",
+            /* overflowX creates a block formatting context so floated email
+             * content is contained (no content spilling past the bottom
+             * border) and wide content scrolls inside the editor instead of
+             * stretching the page. */
+            overflowX: "auto",
+            ...(autoGrow
+              ? { minHeight: height, overflowY: "auto" }
+              : { height, overflowY: "auto" }),
+          }}
           onInput={syncEditorValue}
           onBlur={syncEditorValue}
           onMouseUp={rememberSelection}
@@ -252,7 +637,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             }
 
             const summary = target.closest('summary');
-            const details = summary?.closest('details') || target.closest('[data-reply-email-trail]');
+            const details: Element | null =
+              summary?.closest('details') || target.closest('[data-reply-email-trail]');
 
             if (details?.hasAttribute('data-reply-email-trail')) {
               e.preventDefault();
@@ -280,57 +666,3 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 };
 
 export default RichTextEditor;
-
-// import React, { useMemo } from "react";
-// import ReactQuill from "react-quill-new";
-// import "react-quill-new/dist/quill.snow.css";
-
-// interface RichTextEditorProps {
-//   value: string;
-//   onChange: (value: string) => void;
-//   height?: number;
-// }
-
-// const RichTextEditor: React.FC<RichTextEditorProps> = ({
-//   value,
-//   onChange,
-//   height = 200,
-// }) => {
-//   // 1. Memoize modules so they never change after the first render
-//   const modules = useMemo(() => ({
-//     toolbar: [
-//       [{ header: [1, 2, 3, false] }],
-//       ["bold", "italic", "underline", "strike"],
-//       [{ list: "ordered" }, { list: "bullet" }],
-//       ["link", "image"],
-//       ["clean"],
-//     ],
-//   }), []);
-
-//   // 2. Memoize formats
-//   const formats = useMemo(() => [
-//     "header", "bold", "italic", "underline", "strike", 
-//     "list", "link", "image"
-//   ], []);
-
-//   // 3. Memoize the style object to prevent re-mounts
-//   const editorStyle = useMemo(() => ({ 
-//     height, 
-//     marginBottom: '40px' // Space for the toolbar if needed
-//   }), [height]);
-
-//   return (
-//     <div className="rich-text-editor">
-//       <ReactQuill
-//         theme="snow"
-//         value={value}
-//         onChange={onChange}
-//         modules={modules}
-//         formats={formats}
-//         style={editorStyle} // Use the memoized style
-//       />
-//     </div>
-//   );
-// };
-
-// export default RichTextEditor;

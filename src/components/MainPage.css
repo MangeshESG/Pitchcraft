@@ -726,6 +726,13 @@ pre span {
   font-family: inherit;
 }
 
+/* Keep wide email images (banners etc.) inside the editor instead of
+   stretching it horizontally */
+.rich-text-editor [contenteditable] img {
+  max-width: 100%;
+  height: auto;
+}
+
 .rich-text-editor a {
   color: #3f9f42;
 }

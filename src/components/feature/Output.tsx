@@ -29,6 +29,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus,faBell    } from "@fortawesome/free-regular-svg-icons";
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 import { KraftEmailEmptyState, KraftLoadingState, KraftCampaignSelectState } from "./Output.new";
+import RichTextEditor from "../common/RTEEditor";
 import { repairAndParseJsonObject } from "../../utils/jsonRepair";
 
 // In Output.tsx
@@ -1374,6 +1375,35 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
   );
   const [isEditing, setIsEditing] = useState(false);
   const [isLogExpanded, setIsLogExpanded] = useState(false);
+  // Toggles the "Sourced from" highlights (colored background + tooltip) in the
+  // email-body preview. When off, sourced text renders as plain text.
+  const [showSourceHighlights, setShowSourceHighlights] = useState(true);
+
+  // Strips the source-highlight styling (background color, help cursor and
+  // "Sourced from" tooltip) from the email body so it reads as plain text.
+  const stripSourceHighlights = (html: string): string => {
+    if (!html) return html;
+    try {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      doc.querySelectorAll('[title^="Sourced from"]').forEach((el) => {
+        el.removeAttribute("title");
+        const style = (el as HTMLElement).style;
+        style.removeProperty("background-color");
+        style.removeProperty("cursor");
+        if (!(el as HTMLElement).getAttribute("style")) {
+          el.removeAttribute("style");
+        }
+      });
+      return doc.body.innerHTML;
+    } catch {
+      return html;
+    }
+  };
+
+  const displayedPitch = useMemo(() => {
+    const html = combinedResponses[currentIndex]?.pitch || "";
+    return showSourceHighlights ? html : stripSourceHighlights(html);
+  }, [combinedResponses, currentIndex, showSourceHighlights]);
   const [isSaving, setIsSaving] = useState(false);
   // Shows the right-panel loader immediately when the campaign is refreshed or
   // selected, covering the gap before fetchAndDisplayEmailBodies flips
@@ -1563,20 +1593,8 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
   }, [currentIndex]);
 
   const [editorInitialized, setEditorInitialized] = useState(false);
-  const editorRef = useRef<HTMLDivElement>(null);
-
-  // Add this useEffect to handle the initialization
-  // useEffect(() => {
-  //   if (isEditing && editorRef.current) {
-  //     // Update editor content whenever the current index changes or when entering edit mode
-  //     editorRef.current.innerHTML = editableContent;
-  //   }
-  // }, [isEditing, editableContent, currentIndex]);
-  useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== editableContent) {
-      editorRef.current.innerHTML = editableContent || "";
-    }
-  }, [editableContent]);
+  // Editing now uses the shared RichTextEditor component (RTEEditor.tsx),
+  // which manages its own contentEditable element and content sync.
 
   const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
   const [outputEmailWidth, setOutputEmailWidth] = useState<string>("");
@@ -2469,14 +2487,6 @@ const usageData = useMemo(() => {
 }, [outputForm.usage]);
 
 const [editingIndex, setEditingIndex] = useState<number | null>(null);
-useEffect(() => {
-  if (!isEditing) return;
-
-  if (editorRef.current) {
-    editorRef.current.innerHTML = editableContent || "";
-    editorRef.current.focus();
-  }
-}, [isEditing]);
 
 
   const editableArea = useRef<HTMLDivElement | null>(null);
@@ -3529,199 +3539,17 @@ useEffect(() => {
                                 }`,
                             }}
                           >
-                            <div
-                              className="editor-toolbar"
-                              style={{
-                                padding: "5px",
-                                border: "1px solid #ccc",
-                                borderBottom: "none",
-                                borderRadius: "4px 4px 0 0",
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: "5px",
-                                background: "#f9f9f9",
-                              }}
-                            >
-                              <select
-                                onChange={(e) => {
-                                  document.execCommand(
-                                    "formatBlock",
-                                    false,
-                                    e.target.value,
-                                  );
-                                }}
-                                style={{
-                                  padding: "5px",
-                                  border: "1px solid #ddd",
-                                  borderRadius: "3px",
-                                  marginRight: "5px",
-                                  width: "auto",
-                                }}
-                              >
-                                <option value="h1">Heading 1</option>
-                                <option value="h2">Heading 2</option>
-                                <option value="h3">Heading 3</option>
-                                <option value="p">Normal</option>
-                                <option value="pre">Preformatted</option>
-                              </select>
-
-                              <button
-                                type="button"
-                                onClick={() => document.execCommand("bold")}
-                                style={{
-                                  padding: "5px 10px",
-                                  border: "1px solid #ddd",
-                                  borderRadius: "3px",
-                                  background: "#fff",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <strong>B</strong>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => document.execCommand("italic")}
-                                style={{
-                                  padding: "5px 10px",
-                                  border: "1px solid #ddd",
-                                  borderRadius: "3px",
-                                  background: "#fff",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <em>I</em>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => document.execCommand("underline")}
-                                style={{
-                                  padding: "5px 10px",
-                                  border: "1px solid #ddd",
-                                  borderRadius: "3px",
-                                  background: "#fff",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <u>U</u>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => document.execCommand("strikeThrough")}
-                                style={{
-                                  padding: "5px 10px",
-                                  border: "1px solid #ddd",
-                                  borderRadius: "3px",
-                                  background: "#fff",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <s>S</s>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  document.execCommand("insertUnorderedList")
-                                }
-                                style={{
-                                  padding: "5px 10px",
-                                  border: "1px solid #ddd",
-                                  borderRadius: "3px",
-                                  background: "#fff",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <span>•</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  document.execCommand("insertOrderedList")
-                                }
-                                style={{
-                                  padding: "5px 10px",
-                                  border: "1px solid #ddd",
-                                  borderRadius: "3px",
-                                  background: "#fff",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <span>1.</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const url = prompt("Enter link URL:");
-                                  if (url)
-                                    document.execCommand("createLink", false, url);
-                                }}
-                                style={{
-                                  padding: "5px 10px",
-                                  border: "1px solid #ddd",
-                                  borderRadius: "3px",
-                                  background: "#fff",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <span>🔗</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const url = prompt("Enter image URL:");
-                                  if (url)
-                                    document.execCommand("insertImage", false, url);
-                                }}
-                                style={{
-                                  padding: "5px 10px",
-                                  border: "1px solid #ddd",
-                                  borderRadius: "3px",
-                                  background: "#fff",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <span>🖼️</span>
-                              </button>
-                            </div>
-
-                            <div
-                              ref={editorRef}
-                              contentEditable
-                              suppressContentEditableWarning
-                              className="textarea-full-height preview-content-area"
-                              onInput={(e) => {
-                                setEditableContent(e.currentTarget.innerHTML);
-                              }}
-                              style={{
-                                minHeight: "500px",
-                                padding: "10px",
-                                border: "1px solid #ccc",
-                                borderTop: "none",
-                                borderRadius: "0 0 4px 4px",
-                                whiteSpace: "normal",
-                                overflowY: "auto",
-                                overflowX: "auto",
-                                wordWrap: "break-word",
-                                width: "100%",
-                                outline: "none",
-                              }}
+                            <RichTextEditor
+                              value={editableContent}
+                              onChange={setEditableContent}
+                              height={500}
+                              autoGrow
                             />
-
-
 
                             <div className="editor-actions mt-10 d-flex">
                               <button
                                 className="action-button button mr-10"
                                 onClick={() => {
-                                  if (editorRef.current) {
-                                    setEditableContent(editorRef.current.innerHTML);
-                                  }
                                   saveEditedContent();
                                 }}
                                 disabled={isSaving}
@@ -3768,7 +3596,7 @@ useEffect(() => {
                                   }`,
                               }}
                               dangerouslySetInnerHTML={{
-                                __html: combinedResponses[currentIndex]?.pitch || "",
+                                __html: displayedPitch,
                               }}
 
                             ></div>
@@ -4096,6 +3924,59 @@ useEffect(() => {
                               </div>
                               <>
                                 <ReactTooltip
+                                  anchorSelect="#toggle-source-highlights-tooltip"
+                                  place="top"
+                                >
+                                  {showSourceHighlights
+                                    ? "Hide source highlights"
+                                    : "Show source highlights"}
+                                </ReactTooltip>
+                                <button
+                                  id="toggle-source-highlights-tooltip"
+                                  className="edit-button button d-flex align-center justify-center square-40"
+                                  aria-label={
+                                    showSourceHighlights
+                                      ? "Hide source highlights"
+                                      : "Show source highlights"
+                                  }
+                                  aria-pressed={showSourceHighlights}
+                                  onClick={() =>
+                                    setShowSourceHighlights((prev) => !prev)
+                                  }
+                                  style={
+                                    showSourceHighlights
+                                      ? { backgroundColor: "#E4F8E8" }
+                                      : undefined
+                                  }
+                                >
+                                  {/* Highlighter icon */}
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="26px"
+                                    height="26px"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                  >
+                                    <path
+                                      d="M9 11L3 17V20H12L15 17"
+                                      stroke={showSourceHighlights ? "#3f9f42" : "#000000"}
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                    <path
+                                      d="M22 12L17.4 16.6C16.6189 17.381 15.3526 17.381 14.5716 16.6L9.4 11.4284C8.61895 10.6474 8.61895 9.38104 9.4 8.6L14 4L22 12Z"
+                                      stroke={showSourceHighlights ? "#3f9f42" : "#000000"}
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </svg>
+                                </button>
+                              </>
+
+                              <>
+                                <ReactTooltip
                                   anchorSelect="#edit-email-body-tooltip"
                                   place="top"
                                 >
@@ -4361,36 +4242,11 @@ useEffect(() => {
                           <div>
                             <label>Email body</label>
                             <div>
-                              <div
-                                ref={editorRef}
-                                contentEditable={true}
-                                suppressContentEditableWarning={true}
-                                className="textarea-full-height preview-content-area"
-                                dangerouslySetInnerHTML={{
-                                  __html: editableContent,
-                                }}
-                                onInput={(e) =>
-                                  setEditableContent(e.currentTarget.innerHTML)
-                                }
-                                onBlur={(e) =>
-                                  setEditableContent(e.currentTarget.innerHTML)
-                                }
-                                style={{
-                                  minHeight: "340px",
-                                  height: "auto",
-                                  maxHeight: "none",
-                                  overflow: "visible",
-                                  background: "#fff",
-                                  width: "100%",
-                                  padding: "10px",
-                                  border: "1px solid #ccc",
-                                  borderRadius: "4px",
-                                  fontFamily: "inherit",
-                                  fontSize: "inherit",
-                                  whiteSpace: "normal",
-                                  boxSizing: "border-box",
-                                  wordWrap: "break-word",
-                                }}
+                              <RichTextEditor
+                                value={editableContent}
+                                onChange={setEditableContent}
+                                height={340}
+                                autoGrow
                               />
                             </div>
                           </div>
