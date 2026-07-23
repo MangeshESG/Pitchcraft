@@ -24,6 +24,8 @@ export type Plan = {
   planCode: string;
 };
 
+const PAY_AS_YOU_GO_RATE = 0.10;
+
 const plans: Plan[] = [
   {
     icon: RocketImg,
@@ -37,10 +39,10 @@ const plans: Plan[] = [
       "10 campaigns",
       "1000 hyper-personalized emails per month",
       "Unlimited emails sending & analytics",
-      "Additional hyper-personalized emails $0.20",
+      "Additional hyper-personalized emails $0.10",
     ],
     buttonText: "Get Started",
-    planCode: "price_1SuX1aFNcXTjravQlGph5Xom",
+    planCode: "price_1TwJx1FNcXTjravQDi8UmC3A",
   },
   {
     icon: AeroplaneImg,
@@ -55,16 +57,16 @@ const plans: Plan[] = [
       "50 campaigns",
       "2000 hyper-personalized emails per month",
       "Unlimited emails sending & analytics",
-      "Additional hyper-personalized emails $0.15",
+      "Additional hyper-personalized emails $0.10",
     ],
     buttonText: "Get Started",
-    planCode: "price_1SuX36FNcXTjravQ9pemJ0nJ",
+    planCode: "price_1TwK1bFNcXTjravQXHvzkT6g",
   },
   {
     icon: PetrolPumpImg,
     title: "Pay-as-you-go",
     description: "Pay only for the credits you use",
-    price: 0.20,
+    price: PAY_AS_YOU_GO_RATE,
     period: "/credit",
     features: [
       "No monthly commitment",
@@ -72,7 +74,7 @@ const plans: Plan[] = [
       "Credits never expire",
       "Same features as Premium",
       "Perfect for occasional use",
-      "Minimum purchase: 100 credits ($20)",
+      "Minimum purchase: 100 credits ($10)",
     ],
     buttonText: "Buy credits",
     planCode: "credits",
@@ -85,14 +87,25 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState('credit-card');
+  const [isPaymentElementReady, setIsPaymentElementReady] = useState(false);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !isPaymentElementReady) {
+      setMessage("Payment form is still loading. Please wait and try again.");
+      return;
+    }
 
     setLoading(true);
+    setMessage("");
+    try {
+    const submitResult = await elements.submit();
+    if (submitResult.error) {
+      setMessage(submitResult.error.message || "Please check your payment details.");
+      return;
+    }
+
     const result = await stripe.confirmPayment({
       elements,
       // confirmParams: {
@@ -115,7 +128,11 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
   
     }
 
-    setLoading(false);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to process payment. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -187,14 +204,20 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
             
             <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off" data-stripe="true">
               <div>
-                <PaymentElement />
+                <PaymentElement
+                  onReady={() => setIsPaymentElementReady(true)}
+                  onLoadError={(event) => {
+                    setIsPaymentElementReady(false);
+                    setMessage(event.error.message || "Unable to load the payment form.");
+                  }}
+                />
               </div>
 
 
 
               <button
                 type="submit"
-                disabled={loading || !stripe}
+                disabled={loading || !stripe || !elements || !isPaymentElementReady}
                 className="w-full text-white font-semibold py-3 px-4 rounded-md mt-6 flex items-center justify-center transition-colors"
                 style={{ backgroundColor: '#008508' }}
               >
@@ -262,7 +285,7 @@ const [errorPopup, setErrorPopup] = useState<string | null>(null);
    setLoadingPlanCode(plan.planCode);
     try {
       setSelectedPlan(plan);
-      const priceId = isYearly ? (plan.title.toLowerCase() === 'standard' ? 'price_1SuX1aFNcXTjravQUEKMY8Jl' : plan.title.toLowerCase() === 'premium' ? 'price_1SuX36FNcXTjravQYJ6fs6i4' : plan.planCode) : plan.planCode;
+      const priceId = isYearly ? (plan.title.toLowerCase() === 'standard' ? 'price_1TwJyBFNcXTjravQ3uh5gGj9' : plan.title.toLowerCase() === 'premium' ? 'price_1TwK2SFNcXTjravQy9pQ1UXW' : plan.planCode) : plan.planCode;
       const response = await fetch(`${API_BASE_URL}/api/stripe/create-subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -289,7 +312,7 @@ const [errorPopup, setErrorPopup] = useState<string | null>(null);
       const customPlan = {
         ...plans[2],
         title: `${creditAmount} Credits`,
-        price: creditAmount * 0.20,
+        price: creditAmount * PAY_AS_YOU_GO_RATE,
       };
       setSelectedPlan(customPlan);
       
@@ -457,10 +480,10 @@ const [errorPopup, setErrorPopup] = useState<string | null>(null);
             </div>
             <div className="mb-4 p-3 bg-gray-50 rounded">
               <p className="text-sm text-gray-600">
-                <strong>Total cost:</strong> ${(creditAmount * 0.20).toFixed(2)}
+                <strong>Total cost:</strong> ${(creditAmount * PAY_AS_YOU_GO_RATE).toFixed(2)}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Rate: $0.20 per credit
+                Rate: $0.10 per credit
               </p>
             </div>
             <div className="flex gap-3">
