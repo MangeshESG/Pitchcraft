@@ -10,25 +10,10 @@
  * @returns Formatted date and time string, or "-" if invalid
  * @example formatDateTimeLocal("2026-02-10T12:22:00") => "10 Feb 2026, 12:22 PM"
  */
-export const formatDateTimeLocal = (dateString?: string): string => {
-  if (!dateString) return "-";
+import { formatUserDateTime, formatUserTime } from "./dateTimePreferences";
 
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "-";
-
-    return new Intl.DateTimeFormat("en-US", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }).format(date);
-  } catch (e) {
-    return "-";
-  }
-};
+export const formatDateTimeLocal = (dateString?: string): string =>
+  formatUserDateTime(dateString);
 
 /**
  * Formats a date string to "HH:MM AM/PM" format in local timezone
@@ -36,19 +21,5 @@ export const formatDateTimeLocal = (dateString?: string): string => {
  * @returns Formatted time string, or "-" if invalid
  * @example formatTimeLocal("2026-02-10T12:22:00") => "12:22 PM"
  */
-export const formatTimeLocal = (dateString?: string): string => {
-  if (!dateString) return "-";
-
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "-";
-
-    return new Intl.DateTimeFormat("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }).format(date);
-  } catch (e) {
-    return "-";
-  }
-};
+export const formatTimeLocal = (dateString?: string): string =>
+  formatUserTime(dateString);

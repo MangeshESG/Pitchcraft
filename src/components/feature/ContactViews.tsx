@@ -10,6 +10,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import duplicateIcon from "../../assets/images/icons/duplicate.png";
 import BulkUpdatePanel from "./BulkUpdatePanel";
 import SegmentModal from "../common/SegmentModal";
+import { formatUserDate } from "../common/dateTimePreferences";
 import ToastMessage from "../common/ToastMessage";
 
 import {
@@ -323,16 +324,7 @@ const parseFiltersJson = (
   }
 };
 
-const formatDate = (dateString?: string | null) => {
-  if (!dateString) return "-";
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-};
+const formatDate = formatUserDate;
 
 const getContactNameParts = (row: any) => {
   const first =

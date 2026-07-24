@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../../config';
+import { formatUserDateTime } from '../../common/dateTimePreferences';
 import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
@@ -371,17 +372,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
   };
 
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    } else if (diffDays < 7) {
-      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
-    }
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return formatUserDateTime(dateString);
   };
 
   const getInitials = (email: string, fromName?: string | null): string => {

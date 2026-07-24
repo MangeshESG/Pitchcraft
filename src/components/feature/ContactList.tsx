@@ -15,6 +15,7 @@ import ContactViews from "./ContactViews";
 import BulkUpdatePanel from "./BulkUpdatePanel";
 import PopupModal from "../common/PopupModal";
 import WebsiteGlobeIcon from "../common/WebsiteGlobeIcon";
+import { formatUserDate, formatUserDateTime, formatUserTime } from "../common/dateTimePreferences";
 
 import { useAppData } from "../../contexts/AppDataContext";
 import { useToast } from "../../hooks/useToast";
@@ -512,11 +513,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     // Remove all HTML tags
     return cleaned.replace(/<[^>]+>/g, "");
   };
-  const formatDateTime = (date?: string) =>
-    date ? new Date(date).toLocaleString() : "-";
+  const formatDateTime = formatUserDateTime;
 
-  const formatTime = (date?: string): string =>
-    date ? new Date(date).toLocaleTimeString() : "-";
+  const formatTime = formatUserTime;
 
   const toggleEmailBody = (trackingId: string) => {
     setExpandedEmailId(prev =>
@@ -524,30 +523,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     );
   };
   //IST Formatter
-  const formatDateTimeIST = (dateString?: string) => {
-  if (!dateString) return "-";
+  const formatDateTimeIST = formatUserDateTime;
 
-  return new Intl.DateTimeFormat("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(new Date(dateString));
-};
-
-const formatTimeIST = (dateString?: string) => {
-  if (!dateString) return "-";
-
-  return new Intl.DateTimeFormat("en-IN", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(new Date(dateString));
-};
+const formatTimeIST = formatUserTime;
 
   // Handle data file change
   const handleDataFileChange = (dataFileId: string) => {
@@ -556,23 +534,7 @@ const formatTimeIST = (dateString?: string) => {
     setSelectedContacts(new Set());
   };
   // Replace the existing formatDate function with this:
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return "-";
-
-    const date = new Date(dateString);
-
-    // Check if date is valid
-    if (isNaN(date.getTime())) return "-";
-
-    // Format as "DD MMM YYYY" (e.g., "21 May 2025")
-    const options: Intl.DateTimeFormatOptions = {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    };
-
-    return date.toLocaleDateString("en-GB", options);
-  };
+  const formatDate = formatUserDate;
   // Filter contacts based on search query
   const filteredContacts = useMemo(() => {
     return contacts.filter((contact) => {

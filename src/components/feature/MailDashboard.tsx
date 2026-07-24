@@ -34,6 +34,13 @@ import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import { useSearchParams } from "react-router-dom";
 import WebsiteGlobeIcon from "../common/WebsiteGlobeIcon";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import {
+  formatUserDateTime,
+  getDateTimePreferences,
+  DateTimePreferences,
+} from "../common/dateTimePreferences";
 
 // Green LinkedIn glyph — matches the LinkedIn icon in the Kraft emails contact
 // panel (Output.tsx) so links look consistent across the app.
@@ -436,6 +443,16 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   isVisible,
 }) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [dateTimePreferences, setDateTimePreferencesState] =
+    useState<DateTimePreferences>(getDateTimePreferences());
+
+  useEffect(() => {
+    const refreshDateTimePreferences = () =>
+      setDateTimePreferencesState(getDateTimePreferences());
+    window.addEventListener("dateTimePreferencesChanged", refreshDateTimePreferences);
+    return () =>
+      window.removeEventListener("dateTimePreferencesChanged", refreshDateTimePreferences);
+  }, []);
   const {
     saveFormState,
     getFormState,
@@ -1863,6 +1880,25 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     saveCurrentState();
   };
 
+  const parseDateInput = (value: string): Date | null => {
+    if (!value) return null;
+    const [year, month, day] = value.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+  };
+
+  const toDateInputValue = (value: Date | null): string => {
+    if (!value) return "";
+    return [
+      value.getFullYear(),
+      String(value.getMonth() + 1).padStart(2, "0"),
+      String(value.getDate()).padStart(2, "0"),
+    ].join("-");
+  };
+
+  const pickerDateFormat =
+    dateTimePreferences.dateFormat === "MM-DD-YYYY" ? "MM-dd-yyyy" : "dd-MM-yyyy";
+
   const handleDateChange = (type: "start" | "end", value: string) => {
     if (type === "start") {
       setStartDate(value);
@@ -1941,41 +1977,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   };
 
   const formatMailTimestamp = (input: string): string => {
-    if (!input) return "";
-
-    try {
-      const date = new Date(input);
-      if (isNaN(date.getTime())) return "Invalid date";
-
-      const day = date.getDate().toString().padStart(2, "0");
-      const monthNames = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
-      const month = monthNames[date.getMonth()];
-      const year = date.getFullYear();
-
-      let hours = date.getHours();
-      const minutes = date.getMinutes().toString().padStart(2, "0");
-      const ampm = hours >= 12 ? "PM" : "AM";
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-
-      return `${day}-${month}-${year} ${hours}:${minutes} ${ampm}`;
-    } catch (error) {
-      console.error("Error formatting timestamp:", error);
-      return "Invalid date";
-    }
+    return formatUserDateTime(input, input ? "Invalid date" : "");
   };
 
   // Transform event data for table
@@ -2194,8 +2196,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
   // Value getters for tables
   const getEmailContactValue = (contact: EmailContact, key: string): any => {
-    if (key === "timestamp") {
-      return formatMailTimestamp(contact.timestamp);
+    if (key === "timestamp" || key === "sentAt") {
+      return formatMailTimestamp((contact as any)[key]);
     }
     if (key === "hasOpened" || key === "hasClicked") {
       return contact[key] ? "✓" : "-";
@@ -2822,6 +2824,30 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     return hourlyDay ? buildHourlyStatsForDay(hourlyDay) : dailyStats;
   })();
 
+  const formatGraphLabel = (value: string): string => {
+    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (dateMatch) {
+      const [, year, month, day] = dateMatch;
+      return dateTimePreferences.dateFormat === "MM-DD-YYYY"
+        ? `${month}-${day}-${year}`
+        : `${day}-${month}-${year}`;
+    }
+
+    const timeMatch = /^(\d{2}):(\d{2})$/.exec(value);
+    if (timeMatch && dateTimePreferences.timeFormat === "12") {
+      const hour24 = Number(timeMatch[1]);
+      const hour12 = hour24 % 12 || 12;
+      return `${String(hour12).padStart(2, "0")}:${timeMatch[2]} ${hour24 >= 12 ? "PM" : "AM"}`;
+    }
+
+    return value;
+  };
+
+  const graphStats = filteredStats.map((item) => ({
+    ...item,
+    displayDate: formatGraphLabel(item.date),
+  }));
+
   // Don't render if not visible
   if (!isVisible) {
     return null;
@@ -3032,15 +3058,27 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           {/* Start date */}
           <div className="md-control-group">
             <label className="md-label">Start date</label>
-            <input type="date" value={startDate} onChange={(e) => handleDateChange("start", e.target.value)}
-              max={endDate || undefined} className={`md-date-input${!startDate ? " md-date-input--empty" : ""}`} placeholder="" />
+            <DatePicker
+              selected={parseDateInput(startDate)}
+              onChange={(date: Date | null) => handleDateChange("start", toDateInputValue(date))}
+              maxDate={parseDateInput(endDate) || undefined}
+              dateFormat={pickerDateFormat}
+              placeholderText={dateTimePreferences.dateFormat}
+              className={`md-date-input${!startDate ? " md-date-input--empty" : ""}`}
+            />
           </div>
 
           {/* End date */}
           <div className="md-control-group">
             <label className="md-label">End date</label>
-            <input type="date" value={endDate} onChange={(e) => handleDateChange("end", e.target.value)}
-              min={startDate || undefined} className={`md-date-input${!endDate ? " md-date-input--empty" : ""}`} placeholder="" />
+            <DatePicker
+              selected={parseDateInput(endDate)}
+              onChange={(date: Date | null) => handleDateChange("end", toDateInputValue(date))}
+              minDate={parseDateInput(startDate) || undefined}
+              dateFormat={pickerDateFormat}
+              placeholderText={dateTimePreferences.dateFormat}
+              className={`md-date-input${!endDate ? " md-date-input--empty" : ""}`}
+            />
           </div>
 
           {(startDate || endDate) && (
@@ -3203,7 +3241,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                 <div className="md-chart-main">
                   <ResponsiveContainer width="100%" height={240}>
                     <AreaChart
-                      data={filteredStats.length ? filteredStats : [{ date: "", sent: 0, opens: 0, clicks: 0 }]}
+                      data={graphStats.length ? graphStats : [{ displayDate: "", sent: 0, opens: 0, clicks: 0 }]}
                       margin={{ top: 6, right: 8, left: 0, bottom: 4 }}
                     >
                       <defs>
@@ -3212,7 +3250,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                         <linearGradient id="gClicks" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.16}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f4f8" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="displayDate" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", fontSize: 12 }} />
                       <Area type="monotone" dataKey="sent"   stroke="#3f9f42" strokeWidth={2} fill="url(#gSent)"   dot={false} activeDot={{ r: 5 }} />
@@ -3254,7 +3292,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                     const best = [...filteredStats].sort((a, b) => b.opens - a.opens)[0];
                     return best ? (
                       <>
-                        <p className="md-insight-val" style={{ color: "#3f9f42" }}>{best.date}</p>
+                        <p className="md-insight-val" style={{ color: "#3f9f42" }}>{formatGraphLabel(best.date)}</p>
                         <p className="md-insight-hint">Opens: {best.opens} · Clicks: {best.clicks}</p>
                       </>
                     ) : <p className="md-insight-val">—</p>;

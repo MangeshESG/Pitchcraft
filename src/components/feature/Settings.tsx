@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Tracking from "./Tracking";
 import EmailSignature from "./EmailSignature";
+import DateTimeSettings from "./DateTimeSettings";
 
 interface SettingsProps {
   selectedClient: string;
@@ -15,6 +16,16 @@ const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
         {/* Tab Navigation */}
         <div className="settings-tabs border-b border-gray-200 bg-white">
           <nav className="flex space-x-8 px-6" aria-label="Settings tabs">
+            <button
+              onClick={() => setSettingsSubTab("DateTime")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                settingsSubTab === "DateTime"
+                  ? "border-[#3f9f42] text-[#3f9f42]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Date and time
+            </button>
             <button
               onClick={() => setSettingsSubTab("Tracking")}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
@@ -45,6 +56,9 @@ const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
           )}
           {settingsSubTab === "EmailSignature" && (
             <EmailSignature selectedClient={selectedClient} />
+          )}
+          {settingsSubTab === "DateTime" && (
+            <DateTimeSettings selectedClient={selectedClient} />
           )}
         </div>
       </div>
