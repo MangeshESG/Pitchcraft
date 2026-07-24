@@ -31,6 +31,7 @@ import DataFile from "./feature/datafile";
 import axios from "axios";
 import Header from "./common/Header";
 import API_BASE_URL from "../config";
+import { DEFAULT_DATE_TIME_PREFERENCES, setDateTimePreferences } from "./common/dateTimePreferences";
 import { useDispatch } from "react-redux";
 import { useModel } from "../ModelContext";
 import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
@@ -347,6 +348,7 @@ const MainPage: React.FC = () => {
   const triggerRefresh = appData.triggerRefresh;
   const setClientSettings = appData.setClientSettings;
   const clientSettings = appData.clientSettings;
+
   const refreshTrigger = appData.refreshTrigger;
   const clientId = useSelector((state: RootState) => state.client.clientId);
   const [formData, setFormData] = useState({
@@ -975,6 +977,19 @@ const handleClientChange = async (
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [cachedContacts, setCachedContacts] = useState<any[]>([]);
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+
+  useEffect(() => {
+    if (!effectiveUserId) return;
+    fetch(`${API_BASE_URL}/api/auth/date-time-settings/${effectiveUserId}`)
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((data) => data && setDateTimePreferences({
+        timeZone: data.timeZone || DEFAULT_DATE_TIME_PREFERENCES.timeZone,
+        timeZoneLabel: data.timeZoneLabel,
+        dateFormat: data.dateFormat || DEFAULT_DATE_TIME_PREFERENCES.dateFormat,
+        timeFormat: data.timeFormat || DEFAULT_DATE_TIME_PREFERENCES.timeFormat,
+      }))
+      .catch(() => undefined);
+  }, [effectiveUserId]);
 
   const handleSubjectTextChange = (value: string) => {};
   const cleanHtml = (value?: string) => {

@@ -19,6 +19,7 @@ import deleteIcon from "../../../assets/images/deleteiconn.png";
 import CommonSidePanel from "../../common/CommonSidePanel";
 import { AVAILABLE_AI_MODELS } from "../../../utils/aiModels";
 import { defaultButtonStyle } from "../../../styles/buttonStyles";
+import { formatUserDate } from "../../common/dateTimePreferences";
 import {
   faAngleRight,
   faBars,
@@ -304,18 +305,7 @@ const Template: React.FC<TemplateProps> = ({
 };
 
   // Utility functions
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "-";
-
-    const options: Intl.DateTimeFormatOptions = {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    };
-    return date.toLocaleDateString("en-GB", options);
-  };
+  const formatDate = formatUserDate;
 
   // ✅ NEW: Fetch template definitions
   const fetchTemplateDefinitions = useCallback(async () => {

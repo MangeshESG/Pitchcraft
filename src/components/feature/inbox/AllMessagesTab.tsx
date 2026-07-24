@@ -7,6 +7,7 @@ import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 import { faEllipsisV, faPaperclip } from '@fortawesome/free-solid-svg-icons';
 import { Pin, PinOff } from 'lucide-react';
 import { isThreadPinned, pinEmail } from './inboxPin';
+import { formatUserDateTime } from '../../common/dateTimePreferences';
 
 interface InboxAttachment {
   id?: number;
@@ -330,17 +331,7 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
   };
 
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    } else if (diffDays < 7) {
-      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
-    }
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return formatUserDateTime(dateString);
   };
 
   const getTimeGroup = (dateString: string): string => {

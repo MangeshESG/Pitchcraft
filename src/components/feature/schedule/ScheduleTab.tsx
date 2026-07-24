@@ -13,6 +13,7 @@ import schedulingNewUserImage from "../../../assets/images/scheduling_new_user.p
 import CommonSidePanel from "../../common/CommonSidePanel";
 import PaginationControls from "../PaginationControls";
 import { closePanel, openPanel } from "../../../slices/panelSlice";
+import { formatUserDate, formatUserTime } from "../../common/dateTimePreferences";
 import {
   CalendarClock,
   Clock,
@@ -116,7 +117,7 @@ const getCampaignLabel = (campaign: any) => {
   return id ? `Campaign ${id}` : "Untitled campaign";
 };
 
-const timezoneOptions = [
+export const timezoneOptions = [
   { value: "Dateline Standard Time", label: "(UTC-12:00) International Date Line West", iana: "Etc/GMT+12" },
   { value: "UTC-11", label: "(UTC-11:00) Coordinated Universal Time-11", iana: "Etc/GMT+11" },
   { value: "Aleutian Standard Time", label: "(UTC-10:00) Aleutian Islands", iana: "America/Adak" },
@@ -869,8 +870,8 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({
                     const smtpUser = smtpUsers.find((u) => u.id === item.smtpID);
                     const scheduledDate = getScheduledDateValue(item);
                     const scheduledTime = getScheduledTimeValue(item);
-                    const dateStr = scheduledDate ? scheduledDate.slice(0, 10) : "-";
-                    const timeStr = scheduledTime || "-";
+                    const dateStr = formatUserDate(scheduledDate);
+                    const timeStr = formatUserTime(scheduledDate || scheduledTime);
 
                     return (
                       <div key={item.id ?? index} className="bp-row sch-row-grid">

@@ -13,6 +13,7 @@ import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import { copyToClipboard } from '../../../utils/utils';
 import Modal from '../../common/Modal';
+import { formatUserDateTime } from '../../common/dateTimePreferences';
 import ToastMessage from '../../common/ToastMessage';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
@@ -2006,15 +2007,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const formatFullDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric', 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: false 
-    });
+    return formatUserDateTime(dateString);
   };
 
   const handleSaveDraft = async () => {
@@ -2929,7 +2922,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         >
                           <FontAwesomeIcon icon={faShare} />
                         </button>
-                        <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                        <div className="mail-detail-date">{formatUserDateTime(message.date)}</div>
                       </div>
                     </div>
                   </div>
@@ -3385,7 +3378,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           >
                             <FontAwesomeIcon icon={faShare} />
                           </button>
-                          <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                          <div className="mail-detail-date">{formatUserDateTime(message.date)}</div>
                         </div>
                       </div>
                     </div>
@@ -3650,7 +3643,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           >
                             <FontAwesomeIcon icon={faShare} />
                           </button>
-                          <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                          <div className="mail-detail-date">{formatUserDateTime(message.date)}</div>
                         </div>
                       </div>
                     </div>
@@ -4270,7 +4263,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           >
                             <FontAwesomeIcon icon={faShare} />
                           </button>
-                          <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                          <div className="mail-detail-date">{formatUserDateTime(message.date)}</div>
                         </div>
                       </div>
                     </div>

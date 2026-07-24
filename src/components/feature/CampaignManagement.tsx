@@ -17,6 +17,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlay, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import PaginationControls from "./PaginationControls";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../styles/buttonStyles";
+import { formatUserDate } from "../common/dateTimePreferences";
 import {
   FileText,
   MoreVertical,
@@ -165,17 +166,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const getCampaignCreatedAt = (campaign: Campaign) =>
     campaign.createdAt || campaign.created_at || campaign.CreatedAt || "";
 
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "-";
-
-    return date.toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  };
+  const formatDate = formatUserDate;
 
   const getBlueprintName = (campaign: Campaign) =>
     campaign.templateId

@@ -1,4 +1,5 @@
 import React from "react";
+import { formatUserDateTime } from "../common/dateTimePreferences";
 
 interface KraftEmailPanelProps {
   isOpen: boolean;
@@ -46,32 +47,8 @@ const KraftEmailPanel: React.FC<KraftEmailPanelProps> = ({
   const [indexRangeError, setIndexRangeError] = React.useState("");
   const [showValidationError, setShowValidationError] = React.useState(false);
 
-  const formatLocalDateTime = (dateString: string | undefined | null): string => {
-    if (!dateString) return "N/A";
-    let dateObj: Date | null = null;
-    if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
-      dateObj = new Date(dateString);
-    } else if (/^\d{2}[-/]\d{2}[-/]\d{4}/.test(dateString)) {
-      const [datePart, timePart] = dateString.split(" ");
-      const [day, month, year] = datePart.split(/[-/]/).map(Number);
-      let hour = 0, min = 0, sec = 0;
-      if (timePart) {
-        [hour, min, sec] = timePart.split(":").map(Number);
-      }
-      dateObj = new Date(year, month - 1, day, hour, min, sec);
-    } else {
-      dateObj = new Date(dateString);
-    }
-    if (!dateObj || isNaN(dateObj.getTime())) return "N/A";
-    return dateObj.toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    }).replace(",", "");
-  };
+  const formatLocalDateTime = (dateString?: string | null) =>
+    formatUserDateTime(dateString, "N/A");
   
   return (
     <div

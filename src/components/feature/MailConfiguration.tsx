@@ -12,6 +12,7 @@ import API_BASE_URL from "../../config";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import { MailConfigurationEmptyState } from "./MailConfiguration.new";
 import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
+import { formatUserDateTime } from "../common/dateTimePreferences";
 
 interface MailConfigurationProps {
   [key: string]: any;
@@ -217,13 +218,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
     const date = new Date(dateValue);
     if (Number.isNaN(date.getTime())) return "-";
 
-    return date.toLocaleString(undefined, {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return formatUserDateTime(date);
   };
   const getAvatarColor = (index: number) =>
     ["#9c27b0", "#14b8a6", "#f59e0b", "#f87171", "#22c55e", "#a855f7"][
