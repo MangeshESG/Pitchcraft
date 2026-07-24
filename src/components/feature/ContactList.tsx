@@ -2463,7 +2463,7 @@ const filterFields: any = useMemo(() => {
                     setViewMode("list");
                     setSelectedDataFileForView(null);
                   }}
-                  backLabel="Back to list"
+                  backLabel="Back to lists"
                   onAddItem={() => 
                     //setShowAddContactModal(true)
                     dispatch(openPanel("add-contact-modal"))
@@ -3507,7 +3507,7 @@ const filterFields: any = useMemo(() => {
                     setSegmentViewMode("list");
                     setSelectedSegmentForView(null);
                   }}
-                  backLabel="Back to segment"
+                  backLabel="Back to segments"
                   customHeader={
                     <>
                       <div style={{ marginBottom: 16 }}>

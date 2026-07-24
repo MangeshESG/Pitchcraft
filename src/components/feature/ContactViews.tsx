@@ -2281,7 +2281,7 @@ const handleDeleteContacts = () => {
                 setSelectedContacts(new Set());
                 clearViewState(clientId);
               }}
-              backLabel="Back to view"
+              backLabel="Back to views"
               columnNameMap={viewColumnNameMap}
               customHeader={detailHeader}
             />

@@ -593,6 +593,16 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
     const container = messagesContainerRef.current;
     if (!container || !messages.length) return;
 
+    // While the bot is composing a reply, keep the "Blueprint Builder is
+    // thinking…" indicator in view so the user sees the response is coming.
+    if (isTyping) {
+      const typingIndicator = container.querySelector(".typing-indicator") as HTMLElement | null;
+      if (typingIndicator) {
+        typingIndicator.scrollIntoView({ block: "end", behavior: "smooth" });
+        return;
+      }
+    }
+
     const messageElements = container.querySelectorAll(".message-wrapper");
     if (!messageElements.length) return;
 
@@ -605,7 +615,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
       lastMessage.scrollIntoView({ block: "start", behavior: "auto" });
       window.scrollBy(0, -16);
     }
-  }, [messages]);
+  }, [messages, isTyping]);
 
   useEffect(() => {
     if (!isTyping && conversationStarted) {
@@ -908,7 +918,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                         <div className="typing-dot" />
                       </div>
                     </div>
-                    <span className="typing-label">Blueprint builder is thinking…</span>
+                    <span className="typing-label">Blueprint Builder is thinking…</span>
                   </div>
                 )}
               </div>
