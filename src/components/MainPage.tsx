@@ -4924,7 +4924,7 @@ try {
             )}
             {shouldRenderTab("MyPlan") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "MyPlan")}>
-                <Myplan />
+                <Myplan selectedClient={effectiveUserId?.toString() || null} />
               </div>
             )}
               </>

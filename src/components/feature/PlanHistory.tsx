@@ -22,16 +22,17 @@ import singleprvIcon from "../../assets/images/SinglePrv.png";
 import previousIcon from "../../assets/images/previous.png";
 import singlenextIcon from "../../assets/images/SingleNext.png";
 import nextIcon from "../../assets/images/Next.png";
+import { formatUserDateTime } from "../common/dateTimePreferences";
 
 interface Subscription {
   subscriptionId: string;
   status: string;
   planName: string;
   planAmount: number;
-  interval: string;
+  interval: string | null;
   startDate: string;
-  endDate: string;
-  customerEmail: string;
+  endDate: string | null;
+  customerEmail?: string;
 }
 
 interface SubscriptionResponse {
@@ -42,29 +43,30 @@ interface SubscriptionResponse {
   pageSize: number;
 }
 
-const PlanHistory: React.FC = () => {
+interface PlanHistoryProps {
+  selectedClient?: string | null;
+}
+
+const PlanHistory: React.FC<PlanHistoryProps> = ({ selectedClient }) => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [errorMessage, setErrorMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const pageSize = 10;
 
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
-  const customerId = reduxUserId || "1";
+  const customerId =
+    selectedClient ||
+    reduxUserId ||
+    sessionStorage.getItem("clientId") ||
+    localStorage.getItem("clientId");
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return '';
-    return date.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
+  const formatDate = (dateString?: string | null) =>
+    formatUserDateTime(dateString, "—");
 
   const formatAmount = (amount: number) => {
     if (amount === null || amount === undefined || isNaN(amount)) return '$0.00';
@@ -82,7 +84,12 @@ const PlanHistory: React.FC = () => {
   };
 
   const fetchSubscriptions = async (page: number = 1) => {
+    if (!customerId) {
+      setErrorMessage("Client ID is unavailable.");
+      return;
+    }
     setIsLoading(true);
+    setErrorMessage("");
     try {
       const url = `${API_BASE_URL}/api/stripe/get-user-plan_history?clientId=${customerId}&pageNumber=${page}&pageSize=${pageSize}`;
       console.log('Fetching from URL:', url);
@@ -107,6 +114,7 @@ const PlanHistory: React.FC = () => {
       setCurrentPage(typeof data.currentPage === 'number' ? data.currentPage : 1);
     } catch (error) {
       console.error('Error fetching subscriptions:', error);
+      setErrorMessage("Unable to load plan history. Please try again.");
       setSubscriptions([]);
       setTotalPages(1);
       setTotalRecords(0);
@@ -118,7 +126,7 @@ const PlanHistory: React.FC = () => {
 
   useEffect(() => {
     fetchSubscriptions();
-  }, []);
+  }, [customerId]);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -284,8 +292,17 @@ const PlanHistory: React.FC = () => {
           <div className="bg-white p-4 shadow-md rounded-md p-6">
             <div className="data-campaigns-container">
               <div className="section-wrapper">
-                <h2 className="section-title" style={{marginTop:"-30px"}}>Plan history</h2>
+                <h2 className="section-title">Plan history</h2>
                 <p style={{marginBottom:'20px'}}>The Plan History section displays details of your subscription plans, including plan name, amount, status, and duration.</p>
+
+                {errorMessage && (
+                  <div className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <span>{errorMessage}</span>
+                    <button type="button" className="font-medium underline" onClick={() => fetchSubscriptions(currentPage)}>
+                      Retry
+                    </button>
+                  </div>
+                )}
 
                 {!isLoading && (
                   <>
@@ -319,7 +336,7 @@ const PlanHistory: React.FC = () => {
                                 <td>{subscription.planName || 'Unknown'}</td>
                                 <td>{formatAmount(subscription.planAmount)}</td>
                                 <td>
-                                  {subscription.interval ? subscription.interval.charAt(0).toUpperCase() + subscription.interval.slice(1).toLowerCase() : ''}
+                                  {subscription.interval ? subscription.interval.charAt(0).toUpperCase() + subscription.interval.slice(1).toLowerCase() : '—'}
                                 </td>
                                 <td>{getStatusBadge(subscription.status)}</td>
                                 <td>{formatDate(subscription.startDate)}</td>
