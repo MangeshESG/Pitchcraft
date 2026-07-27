@@ -52,7 +52,8 @@ import { saveUserCredit } from "../../../slices/authSLice";
 import "../inbox/InboxView.css";
 import { copyToClipboard } from "../../../utils/utils";
 
-const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
+//const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
+const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
 
 interface Contact {
   id: number;
@@ -1664,7 +1665,7 @@ const handleGenerateInsights = async () => {
     setIsKraftingContactReply(true);
     try {
       const response = await axios.post(
-        `${PITCH_GENERATION_API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
         {
           blueprintId: selectedContactReplyBlueprint,
           contactId: thread.contactId,
@@ -1710,7 +1711,7 @@ const handleGenerateInsights = async () => {
 
     try {
       const response = await axios.post(
-        `${PITCH_GENERATION_API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
         {
           blueprintId,
           contactId: Number(contactId),
@@ -1732,6 +1733,8 @@ const handleGenerateInsights = async () => {
         return {
           emailBody: response.data.emailBody || "",
           emailSubject: response.data.emailSubject || "",
+          finalPrompt: response.data.finalPrompt || "",
+          webSearchData: response.data.webSearchData || "",
         };
       }
 
@@ -2067,7 +2070,7 @@ const handleGenerateInsights = async () => {
     setIsKraftingContactReply(true);
     try {
       const response = await axios.post(
-        `${PITCH_GENERATION_API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
         {
           blueprintId: selectedContactReplyBlueprint,
           contactId: thread.contactId,

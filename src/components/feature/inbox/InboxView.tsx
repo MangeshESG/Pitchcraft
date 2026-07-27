@@ -143,6 +143,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [replyText, setReplyText] = useState<string>('');
+  const [kraftFinalPrompt, setKraftFinalPrompt] = useState<string>('');
+  const [kraftWebSearchData, setKraftWebSearchData] = useState<string>('');
   const [replyAttachments, setReplyAttachments] = useState<File[]>([]);
   const [replyCcEmails, setReplyCcEmails] = useState<string[]>([]);
   const [replyCcDraft, setReplyCcDraft] = useState('');
@@ -960,7 +962,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setError('');
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        `${API_BASE_URL}/api/email-generation/generate`,
         {
           blueprintId: selectedBlueprint,
           contactId: selectedThread.contactId,
@@ -978,6 +980,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
       if (response.data.success && response.data.emailBody) {
         replaceReplyDraftContent(response.data.emailBody);
+        setKraftFinalPrompt(response.data.finalPrompt || '');
+        setKraftWebSearchData(response.data.webSearchData || '');
         playSound();
         window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
       } else {
@@ -1014,7 +1018,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setError('');
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+        `${API_BASE_URL}/api/email-generation/generate`,
         {
           blueprintId: selectedBlueprint,
           contactId: forwardThread.contactId,
@@ -3062,7 +3066,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     <RichTextEditor 
                       value={replyText} 
                       onChange={setReplyText}
-                      showActionButtons={false}
+                      showActionButtons
+                      infoButtonsOnly
+                      finalPrompt={kraftFinalPrompt}
+                      webSearchData={kraftWebSearchData}
                       outputEmailWidth={outputEmailWidth}
                       isCopyText={isCopyText}
                       openDeviceDropdown={openDeviceDropdown}
@@ -3771,7 +3778,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           setError('');
                           try {
                             const response = await axios.post(
-                              `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+                              `${API_BASE_URL}/api/email-generation/generate`,
                               {
                                 blueprintId: selectedBlueprint,
                                 contactId: selectedUnassignedThread.contactId,
@@ -3789,6 +3796,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
                             if (response.data.success && response.data.emailBody) {
                               replaceReplyDraftContent(response.data.emailBody);
+        setKraftFinalPrompt(response.data.finalPrompt || '');
+        setKraftWebSearchData(response.data.webSearchData || '');
                               playSound();
                               window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
                             } else {
@@ -3826,7 +3835,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       <RichTextEditor 
                         value={replyText} 
                         onChange={setReplyText}
-                        showActionButtons={false}
+                        showActionButtons
+                        infoButtonsOnly
+                        finalPrompt={kraftFinalPrompt}
+                        webSearchData={kraftWebSearchData}
                         outputEmailWidth={outputEmailWidth}
                         isCopyText={isCopyText}
                         openDeviceDropdown={openDeviceDropdown}
@@ -4396,7 +4408,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           setError('');
                           try {
                             const response = await axios.post(
-                              `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+                              `${API_BASE_URL}/api/email-generation/generate`,
                               {
                                 blueprintId: selectedBlueprint,
                                 contactId: selectedAllMessagesThread.contactId,
@@ -4414,6 +4426,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
                             if (response.data.success && response.data.emailBody) {
                               replaceReplyDraftContent(response.data.emailBody);
+        setKraftFinalPrompt(response.data.finalPrompt || '');
+        setKraftWebSearchData(response.data.webSearchData || '');
                               playSound();
                               window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
                             } else {
@@ -4452,7 +4466,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       <RichTextEditor
                         value={replyText}
                         onChange={setReplyText}
-                        showActionButtons={false}
+                        showActionButtons
+                        infoButtonsOnly
+                        finalPrompt={kraftFinalPrompt}
+                        webSearchData={kraftWebSearchData}
                         outputEmailWidth={outputEmailWidth}
                         isCopyText={isCopyText}
                         openDeviceDropdown={openDeviceDropdown}

@@ -49,6 +49,8 @@ export interface BlueprintBuilderPanelProps {
   exampleOutput: string;
   editableExampleOutput: string;
   setEditableExampleOutput: React.Dispatch<React.SetStateAction<string>>;
+  previewFinalPrompt?: string;
+  previewWebSearchData?: string;
   filledTemplate: string;
   isPreviewLoading: boolean;
   regenerateExampleOutput: () => Promise<void>;
@@ -139,6 +141,8 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   exampleOutput,
   editableExampleOutput,
   setEditableExampleOutput,
+  previewFinalPrompt,
+  previewWebSearchData,
   filledTemplate,
   isPreviewLoading,
   regenerateExampleOutput,
@@ -482,6 +486,8 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                   exampleOutput={exampleOutput}
                   editableExampleOutput={editableExampleOutput}
                   setEditableExampleOutput={setEditableExampleOutput}
+                  previewFinalPrompt={previewFinalPrompt}
+                  previewWebSearchData={previewWebSearchData}
                   saveExampleEmail={saveExampleEmail}
                   exampleSaveStatus={exampleSaveStatus}
                   isGenerating={isPreviewLoading}
@@ -1043,6 +1049,8 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                 exampleOutput={exampleOutput}
                 editableExampleOutput={editableExampleOutput}
                 setEditableExampleOutput={setEditableExampleOutput}
+                previewFinalPrompt={previewFinalPrompt}
+                previewWebSearchData={previewWebSearchData}
                 saveExampleEmail={saveExampleEmail}
                 exampleSaveStatus={exampleSaveStatus}
                 isGenerating={isPreviewLoading}

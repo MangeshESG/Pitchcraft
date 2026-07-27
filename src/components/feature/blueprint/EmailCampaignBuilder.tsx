@@ -247,28 +247,18 @@ const CONTACT_PLACEHOLDERS = [
 const ExampleEmailEditor: React.FC<{
   value: string;
   onChange: (val: string) => void;
-}> = ({ value, onChange }) => {
-  const editorRef = useRef<HTMLDivElement | null>(null);
-  const localDraft = useRef<string>("");
-
-  useEffect(() => {
-    if (!editorRef.current) return;
-    editorRef.current.innerHTML = value || "";
-    localDraft.current = value || "";
-  }, [value]);
-
+  showActionButtons?: boolean;
+  finalPrompt?: string;
+  webSearchData?: string;
+}> = ({ value, onChange, showActionButtons, finalPrompt, webSearchData }) => {
   return (
-    <div
-      ref={editorRef}
-      contentEditable
-      suppressContentEditableWarning
-      className="example-content"
-      onInput={() => {
-        if (editorRef.current) {
-          localDraft.current = editorRef.current.innerHTML;
-        }
-      }}
-      onBlur={() => onChange(localDraft.current)}
+    <RichTextEditor
+      value={value}
+      onChange={onChange}
+      height={320}
+      showActionButtons={showActionButtons}
+      finalPrompt={finalPrompt}
+      webSearchData={webSearchData}
     />
   );
 };
@@ -1416,6 +1406,10 @@ interface ExampleOutputPanelProps {
   saveExampleEmail: () => Promise<void>;
   exampleSaveStatus?: "idle" | "saving" | "saved";
 
+  // generation transparency (shown via the editor action bar)
+  previewFinalPrompt?: string;
+  previewWebSearchData?: string;
+
   // contact + data file
   dataFiles: any[];
   contacts: any[];
@@ -1476,6 +1470,8 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   exampleOutput,
   isPreviewAllowed,
   onCollapse,
+  previewFinalPrompt,
+  previewWebSearchData,
 }) => {
   const selectedContact = contacts.find((c) => c.id === selectedContactId);
   const [userRole, setUserRole] = useState<string>("");
@@ -1641,6 +1637,9 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             <ExampleEmailEditor
               value={editableExampleOutput || exampleOutput || ""}
               onChange={setEditableExampleOutput}
+              showActionButtons
+              finalPrompt={previewFinalPrompt}
+              webSearchData={previewWebSearchData}
             />
           ) : (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
@@ -1745,6 +1744,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     "",
   );
   const [exampleOutput, setExampleOutput] = useState<string>("");
+  const [previewFinalPrompt, setPreviewFinalPrompt] = useState<string>("");
+  const [previewWebSearchData, setPreviewWebSearchData] = useState<string>("");
   const [filledTemplate, setFilledTemplate] = useState<string>("");
 
   const [placeholderValues, setPlaceholderValues] = useSessionState<
@@ -2562,199 +2563,96 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       const conversationValues = getConversationPlaceholders(placeholderValues);
       const contactValues = getContactPlaceholders(placeholderValues);
 
-      // Used for SEARCH + replacement checks
-      const mergedForSearch = getMergedPlaceholdersForDisplay(
-        conversationValues,
-        contactValues,
-      );
-
       console.log("📦 Conversation elements:", Object.keys(conversationValues));
       console.log("📇 Contact elements:", Object.keys(contactValues));
 
       // --------------------------------------------------
-      // 2️⃣ SEARCH FLOW (optional)
-      // --------------------------------------------------
-      const hasSearchTermsPlaceholder = masterPrompt.includes(
-        "{hook_search_terms}",
-      );
-      let searchResultSummary = "";
-
-      if (
-        hasSearchTermsPlaceholder &&
-        conversationValues["hook_search_terms"]
-      ) {
-        console.log("🔍 Search terms detected, preparing search API call...");
-
-        if (!conversationValues["vendor_company_email_main_theme"]) {
-          showModal(
-            "Error",
-            '❌ Missing "vendor_company_email_main_theme" value. Please complete the conversation first.',
-          );
-          return;
-        }
-
-        const processedSearchTerm = replacePlaceholdersInString(
-          conversationValues["hook_search_terms"],
-          mergedForSearch,
-        );
-
-        const unreplaced = processedSearchTerm.match(/\{[^}]+\}/g);
-        if (unreplaced) {
-          const missing = unreplaced.map((p) => p.replace(/[{}]/g, ""));
-          showModal("Error", `⚠️ Missing values: ${missing.join(", ")}`);
-          return;
-        }
-
-        const searchInstructionTemplate =
-          webSearchInstructions.trim() || conversationValues["search_objective"] || "";
-
-        if (!searchInstructionTemplate.trim()) {
-          showModal("Error", "❌ Missing search_objective value.");
-          return;
-        }
-
-        const processedInstructions = replacePlaceholdersInString(
-          searchInstructionTemplate,
-          mergedForSearch,
-        );
-
-        try {
-          console.log("📤 Calling Search API...");
-          const searchResponse = await axios.post(
-            `${API_BASE_URL}/api/auth/process`,
-            {
-              searchTerm: processedSearchTerm,
-              instructions: processedInstructions,
-              modelName: selectedModel,
-              searchCount: 5,
-            },
-          );
-
-          const pitch =
-            searchResponse.data?.pitchResponse ||
-            searchResponse.data?.PitchResponse;
-
-          searchResultSummary = pitch?.content || pitch?.Content || "";
-
-          if (searchResultSummary) {
-            conversationValues["search_output_summary"] = searchResultSummary;
-
-            // Update UI (merged, runtime-safe)
-            const updatedMerged = getMergedPlaceholdersForDisplay(
-              conversationValues,
-              contactValues,
-            );
-            setPlaceholderValues(updatedMerged);
-
-            // Save ONLY conversation placeholders
-            const storedId = sessionStorage.getItem("newCampaignId");
-            const activeCampaignId =
-              editTemplateId ?? (storedId ? Number(storedId) : null);
-
-            if (activeCampaignId) {
-              await axios.post(
-                `${API_BASE_URL}/api/CampaignPrompt/template/update`,
-                {
-                  id: activeCampaignId,
-                  placeholderValues: conversationValues,
-                },
-              );
-              await reloadCampaignBlueprint();
-            }
-          }
-        } catch (err: any) {
-          console.error("❌ Search API failed:", err);
-         // showModal("Error", "Search failed. Continuing without search data.");
-         setToastMessage("Search failed. Continuing without search data.");
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 5000);
-        }
-      }
-
-      // --------------------------------------------------
-      // 3️⃣ GENERATE EXAMPLE OUTPUT (IMPORTANT PART)
+      // 2️⃣ + 3️⃣ GENERATE PREVIEW via the real generation endpoint
+      //    Uses the SAME path as actual sending (notes, web search,
+      //    email history, subject) but preview:true → no DB write,
+      //    no credit deduction, no kraft history.
       // --------------------------------------------------
       const storedId = sessionStorage.getItem("newCampaignId");
       const activeCampaignId =
         editTemplateId ?? (storedId ? Number(storedId) : null);
 
       if (!activeCampaignId) {
-       // showModal("Error", "❌ No campaign instance found.");
-       setToastMessage("No campaign instance found.");
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 5000);
+        setToastMessage("No campaign instance found.");
+        setShowErrorToast(true);
+        setTimeout(() => setShowErrorToast(false), 5000);
         return;
       }
 
-      // Merge placeholders (conversation + contact)
+      if (!selectedContactId) {
+        setToastMessage("Select a contact to preview.");
+        setShowErrorToast(true);
+        setTimeout(() => setShowErrorToast(false), 5000);
+        return;
+      }
+
+      // Persist the current campaign placeholder edits so the backend reads
+      // fresh values (runtime-only placeholders are filtered out server-side).
       const mergedAll = getMergedPlaceholdersForDisplay(
         conversationValues,
         contactValues,
       );
-
-      // 🔥 SPLIT PLACEHOLDERS
-      const { persisted } = splitPlaceholders(mergedAll);
-
-      console.log("📧 Generating example output...");
-      console.log("📦 Persisted elements only:", Object.keys(persisted));
-      setIsPreviewLoading(true);
-      const response = await axios.post(
-        `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
+      await axios.post(
+        `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
         {
-          userId: effectiveUserId,
-          campaignTemplateId: activeCampaignId,
-          model: selectedModel,
-          placeholderValues: mergedAll, // ✅ SEND EVERYTHING
+          templateId: activeCampaignId,
+          placeholderValues: mergedAll,
+        },
+      );
+
+      console.log("📧 Generating preview via generate-single-contact...");
+      setIsPreviewLoading(true);
+
+      const response = await axios.post(
+        `${API_BASE_URL}/api/email-generation/generate`,
+        {
+          blueprintId: activeCampaignId,
+          contactId: selectedContactId,
+          clientId: String(effectiveUserId),
+          overwriteExisting: true,
+          preview: true, // ⬅️ no save, no credit, no history
         },
       );
 
       if (response.data?.usage) {
         const u = response.data.usage;
-
-        const inTokens =
-          u.promptTokens ?? u.prompt_tokens ?? u.inputTokens ?? 0;
-        const outTokens =
-          u.completionTokens ?? u.completion_tokens ?? u.outputTokens ?? 0;
-        const cost = u.cost ?? u.totalCost ?? 0;
+        const inTokens = u.totalTokens ?? u.TotalTokens ?? 0;
+        const cost = u.totalCost ?? u.TotalCost ?? 0;
 
         setUsageInfo({
           promptTokens: inTokens,
-          completionTokens: outTokens,
+          completionTokens: 0,
           cost,
         });
 
         setTotalUsage((prev) => ({
           totalInput: prev.totalInput + inTokens,
-          totalOutput: prev.totalOutput + outTokens,
+          totalOutput: prev.totalOutput,
           totalCalls: prev.totalCalls + 1,
           totalCost: prev.totalCost + cost,
         }));
       }
 
-      // Dispatch credit update event after successful API call
-      window.dispatchEvent(
-        new CustomEvent("creditUpdated", {
-          detail: { clientId: effectiveUserId },
-        }),
-      );
-
       if (response.data?.success || response.data?.Success) {
-        const html =
-          response.data.exampleOutput || response.data.ExampleOutput || "";
+        const body =
+          response.data.emailBody || response.data.EmailBody || "";
+        const subject =
+          response.data.emailSubject || response.data.EmailSubject || "";
 
-        const filled =
-          response.data.filledTemplate || response.data.FilledTemplate || "";
-
-        setExampleOutput(html);
-        setFilledTemplate(filled);
-
-        console.log("✅ Example output generated");
+        setExampleOutput(body);
+        setPreviewFinalPrompt(response.data.finalPrompt || response.data.FinalPrompt || "");
+        setPreviewWebSearchData(response.data.webSearchData || response.data.WebSearchData || "");
+        // subject is available in `subject` if the preview UI wants to show it
+        console.log("✅ Preview generated. Subject:", subject);
         playNotificationSound();
       } else {
-       // showModal("Warning", "⚠️ Example generation returned no output.");
-        setToastMessage("Example generation returned no output.");
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 5000);
+        setToastMessage("Preview generation returned no output.");
+        setShowErrorToast(true);
+        setTimeout(() => setShowErrorToast(false), 5000);
       }
     } catch (error: any) {
       console.error("❌ regenerateExampleOutput failed:", error);
@@ -4502,6 +4400,8 @@ const parsePlaceholdersSafe = (block: string) => {
               exampleOutput={exampleOutput}
               editableExampleOutput={editableExampleOutput}
               setEditableExampleOutput={setEditableExampleOutput}
+              previewFinalPrompt={previewFinalPrompt}
+              previewWebSearchData={previewWebSearchData}
               filledTemplate={filledTemplate}
               isPreviewLoading={isPreviewLoading}
               regenerateExampleOutput={regenerateExampleOutput}

@@ -29,7 +29,12 @@ interface ContactComposeEmailPopupProps {
   toEmail: string;
   signatureHtml: string;
   isSignatureLoading?: boolean;
-  onGenerate: (blueprintId: number) => Promise<{ emailBody: string; emailSubject: string }>;
+  onGenerate: (blueprintId: number) => Promise<{
+    emailBody: string;
+    emailSubject: string;
+    finalPrompt?: string;
+    webSearchData?: string;
+  }>;
   onSend: (payload: {
     emailSubject: string;
     emailBody: string;
@@ -236,6 +241,8 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   const [bccEmailDraft, setBccEmailDraft] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGeneratedBody, setHasGeneratedBody] = useState(false);
+  const [previewFinalPrompt, setPreviewFinalPrompt] = useState("");
+  const [previewWebSearchData, setPreviewWebSearchData] = useState("");
   const signatureSelector = "[data-compose-email-signature]";
 
   const getComposeSignatureBlock = (signature: string) =>
@@ -311,6 +318,8 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       setHasGeneratedBody(true);
       setEmailBody(generatedEmail.emailBody || "");
       setEmailSubject(generatedEmail.emailSubject || "");
+      setPreviewFinalPrompt(generatedEmail.finalPrompt || "");
+      setPreviewWebSearchData(generatedEmail.webSearchData || "");
     } finally {
       setIsGenerating(false);
     }
@@ -584,7 +593,14 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
           </div>
 
           <div>
-            <RichTextEditor value={emailBody} onChange={setEmailBody} height={360} />
+            <RichTextEditor
+              value={emailBody}
+              onChange={setEmailBody}
+              height={360}
+              showActionButtons={hasGeneratedBody}
+              finalPrompt={previewFinalPrompt}
+              webSearchData={previewWebSearchData}
+            />
             <div
               style={{
                 minHeight: 28,
