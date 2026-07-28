@@ -1,5 +1,191 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { repairAndParseJsonObject } from "../../utils/jsonRepair";
+
+// Renders web-research JSON as cards — identical to Output.tsx "Online research".
+const WebResearchCards: React.FC<{ content: string }> = ({ content }) => {
+  const data = repairAndParseJsonObject(content);
+
+  if (!data) {
+    return (
+      <div style={{ padding: "10px", border: "1px solid #e8eaee", borderRadius: "8px", lineHeight: 1.6, fontSize: "13px" }}>
+        <ReactMarkdown>{content}</ReactMarkdown>
+      </div>
+    );
+  }
+
+  const cardStyle: React.CSSProperties = {
+    background: "#fff", borderRadius: "12px", border: "1px solid #e8eaee", padding: "16px 18px",
+  };
+
+  const iconMap: Record<string, string> = {
+    company_overview: "🏢", overview: "🏢", company: "🏢",
+    key_findings: "💡", findings: "💡", insights: "🔍",
+    recent_news: "📰", news: "📰", updates: "📰",
+    event_insights: "🗓", events: "🗓", event: "📅",
+    personalization_angle: "✉️", personalization: "✉️",
+    summary: "📋", products: "📦", services: "🛠",
+    leadership: "👤", funding: "💰", competitors: "⚡",
+    pain_points: "🎯", opportunities: "🌱", technology: "💻",
+    social_media: "📱", contact: "📞",
+  };
+
+  const getIcon = (key: string) =>
+    iconMap[key] || iconMap[Object.keys(iconMap).find((k) => key.toLowerCase().includes(k)) || ""] || "📌";
+
+  const fmtKey = (key: string) =>
+    key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const renderValue = (value: any): React.ReactNode => {
+    if (value === null || value === undefined) return null;
+
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      return <p style={{ margin: 0, fontSize: "13px", color: "#374151", lineHeight: 1.6 }}>{String(value)}</p>;
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) return null;
+
+      if (typeof value[0] !== "object") {
+        return (
+          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "7px" }}>
+            {value.map((item, i) => (
+              <li key={i} style={{ display: "flex", gap: "8px", fontSize: "13px", color: "#374151", lineHeight: 1.5 }}>
+                <span style={{ color: "#22c55e", flexShrink: 0, marginTop: "1px" }}>✔</span>
+                {String(item)}
+              </li>
+            ))}
+          </ul>
+        );
+      }
+
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {value.map((item: Record<string, any>, i) => {
+            const entries = Object.entries(item).filter(([, v]) => v != null && String(v).trim() !== "");
+            if (entries.length === 0) return null;
+
+            const dateEntry = entries.find(([k]) => /^(date|time|published|when|at)$/i.test(k));
+            const contentEntries = entries.filter(([k]) => !/^(date|time|published|when|at)$/i.test(k));
+
+            if (dateEntry && contentEntries.length > 0) {
+              const mainText = contentEntries.map(([, v]) => String(v)).join(" — ");
+              return (
+                <div key={i} style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+                  <span style={{ fontSize: "11px", color: "#6b7280", whiteSpace: "nowrap", marginTop: "2px", minWidth: "70px" }}>
+                    {String(dateEntry[1])}
+                  </span>
+                  <span style={{ fontSize: "13px", color: "#374151", lineHeight: 1.5 }}>
+                    <span style={{ color: "#3f9f42", marginRight: "6px" }}>◆</span>{mainText}
+                  </span>
+                </div>
+              );
+            }
+
+            return (
+              <div key={i} style={{ padding: "8px 10px", background: "#f8fafc", borderRadius: "8px", border: "1px solid #f1f5f9" }}>
+                {entries.map(([k, v]) => (
+                  <div key={k} style={{ fontSize: "13px", color: "#374151", lineHeight: 1.5 }}>
+                    <span style={{ fontWeight: 500 }}>{fmtKey(k)}: </span>{String(v)}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (typeof value === "object") {
+      const entries = Object.entries(value).filter(([, v]) => v != null && String(v).trim() !== "");
+      if (entries.length === 0) return null;
+
+      const descEntry = entries.find(([k]) => /description|summary|overview|about/i.test(k));
+      const rest = entries.filter(([k]) => !/description|summary|overview|about/i.test(k));
+      const useBadges = !rest.some(([, v]) => String(v).length > 35);
+
+      return (
+        <div>
+          {descEntry && (
+            <p style={{ fontSize: "13px", color: "#374151", marginBottom: "10px", lineHeight: 1.55, marginTop: 0 }}>
+              {String(descEntry[1])}
+            </p>
+          )}
+          {rest.length > 0 && (
+            useBadges ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {rest.map(([k, v]) => {
+                  const strVal = String(v);
+                  const isUrl = /^https?:\/\//i.test(strVal) || /website|url|link/i.test(k);
+                  if (isUrl) {
+                    const href = /^https?:\/\//i.test(strVal) ? strVal : `https://${strVal}`;
+                    return (
+                      <a key={k} href={href} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: "11.5px", background: "#f0fdf4", padding: "3px 10px", borderRadius: "99px", border: "1px solid #bbf7d0", color: "#15803d", textDecoration: "none", whiteSpace: "nowrap" }}>
+                        🔗 {strVal}
+                      </a>
+                    );
+                  }
+                  return (
+                    <span key={k} style={{ fontSize: "11.5px", background: "#f1f5f9", padding: "3px 10px", borderRadius: "99px", border: "1px solid #e2e8f0", color: "#374151", whiteSpace: "nowrap" }}>
+                      <span style={{ color: "#6b7280" }}>{fmtKey(k)}: </span>{strVal}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
+                {rest.map(([k, v]) => {
+                  const strVal = String(v);
+                  const isUrl = /^https?:\/\//i.test(strVal) || /website|url|link/i.test(k);
+                  return (
+                    <div key={k} style={{ display: "flex", gap: "8px", fontSize: "13px", alignItems: "flex-start" }}>
+                      <span style={{ fontWeight: 500, flexShrink: 0, color: "#6b7280", minWidth: "80px" }}>{fmtKey(k)}:</span>
+                      {isUrl ? (
+                        <a href={/^https?:\/\//i.test(strVal) ? strVal : `https://${strVal}`} target="_blank" rel="noopener noreferrer"
+                          style={{ color: "#15803d", textDecoration: "none" }}>🔗 {strVal}</a>
+                      ) : (
+                        <span style={{ color: "#374151", lineHeight: 1.5 }}>{strVal}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const entries = Object.entries(data).filter(([, v]) => {
+    if (v === null || v === undefined) return false;
+    if (typeof v === "string" && v.trim() === "") return false;
+    if (Array.isArray(v) && v.length === 0) return false;
+    return true;
+  });
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+        {entries.map(([key, value]) => {
+          const isFullWidth = typeof value === "string";
+          return (
+            <div key={key} style={{ ...cardStyle, ...(isFullWidth ? { gridColumn: "1 / -1", background: "#f8fafc", borderColor: "#e2e8f0" } : {}) }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                <span style={{ fontSize: "17px" }}>{getIcon(key)}</span>
+                <span style={{ fontWeight: 600, fontSize: "13.5px", color: "#111827" }}>{fmtKey(key)}</span>
+              </div>
+              {renderValue(value)}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 interface RichTextEditorProps {
   value: string;
@@ -32,6 +218,9 @@ interface RichTextEditorProps {
   /** Show ONLY the web-search / final-prompt buttons (no copy/edit/expand/highlight).
    *  Use when the host already has its own copy/expand toolbar. */
   infoButtonsOnly?: boolean;
+  /** Reserve this many px on the right of the action bar so it clears a
+   *  host-provided absolute toolbar (e.g. a device-preview dropdown). */
+  reserveRight?: number;
 }
 
 // Gmail-style font list
@@ -182,6 +371,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   webSearchData,
   isAdmin,
   infoButtonsOnly = false,
+  reserveRight = 0,
 }) => {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
@@ -196,21 +386,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [infoCopied, setInfoCopied] = useState(false);
   // Source-highlight toggle (visual only). ON by default, like Output.
   const [highlightsOn, setHighlightsOn] = useState(true);
-
-  // Light version of Output's getWebSearchDisplayText — so web-search renders
-  // the same way (markdown, bare-domain links become clickable).
-  const normalizeWebSearch = (raw?: string) =>
-    (raw || "")
-      .replace(/\\n/g, "\n")
-      .replace(
-        /\((?!\[|https?:\/\/)([a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s)]*)?)\)/gi,
-        (_m, url) => {
-          const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
-          return `([${url}](${href}))`;
-        },
-      )
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
 
   const resolvedIsAdmin =
     isAdmin ??
@@ -371,65 +546,102 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     color: "#374151",
   };
 
+  // Brand green used for all action icons (per design).
+  const ICON = "#3f9f42";
+
+  const actionButtonsGroup = (
+    <>
+      {!infoButtonsOnly && (
+        <>
+          {/* Highlight on/off (source highlights) */}
+          <button
+            type="button"
+            title={highlightsOn ? "Hide highlights" : "Show highlights"}
+            aria-pressed={highlightsOn}
+            onClick={() => setHighlightsOn((v) => !v)}
+            style={{ ...actionBtnStyle, background: highlightsOn ? "#E4F8E8" : "#ffffff" }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M9 11L3 17V20H12L15 17" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M22 12L17.4 16.6C16.6189 17.381 15.3526 17.381 14.5716 16.6L9.4 11.4284C8.61895 10.6474 8.61895 9.38104 9.4 8.6L14 4L22 12Z" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          {/* Edit */}
+          {onEdit && (
+            <button type="button" title="Edit" onClick={onEdit} style={actionBtnStyle}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+
+          {/* Copy */}
+          <button type="button" title="Copy to clipboard" onClick={handleCopyMain} style={actionBtnStyle}>
+            {copied || isCopyText ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M7.29417 12.9577L10.5048 16.1681L17.6729 9" stroke={ICON} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12" cy="12" r="10" stroke={ICON} strokeWidth="2" />
+              </svg>
+            ) : (
+              <svg width="21" height="21" viewBox="0 0 32 32" fill={ICON}>
+                <path d="M26 4.75h-2c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0h0.75v21.5h-17.5v-21.5h0.75c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-2c-0.69 0-1.25 0.56-1.25 1.25v0 24c0 0.69 0.56 1.25 1.25 1.25h20c0.69-0.001 1.249-0.56 1.25-1.25v-24c-0-0.69-0.56-1.25-1.25-1.25h-0zM11 9.249h10c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-1.137c0.242-0.513 0.385-1.114 0.387-1.748v-0.001c0-2.347-1.903-4.25-4.25-4.25s-4.25 1.903-4.25 4.25v0c0.002 0.635 0.145 1.236 0.398 1.775l-0.011-0.026h-1.137c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0zM14.25 5c0-0 0-0.001 0-0.001 0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75v0c-0.966-0.001-1.748-0.783-1.75-1.749v-0zM19.957 13.156l-6.44 7.039-1.516-1.506c-0.226-0.223-0.536-0.361-0.878-0.361-0.69 0-1.25 0.56-1.25 1.25 0 0.345 0.14 0.658 0.366 0.884v0l2.44 2.424 0.022 0.015 0.015 0.021c0.074 0.061 0.159 0.114 0.25 0.156l0.007 0.003c0.037 0.026 0.079 0.053 0.123 0.077l0.007 0.003c0.135 0.056 0.292 0.089 0.457 0.089 0.175 0 0.341-0.037 0.491-0.103l-0.008 0.003c0.053-0.031 0.098-0.061 0.14-0.094l-0.003 0.002c0.102-0.050 0.189-0.11 0.268-0.179l-0.001 0.001 0.015-0.023 0.020-0.014 7.318-8c0.203-0.222 0.328-0.518 0.328-0.844 0-0.69-0.559-1.25-1.25-1.25-0.365 0-0.693 0.156-0.921 0.405l-0.001 0.001z" />
+              </svg>
+            )}
+          </button>
+
+          {/* Expand */}
+          {onExpandEditor && (
+            <button type="button" title="Expand" onClick={onExpandEditor} style={actionBtnStyle}>
+              <svg width="22" height="22" viewBox="0 0 512 512">
+                <polyline points="304 96 416 96 416 208" fill="none" stroke={ICON} strokeLinecap="round" strokeLinejoin="round" strokeWidth="32" />
+                <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke={ICON} strokeLinecap="round" strokeLinejoin="round" strokeWidth="32" />
+                <polyline points="208 416 96 416 96 304" fill="none" stroke={ICON} strokeLinecap="round" strokeLinejoin="round" strokeWidth="32" />
+              </svg>
+            </button>
+          )}
+        </>
+      )}
+
+      {/* Web search data (all users) */}
+      <button
+        type="button"
+        title="Web search data"
+        aria-pressed={infoPanel === "websearch"}
+        onClick={() => setInfoPanel((p) => (p === "websearch" ? null : "websearch"))}
+        style={{ ...actionBtnStyle, background: infoPanel === "websearch" ? "#E4F8E8" : "#ffffff" }}
+      >
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+        </svg>
+      </button>
+
+      {/* Final prompt (admin only) */}
+      {resolvedIsAdmin && (
+        <button
+          type="button"
+          title="Final prompt (admin)"
+          aria-pressed={infoPanel === "prompt"}
+          onClick={() => setInfoPanel((p) => (p === "prompt" ? null : "prompt"))}
+          style={{ ...actionBtnStyle, background: infoPanel === "prompt" ? "#E4F8E8" : "#ffffff" }}
+        >
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="4 17 10 11 4 5" />
+            <line x1="12" y1="19" x2="20" y2="19" />
+          </svg>
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div className="w-full" style={{ width: "100%" }}>
       {/* Highlight strip is visual-only — keeps the underlying HTML intact */}
       <style>{`[data-rte-hl="off"] [title^="Sourced from"]{background-color:transparent !important;cursor:auto !important;}`}</style>
 
-      {infoPanel ? (
-        /* ── Info view shown IN PLACE OF the email body ── */
-        <div
-          style={{
-            border: "1px solid #d1d5db",
-            borderRadius: 6,
-            background: "#ffffff",
-            height,
-            overflow: "auto",
-            padding: "12px 14px",
-            boxSizing: "border-box",
-          }}
-        >
-          {infoPanel === "websearch" ? (
-            webSearchData?.trim() ? (
-              <div style={{ fontSize: 13, lineHeight: 1.5, color: "#374151", wordBreak: "break-word" }}>
-                <ReactMarkdown
-                  components={{
-                    p: ({ children }) => <p style={{ margin: "0 0 8px" }}>{children}</p>,
-                    ul: ({ children }) => <ul style={{ margin: "0 0 8px 18px", padding: 0 }}>{children}</ul>,
-                    ol: ({ children }) => <ol style={{ margin: "0 0 8px 18px", padding: 0 }}>{children}</ol>,
-                    li: ({ children }) => <li style={{ margin: "0 0 4px" }}>{children}</li>,
-                    a: ({ children, href }) => (
-                      <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#2563eb", textDecoration: "underline" }}>
-                        {children}
-                      </a>
-                    ),
-                  }}
-                >
-                  {normalizeWebSearch(webSearchData)}
-                </ReactMarkdown>
-              </div>
-            ) : (
-              <div style={{ color: "#9ca3af", fontSize: 13 }}>No online research available.</div>
-            )
-          ) : (
-            <pre
-              style={{
-                margin: 0,
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                fontSize: 12.5,
-                lineHeight: 1.5,
-                color: "#374151",
-                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-              }}
-            >
-              {finalPrompt?.trim() ? finalPrompt : "No final prompt available."}
-            </pre>
-          )}
-        </div>
-      ) : (
-        <>
-      {/* Toolbar */}
+      {/* Toolbar (formatting controls + action buttons pinned right) */}
       <div ref={toolbarRef} style={tbStyles.toolbar}>
         {/* Font family */}
         <select
@@ -746,15 +958,34 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             <sub style={{ fontSize: "9px" }}>x</sub>
           </span>
         </TbButton>
+
+        {/* Action buttons pinned to the right of the toolbar.
+            In infoButtonsOnly mode the host already has its own top-right
+            toolbar (copy/expand/save), so reserve space to sit left of it. */}
+        {showActionButtons && (
+          <span
+            style={{
+              marginLeft: "auto",
+              // Reserve space so the bar clears a host-provided absolute toolbar
+              // (e.g. the device-preview dropdown) sitting at the top-right.
+              marginRight: reserveRight,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            {actionButtonsGroup}
+          </span>
+        )}
       </div>
 
-      {/* Editor */}
+      {/* Editor + info view — editor stays mounted so its content survives toggling */}
       <div className="rich-text-editor">
         <div
           ref={editorRef}
           contentEditable
           data-rte-hl={highlightsOn ? "on" : "off"}
-          className={`p-3 outline-none ${autoGrow ? "" : "overflow-auto"}`}
+          className="p-3 outline-none"
           style={{
             border: "1px solid #d1d5db",
             borderTop: "none",
@@ -768,14 +999,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             boxSizing: "border-box",
             wordWrap: "break-word",
             overflowWrap: "break-word",
-            /* overflowX creates a block formatting context so floated email
-             * content is contained (no content spilling past the bottom
-             * border) and wide content scrolls inside the editor instead of
-             * stretching the page. */
             overflowX: "auto",
-            ...(autoGrow
-              ? { minHeight: height, overflowY: "auto" }
-              : { height, overflowY: "auto" }),
+            // Hidden (not unmounted) while the info view is shown.
+            display: infoPanel ? "none" : "block",
+            // No internal vertical scroller — grow with content.
+            minHeight: height,
+            overflowY: "visible",
           }}
           onInput={syncEditorValue}
           onBlur={syncEditorValue}
@@ -815,109 +1044,66 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             }
           }}
         />
-      </div>
-        </>
-      )}
 
-      {/* ── Action bar UNDER the box (opt-in) — icons match Output ── */}
-      {showActionButtons && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 2px", flexWrap: "wrap" }}>
-          {!infoButtonsOnly && (
-            <>
-              {/* Highlight on/off (source highlights) */}
-              <button
-                type="button"
-                title={highlightsOn ? "Hide highlights" : "Show highlights"}
-                aria-pressed={highlightsOn}
-                onClick={() => setHighlightsOn((v) => !v)}
-                style={{ ...actionBtnStyle, background: highlightsOn ? "#E4F8E8" : "#ffffff" }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M9 11L3 17V20H12L15 17" stroke={highlightsOn ? "#3f9f42" : "#000000"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M22 12L17.4 16.6C16.6189 17.381 15.3526 17.381 14.5716 16.6L9.4 11.4284C8.61895 10.6474 8.61895 9.38104 9.4 8.6L14 4L22 12Z" stroke={highlightsOn ? "#3f9f42" : "#000000"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-
-              {/* Edit */}
-              {onEdit && (
-                <button type="button" title="Edit" onClick={onEdit} style={actionBtnStyle}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              )}
-
-              {/* Copy */}
-              <button type="button" title="Copy to clipboard" onClick={handleCopyMain} style={actionBtnStyle}>
-                {copied || isCopyText ? (
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M7.29417 12.9577L10.5048 16.1681L17.6729 9" stroke="#3f9f42" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                    <circle cx="12" cy="12" r="10" stroke="#3f9f42" strokeWidth="2" />
-                  </svg>
-                ) : (
-                  <svg width="22" height="22" viewBox="0 0 32 32" fill="#000000">
-                    <path d="M26 4.75h-2c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0h0.75v21.5h-17.5v-21.5h0.75c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-2c-0.69 0-1.25 0.56-1.25 1.25v0 24c0 0.69 0.56 1.25 1.25 1.25h20c0.69-0.001 1.249-0.56 1.25-1.25v-24c-0-0.69-0.56-1.25-1.25-1.25h-0zM11 9.249h10c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-1.137c0.242-0.513 0.385-1.114 0.387-1.748v-0.001c0-2.347-1.903-4.25-4.25-4.25s-4.25 1.903-4.25 4.25v0c0.002 0.635 0.145 1.236 0.398 1.775l-0.011-0.026h-1.137c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0zM14.25 5c0-0 0-0.001 0-0.001 0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75v0c-0.966-0.001-1.748-0.783-1.75-1.749v-0zM19.957 13.156l-6.44 7.039-1.516-1.506c-0.226-0.223-0.536-0.361-0.878-0.361-0.69 0-1.25 0.56-1.25 1.25 0 0.345 0.14 0.658 0.366 0.884v0l2.44 2.424 0.022 0.015 0.015 0.021c0.074 0.061 0.159 0.114 0.25 0.156l0.007 0.003c0.037 0.026 0.079 0.053 0.123 0.077l0.007 0.003c0.135 0.056 0.292 0.089 0.457 0.089 0.175 0 0.341-0.037 0.491-0.103l-0.008 0.003c0.053-0.031 0.098-0.061 0.14-0.094l-0.003 0.002c0.102-0.050 0.189-0.11 0.268-0.179l-0.001 0.001 0.015-0.023 0.020-0.014 7.318-8c0.203-0.222 0.328-0.518 0.328-0.844 0-0.69-0.559-1.25-1.25-1.25-0.365 0-0.693 0.156-0.921 0.405l-0.001 0.001z" />
-                  </svg>
-                )}
-              </button>
-
-              {/* Expand */}
-              {onExpandEditor && (
-                <button type="button" title="Expand" onClick={onExpandEditor} style={actionBtnStyle}>
-                  <svg width="24" height="24" viewBox="0 0 512 512">
-                    <polyline points="304 96 416 96 416 208" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32" />
-                    <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32" />
-                    <polyline points="208 416 96 416 96 304" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32" />
-                  </svg>
-                </button>
-              )}
-            </>
-          )}
-
-          {/* Web search data (all users) */}
-          <button
-            type="button"
-            title="Web search data"
-            aria-pressed={infoPanel === "websearch"}
-            onClick={() => setInfoPanel((p) => (p === "websearch" ? null : "websearch"))}
-            style={{ ...actionBtnStyle, background: infoPanel === "websearch" ? "#E4F8E8" : "#ffffff" }}
+        {/* Info view — shown in place of the editor; same bordered area as the
+            email body, grows with content (no nested box, no inner scroller). */}
+        {infoPanel && (
+          <div
+            style={{
+              position: "relative",
+              border: "1px solid #d1d5db",
+              borderTop: "none",
+              borderBottomLeftRadius: "6px",
+              borderBottomRightRadius: "6px",
+              padding: "12px 14px",
+              background: "#ffffff",
+              width: "100%",
+              boxSizing: "border-box",
+              minHeight: height,
+              height: "auto",
+              maxHeight: "none",
+              overflow: "visible",
+            }}
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={infoPanel === "websearch" ? "#3f9f42" : "#000000"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="2" y1="12" x2="22" y2="12" />
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-            </svg>
-          </button>
-
-          {/* Final prompt (admin only) */}
-          {resolvedIsAdmin && (
             <button
               type="button"
-              title="Final prompt (admin)"
-              aria-pressed={infoPanel === "prompt"}
-              onClick={() => setInfoPanel((p) => (p === "prompt" ? null : "prompt"))}
-              style={{ ...actionBtnStyle, background: infoPanel === "prompt" ? "#E4F8E8" : "#ffffff" }}
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={infoPanel === "prompt" ? "#3f9f42" : "#000000"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="4 17 10 11 4 5" />
-                <line x1="12" y1="19" x2="20" y2="19" />
-              </svg>
-            </button>
-          )}
-
-          {/* Copy the shown info view */}
-          {infoPanel && (
-            <button
-              type="button"
-              title="Copy shown content"
+              title="Copy"
               onClick={handleInfoCopy}
-              style={{ ...actionBtnStyle, minWidth: "auto", padding: "0 10px", fontSize: 12 }}
+              style={{ ...actionBtnStyle, position: "absolute", top: 8, right: 8, height: 28, minWidth: "auto", padding: "0 10px", fontSize: 12, zIndex: 1 }}
             >
               {infoCopied ? "Copied!" : "Copy"}
             </button>
-          )}
-        </div>
-      )}
+            {infoPanel === "websearch" ? (
+              webSearchData?.trim() ? (
+                <div style={{ paddingRight: 64 }}>
+                  <WebResearchCards content={webSearchData} />
+                </div>
+              ) : (
+                <div style={{ color: "#9ca3af", fontSize: 13 }}>No online research available.</div>
+              )
+            ) : (
+              // A plain div (NOT <pre>) so global `pre` CSS can't add a bordered,
+              // max-height scroll box. Preserves line breaks, wraps, grows.
+              <div
+                style={{
+                  margin: 0,
+                  paddingRight: 64,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  color: "#374151",
+                  maxHeight: "none",
+                  overflow: "visible",
+                }}
+              >
+                {finalPrompt?.trim() ? finalPrompt : "No final prompt available."}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
     </div>
   );
 };
