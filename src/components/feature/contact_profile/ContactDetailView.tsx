@@ -52,8 +52,8 @@ import { saveUserCredit } from "../../../slices/authSLice";
 import "../inbox/InboxView.css";
 import { copyToClipboard } from "../../../utils/utils";
 
-//const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
-const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
+const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
+//const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
 
 interface Contact {
   id: number;
