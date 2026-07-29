@@ -29,6 +29,9 @@ import { isThreadPinned, pinEmail } from './inboxPin';
 import { InboxEmptyState, InboxSelectState } from './Inbox.new';
 import './InboxView.css';
 
+const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
+//const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
+
 interface UnassignedEmail {
   id: number;
   messageId: string;
@@ -949,6 +952,74 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowDeleteModal(true);
   };
 
+  // Shared kraft used by the editor toolbar's Regenerate button on every tab.
+  // Same guards as the Kraft button: blueprint required, single flight, credit
+  // check, then the backend generation call.
+  const kraftEmailForContact = async (
+    contactId?: number | string | null,
+    target: 'reply' | 'forward' = 'reply',
+  ) => {
+    if (!selectedBlueprint || !contactId) return;
+    if (kraftInFlightRef.current) return;
+
+    kraftInFlightRef.current = true;
+
+    const canKraft = await ensureCanKraft();
+    if (!canKraft) {
+      kraftInFlightRef.current = false;
+      return;
+    }
+
+    setIsKrafting(true);
+    setError('');
+    try {
+      const response = await axios.post(
+        `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
+        {
+          blueprintId: selectedBlueprint,
+          contactId,
+          clientId: effectiveUserId,
+          overwriteExisting: true,
+        },
+        {
+          headers: {
+            accept: '*/*',
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        },
+      );
+
+      if (response.data?.success && response.data?.emailBody) {
+        if (target === 'forward') {
+          setForwardMessage(response.data.emailBody);
+        } else {
+          replaceReplyDraftContent(response.data.emailBody);
+        }
+
+        const kraftInsights = extractGenerationInsights(response.data);
+        setKraftFinalPrompt(kraftInsights.finalPrompt);
+        setKraftWebSearchData(kraftInsights.webSearchData);
+        setKraftEmails(kraftInsights.emails);
+        setKraftNotes(kraftInsights.notes);
+        setKraftProfessionalSummary(kraftInsights.professionalSummary);
+
+        playSound();
+        window.dispatchEvent(
+          new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }),
+        );
+      } else {
+        setError('Failed to generate email');
+      }
+    } catch (err: any) {
+      console.error('Error krafting email:', err);
+      setError(err.response?.data?.message || 'Failed to generate email');
+    } finally {
+      setIsKrafting(false);
+      kraftInFlightRef.current = false;
+    }
+  };
+
   const handleKraftEmail = async () => {
     if (!selectedBlueprint || !selectedThread) return;
 
@@ -968,7 +1039,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setError('');
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/email-generation/generate`,
+        `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
         {
           blueprintId: selectedBlueprint,
           contactId: selectedThread.contactId,
@@ -1028,7 +1099,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setError('');
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/email-generation/generate`,
+        `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
         {
           blueprintId: selectedBlueprint,
           contactId: forwardThread.contactId,
@@ -1862,6 +1933,17 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }
   };
 
+  // Contact behind the thread currently on screen (same rule the forward kraft
+  // handler uses), so the editor toolbar can regenerate for it.
+  const activeThreadContactId =
+    activeTab === 'inbox'
+      ? selectedThread?.contactId
+      : activeTab === 'sent'
+        ? selectedSentThread?.contactId
+        : activeTab === 'unassigned'
+          ? selectedUnassignedThread?.contactId
+          : selectedAllMessagesThread?.contactId;
+
   const renderForwardSection = () => (
     <form
       className="reply-section"
@@ -1996,6 +2078,17 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           value={forwardMessage}
           onChange={setForwardMessage}
           showActionButtons
+          onRegenerate={() => kraftEmailForContact(activeThreadContactId, 'forward')}
+          isRegenerating={isKrafting}
+          regenerateDisabled={!selectedBlueprint || !activeThreadContactId}
+          showDeviceButton
+          outputEmailWidth={outputEmailWidth}
+          openDeviceDropdown={openDeviceDropdown}
+          onDeviceDropdownToggle={() => setOpenDeviceDropdown(!openDeviceDropdown)}
+          onDeviceWidthChange={(width) => {
+            setOutputEmailWidth(width);
+            setOpenDeviceDropdown(false);
+          }}
           finalPrompt={kraftFinalPrompt}
           webSearchData={kraftWebSearchData}
           insightEmails={kraftEmails}
@@ -3092,7 +3185,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       value={replyText}
                       onChange={setReplyText}
                       showActionButtons
-                      reserveRight={64}
+                      onRegenerate={() => kraftEmailForContact(selectedThread?.contactId)}
+                      isRegenerating={isKrafting}
+                      regenerateDisabled={!selectedBlueprint || !selectedThread?.contactId}
+                      showDeviceButton
                       finalPrompt={kraftFinalPrompt}
                       webSearchData={kraftWebSearchData}
                       insightEmails={kraftEmails}
@@ -3111,66 +3207,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     />
                   </div>
                   
-                  {/* Toolbar - Same as Output.tsx */}
-                  <div className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md" style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 10 }}>
-                    <div className="d-flex align-items-center justify-between flex-col-991">
-                      <div className="d-flex relative">
-                        <button
-                          onClick={() => setOpenDeviceDropdown(!openDeviceDropdown)}
-                          className="w-[55px] justify-center px-3 py-2 bg-gray-200 rounded-md flex items-center device-icon"
-                          style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
-                        >
-                          {outputEmailWidth === 'Mobile' && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                              <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                          {outputEmailWidth === 'Tab' && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                              <rect x="4" y="3" width="16" height="18" rx="1" stroke="#200E32" strokeWidth="2" strokeLinecap="round"/>
-                              <circle cx="12" cy="18" r="1" fill="#200E32"/>
-                            </svg>
-                          )}
-                          {outputEmailWidth === '' && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                              <rect x="3" y="4" width="18" height="13" rx="2" stroke="#0C0310" strokeWidth="2" strokeLinecap="round" fill="none"/>
-                              <line x1="7.5" y1="21" x2="16.5" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
-                              <line x1="12" y1="17" x2="12" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
-                            </svg>
-                          )}
-                        </button>
-                        {openDeviceDropdown && (
-                          <div className="w-[55px] absolute right-0 mt-[35px] bg-[#eeeeee] pt-[5px] rounded-b-md rounded-t-none d-flex flex-col output-responsive-button-group justify-center-991 col-12-991">
-                            {outputEmailWidth !== 'Mobile' && (
-                              <button className="w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center" onClick={() => { setOutputEmailWidth('Mobile'); setOpenDeviceDropdown(false); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                                  <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              </button>
-                            )}
-                            {outputEmailWidth !== 'Tab' && (
-                              <button className="w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-tab justify-center" onClick={() => { setOutputEmailWidth('Tab'); setOpenDeviceDropdown(false); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                                  <rect x="4" y="3" width="16" height="18" rx="1" stroke="#200E32" strokeWidth="2" strokeLinecap="round"/>
-                                  <circle cx="12" cy="18" r="1" fill="#200E32"/>
-                                </svg>
-                              </button>
-                            )}
-                            {outputEmailWidth !== '' && (
-                              <button className="w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-desktop justify-center" onClick={() => { setOutputEmailWidth(''); setOpenDeviceDropdown(false); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                                  <rect x="3" y="4" width="18" height="13" rx="2" stroke="#0C0310" strokeWidth="2" strokeLinecap="round" fill="none"/>
-                                  <line x1="7.5" y1="21" x2="16.5" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
-                                  <line x1="12" y1="17" x2="12" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                  </div>
                 </div>
 
                 {/* Expand Modal */}
@@ -3764,7 +3800,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           setError('');
                           try {
                             const response = await axios.post(
-                              `${API_BASE_URL}/api/email-generation/generate`,
+                              `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
                               {
                                 blueprintId: selectedBlueprint,
                                 contactId: selectedUnassignedThread.contactId,
@@ -3826,7 +3862,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         value={replyText}
                         onChange={setReplyText}
                         showActionButtons
-                        reserveRight={64}
+                        onRegenerate={() =>
+                          kraftEmailForContact(selectedUnassignedThread?.contactId)
+                        }
+                        isRegenerating={isKrafting}
+                        regenerateDisabled={
+                          !selectedBlueprint || !selectedUnassignedThread?.contactId
+                        }
+                        showDeviceButton
                         finalPrompt={kraftFinalPrompt}
                         webSearchData={kraftWebSearchData}
                         insightEmails={kraftEmails}
@@ -3845,66 +3888,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       />
                     </div>
                     
-                    {/* Toolbar */}
-                    <div className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md" style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 10 }}>
-                      <div className="d-flex align-items-center justify-between flex-col-991">
-                        <div className="d-flex relative">
-                          <button
-                            onClick={() => setOpenDeviceDropdown(!openDeviceDropdown)}
-                            className="w-[55px] justify-center px-3 py-2 bg-gray-200 rounded-md flex items-center device-icon"
-                            style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
-                          >
-                            {outputEmailWidth === 'Mobile' && (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                                <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            )}
-                            {outputEmailWidth === 'Tab' && (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                                <rect x="4" y="3" width="16" height="18" rx="1" stroke="#200E32" strokeWidth="2" strokeLinecap="round"/>
-                                <circle cx="12" cy="18" r="1" fill="#200E32"/>
-                              </svg>
-                            )}
-                            {outputEmailWidth === '' && (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                                <rect x="3" y="4" width="18" height="13" rx="2" stroke="#0C0310" strokeWidth="2" strokeLinecap="round" fill="none"/>
-                                <line x1="7.5" y1="21" x2="16.5" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
-                                <line x1="12" y1="17" x2="12" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
-                              </svg>
-                            )}
-                          </button>
-                          {openDeviceDropdown && (
-                            <div className="w-[55px] absolute right-0 mt-[35px] bg-[#eeeeee] pt-[5px] rounded-b-md rounded-t-none d-flex flex-col output-responsive-button-group justify-center-991 col-12-991">
-                              {outputEmailWidth !== 'Mobile' && (
-                                <button className="w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center" onClick={() => { setOutputEmailWidth('Mobile'); setOpenDeviceDropdown(false); }}>
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                                    <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
-                                </button>
-                              )}
-                              {outputEmailWidth !== 'Tab' && (
-                                <button className="w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-tab justify-center" onClick={() => { setOutputEmailWidth('Tab'); setOpenDeviceDropdown(false); }}>
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                                    <rect x="4" y="3" width="16" height="18" rx="1" stroke="#200E32" strokeWidth="2" strokeLinecap="round"/>
-                                    <circle cx="12" cy="18" r="1" fill="#200E32"/>
-                                  </svg>
-                                </button>
-                              )}
-                              {outputEmailWidth !== '' && (
-                                <button className="w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-desktop justify-center" onClick={() => { setOutputEmailWidth(''); setOpenDeviceDropdown(false); }}>
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
-                                    <rect x="3" y="4" width="18" height="13" rx="2" stroke="#0C0310" strokeWidth="2" strokeLinecap="round" fill="none"/>
-                                    <line x1="7.5" y1="21" x2="16.5" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
-                                    <line x1="12" y1="17" x2="12" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                    </div>
                   </div>
 
                   {/* Expand Modal */}
@@ -4359,7 +4342,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           setError('');
                           try {
                             const response = await axios.post(
-                              `${API_BASE_URL}/api/email-generation/generate`,
+                              `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
                               {
                                 blueprintId: selectedBlueprint,
                                 contactId: selectedAllMessagesThread.contactId,
@@ -4422,6 +4405,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         value={replyText}
                         onChange={setReplyText}
                         showActionButtons
+                        onRegenerate={() =>
+                          kraftEmailForContact(selectedAllMessagesThread?.contactId)
+                        }
+                        isRegenerating={isKrafting}
+                        regenerateDisabled={
+                          !selectedBlueprint || !selectedAllMessagesThread?.contactId
+                        }
+                        showDeviceButton
                         finalPrompt={kraftFinalPrompt}
                         webSearchData={kraftWebSearchData}
                         insightEmails={kraftEmails}

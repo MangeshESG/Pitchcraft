@@ -31,6 +31,7 @@ import DataFile from "./feature/datafile";
 import axios from "axios";
 import Header from "./common/Header";
 import API_BASE_URL from "../config";
+import { extractGenerationInsights } from "../utils/generationInsights";
 import { DEFAULT_DATE_TIME_PREFERENCES, setDateTimePreferences } from "./common/dateTimePreferences";
 import { useDispatch } from "react-redux";
 import { useModel } from "../ModelContext";
@@ -55,9 +56,9 @@ import LoadingSpinner from "./common/LoadingSpinner";
 import CustomFieldSettings from "./feature/CustomFieldSettings";
 import ContactDetailView from "./feature/contact_profile/ContactDetailView";
 import { closePanel } from "../slices/panelSlice";
-
 const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
 //const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
+
 
 
 interface Prompt {
@@ -123,6 +124,33 @@ interface Campaign {
   clientId: number;
   description?: string;
 }
+
+// Everything the generation API hands back for one contact.
+interface GeneratedEmailResult {
+  emailBody: string;
+  emailSubject: string;
+  generated: boolean;
+  finalPrompt: string;
+  webSearchData: string;
+  notes: string;
+  emails: string;
+  professionalSummary: string;
+  usage: { totalTokens: number; totalCost: number };
+}
+
+// Usage block returned by /api/email-generation/generate (web search + body +
+// subject are already summed server-side).
+const normalizeGenerationUsage = (usage: any) => {
+  const toNumber = (value: unknown) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : 0;
+  };
+
+  return {
+    totalTokens: toNumber(usage?.totalTokens ?? usage?.TotalTokens),
+    totalCost: toNumber(usage?.totalCost ?? usage?.TotalCost),
+  };
+};
 
 const normalizeCampaigns = (data: any): Campaign[] => {
   if (Array.isArray(data)) return data;
@@ -992,62 +1020,6 @@ const handleClientChange = async (
   }, [effectiveUserId]);
 
   const handleSubjectTextChange = (value: string) => {};
-  const cleanHtml = (value?: string) => {
-  if (!value) return "";
-
-  return value
-    .replace(/&nbsp;/gi, " ")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
-    .trim();
-};
-
-  const decodeHtmlEntities = (value?: string) => {
-    if (!value) return "";
-
-    return value
-      .replace(/&nbsp;/gi, " ")
-      .replace(/&amp;/gi, "&")
-      .replace(/&lt;/gi, "<")
-      .replace(/&gt;/gi, ">")
-      .replace(/&quot;/gi, '"')
-      .replace(/&#39;/gi, "'");
-  };
-
-  const normalizeEmailContextText = (value?: string) => {
-    if (!value) return "";
-
-    return cleanHtml(
-      decodeHtmlEntities(value)
-        .replace(/```html/gi, "")
-        .replace(/```/g, ""),
-    ).replace(/\n{3,}/g, "\n\n");
-  };
-
-  const formatPromptDate = (value?: string) => {
-    if (!value) return "";
-
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return value;
-
-    return parsed.toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  };
-
-  const shouldInjectPlaceholder = (
-    placeholderKey: string,
-    ...sources: Array<string | undefined | null>
-  ): boolean => {
-    const token = `{${placeholderKey}}`;
-    return sources.some((source) => source?.includes(token));
-  };
-
   const getEmailTrailHtml = (emailBody?: string) => {
     if (!followupEnabled || !emailBody) return "";
 
@@ -1071,82 +1043,6 @@ const handleClientChange = async (
     const oldThread = getEmailTrailHtml(previousEmailBody);
 
     return oldThread ? `${pitch}\n\n${oldThread}` : pitch;
-  };
-
-  const buildReplacements = (
-    entry: any,
-    currentDate: string,
-    toneSettings: any,
-    scrappedData?: string,
-  ): Record<string, any> => {
-    // ✅ first/last name — contact rows don't always carry them, so fall back
-    // to splitting the full name (same rule the backend upload uses).
-    const fullNameValue = entry.full_name || entry.name || "";
-    const nameParts = String(fullNameValue).trim().split(/\s+/).filter(Boolean);
-    const firstName = entry.first_name || nameParts[0] || "";
-    const lastName =
-      entry.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(" ") : "");
-
-    return {
-      company_name: entry.company_name || entry.company || "",
-      company_name_friendly: entry.company_name_friendly || entry.company || "",
-      job_title: entry.job_title || entry.title || "",
-      location: entry.country_or_address || entry.location || "",
-      full_name: fullNameValue,
-      first_name: firstName,
-      last_name: lastName,
-      linkedin_url: entry.linkedin_url || entry.linkedin || "",
-      website: entry.website || "",
-      date: currentDate,
-      notes: entry.notes || "",
-      use_email: entry.use_email || "",
-      use_emails: entry.use_emails || entry.use_email || "",
-          // ✅ SANITIZED LINKEDIN
-      linkedin_info: cleanHtml(
-        entry.linkedIninformation || entry.linkedin_info
-      ),
-      // ✅ Add here, with optional default
-      search_output_summary: scrappedData || "",
-
-      // Tone Settings tab values
-      language: toneSettings.language || "",
-      emojis: toneSettings.emojis || "",
-      tone: toneSettings.tone || "",
-      chatty: toneSettings.chatty || "",
-      creativity: toneSettings.creativity || "",
-      reasoning: toneSettings.reasoning || "",
-      dateGreeting: toneSettings.dateGreeting || "",
-      dateFarewell: toneSettings.dateFarewell || "",
-    };
-  };
-
-  // ✅ Campaign "email history" setting: {use_email_history} = yes | no
-  const isEmailHistoryEnabled = (promptConfig?: any): boolean => {
-    const pv = (promptConfig?.placeholderValues || {}) as Record<string, any>;
-
-    return (pv.use_email_history ?? "").toString().trim().toLowerCase() === "yes";
-  };
-
-  // Appends the past conversation when email history is ON but the blueprint
-  // has no {use_emails}/{use_email} placeholder left to receive it.
-  // (The campaign endpoint pre-fills placeholders, so {use_emails} is often
-  // already stripped from the blueprint text before it reaches the frontend.)
-  const appendEmailHistoryIfNeeded = (
-    promptText: string,
-    promptConfig: any,
-    emailConversationContext: string,
-  ): string => {
-    if (!isEmailHistoryEnabled(promptConfig)) return promptText;
-    if (!emailConversationContext) return promptText;
-
-    const blueprintText = promptConfig?.text || "";
-    const hasPlaceholder =
-      shouldInjectPlaceholder("use_email", blueprintText) ||
-      shouldInjectPlaceholder("use_emails", blueprintText);
-
-    if (hasPlaceholder) return promptText;
-
-    return `${promptText}\n\nPrevious email conversation with this contact:\n${emailConversationContext}`;
   };
 
   const [isFetchingContacts, setIsFetchingContacts] = useState(false);
@@ -1658,152 +1554,62 @@ const handleClientChange = async (
     }
   }, [selectedCampaign]);
 
-  // =====================================================
-  // 🟢 STEP 3: READ subject config from campaign placeholders
-  // =====================================================
-  const getSubjectMode = () => {
-    try {
-      const cfg = JSON.parse(
-        sessionStorage.getItem("campaignSubjectConfig") || "{}",
-      );
-
-      // Explicit NO → manual subject
-      if (cfg.aiMode === "no") {
-        return {
-          isAI: false,
-          manualTemplate: cfg.manualTemplate || "",
-        };
-      }
-
-      // YES / missing / invalid → AI subject
-      return {
-        isAI: true,
-        manualTemplate: cfg.manualTemplate || "",
-      };
-    } catch {
-      return {
-        isAI: true,
-        manualTemplate: "",
-      };
-    }
-  };
+  // Running totals across the whole kraft session (survive re-renders).
   const totalEmailTokensRef = useRef(0);
-const totalEmailCostRef = useRef(0);
-const totalEmailCountRef = useRef(0); // <-- emails, NOT api calls
+  const totalEmailCostRef = useRef(0);
+  const totalEmailCountRef = useRef(0); // <-- emails, NOT api calls
 
-useEffect(() => {
-  console.log(
-    "Current prompt length:",
-    allprompt[currentIndex]?.length
-  );
-}, [allprompt, currentIndex]);
+  useEffect(() => {
+    console.log("Current prompt length:", allprompt[currentIndex]?.length);
+  }, [allprompt, currentIndex]);
 
-const fetchGenerationNotes = async (
-  clientId: string | number,
-  contactId: string | number,
-) => {
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/api/notes/Get-All-Note?clientId=${clientId}&contactId=${contactId}`,
-      { headers: { accept: "*/*" } },
+/**
+ * Single source of truth for email generation.
+ *
+ * POST /api/email-generation/generate resolves the blueprint, notes, email
+ * conversation, professional summary, web research, body and subject, then
+ * saves the contact, deducts the credit and writes kraft history. The frontend
+ * only renders what comes back — it no longer builds prompts or chains calls.
+ */
+const generateEmailViaBackend = async (params: {
+  blueprintId: number;
+  contactId: number | string;
+  clientId: number | string;
+  overwriteExisting?: boolean;
+}): Promise<GeneratedEmailResult> => {
+  const response = await fetch(`${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", accept: "*/*" },
+    body: JSON.stringify({
+      blueprintId: Number(params.blueprintId),
+      contactId: Number(params.contactId),
+      clientId: String(params.clientId),
+      overwriteExisting: params.overwriteExisting ?? true,
+    }),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok || !(data?.success ?? data?.Success)) {
+    throw new Error(
+      data?.message || data?.Message || `Generation failed (${response.status})`,
     );
-
-    if (!response.ok) return "";
-
-    const json = await response.json();
-
-    if (!json?.success || !Array.isArray(json.data)) return "";
-
-    const usableNotes = json.data
-      .filter((n: any) => n.isUseInGenration === true) // ✅ EXACT FIELD NAME
-      .map((n: any) =>
-        (n.note || "")
-          .replace(/&nbsp;/g, " ")   // ✅ Clean HTML artifacts
-          .replace(/<[^>]*>/g, "")   // ✅ Strip any tags if present
-          .trim(),
-      )
-      .filter(Boolean);
-
-    return usableNotes.join("\n"); // ✅ BEST for prompts
-  } catch (err) {
-    console.error("Notes fetch failed:", err);
-    return "";
   }
-};
 
-const fetchEmailConversationContext = async (
-  clientId: string | number,
-  contactId: string | number,
-) => {
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/api/Crm/email-conversation-context?clientId=${clientId}&contactId=${contactId}`,
-      { headers: { accept: "*/*" } },
-    );
+  const insights = extractGenerationInsights(data);
 
-    if (!response.ok) return "";
-
-    const json = await response.json();
-    const promptContext =
-      typeof json?.promptContext === "string" ? json.promptContext.trim() : "";
-
-    if (promptContext) {
-      return promptContext;
-    }
-
-    const emails = Array.isArray(json?.emails) ? json.emails : [];
-
-    if (emails.length === 0) return "";
-
-    return emails
-      .map((email: any, emailIndex: number) => {
-        const emailBody = normalizeEmailContextText(email?.body);
-        const emailLines = [
-          `Conversation ${emailIndex + 1}`,
-          `Sent: ${formatPromptDate(email?.sentAt) || "Unknown"}`,
-          `From: ${email?.senderName || ""} ${email?.senderEmailId ? `<${email.senderEmailId}>` : ""}`.trim(),
-          `To: ${email?.recipientName || ""} ${email?.toEmail ? `<${email.toEmail}>` : ""}`.trim(),
-          `Subject: ${email?.subject || ""}`,
-          emailBody ? `Email Body:\n${emailBody}` : "",
-        ].filter(Boolean);
-
-        const replyLines = (email.replies || [])
-          .map((reply: any, replyIndex: number) => {
-            const replyBody = normalizeEmailContextText(
-              reply?.body || reply?.replyBody || reply?.message,
-            );
-            const replyFrom =
-              reply?.fromEmail ||
-              reply?.senderEmail ||
-              reply?.senderEmailId ||
-              reply?.email ||
-              "";
-            const replyName =
-              reply?.fromName || reply?.senderName || reply?.name || "";
-            const replyDate =
-              reply?.replyAt || reply?.date || reply?.sentAt || reply?.receivedAt;
-            const replySubject = reply?.subject || "";
-
-            return [
-              `Reply ${replyIndex + 1}`,
-              `Sent: ${formatPromptDate(replyDate) || "Unknown"}`,
-              `From: ${replyName || replyFrom ? `${replyName}${replyName && replyFrom ? " " : ""}${replyFrom ? `<${replyFrom}>` : ""}` : "Unknown"}`,
-              replySubject ? `Subject: ${replySubject}` : "",
-              replyBody ? `Reply Body:\n${replyBody}` : "",
-            ]
-              .filter(Boolean)
-              .join("\n");
-          })
-          .filter(Boolean)
-          .join("\n\n");
-
-        return [emailLines.join("\n"), replyLines].filter(Boolean).join("\n\n");
-      })
-      .join("\n\n--------------------\n\n");
-  } catch (err) {
-    console.error("Email context fetch failed:", err);
-    return "";
-  }
+  return {
+    emailBody: data.emailBody ?? data.EmailBody ?? "",
+    emailSubject: data.emailSubject ?? data.EmailSubject ?? "",
+    // false when the contact already had an email and overwrite was off
+    generated: (data.generated ?? data.Generated ?? true) as boolean,
+    finalPrompt: insights.finalPrompt,
+    webSearchData: insights.webSearchData,
+    notes: insights.notes,
+    emails: insights.emails,
+    professionalSummary: insights.professionalSummary,
+    usage: normalizeGenerationUsage(data.usage ?? data.Usage),
+  };
 };
 
 const resolvePromptSafely = async () => {
@@ -1871,6 +1677,7 @@ const resolvePromptSafely = async () => {
     ) {
       const canGenerate = await ensureCanGenerateWithCredits(tempEffectiveUserId);
       if (!canGenerate) {
+        setIsProcessing(false); // release the Stop button
         return; // Stop execution if can't generate
       }
     }
@@ -1885,6 +1692,7 @@ const resolvePromptSafely = async () => {
         }
       } catch (error) {
         console.error("❌ Failed to load campaign blueprint:", error);
+        setIsProcessing(false); // release the Stop button
         return;
       }
     }
@@ -1894,169 +1702,6 @@ const resolvePromptSafely = async () => {
       month: "long",
       day: "numeric",
     });
-
-    const replaceAllPlaceholders = (
-      text: string,
-      replacements: { [key: string]: any },
-    ) => {
-      if (!text) return "";
-
-      let result = text;
-
-      // Log what we're working with
-      //console.log("Original text (first 200 chars):", text.substring(0, 200));
-      console.log("Replacements:", replacements);
-
-      // Simple split-join approach which is more reliable
-      Object.entries(replacements).forEach(([key, value]) => {
-        const placeholder = `{${key}}`;
-        const cleanValue = value || "";
-
-        console.log(
-          `Looking for: "${placeholder}", replacing with: "${cleanValue}"`,
-        );
-        console.log(
-          `Found ${
-            (
-              text.match(
-                new RegExp(placeholder.replace(/[{}]/g, "\\$&"), "g"),
-              ) || []
-            ).length
-          } occurrences`,
-        );
-
-        // Use split-join which is more reliable than regex for literal strings
-        result = result.split(placeholder).join(cleanValue);
-      });
-
-      console.log("Result (first 200 chars):", result.substring(0, 200));
-      console.log(
-        "Remaining placeholders:",
-        result.match(/\{[^}]+\}/g) || "none",
-      );
-
-      return result;
-    };
-
-    const isGptModel = (modelName?: string) =>
-      (modelName || "").trim().toLowerCase().startsWith("gpt");
-
-    const toUsageNumber = (value: unknown) => {
-      const numericValue = Number(value);
-      return Number.isFinite(numericValue) ? numericValue : 0;
-    };
-
-    const normalizeUsage = (payload: any) => {
-      const usage = payload?.usage || payload?.Usage || payload || {};
-      const generation = usage?.generation || usage?.Generation || {};
-      const webSearch = usage?.webSearch || usage?.WebSearch || {};
-      const totalCost =
-        usage?.totalCost ??
-        usage?.TotalCost ??
-        usage?.currentCost ??
-        usage?.CurrentCost ??
-        usage?.cost;
-      const totalTokens =
-        usage?.totalTokens ??
-        usage?.TotalTokens ??
-        usage?.tokens ??
-        (toUsageNumber(webSearch?.totalTokens ?? webSearch?.TotalTokens) +
-          toUsageNumber(generation?.totalTokens ?? generation?.TotalTokens));
-
-      return {
-        totalTokens: toUsageNumber(totalTokens),
-        currentCost: toUsageNumber(totalCost),
-      };
-    };
-
-    const fillWebSearchDataForNonGpt = async (
-      promptText: string,
-      replacements: Record<string, any>,
-      promptConfig?: Prompt | null,
-      contactId?: number | string | null,
-    ) => {
-      if (isGptModel(selectedModelNameA)) {
-        return {
-          promptText,
-          webSearchData: "",
-          searchResults: [] as string[],
-          usage: { totalTokens: 0, currentCost: 0 },
-        };
-      }
-
-      const instructionTemplate =
-        promptConfig?.webSearchInstructions || instructionsParamA || "";
-      const pv = (promptConfig?.placeholderValues || {}) as Record<string, any>;
-
-      // If personalization search is explicitly disabled on the blueprint,
-      // skip the web search API entirely and generate the email directly.
-      const personalizationSearch = (pv.use_personalization_search ?? "")
-        .toString()
-        .trim()
-        .toLowerCase();
-      if (personalizationSearch === "no") {
-        return {
-          promptText: promptText.replace("{web_searched_data}", ""),
-          webSearchData: "",
-          searchResults: [] as string[],
-          usage: { totalTokens: 0, currentCost: 0 },
-        };
-      }
-
-      const webSearchReplacements = {
-        ...pv,
-        // alias: prompt templates may use {hook} while blueprints store hook_search_terms
-        hook: pv.hook || pv.hook_search_terms || "",
-        ...replacements,
-      };
-      const filledInstructions = replaceAllPlaceholders(
-        instructionTemplate,
-        webSearchReplacements,
-      );
-
-      if (!filledInstructions.trim()) {
-        return {
-          promptText: promptText.replace("{web_searched_data}", ""),
-          webSearchData: "",
-          searchResults: [] as string[],
-          usage: { totalTokens: 0, currentCost: 0 },
-        };
-      }
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/websearch`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            instructions: filledInstructions,
-            contactId: contactId ? Number(contactId) : undefined,
-          }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.message || data?.Message || "Web search failed");
-      }
-
-      const webSearchData =
-        data?.webSearchData || data?.WebSearchData || data?.summary || "";
-      const searchResults =
-        data?.searchResults || data?.SearchResults || [];
-
-      const promptWithSearchData = promptText.includes("{web_searched_data}")
-        ? promptText.replace("{web_searched_data}", webSearchData)
-        : `${promptText}\n\n${webSearchData}`;
-
-      return {
-        promptText: promptWithSearchData,
-        webSearchData,
-        searchResults,
-        usage: normalizeUsage(data?.usage || data?.Usage),
-      };
-    };
 
     const setContactInsights = (
       targetIndex: number,
@@ -2105,17 +1750,17 @@ const resolvePromptSafely = async () => {
     };
 
     setTab(tab);
-    // If already processing, show loader and prevent multiple starts
+    // Block a second run while one is in flight. handleStart flips
+    // isProcessing before calling this, but goToTab already holds the previous
+    // render's closure, so the legitimate start still gets through — only
+    // later re-entries (e.g. regenerate mid-run) are stopped here.
     if (isProcessing) {
       return;
     }
 
-    const selectedModelNameA = promptForRun?.model || selectedModelName;
-    const searchterm = searchTermForm.searchTerm;
-    const instructionsParamA = searchTermForm.instructions;
-    const systemInstructionsA = settingsForm.systemInstructions;
-    const subject_instruction = settingsForm.subjectInstructions;
-
+    // Model, search terms, system instructions and subject instructions all
+    // live on the blueprint and are applied server-side by
+    // /api/email-generation/generate — nothing to assemble here anymore.
     const startTime = new Date();
 
     let parsedClientId: number;
@@ -2234,128 +1879,13 @@ const resolvePromptSafely = async () => {
         const full_name = entry.full_name || entry.name;
         const company_name = entry.company_name || entry.company;
 
-        const generationNotes = await fetchGenerationNotes(
-          effectiveUserId,
-          entry.id,
-        );
-        // ✅ Fetch past conversation when email history is ON, OR when the
-        // blueprint explicitly uses {use_email}/{use_emails}.
-        const emailConversationContext = (
-          isEmailHistoryEnabled(safePrompt) ||
-          shouldInjectPlaceholder(
-            "use_email",
-            systemInstructionsA,
-            safePrompt.text || "",
-          ) ||
-          shouldInjectPlaceholder(
-            "use_emails",
-            systemInstructionsA,
-            safePrompt.text || "",
-          )
-        )
-          ? await fetchEmailConversationContext(effectiveUserId, entry.id)
-          : "";
+        const blueprintId = Number(safePrompt.id);
 
-        let replacements = buildReplacements(entry, currentDate, {});
-        replacements.notes = generationNotes;
-        replacements.use_email = emailConversationContext;
-        replacements.use_emails = emailConversationContext;
-
-        const scrappedData = "";
-
-        replacements = {
-          ...replacements,
-          search_output_summary: scrappedData,
-        };
-
-        const systemPrompt = replaceAllPlaceholders(
-          systemInstructionsA,
-          replacements,
-        );
-
-        let replacedPromptText = replaceAllPlaceholders(
-          safePrompt.text || "",
-          replacements,
-        );
-
-        // ✅ Email history ON but no {use_email} placeholder → append conversation
-        replacedPromptText = appendEmailHistoryIfNeeded(
-          replacedPromptText,
-          safePrompt,
-          emailConversationContext,
-        );
-
-        const webSearchResult = await fillWebSearchDataForNonGpt(
-          replacedPromptText,
-          replacements,
-          safePrompt,
-          entry.id,
-        );
-        replacedPromptText = webSearchResult.promptText;
-        replacements.search_output_summary = webSearchResult.webSearchData || "";
-        const webSearchTokens = webSearchResult.usage.totalTokens;
-        const webSearchCost = webSearchResult.usage.currentCost;
-
-        lastEmailTokens += webSearchTokens;
-        lastEmailCost += webSearchCost;
-
-        totalEmailTokensRef.current += webSearchTokens;
-        totalEmailCostRef.current += webSearchCost;
-
-        cost += webSearchCost;
-        totaltokensused += webSearchTokens;
-
-        const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
-
-        setOutputForm(prev => ({
-          ...prev,
-          currentPrompt: promptToSend,
-          searchResults: webSearchResult.searchResults,
-          allScrapedData: webSearchResult.webSearchData,
-        }));
-
-        setallprompt(prev => {
-          const updated = [...prev];
-          updated[index] = promptToSend;
-          return updated;
-        });
-
-        setContactInsights(index, {
-          webSearchData: webSearchResult.webSearchData,
-          searchResults: webSearchResult.searchResults,
-          notes: generationNotes,
-          emailContext: emailConversationContext,
-          linkedinInfo: replacements.linkedin_info,
-        });
-
-        setOutputForm(prev => ({
-          ...prev,
-          generatedContent:
-            `<span style="color: blue">[${formatDateTime(new Date())}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name} and domain ${
-            entry.email}</span><br/>`
-            + prev.generatedContent,
-        }));
-
-        const pitchResponse = await fetch(
-          `${PITCH_GENERATION_API_BASE_URL}/api/auth/generatepitch`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              scrappedData: systemPrompt,
-              prompt: replacedPromptText,
-              ModelName: selectedModelNameA,
-            }),
-          },
-        );
-
-        const pitchData = await pitchResponse.json();
-
-        if (!pitchResponse.ok || !pitchData?.response?.content) {
+        if (!blueprintId) {
           setOutputForm(prev => ({
             ...prev,
             generatedContent:
-              `<span style="color:red">[${formatDateTime(new Date())}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
+              `<span style="color:red">[${formatDateTime(new Date())}] Error: Blueprint id missing — cannot kraft ${full_name}</span><br/>`
               + prev.generatedContent,
           }));
 
@@ -2365,25 +1895,82 @@ const resolvePromptSafely = async () => {
           return;
         }
 
-        const bodyUsage = normalizeUsage(pitchData.response);
-        const bodyTokens = bodyUsage.totalTokens;
-        const bodyCost = bodyUsage.currentCost;
+        setOutputForm(prev => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: blue">[${formatDateTime(new Date())}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name} and domain ${
+            entry.email}</span><br/>`
+            + prev.generatedContent,
+        }));
 
-        lastEmailTokens += bodyTokens;
-        lastEmailCost += bodyCost;
+        // 🚀 One backend call does prompt building, research, body, subject,
+        // the contact save, the credit deduction and the kraft history.
+        let generation: GeneratedEmailResult;
+        try {
+          generation = await generateEmailViaBackend({
+            blueprintId,
+            contactId: entry.id,
+            clientId: effectiveUserId,
+            overwriteExisting: true,
+          });
+        } catch (generationError: any) {
+          console.error("Regeneration failed:", generationError);
+          setOutputForm(prev => ({
+            ...prev,
+            generatedContent:
+              `<span style="color:red">[${formatDateTime(new Date())}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email}${
+                generationError?.message ? ` — ${generationError.message}` : ""
+              }</span><br/>`
+              + prev.generatedContent,
+          }));
 
-        totalEmailTokensRef.current += bodyTokens;
-        totalEmailCostRef.current += bodyCost;
+          setIsProcessing(false);
+          setIsPitchUpdateCompleted(true);
+          setIsPaused(true);
+          return;
+        }
+
+        const generationTokens = generation.usage.totalTokens;
+        const generationCost = generation.usage.totalCost;
+
+        lastEmailTokens += generationTokens;
+        lastEmailCost += generationCost;
+
+        totalEmailTokensRef.current += generationTokens;
+        totalEmailCostRef.current += generationCost;
 
         lastEmailGenerations = 1;
         totalEmailCountRef.current += 1;
 
-        cost += bodyCost;
-        totaltokensused += bodyTokens;
+        cost += generationCost;
+        totaltokensused += generationTokens;
+
+        const subjectLine = generation.emailSubject;
         const displayPitch = mergeGeneratedPitchWithEmailTrail(
-          pitchData.response.content,
+          generation.emailBody,
           entry.email_body || entry.pitch,
         );
+
+        setOutputForm(prev => ({
+          ...prev,
+          currentPrompt: generation.finalPrompt,
+          searchResults: [],
+          allScrapedData: generation.webSearchData,
+        }));
+
+        setallprompt(prev => {
+          const updated = [...prev];
+          updated[index] = generation.finalPrompt;
+          return updated;
+        });
+
+        setContactInsights(index, {
+          webSearchData: generation.webSearchData,
+          searchResults: [],
+          notes: generation.notes,
+          emailContext: generation.emails,
+          linkedinInfo: generation.professionalSummary,
+        });
 
         setOutputForm(prev => ({
           ...prev,
@@ -2393,64 +1980,7 @@ const resolvePromptSafely = async () => {
           linkLabel: displayPitch,
         }));
 
-        // ✅ SUBJECT LOGIC UNCHANGED
-            const { isAI, manualTemplate } = getSubjectMode();
-            let subjectLine = "";
-
-            // --- CASE 1: AI SUBJECT ---
-            if (isAI) {
-              const filledSubjectInstruction = replaceAllPlaceholders(
-                subject_instruction,
-                {
-                  ...replacements,
-                  generated_pitch: pitchData.response?.content || "",
-                },
-              );
-
-              const subjectRequestBody = {
-                scrappedData: filledSubjectInstruction,
-                prompt: pitchData.response?.content,
-                ModelName: selectedModelNameA,
-              };
-
-              const subjectResponse = await fetch(
-                `${PITCH_GENERATION_API_BASE_URL}/api/auth/generatepitch`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(subjectRequestBody),
-                },
-              );
-
-              if (subjectResponse.ok) {
-                const subjectData = await subjectResponse.json();
-
-                subjectLine = subjectData.response?.content || "";
-
-                const subjectUsage = normalizeUsage(subjectData?.response);
-                const subjectTokens = subjectUsage.totalTokens;
-                const subjectCost = subjectUsage.currentCost;
-
-                lastEmailTokens += subjectTokens;
-                lastEmailCost += subjectCost;
-
-                totalEmailTokensRef.current += subjectTokens;
-                totalEmailCostRef.current += subjectCost;
-
-                cost += subjectCost;
-                totaltokensused += subjectTokens;
-              }
-            }
-
-            // --- CASE 2: MANUAL SUBJECT ---
-            else if (manualTemplate.trim()) {
-              subjectLine = replaceAllPlaceholders(manualTemplate, {
-                ...replacements,
-                generated_pitch: pitchData.response?.content || "",
-              });
-            }
-
-            setOutputForm(prev => ({
+        setOutputForm(prev => ({
           ...prev,
           usage: JSON.stringify({
             last: {
@@ -2467,40 +1997,7 @@ const resolvePromptSafely = async () => {
           emailSubject: subjectLine,
         }));
 
-
-
-
-      let updateSucceeded = false;
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/crm/contacts/update-email`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientId: effectiveUserId,
-            contactId: entry.id,
-            GPTGenerate: true,
-            emailSubject: subjectLine,
-            emailBody: pitchData.response.content,
-            campaignId: selectedCampaign ? parseInt(selectedCampaign) : null,
-            blueprintId: safePrompt?.id ?? null,
-          }),
-        });
-
-        updateSucceeded = response.ok;   // ✅ VALID (same scope)
-      } catch (e) {
-        console.error("Database update error:", e);
-      }
-        if (!updateSucceeded) {
-        setOutputForm(prev => ({
-          ...prev,
-          generatedContent:
-            `<span style="color: orange">[${formatDateTime(
-              new Date(),
-            )}] Updating contact in database incomplete for ${full_name}.</span><br/>`
-            + prev.generatedContent,
-        }));
-      } else {
+        // The backend saved the contact as part of the generation call.
         setOutputForm(prev => ({
           ...prev,
           generatedContent:
@@ -2529,8 +2026,6 @@ const resolvePromptSafely = async () => {
         } catch (creditError) {
           console.error("User credit API error:", creditError);
         }
-      }
-
 
         setAllResponses(prev =>
           prev.map(r =>
@@ -2539,12 +2034,8 @@ const resolvePromptSafely = async () => {
                   ...r,
                   pitch: displayPitch,
                   subject: subjectLine,
-                  // Refresh the "Krafted" date to reflect this regeneration,
-                  // mirroring the normal generation flow. Only when the DB
-                  // update succeeded so we don't show a false save time.
-                  ...(updateSucceeded
-                    ? { lastemailupdateddate: new Date().toISOString() }
-                    : {}),
+                  // Refresh the "Krafted" date to reflect this regeneration.
+                  lastemailupdateddate: new Date().toISOString(),
                 }
               : r,
           ),
@@ -2697,16 +2188,10 @@ const resolvePromptSafely = async () => {
           return;
         }
 
-        // Process the entry
-        const urlParam: string = `https://www.${entry.email.split("@")[1]}`;
+        // Process the entry — only the fields the log messages need; every
+        // other contact field is resolved server-side.
         try {
-          var company_name_friendly = entry.company_name;
           var full_name = entry.full_name;
-          var job_title = entry.job_title;
-          var location = entry.country_or_address;
-          var linkedin_url = entry.linkedin_url;
-          var emailbody = entry.email_body;
-          var website = entry.website;
           var company_name = entry.company_name;
 
           // Check if email already exists and if we should overwrite
@@ -2879,131 +2364,30 @@ const resolvePromptSafely = async () => {
             break;
           }
 
-          // Step 1: Scrape Website with caching
-          // ✅ Resolve notes dynamically from backend
-          const generationNotes = await fetchGenerationNotes(
-            effectiveUserId,
-            entry.id,
-          );
-          // ✅ Fetch past conversation when email history is ON, OR when the
-          // blueprint explicitly uses {use_email}/{use_emails}.
-          const emailConversationContext = (
-            isEmailHistoryEnabled(promptForRun) ||
-            shouldInjectPlaceholder(
-              "use_email",
-              systemInstructionsA,
-              promptForRun?.text || "",
-            ) ||
-            shouldInjectPlaceholder(
-              "use_emails",
-              systemInstructionsA,
-              promptForRun?.text || "",
-            )
-          )
-            ? await fetchEmailConversationContext(effectiveUserId, entry.id)
-            : "";
+          // 🚀 ONE BACKEND CALL PER CONTACT
+          // The API resolves notes, email history, professional summary, web
+          // research, the final prompt, the body and the subject, then saves
+          // the contact, deducts the credit and records kraft history.
+          const blueprintId = Number(promptForRun?.id);
 
-          let replacements = buildReplacements(entry, currentDate, {
-            urlParam,
-          });
+          if (!blueprintId) {
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              generatedContent:
+                `<span style="color: red">[${formatDateTime(
+                  new Date(),
+                )}] Error: Blueprint id missing — cannot kraft ${full_name}.</span><br/>` +
+                prevOutputForm.generatedContent,
+            }));
 
-          // ✅ Inject filtered notes into placeholder system
-          replacements.notes = generationNotes;
-          replacements.use_email = emailConversationContext;
-          replacements.use_emails = emailConversationContext;
-
-
-          const searchTermBody = replaceAllPlaceholders(
-            searchterm,
-            replacements,
-          );
-          const filledInstructions = replaceAllPlaceholders(
-            instructionsParamA,
-            replacements,
-          );
-
-          const summary = {};
-          const searchResults = [];
-          const scrappedData = "";
-
-          replacements = {
-            ...replacements,
-            search_output_summary: scrappedData || "",
-          };
-
-          let systemPrompt = replaceAllPlaceholders(
-            systemInstructionsA,
-            replacements,
-          );
-
-          let replacedPromptText = replaceAllPlaceholders(
-            promptForRun?.text || "",
-            replacements,
-          );
-
-          // ✅ Email history ON but no {use_email} placeholder → append conversation
-          replacedPromptText = appendEmailHistoryIfNeeded(
-            replacedPromptText,
-            promptForRun,
-            emailConversationContext,
-          );
-
-          const webSearchResult = await fillWebSearchDataForNonGpt(
-            replacedPromptText,
-            replacements,
-            promptForRun,
-            entry.id,
-          );
-          replacedPromptText = webSearchResult.promptText;
-          replacements.search_output_summary = webSearchResult.webSearchData || "";
-          const webSearchTokens = webSearchResult.usage.totalTokens;
-          const webSearchCost = webSearchResult.usage.currentCost;
-
-          lastEmailTokens += webSearchTokens;
-          lastEmailCost += webSearchCost;
-
-          totalEmailTokensRef.current += webSearchTokens;
-          totalEmailCostRef.current += webSearchCost;
-
-          cost += webSearchCost;
-          totaltokensused += webSearchTokens;
-
-          const promptToSend = `
-          ${systemPrompt}
-
-          ${replacedPromptText}
-          `;
+            moreRecords = false;
+            stopRef.current = true;
+            break;
+          }
 
           const promptTargetIndex = shouldReplaceFromIndex
             ? i
             : allResponses.length + generatedPitches.length;
-
-          setallprompt((prev) => {
-          const updated = [...prev];
-
-          if (promptTargetIndex < updated.length) {
-            updated[promptTargetIndex] = promptToSend;
-          } else {
-            updated.push(promptToSend);
-          }
-
-          return updated;
-        });
-
-          setContactInsights(promptTargetIndex, {
-            webSearchData: webSearchResult.webSearchData,
-            searchResults: webSearchResult.searchResults,
-            notes: generationNotes,
-            emailContext: emailConversationContext,
-            linkedinInfo: replacements.linkedin_info,
-          });
-
-          setOutputForm((prevState) => ({
-            ...prevState,
-            currentPrompt: promptToSend,
-            searchResults: webSearchResult.searchResults,
-            allScrapedData: webSearchResult.webSearchData,
-          }));
 
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
@@ -3016,28 +2400,17 @@ const resolvePromptSafely = async () => {
               }</span><br/>` + prevOutputForm.generatedContent,
           }));
 
-          const requestBody = {
-            scrappedData: systemPrompt,
-            prompt: replacedPromptText,
-            ModelName: selectedModelNameA,
-          };
-          const pitchResponse = await fetch(
-            `${PITCH_GENERATION_API_BASE_URL}/api/auth/generatepitch`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(requestBody),
-            },
-          );
+          let generation: GeneratedEmailResult;
+          try {
+            generation = await generateEmailViaBackend({
+              blueprintId,
+              contactId: entry.id,
+              clientId: effectiveUserId,
+              overwriteExisting: true,
+            });
+          } catch (generationError: any) {
+            console.error(`Generation failed for ${entry.email}:`, generationError);
 
-          const pitchData = await pitchResponse.json();
-          if (!pitchResponse.ok) {
-            const formattedTime = formatDateTime(new Date());
-
-
-           
-
-            
             setOutputForm((prevOutputForm) => ({
               ...prevOutputForm,
 
@@ -3046,9 +2419,10 @@ const resolvePromptSafely = async () => {
                   new Date(),
                 )}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${
                   entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-             
+                }${generationError?.message ? ` — ${generationError.message}` : ""}</span><br/>` +
+                prevOutputForm.generatedContent,
             }));
+
             generatedPitches.push({
               ...entry,
               pitch: "Error Crafting pitch",
@@ -3056,34 +2430,59 @@ const resolvePromptSafely = async () => {
             continue;
           }
 
-            successReq += 1;
+          successReq += 1;
 
-            const bodyUsage = normalizeUsage(pitchData.response);
-            const bodyTokens = bodyUsage.totalTokens;
-            const bodyCost = bodyUsage.currentCost;
+          const generationTokens = generation.usage.totalTokens;
+          const generationCost = generation.usage.totalCost;
 
-            // LAST
-// LAST
-lastEmailTokens += bodyTokens;
-lastEmailCost += bodyCost;
+          // LAST
+          lastEmailTokens += generationTokens;
+          lastEmailCost += generationCost;
 
-// TOTAL (persisted)
-totalEmailTokensRef.current += bodyTokens;
-totalEmailCostRef.current += bodyCost;
+          // TOTAL (persisted)
+          totalEmailTokensRef.current += generationTokens;
+          totalEmailCostRef.current += generationCost;
 
-// ✅ ONE EMAIL GENERATED (body is mandatory)
-lastEmailGenerations = 1;
-totalEmailCountRef.current += 1;
+          // ✅ ONE EMAIL GENERATED
+          lastEmailGenerations = 1;
+          totalEmailCountRef.current += 1;
 
+          // keep legacy totals
+          cost += generationCost;
+          totaltokensused += generationTokens;
 
-            // keep legacy totals
-            cost += bodyCost;
-            totaltokensused += bodyTokens;
-            const displayPitch = mergeGeneratedPitchWithEmailTrail(
-              pitchData.response.content,
-              entry.email_body || entry.pitch,
-            );
+          const subjectLine = generation.emailSubject;
+          const displayPitch = mergeGeneratedPitchWithEmailTrail(
+            generation.emailBody,
+            entry.email_body || entry.pitch,
+          );
 
+          setallprompt((prev) => {
+            const updated = [...prev];
+
+            if (promptTargetIndex < updated.length) {
+              updated[promptTargetIndex] = generation.finalPrompt;
+            } else {
+              updated.push(generation.finalPrompt);
+            }
+
+            return updated;
+          });
+
+          setContactInsights(promptTargetIndex, {
+            webSearchData: generation.webSearchData,
+            searchResults: [],
+            notes: generation.notes,
+            emailContext: generation.emails,
+            linkedinInfo: generation.professionalSummary,
+          });
+
+          setOutputForm((prevState) => ({
+            ...prevState,
+            currentPrompt: generation.finalPrompt,
+            searchResults: [],
+            allScrapedData: generation.webSearchData,
+          }));
 
           // Success: Update UI with the generated pitch
           setOutputForm((prevOutputForm) => ({
@@ -3095,13 +2494,6 @@ totalEmailCountRef.current += 1;
               )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${
                 entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
-     
-            
-          }));
-
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            linkLabel: displayPitch,
           }));
 
           generatedPitches.push({
@@ -3118,104 +2510,21 @@ totalEmailCountRef.current += 1;
             emailsentdate: entry.email_sent_at || "N/A",
           });
 
-          // Generate subject line
-
-          // ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
-          const { isAI, manualTemplate } = getSubjectMode();
-
-          let subjectLine = "";
-
-          // --- CASE 1: AI SUBJECT ---
-          if (isAI) {
-            const filledSubjectInstruction = replaceAllPlaceholders(
-              subject_instruction,
-              {
-                ...replacements,
-                generated_pitch: pitchData.response?.content || "",
-              },
-            );
-
-            const subjectRequestBody = {
-              scrappedData: filledSubjectInstruction,
-              prompt: pitchData.response?.content,
-              ModelName: selectedModelNameA,
-            };
-
-            const subjectResponse = await fetch(
-              `${PITCH_GENERATION_API_BASE_URL}/api/auth/generatepitch`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(subjectRequestBody),
-              },
-            );
-
-          if (subjectResponse.ok) {
-            const subjectData = await subjectResponse.json();
-
-            subjectLine = subjectData.response?.content || "";
-
-            const subjectUsage = normalizeUsage(subjectData?.response);
-            const subjectTokens = subjectUsage.totalTokens;
-            const subjectCost = subjectUsage.currentCost;
-
-            // LAST (same email)
-// LAST (same email)
-lastEmailTokens += subjectTokens;
-lastEmailCost += subjectCost;
-
-// TOTAL
-totalEmailTokensRef.current += subjectTokens;
-totalEmailCostRef.current += subjectCost;
-
-// ⚠️ DO NOT increment email count here
-// subject is part of SAME email
-
-
-            // legacy totals (if still used elsewhere)
-            cost += subjectCost;
-            totaltokensused += subjectTokens;
-          }
-
-
-          }
-
-          // --- CASE 2: MANUAL SUBJECT ---
-          else if (manualTemplate.trim()) {
-            subjectLine = replaceAllPlaceholders(manualTemplate, {
-              company_name,
-              job_title,
-              location,
-              full_name,
-              linkedin_url,
-              website,
-              date: currentDate,
-              search_output_summary: scrappedData || "",
-              generated_pitch: pitchData.response?.content || "",
-            });
-          }
-
-          // --- CASE 3: NOTHING ---
-          else {
-            subjectLine = "";
-          }
-          // ---------------- SUBJECT GENERATION END ----------------
           setOutputForm((prev) => ({
-  ...prev,
-  usage: JSON.stringify({
-    last: {
-      tokens: lastEmailTokens,
-      cost: Number(lastEmailCost.toFixed(6)),
-      emails: lastEmailGenerations, // always 1
-    },
-    total: {
-      tokens: totalEmailTokensRef.current,
-      cost: Number(totalEmailCostRef.current.toFixed(6)),
-      emails: totalEmailCountRef.current,
-    },
-  }),
-}));
-
+            ...prev,
+            usage: JSON.stringify({
+              last: {
+                tokens: lastEmailTokens,
+                cost: Number(lastEmailCost.toFixed(6)),
+                emails: lastEmailGenerations, // always 1
+              },
+              total: {
+                tokens: totalEmailTokensRef.current,
+                cost: Number(totalEmailCostRef.current.toFixed(6)),
+                emails: totalEmailCountRef.current,
+              },
+            }),
+          }));
 
           // Update the linkLabel to show both subject and pitch
           setOutputForm((prevOutputForm) => ({
@@ -3307,94 +2616,39 @@ totalEmailCostRef.current += subjectCost;
           setCurrentIndex(responseIndex);
           setRecentlyAddedOrUpdatedId(newResponse.id);
 
-          // ✅ Update database with new API (in main processing loop)
+          // ✅ The contact was already saved by the generation API — just
+          // reflect it in the log and refresh the credit balance.
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            generatedContent:
+              `<span style="color: green">[${formatDateTime(
+                new Date(),
+              )}] Updated pitch in database for ${full_name}.</span><br/>` +
+              prevOutputForm.generatedContent,
+          }));
+
+          if (isSoundEnabledRef.current) {
+            playSound();
+          }
+
           try {
-            if (entry.id && pitchData.response.content) {
-              const requestBody: any = {
-                clientId: effectiveUserId,
-                contactId: entry.id,
-                GPTGenerate: true,
-                emailSubject: subjectLine,
-                emailBody: pitchData.response.content,
-                campaignId: selectedCampaign ? parseInt(selectedCampaign) : null,
-                blueprintId: promptForRun?.id ?? null,
-              };
+            const userCreditResponse = await fetch(
+              `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`,
+            );
+            if (!userCreditResponse.ok)
+              throw new Error("Failed to fetch user credit");
 
-              // Add segmentId or dataFileId based on priority
-              if (segmentId) {
-                requestBody.segmentId = segmentId;
-              } else if (parsedDataFileId) {
-                requestBody.dataFileId = parsedDataFileId;
-              }
+            const userCreditData = await userCreditResponse.json();
+            dispatch(saveUserCredit(userCreditData));
 
-              const updateContactResponse = await fetch(
-                `${API_BASE_URL}/api/crm/contacts/update-email`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify(requestBody),
-                },
-              );
-
-              if (!updateContactResponse.ok) {
-                const updateContactError = await updateContactResponse.json();
-                setOutputForm((prevOutputForm) => ({
-                  ...prevOutputForm,
-                  generatedContent:
-                    `<span style="color: orange">[${formatDateTime(
-                      new Date(),
-                    )}] Updating contact in database incomplete for ${full_name}. Error: ${
-                      updateContactError.Message || "Unknown error"
-                    }</span><br/>` + prevOutputForm.generatedContent,
-                }));
-                if (isSoundEnabledRef.current) {
-                  playSound();
-                }
-              } else {
-                setOutputForm((prevOutputForm) => ({
-                  ...prevOutputForm,
-                  generatedContent:
-                    `<span style="color: green">[${formatDateTime(
-                      new Date(),
-                    )}] Updated pitch in database for ${full_name}.</span><br/>` +
-                    prevOutputForm.generatedContent,
-                }));
-                if (isSoundEnabledRef.current) {
-                  playSound();
-                }
-                try {
-                  const userCreditResponse = await fetch(
-                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`,
-                  );
-                  if (!userCreditResponse.ok)
-                    throw new Error("Failed to fetch user credit");
-
-                  const userCreditData = await userCreditResponse.json();
-                  console.log("User credit data:", userCreditData);
-                  dispatch(saveUserCredit(userCreditData));
-
-                  // Dispatch custom event to notify credit update
-                  window.dispatchEvent(
-                    new CustomEvent("creditUpdated", {
-                      detail: { clientId: effectiveUserId },
-                    }),
-                  );
-                } catch (creditError) {
-                  console.error("User credit API error:", creditError);
-                }
-              }
-            }
-          } catch (updateError) {
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date(),
-                )}] Database update error for ${full_name}.</span><br/>` +
-                prevOutputForm.generatedContent,
-            }));
+            // Dispatch custom event to notify credit update
+            window.dispatchEvent(
+              new CustomEvent("creditUpdated", {
+                detail: { clientId: effectiveUserId },
+              }),
+            );
+          } catch (creditError) {
+            console.error("User credit API error:", creditError);
           }
 
           console.log("Delaying " + delayTime + " secs");
@@ -3701,7 +2955,10 @@ totalEmailCostRef.current += subjectCost;
     setAllRecordsProcessed(false);
     setIsStarted(true);
     setIsPaused(false);
-    //setIsProcessing(true);
+    // Flip the button to Stop immediately — goToTab only reaches its own
+    // setIsProcessing(true) after the credit check and blueprint load, which
+    // left the button showing "Start" for a few network round trips.
+    setIsProcessing(true);
     stopRef.current = false;
 
     goToTab("Output", {

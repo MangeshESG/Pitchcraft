@@ -249,6 +249,9 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   const [previewEmails, setPreviewEmails] = useState("");
   const [previewNotes, setPreviewNotes] = useState("");
   const [previewProfessionalSummary, setPreviewProfessionalSummary] = useState("");
+  // Device-preview width for the body editor ("" = desktop).
+  const [previewWidth, setPreviewWidth] = useState("");
+  const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
   const signatureSelector = "[data-compose-email-signature]";
 
   const getComposeSignatureBlock = (signature: string) =>
@@ -285,6 +288,8 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       setBccEmailDraft("");
       setIsGenerating(false);
       setHasGeneratedBody(false);
+      setPreviewWidth("");
+      setOpenDeviceDropdown(false);
     }
   }, [isOpen]);
 
@@ -602,17 +607,43 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
           </div>
 
           <div>
-            <RichTextEditor
-              value={emailBody}
-              onChange={setEmailBody}
-              height={360}
-              showActionButtons={hasGeneratedBody}
-              finalPrompt={previewFinalPrompt}
-              webSearchData={previewWebSearchData}
-              insightEmails={previewEmails}
-              insightNotes={previewNotes}
-              insightProfessionalSummary={previewProfessionalSummary}
-            />
+            <div
+              style={{
+                width: "100%",
+                maxWidth:
+                  previewWidth === "Mobile"
+                    ? 480
+                    : previewWidth === "Tab"
+                      ? 768
+                      : "100%",
+                margin: "0 auto",
+              }}
+            >
+              <RichTextEditor
+                value={emailBody}
+                onChange={setEmailBody}
+                height={360}
+                showActionButtons={hasGeneratedBody}
+                onRegenerate={handleGenerate}
+                isRegenerating={isGenerating}
+                regenerateDisabled={!selectedBlueprintId}
+                showDeviceButton
+                outputEmailWidth={previewWidth}
+                openDeviceDropdown={openDeviceDropdown}
+                onDeviceDropdownToggle={() =>
+                  setOpenDeviceDropdown((prev) => !prev)
+                }
+                onDeviceWidthChange={(width) => {
+                  setPreviewWidth(width);
+                  setOpenDeviceDropdown(false);
+                }}
+                finalPrompt={previewFinalPrompt}
+                webSearchData={previewWebSearchData}
+                insightEmails={previewEmails}
+                insightNotes={previewNotes}
+                insightProfessionalSummary={previewProfessionalSummary}
+              />
+            </div>
             <div
               style={{
                 minHeight: 28,

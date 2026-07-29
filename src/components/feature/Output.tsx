@@ -317,202 +317,6 @@ const OutputLogBanner: React.FC<{
   );
 };
 
-const WebResearchCards: React.FC<{ content: string }> = ({ content }) => {
-  const data = repairAndParseJsonObject(content);
-
-  if (!data) {
-    return (
-      <div style={{ padding: '10px', border: '1px solid #e8eaee', borderRadius: '8px', lineHeight: 1.6, fontSize: '13px' }}>
-        <ReactMarkdown>{content}</ReactMarkdown>
-      </div>
-    );
-  }
-
-  const cardStyle: React.CSSProperties = {
-    background: '#fff', borderRadius: '12px', border: '1px solid #e8eaee', padding: '16px 18px',
-  };
-
-  const iconMap: Record<string, string> = {
-    company_overview: '🏢', overview: '🏢', company: '🏢',
-    key_findings: '💡', findings: '💡', insights: '🔍',
-    recent_news: '📰', news: '📰', updates: '📰',
-    event_insights: '🗓', events: '🗓', event: '📅',
-    personalization_angle: '✉️', personalization: '✉️',
-    summary: '📋', products: '📦', services: '🛠',
-    leadership: '👤', funding: '💰', competitors: '⚡',
-    pain_points: '🎯', opportunities: '🌱', technology: '💻',
-    social_media: '📱', contact: '📞',
-  };
-
-  const getIcon = (key: string) =>
-    iconMap[key] || iconMap[Object.keys(iconMap).find(k => key.toLowerCase().includes(k)) || ''] || '📌';
-
-  const fmtKey = (key: string) =>
-    key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-
-  const renderValue = (value: any): React.ReactNode => {
-    if (value === null || value === undefined) return null;
-
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      return <p style={{ margin: 0, fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>{String(value)}</p>;
-    }
-
-    if (Array.isArray(value)) {
-      if (value.length === 0) return null;
-
-      // Array of primitives → checkmark list
-      if (typeof value[0] !== 'object') {
-        return (
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '7px' }}>
-            {value.map((item, i) => (
-              <li key={i} style={{ display: 'flex', gap: '8px', fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>
-                <span style={{ color: '#22c55e', flexShrink: 0, marginTop: '1px' }}>✔</span>
-                {String(item)}
-              </li>
-            ))}
-          </ul>
-        );
-      }
-
-      // Array of objects → smart rows
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {value.map((item: Record<string, any>, i) => {
-            const entries = Object.entries(item).filter(([, v]) => v != null && String(v).trim() !== '');
-            if (entries.length === 0) return null;
-
-            // Detect a "date-like" field and treat the rest as the main content
-            const dateEntry = entries.find(([k]) => /^(date|time|published|when|at)$/i.test(k));
-            const contentEntries = entries.filter(([k]) => !/^(date|time|published|when|at)$/i.test(k));
-
-            if (dateEntry && contentEntries.length > 0) {
-              const mainText = contentEntries.map(([, v]) => String(v)).join(' — ');
-              return (
-                <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: '11px', color: '#6b7280', whiteSpace: 'nowrap', marginTop: '2px', minWidth: '70px' }}>
-                    {String(dateEntry[1])}
-                  </span>
-                  <span style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>
-                    <span style={{ color: '#3f9f42', marginRight: '6px' }}>◆</span>{mainText}
-                  </span>
-                </div>
-              );
-            }
-
-            // Generic object row
-            return (
-              <div key={i} style={{ padding: '8px 10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                {entries.map(([k, v]) => (
-                  <div key={k} style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>
-                    <span style={{ fontWeight: 500 }}>{fmtKey(k)}: </span>{String(v)}
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    // Plain object → description-first, then badges (short values) or rows (long values)
-    if (typeof value === 'object') {
-      const entries = Object.entries(value).filter(([, v]) => v != null && String(v).trim() !== '');
-      if (entries.length === 0) return null;
-
-      const descEntry = entries.find(([k]) => /description|summary|overview|about/i.test(k));
-      const rest = entries.filter(([k]) => !/description|summary|overview|about/i.test(k));
-      // Use row layout when any value is longer than 35 chars (e.g. event_insights focus/attendees)
-      const useBadges = !rest.some(([, v]) => String(v).length > 35);
-
-      return (
-        <div>
-          {descEntry && (
-            <p style={{ fontSize: '13px', color: '#374151', marginBottom: '10px', lineHeight: 1.55, marginTop: 0 }}>
-              {String(descEntry[1])}
-            </p>
-          )}
-          {rest.length > 0 && (
-            useBadges ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {rest.map(([k, v]) => {
-                  const strVal = String(v);
-                  const isUrl = /^https?:\/\//i.test(strVal) || /website|url|link/i.test(k);
-                  if (isUrl) {
-                    const href = /^https?:\/\//i.test(strVal) ? strVal : `https://${strVal}`;
-                    return (
-                      <a key={k} href={href} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: '11.5px', background: '#f0fdf4', padding: '3px 10px', borderRadius: '99px', border: '1px solid #bbf7d0', color: '#15803d', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                        🔗 {strVal}
-                      </a>
-                    );
-                  }
-                  return (
-                    <span key={k} style={{ fontSize: '11.5px', background: '#f1f5f9', padding: '3px 10px', borderRadius: '99px', border: '1px solid #e2e8f0', color: '#374151', whiteSpace: 'nowrap' }}>
-                      <span style={{ color: '#6b7280' }}>{fmtKey(k)}: </span>{strVal}
-                    </span>
-                  );
-                })}
-              </div>
-            ) : (
-              // Long values → labeled rows (e.g. event_insights)
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-                {rest.map(([k, v]) => {
-                  const strVal = String(v);
-                  const isUrl = /^https?:\/\//i.test(strVal) || /website|url|link/i.test(k);
-                  return (
-                    <div key={k} style={{ display: 'flex', gap: '8px', fontSize: '13px', alignItems: 'flex-start' }}>
-                      <span style={{ fontWeight: 500, flexShrink: 0, color: '#6b7280', minWidth: '80px' }}>{fmtKey(k)}:</span>
-                      {isUrl ? (
-                        <a href={/^https?:\/\//i.test(strVal) ? strVal : `https://${strVal}`} target="_blank" rel="noopener noreferrer"
-                          style={{ color: '#15803d', textDecoration: 'none' }}>🔗 {strVal}</a>
-                      ) : (
-                        <span style={{ color: '#374151', lineHeight: 1.5 }}>{strVal}</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )
-          )}
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  const entries = Object.entries(data).filter(([, v]) => {
-    if (v === null || v === undefined) return false;
-    if (typeof v === 'string' && v.trim() === '') return false;
-    if (Array.isArray(v) && v.length === 0) return false;
-    return true;
-  });
-
-  return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-        {entries.map(([key, value]) => {
-          const isFullWidth = typeof value === 'string';
-          return (
-            <div key={key} style={{ ...cardStyle, ...(isFullWidth ? { gridColumn: '1 / -1', background: '#f8fafc', borderColor: '#e2e8f0' } : {}) }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '17px' }}>{getIcon(key)}</span>
-                <span style={{ fontWeight: 600, fontSize: '13.5px', color: '#111827' }}>{fmtKey(key)}</span>
-              </div>
-              {renderValue(value)}
-            </div>
-          );
-        })}
-      </div>
-      {entries.length > 0 && (
-        <div style={{ marginTop: '12px', padding: '8px 14px', background: '#f8fafc', borderRadius: '8px', fontSize: '11.5px', color: '#6b7280', textAlign: 'center', border: '1px solid #e8eaee' }}>
-          ✦ These insights are automatically gathered to help personalize and craft highly relevant emails.
-        </div>
-      )}
-    </div>
-  );
-};
-
 const Output: React.FC<OutputInterface> = ({
   outputForm,
   outputFormHandler,
@@ -631,26 +435,12 @@ const Output: React.FC<OutputInterface> = ({
   };
 
   const [tab2, setTab2] = useState("Output");
-  const [tab3, setTab3] = useState("Stages");
   const tabHandler2 = (e: React.ChangeEvent<any>) => {
     const { innerText } = e.target;
-    console.log(innerText, "innerText");
     setTab2(innerText);
-    if (innerText === "Insights") {
-      setTab3("Online research");
-    }
-    if (innerText === "Stages") {
-      setTab3("Stages");
-    }
   };
 
   const [emailLoading, setEmailLoading] = useState(false); // Loading state for fetching email data
-
-  const tabHandler3 = (e: React.ChangeEvent<any>) => {
-    const { innerText } = e.target;
-    console.log(innerText, "innerText");
-    setTab3(innerText);
-  };
 
   const getDisplayText = (value: any, fallback = "No information available.") => {
     if (Array.isArray(value)) {
@@ -708,237 +498,6 @@ const Output: React.FC<OutputInterface> = ({
       .replace(/(#{1,6} .+)\n{2,}(?=(-|\d+\.|\*\*))/g, "$1\n")
       .trim();
   };
-
-  const compactEmailHtml = (html: string) => {
-    const sanitized = DOMPurify.sanitize(
-      (html || "No email context available.").replace(/\n/g, "<br/>"),
-    );
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(sanitized, "text/html");
-
-    const hasVisibleContent = (node: HTMLElement) => {
-      const text = node.textContent?.replace(/\s|\u00a0/g, "") || "";
-      const hasMedia = !!node.querySelector("img, table, a, hr");
-      const hasBackgroundImage = /background-image\s*:/i.test(
-        node.getAttribute("style") || "",
-      );
-
-      return Boolean(text || hasMedia || hasBackgroundImage);
-    };
-
-    doc.body
-      .querySelectorAll<HTMLElement>("p, div, span, tr, td, th")
-      .forEach((node) => {
-        if (!hasVisibleContent(node)) {
-          node.remove();
-        }
-      });
-
-    doc.body.querySelectorAll("br").forEach((br) => {
-      const previous = br.previousSibling;
-      const next = br.nextSibling;
-
-      if (
-        previous?.nodeName === "BR" ||
-        (!previous && next?.nodeName === "BR")
-      ) {
-        br.remove();
-      }
-    });
-
-    doc.body.querySelectorAll<HTMLElement>("tr, td, th").forEach((node) => {
-      if (!hasVisibleContent(node)) {
-        node.remove();
-      }
-    });
-
-    doc.body.querySelectorAll<HTMLElement>("*").forEach((node) => {
-      node.removeAttribute("height");
-      node.style.marginTop = "0";
-      node.style.marginBottom = "4px";
-      node.style.paddingTop = "0";
-      node.style.paddingBottom = "0";
-      node.style.height = "auto";
-      node.style.minHeight = "0";
-      node.style.lineHeight = node.style.lineHeight || "1.35";
-    });
-
-    return doc.body.innerHTML;
-  };
-
-  const renderInsightBody = (
-    text: string,
-    variant: "text" | "markdown" | "html",
-    isModal = false,
-  ) => {
-    const commonStyle: React.CSSProperties = {
-      width: "100%",
-      padding: "10px",
-      border: "1px solid #ccc",
-      borderRadius: "4px",
-      fontFamily: "inherit",
-      fontSize: "inherit",
-      whiteSpace: variant === "text" ? "pre-wrap" : "normal",
-      wordBreak: "break-word",
-      overflowWrap: "anywhere",
-      overflowX: "hidden",
-      overflowY: isModal ? "auto" : "visible",
-      height: isModal ? "800px" : "auto",
-      boxSizing: "border-box",
-      lineHeight: 1.45,
-    };
-
-    if (variant === "html") {
-      return (
-        <div
-          style={commonStyle}
-          dangerouslySetInnerHTML={{
-            __html: compactEmailHtml(text),
-          }}
-        />
-      );
-    }
-
-    if (variant === "markdown") {
-      return (
-        <div style={commonStyle}>
-          <ReactMarkdown
-            components={{
-              p: ({ children }) => (
-                <p style={{ margin: "0 0 8px", lineHeight: 1.45 }}>
-                  {children}
-                </p>
-              ),
-              h1: ({ children }) => (
-                <h1 style={{ margin: "0 0 6px", fontSize: "1.2em", lineHeight: 1.3 }}>
-                  {children}
-                </h1>
-              ),
-              h2: ({ children }) => (
-                <h2 style={{ margin: "0 0 6px", fontSize: "1.1em", lineHeight: 1.3 }}>
-                  {children}
-                </h2>
-              ),
-              h3: ({ children }) => (
-                <h3 style={{ margin: "0 0 6px", fontSize: "1em", lineHeight: 1.3 }}>
-                  {children}
-                </h3>
-              ),
-              ul: ({ children }) => (
-                <ul style={{ margin: "0 0 8px 18px", padding: 0 }}>
-                  {children}
-                </ul>
-              ),
-              ol: ({ children }) => (
-                <ol style={{ margin: "0 0 8px 18px", padding: 0 }}>
-                  {children}
-                </ol>
-              ),
-              li: ({ children }) => (
-                <li style={{ margin: "0 0 4px", lineHeight: 1.45 }}>
-                  {children}
-                </li>
-              ),
-              a: ({ children, href }) => (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: "#2563eb", textDecoration: "underline" }}
-                >
-                  {children}
-                </a>
-              ),
-            }}
-          >
-            {text}
-          </ReactMarkdown>
-        </div>
-      );
-    }
-
-    return <pre style={commonStyle}>{text}</pre>;
-  };
-
-  // Consistent-font empty state shown when an insight tab has no information.
-  const renderEmptyInsight = (message: string) => (
-    <div className="form-group">
-      <div className="d-flex mb-10"></div>
-      <div
-        style={{
-          width: "100%",
-          padding: "10px",
-          border: "1px solid #ccc",
-          borderRadius: "4px",
-          fontFamily: "inherit",
-          fontSize: "inherit",
-          lineHeight: 1.45,
-          color: "#374151",
-          boxSizing: "border-box",
-        }}
-      >
-        {message}
-      </div>
-    </div>
-  );
-
-  const renderInsightPre = (
-    text: string,
-    modalId: string,
-    title: string,
-    variant: "text" | "markdown" | "html" = "text",
-  ) => (
-    <div className="form-group">
-      <div className="d-flex mb-10"></div>
-      <span className="pos-relative d-flex justify-start">
-        {renderInsightBody(text, variant)}
-
-        <Modal
-          show={openModals[modalId]}
-          closeModal={() => handleModalClose(modalId)}
-          buttonLabel="Ok"
-          size="90%"
-        >
-          <label>{title}</label>
-          {renderInsightBody(text, variant, true)}
-        </Modal>
-        <button
-          className="full-view-icon d-flex align-center justify-center"
-          onClick={() => handleModalOpen(modalId)}
-        >
-          <svg width="40px" height="40px" viewBox="0 0 512 512">
-            <polyline
-              points="304 96 416 96 416 208"
-              fill="none"
-              stroke="#000000"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="32"
-            />
-            <line
-              x1="405.77"
-              y1="106.2"
-              x2="111.98"
-              y2="400.02"
-              fill="none"
-              stroke="#000000"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="32"
-            />
-            <polyline
-              points="208 416 96 416 96 304"
-              fill="none"
-              stroke="#000000"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="32"
-            />
-          </svg>
-        </button>
-      </span>
-    </div>
-  );
 
   const clearContent = () => {
     setOutputForm((prevOutputForm: any) => ({
@@ -1602,6 +1161,56 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
   const toggleOutputEmailWidth = (deviceName: string) => {
     setOutputEmailWidth(deviceName);
     setOpenDeviceDropdown(false);
+  };
+
+  // Regenerate the current contact's email. Shared by the preview toolbar and
+  // the editor action bar so both behave identically (credit check included).
+  const handleRegenerateCurrentContact = async () => {
+    if (showCreditModal) return;
+    if (regenerateClickInFlightRef.current) return;
+    regenerateClickInFlightRef.current = true;
+
+    const currentContact = combinedResponses[currentIndex];
+    if (!currentContact) {
+      alert("No contact selected to regenerate pitch for.");
+      regenerateClickInFlightRef.current = false;
+      return;
+    }
+    if (!onRegenerateContact) {
+      alert("Regenerate logic not wired up! Consult admin.");
+      regenerateClickInFlightRef.current = false;
+      return;
+    }
+
+    if (sessionStorage.getItem("isDemoAccount") !== "true") {
+      const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+      const currentCredits = await checkUserCredits?.(effectiveUserId);
+      const canGenerate =
+        typeof currentCredits === "number"
+          ? currentCredits > 0
+          : currentCredits && typeof currentCredits === "object"
+            ? currentCredits.canGenerate !== false &&
+              Number((currentCredits as any).total ?? 0) > 0
+            : false;
+      if (!canGenerate) {
+        regenerateClickInFlightRef.current = false;
+        return;
+      }
+    }
+
+    setIsRegenerating(true);
+    setRegenerationTargetId(currentContact.id);
+
+    try {
+      await onRegenerateContact("Output", {
+        regenerate: true,
+        regenerateIndex: currentIndex,
+      });
+    } finally {
+      setIsRegenerating(false);
+      setRegenerationTargetId(null);
+      regenerateClickInFlightRef.current = false;
+    }
   };
 
   //-----------------------------------------
@@ -2843,7 +2452,7 @@ const [editingIndex, setEditingIndex] = useState<number | null>(null);
               sendEmailsInBulk(start, end);
             }
           }}
-           onStart={async () => {
+           onStart={() => {
           if (showCreditModal) {
             return;
           }
@@ -2853,30 +2462,18 @@ const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
           kraftStartClickInFlightRef.current = true;
 
-          try {
-            if (
-              sessionStorage.getItem("isDemoAccount") !== "true"
-            ) {
-              const effectiveUserId =
-                selectedClient !== "" ? selectedClient : userId;
-              const currentCredits =
-                await checkUserCredits?.(effectiveUserId);
-              const canGenerate =
-                typeof currentCredits === "number"
-                  ? currentCredits > 0
-                  : currentCredits && typeof currentCredits === "object"
-                    ? currentCredits.canGenerate !== false && Number((currentCredits as any).total ?? 0) > 0
-                    : false;
-              if (!canGenerate) {
-                return;
-              }
-            }
+          // Called without await so the button flips to Stop on this click —
+          // handleStart sets isProcessing synchronously and runs its own credit
+          // check (goToTab -> ensureCanGenerateWithCredits), so the extra
+          // round trip that used to happen here is gone.
+          const startIdx =
+            kraftEnableIndexRange && kraftStartIndex
+              ? parseInt(kraftStartIndex) - 1
+              : undefined;
 
-            const startIdx = kraftEnableIndexRange && kraftStartIndex ? parseInt(kraftStartIndex) - 1 : undefined;
-            await handleStart?.(startIdx);
-          } finally {
+          Promise.resolve(handleStart?.(startIdx)).finally(() => {
             kraftStartClickInFlightRef.current = false;
-          }
+          });
         }}
         onStop={handleStop}
         isResetEnabled={isResetEnabled}
@@ -3040,26 +2637,6 @@ const [editingIndex, setEditingIndex] = useState<number | null>(null);
                       </button>
                     </li>
 
-                    {userRole === "ADMIN" && (
-                      <li>
-                        <button
-                          onClick={tabHandler2}
-                          className={`button ${tab2 === "Stages" ? "active" : ""}`}
-                        >
-                          Stages
-                        </button>
-                      </li>
-                    )}
-                    {userRole === "ADMIN" && (
-                      <li>
-                        <button
-                          onClick={tabHandler2}
-                          className={`button ${tab2 === "Insights" ? "active" : ""}`}
-                        >
-                          Insights
-                        </button>
-                      </li>
-                    )}
                     <li></li>
                   </ul>
                   {/* {!isDemoAccount && (
@@ -3544,6 +3121,32 @@ const [editingIndex, setEditingIndex] = useState<number | null>(null);
                               onChange={setEditableContent}
                               height={500}
                               autoGrow
+                              showActionButtons
+                              isCopyText={isCopyText}
+                              onCopyToClipboard={copyToClipboardHandler}
+                              onRegenerate={handleRegenerateCurrentContact}
+                              isRegenerating={isRegenerating}
+                              regenerateDisabled={
+                                !combinedResponses[currentIndex] || !isResetEnabled
+                              }
+                              showDeviceButton
+                              outputEmailWidth={outputEmailWidth}
+                              openDeviceDropdown={openDeviceDropdown}
+                              onDeviceDropdownToggle={() =>
+                                setOpenDeviceDropdown(!openDeviceDropdown)
+                              }
+                              onDeviceWidthChange={toggleOutputEmailWidth}
+                              onExpandEditor={() => handleModalOpen("modal-output-2")}
+                              finalPrompt={allprompt[currentIndex] || ""}
+                              // Pass "" when a tab has no real information so the
+                              // editor shows its own empty state instead of the
+                              // placeholder text with a ✓ tick.
+                              webSearchData={hasOnlineResearch ? onlineResearchText : ""}
+                              insightEmails={hasEmails ? emailInsightText : ""}
+                              insightNotes={hasNotes ? notesUsedText : ""}
+                              insightProfessionalSummary={
+                                hasProfessionalSummary ? linkedinInsightText : ""
+                              }
                             />
 
                             <div className="editor-actions mt-10 d-flex">
@@ -3572,597 +3175,60 @@ const [editingIndex, setEditingIndex] = useState<number | null>(null);
                             </div>
                           </div>
                         ) : (
-                          <>
-                            <div
-                              className="textarea-full-height preview-content-area"
-                              style={{
-                                minHeight: "500px",
-                                padding: "10px",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px",
-                                fontFamily: "inherit",
-                                fontSize: "inherit",
-                                whiteSpace: "normal",
-                                overflowY: "auto",
-                                overflowX: "auto",
-                                boxSizing: "border-box",
-                                wordWrap: "break-word",
-                                width: "100%",
-                                maxWidth: `${outputEmailWidth === "Mobile"
-                                    ? "480px"
-                                    : outputEmailWidth === "Tab"
-                                      ? "768px"
-                                      : "100%"
-                                  }`,
+                          <div
+                            className="editor-container"
+                            style={{
+                              width: "100%",
+                              maxWidth: `${outputEmailWidth === "Mobile"
+                                  ? "480px"
+                                  : outputEmailWidth === "Tab"
+                                    ? "768px"
+                                    : "100%"
+                                }`,
+                            }}
+                          >
+                            {/* Read-only view of the krafted email. All controls
+                                (insights, highlights, edit, regenerate, copy,
+                                device preview, expand, final prompt) live in the
+                                editor toolbar. */}
+                            <RichTextEditor
+                              value={displayedPitch}
+                              onChange={() => {}}
+                              readOnly
+                              height={500}
+                              autoGrow
+                              showActionButtons
+                              isCopyText={isCopyText}
+                              onCopyToClipboard={copyToClipboardHandler}
+                              onEdit={() => {
+                                const pitch =
+                                  combinedResponses[currentIndex]?.pitch || "";
+                                setEditableContent(pitch);
+                                setEditingIndex(currentIndex); // 🔒 lock index
+                                setIsEditing(true);
                               }}
-                              dangerouslySetInnerHTML={{
-                                __html: displayedPitch,
-                              }}
-
-                            ></div>
-                            <div className="output-email-floated-icons floated-icons-green d-flex bg-[#ffffff] rounded-md">
-                              <div className="d-flex align-items-center justify-between flex-col-991" style={{ order: 1 }}>
-                                <div className="d-flex relative">
-                                  <button
-                                    onClick={() =>
-                                      setOpenDeviceDropdown(!openDeviceDropdown)
-                                    }
-                                    className="w-[55px] justify-center px-3 py-2 bg-gray-200 rounded-md flex items-center device-icon"
-                                    style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
-                                  >
-                                    {outputEmailWidth === "Mobile" && (
-                                      <>
-                                        <ReactTooltip
-                                          anchorSelect="#mobile-device-view"
-                                          place="left"
-                                        >
-                                          Mobile view
-                                        </ReactTooltip>
-                                        <span id="mobile-device-view">
-                                          {/* Mobile icon */}
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="25px"
-                                            height=""
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                          >
-                                            <path
-                                              d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
-                                              stroke="#000000"
-                                              strokeWidth="2"
-                                              stroke-linecap="round"
-                                              stroke-linejoin="round"
-                                            ></path>
-                                          </svg>
-                                        </span>
-                                      </>
-                                    )}
-                                    {outputEmailWidth === "Tab" && (
-                                      <>
-                                        <ReactTooltip
-                                          anchorSelect="#tab-device-view"
-                                          place="left"
-                                        >
-                                          Tab view
-                                        </ReactTooltip>
-                                        <span id="tab-device-view">
-                                          {/* Tab icon */}
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="25px"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                          >
-                                            <rect
-                                              x="4"
-                                              y="3"
-                                              width="16"
-                                              height="18"
-                                              rx="1"
-                                              stroke="#200E32"
-                                              strokeWidth="2"
-                                              strokeLinecap="round"
-                                            />
-                                            <circle
-                                              cx="12"
-                                              cy="18"
-                                              r="1"
-                                              fill="#200E32"
-                                            />
-                                          </svg>
-                                        </span>
-                                      </>
-                                    )}
-                                    {outputEmailWidth === "" && (
-                                      <>
-                                        <ReactTooltip
-                                          anchorSelect="#desktop-device-view"
-                                          place="left"
-                                        >
-                                          Desktop view
-                                        </ReactTooltip>
-                                        <span id="desktop-device-view">
-                                          {/* Desktop icon */}
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            xmlnsXlink="http://www.w3.org/1999/xlink"
-                                            width="25px"
-                                            viewBox="0 0 24 24"
-                                            version="1.1"
-                                          >
-                                            <title>Desktop</title>
-                                            <g
-                                              stroke="none"
-                                              strokeWidth="1"
-                                              fill="none"
-                                              fillRule="evenodd"
-                                            >
-                                              <g>
-                                                <rect
-                                                  x="0"
-                                                  y="0"
-                                                  width="24"
-                                                  height="24"
-                                                  fillRule="nonzero"
-                                                />
-                                                <rect
-                                                  x="3"
-                                                  y="4"
-                                                  width="18"
-                                                  height="13"
-                                                  rx="2"
-                                                  stroke="#0C0310"
-                                                  strokeWidth="2"
-                                                  strokeLinecap="round"
-                                                />
-                                                <line
-                                                  x1="7.5"
-                                                  y1="21"
-                                                  x2="16.5"
-                                                  y2="21"
-                                                  stroke="#0C0310"
-                                                  strokeWidth="2"
-                                                  strokeLinecap="round"
-                                                />
-                                                <line
-                                                  x1="12"
-                                                  y1="17"
-                                                  x2="12"
-                                                  y2="21"
-                                                  stroke="#0C0310"
-                                                  strokeWidth="2"
-                                                  strokeLinecap="round"
-                                                />
-                                              </g>
-                                            </g>
-                                          </svg>
-                                        </span>
-                                      </>
-                                    )}
-                                  </button>
-                                  {openDeviceDropdown && (
-                                    <div className="w-[55px] absolute right-0 mt-[35px] bg-[#eeeeee] pt-[5px] rounded-b-md rounded-t-none d-flex flex-col output-responsive-button-group justify-center-991 col-12-991">
-                                      {outputEmailWidth !== "Mobile" && (
-                                        <>
-                                          <ReactTooltip
-                                            anchorSelect="#mobile-device-view"
-                                            place="left"
-                                          >
-                                            Mobile view
-                                          </ReactTooltip>
-                                          <button
-                                            id="mobile-device-view"
-                                            className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
-                              ${outputEmailWidth === "Mobile" &&
-                                              "bg-active"
-                                              }
-                              `}
-                                            onClick={() =>
-                                              toggleOutputEmailWidth("Mobile")
-                                            }
-                                          >
-                                            <svg
-                                              xmlns="http://www.w3.org/2000/svg"
-                                              width="25px"
-                                              height=""
-                                              viewBox="0 0 24 24"
-                                              fill="none"
-                                            >
-                                              <path
-                                                d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
-                                                stroke="#000000"
-                                                strokeWidth="2"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                              ></path>
-                                            </svg>
-                                            {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
-                                          </button>
-                                        </>
-                                      )}
-
-                                      {outputEmailWidth !== "Tab" && (
-                                        <>
-                                          <ReactTooltip
-                                            anchorSelect="#tab-device-view"
-                                            place="left"
-                                          >
-                                            Tab view
-                                          </ReactTooltip>
-                                          <button
-                                            id="tab-device-view"
-                                            className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-tab justify-center
-                            ${outputEmailWidth === "Tab" && "bg-active"}
-                            `}
-                                            onClick={() =>
-                                              toggleOutputEmailWidth("Tab")
-                                            }
-                                          >
-                                            <svg
-                                              xmlns="http://www.w3.org/2000/svg"
-                                              width="25px"
-                                              viewBox="0 0 24 24"
-                                              fill="none"
-                                            >
-                                              <rect
-                                                x="4"
-                                                y="3"
-                                                width="16"
-                                                height="18"
-                                                rx="1"
-                                                stroke="#200E32"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                              />
-                                              <circle
-                                                cx="12"
-                                                cy="18"
-                                                r="1"
-                                                fill="#200E32"
-                                              />
-                                            </svg>
-                                            {/* <span className="ml-3 font-size-medium">Tab View</span> */}
-                                          </button>
-                                        </>
-                                      )}
-
-                                      {outputEmailWidth !== "" && (
-                                        <>
-                                          <ReactTooltip
-                                            anchorSelect="#desktop-device-view"
-                                            place="left"
-                                          >
-                                            Desktop view
-                                          </ReactTooltip>
-                                          <button
-                                            id="desktop-device-view"
-                                            className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-desktop justify-center
-                              ${outputEmailWidth === "" && "bg-active"}
-                              `}
-                                            onClick={() => toggleOutputEmailWidth("")}
-                                          >
-                                            <svg
-                                              xmlns="http://www.w3.org/2000/svg"
-                                              xmlnsXlink="http://www.w3.org/1999/xlink"
-                                              width="25px"
-                                              viewBox="0 0 24 24"
-                                              version="1.1"
-                                            >
-                                              <title>Desktop</title>
-                                              <g
-                                                stroke="none"
-                                                strokeWidth="1"
-                                                fill="none"
-                                                fillRule="evenodd"
-                                              >
-                                                <g>
-                                                  <rect
-                                                    x="0"
-                                                    y="0"
-                                                    width="24"
-                                                    height="24"
-                                                    fillRule="nonzero"
-                                                  />
-                                                  <rect
-                                                    x="3"
-                                                    y="4"
-                                                    width="18"
-                                                    height="13"
-                                                    rx="2"
-                                                    stroke="#0C0310"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                  />
-                                                  <line
-                                                    x1="7.5"
-                                                    y1="21"
-                                                    x2="16.5"
-                                                    y2="21"
-                                                    stroke="#0C0310"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                  />
-                                                  <line
-                                                    x1="12"
-                                                    y1="17"
-                                                    x2="12"
-                                                    y2="21"
-                                                    stroke="#0C0310"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                  />
-                                                </g>
-                                              </g>
-                                            </svg>
-                                            {/* <span className="ml-5 font-size-medium">Desktop</span> */}
-                                          </button>
-                                        </>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* Your existing Generated/Existing indicator */}
-                                  {/* {combinedResponses[currentIndex]?.generated ? (
-                      <span
-                        className="generated-indicator d-flex align-center"
-                        title="Generated Content"
-                      >
-                        Generated
-                      </span>
-                    ) : (
-                      combinedResponses[currentIndex] && (
-                        <span
-                          className="existing-indicator d-flex align-center ml-10"
-                          title="Existing Content"
-                        >
-                          Existing
-                        </span>
-                      )
-                    )} */}
-                                </div>
-                              </div>
-                              <>
-                                <ReactTooltip
-                                  anchorSelect="#toggle-source-highlights-tooltip"
-                                  place="top"
-                                >
-                                  {showSourceHighlights
-                                    ? "Hide source highlights"
-                                    : "Show source highlights"}
-                                </ReactTooltip>
-                                <button
-                                  id="toggle-source-highlights-tooltip"
-                                  className="edit-button button d-flex align-center justify-center square-40"
-                                  aria-label={
-                                    showSourceHighlights
-                                      ? "Hide source highlights"
-                                      : "Show source highlights"
-                                  }
-                                  aria-pressed={showSourceHighlights}
-                                  onClick={() =>
-                                    setShowSourceHighlights((prev) => !prev)
-                                  }
-                                  style={
-                                    showSourceHighlights
-                                      ? { backgroundColor: "#E4F8E8" }
-                                      : undefined
-                                  }
-                                >
-                                  {/* Highlighter icon */}
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="26px"
-                                    height="26px"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                  >
-                                    <path
-                                      d="M9 11L3 17V20H12L15 17"
-                                      stroke={showSourceHighlights ? "#3f9f42" : "#000000"}
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    />
-                                    <path
-                                      d="M22 12L17.4 16.6C16.6189 17.381 15.3526 17.381 14.5716 16.6L9.4 11.4284C8.61895 10.6474 8.61895 9.38104 9.4 8.6L14 4L22 12Z"
-                                      stroke={showSourceHighlights ? "#3f9f42" : "#000000"}
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    />
-                                  </svg>
-                                </button>
-                              </>
-
-                              <>
-                                <ReactTooltip
-                                  anchorSelect="#edit-email-body-tooltip"
-                                  place="top"
-                                >
-                                  Edit this email body
-                                </ReactTooltip>
-                                <button
-                                  id="edit-email-body-tooltip"
-                                  className="edit-button button d-flex align-center justify-center square-40"
-                                  onClick={() => {
-                                    const pitch = combinedResponses[currentIndex]?.pitch || "";
-                                    setEditableContent(pitch);
-                                    setEditableContent(pitch);       // store content
-
-                                    setEditingIndex(currentIndex); // 🔒 lock index
-
-                                    setIsEditing(true);
-                                  }}
-                                >
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="28px"
-                                    height="28px"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                  >
-                                    <path
-                                      d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                      stroke="#000000"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    />
-                                  </svg>
-                                  {/* <span className="ml-3">Edit</span> */}
-                                </button>
-                              </>
-
-                              <>
-                                <ReactTooltip
-                                  anchorSelect="#regenerate-email-body-tooltip"
-                                  place="top"
-                                >
-                                  Regenerate this email body
-                                </ReactTooltip>
-                                <button
-                                  id="regenerate-email-body-tooltip"
-                                  onClick={async () => {
-                                    if (showCreditModal) return;
-                                    if (regenerateClickInFlightRef.current) return;
-                                    regenerateClickInFlightRef.current = true;
-
-                                    const currentContact = combinedResponses[currentIndex];
-                                    if (!currentContact) {
-                                      alert("No contact selected to regenerate pitch for.");
-                                      regenerateClickInFlightRef.current = false;
-                                      return;
-                                    }
-                                    if (!onRegenerateContact) {
-                                      alert("Regenerate logic not wired up! Consult admin.");
-                                      regenerateClickInFlightRef.current = false;
-                                      return;
-                                    }
-
-                                    if (sessionStorage.getItem("isDemoAccount") !== "true") {
-                                      const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-                                      const currentCredits = await checkUserCredits?.(effectiveUserId);
-                                      const canGenerate =
-                                        typeof currentCredits === "number"
-                                          ? currentCredits > 0
-                                          : currentCredits && typeof currentCredits === "object"
-                                            ? currentCredits.canGenerate !== false && Number((currentCredits as any).total ?? 0) > 0
-                                            : false;
-                                      if (!canGenerate) {
-                                        regenerateClickInFlightRef.current = false;
-                                        return;
-                                      }
-                                    }
-
-                                    setIsRegenerating(true);
-                                    setRegenerationTargetId(currentContact.id);
-
-                                    try {
-                                      await onRegenerateContact("Output", {
-                                        regenerate: true,
-                                        regenerateIndex: currentIndex,
-                                      });
-                                    } finally {
-                                      setIsRegenerating(false);
-                                      setRegenerationTargetId(null);
-                                      regenerateClickInFlightRef.current = false;
-                                    }
-                                  }}
-                                  disabled={
-                                    !combinedResponses[currentIndex] ||
-                                    !isResetEnabled ||
-                                    isRegenerating
-                                  }
-                                  className="button square-40  !bg-transparent justify-center !disabled:bg-transparent"
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    borderRadius: "4px",
-                                    background: "none !important",
-                                    cursor:
-                                      combinedResponses[currentIndex] &&
-                                        !isRegenerating
-                                        ? "pointer"
-                                        : "not-allowed",
-                                    opacity:
-                                      combinedResponses[currentIndex] &&
-                                        !isRegenerating
-                                        ? 1
-                                        : 0.6,
-                                  }}
-                                >
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="20px"
-                                    height="20px"
-                                    viewBox="0 0 16 16"
-                                    fill="none"
-                                  >
-                                    <g fill="#000000">
-                                      <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
-                                    </g>
-                                  </svg>
-                                </button>
-                              </>
-                              <>
-                                {/* Your existing Copy to clipboard button */}
-                                <ReactTooltip
-                                  anchorSelect="#copy-to-clipboard-tooltip"
-                                  place="top"
-                                >
-                                  Copy the email body to clipboard
-                                </ReactTooltip>
-                                <button
-                                  id="copy-to-clipboard-tooltip"
-                                  className={`button d-flex align-center square-40 justify-center ${isCopyText && "save-button auto-width"
-                                    }`}
-                                  onClick={copyToClipboardHandler}
-                                >
-                                  {isCopyText ? (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="24px"
-                                      height="24px"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                    >
-                                      <path
-                                        d="M7.29417 12.9577L10.5048 16.1681L17.6729 9"
-                                        stroke="#ffffff"
-                                        strokeWidth="2.5"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                      />
-                                      <circle
-                                        cx="12"
-                                        cy="12"
-                                        r="10"
-                                        stroke="#ffffff"
-                                        strokeWidth="2"
-                                      />
-                                    </svg>
-                                  ) : (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      fill="#000000"
-                                      width="24px"
-                                      height="24px"
-                                      viewBox="0 0 32 32"
-                                      version="1.1"
-                                    >
-                                      <title>clipboard-check</title>
-                                      <path d="M26 4.75h-2c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0h0.75v21.5h-17.5v-21.5h0.75c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-2c-0.69 0-1.25 0.56-1.25 1.25v0 24c0 0.69 0.56 1.25 1.25 1.25h20c0.69-0.001 1.249-0.56 1.25-1.25v-24c-0-0.69-0.56-1.25-1.25-1.25h-0zM11 9.249h10c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-1.137c0.242-0.513 0.385-1.114 0.387-1.748v-0.001c0-2.347-1.903-4.25-4.25-4.25s-4.25 1.903-4.25 4.25v0c0.002 0.635 0.145 1.236 0.398 1.775l-0.011-0.026h-1.137c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0zM14.25 5c0-0 0-0.001 0-0.001 0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75v0c-0.966-0.001-1.748-0.783-1.75-1.749v-0zM19.957 13.156l-6.44 7.039-1.516-1.506c-0.226-0.223-0.536-0.361-0.878-0.361-0.69 0-1.25 0.56-1.25 1.25 0 0.345 0.14 0.658 0.366 0.884v0l2.44 2.424 0.022 0.015 0.015 0.021c0.074 0.061 0.159 0.114 0.25 0.156l0.007 0.003c0.037 0.026 0.079 0.053 0.123 0.077l0.007 0.003c0.135 0.056 0.292 0.089 0.457 0.089 0.175 0 0.341-0.037 0.491-0.103l-0.008 0.003c0.053-0.031 0.098-0.061 0.14-0.094l-0.003 0.002c0.102-0.050 0.189-0.11 0.268-0.179l-0.001 0.001 0.015-0.023 0.020-0.014 7.318-8c0.203-0.222 0.328-0.518 0.328-0.844 0-0.69-0.559-1.25-1.25-1.25-0.365 0-0.693 0.156-0.921 0.405l-0.001 0.001z" />
-                                    </svg>
-                                  )}
-                                  {/* <span className={`ml-5 ${isCopyText && "white"}`}>
-                        {isCopyText ? "Copied!" : "Copy to clipboard"}
-                      </span> */}
-                                </button>
-                              </>
-                            </div>
-
-                          </>
+                              onRegenerate={handleRegenerateCurrentContact}
+                              isRegenerating={isRegenerating}
+                              regenerateDisabled={
+                                !combinedResponses[currentIndex] || !isResetEnabled
+                              }
+                              showDeviceButton
+                              outputEmailWidth={outputEmailWidth}
+                              openDeviceDropdown={openDeviceDropdown}
+                              onDeviceDropdownToggle={() =>
+                                setOpenDeviceDropdown(!openDeviceDropdown)
+                              }
+                              onDeviceWidthChange={toggleOutputEmailWidth}
+                              onExpandEditor={() => handleModalOpen("modal-output-2")}
+                              finalPrompt={allprompt[currentIndex] || ""}
+                              webSearchData={hasOnlineResearch ? onlineResearchText : ""}
+                              insightEmails={hasEmails ? emailInsightText : ""}
+                              insightNotes={hasNotes ? notesUsedText : ""}
+                              insightProfessionalSummary={
+                                hasProfessionalSummary ? linkedinInsightText : ""
+                              }
+                            />
+                          </div>
                         )}
                       </span>{" "}
                       <div className="d-flex justify-center mt-4"></div>{" "}
@@ -4255,235 +3321,6 @@ const [editingIndex, setEditingIndex] = useState<number | null>(null);
                     </Modal>
                   </>
 
-                )}
-                {tab2 === "Stages" && userRole === "ADMIN" && (
-                  <>
-                    <div className="tabs secondary d-flex align-center ">
-                      <ul className="d-flex full-width flex-wrap-991">
-                        <li className="flex-50percent-991 flex-full-640">
-                          <button
-                            onClick={tabHandler3}
-                            className={`button full-width ${tab3 === "Stages" ? "active" : ""
-                              }`}
-                          >
-                            Stages
-                          </button>
-                        </li>
-                        <li className="flex-50percent-991 flex-full-640">
-
-                        </li>
-                      </ul>
-                    </div>
-                    {tab3 === "Stages" && (
-                      <div className="form-group">
-                        <div className="d-flex mb-10"></div>
-                        <span className="pos-relative d-flex justify-start">
-                          <pre
-                            style={{
-                              width: "100%",
-                              padding: "10px",
-                              border: "1px solid #ccc",
-                              borderRadius: "4px",
-                              fontFamily: "inherit",
-                              fontSize: "inherit",
-                              whiteSpace: "pre-wrap",
-                              /* ✅ IMPORTANT PART */
-                              height: "auto",        // let content decide height
-                              overflow: "visible",   // no inner scroll    boxSizing: "border-box",
-                            }}
-                          >
-                            {typeof allprompt[currentIndex] === "string"
-                              ? allprompt[currentIndex]
-                              : "No prompt available."}
-                          </pre>
-
-
-                          <Modal
-                            show={openModals["modal-output-3"]}
-                            closeModal={() => handleModalClose("modal-output-3")}
-                            buttonLabel="Ok"
-                            size="90%"
-                          >
-                            <label>Stages</label>
-
-                            {/* <pre
-                  className="textarea-full-height preview-content-area"
-                  dangerouslySetInnerHTML={{
-                    __html:
-                      typeof allprompt[currentIndex] === "string"
-                        ? allprompt[currentIndex]
-                        : "No prompt available.",
-                  }}
-                ></pre> */}
-                            <pre
-                              style={{
-                                height: "800px",
-                                width: "100%",
-                                padding: "10px",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px",
-                                fontFamily: "inherit",
-                                fontSize: "inherit",
-
-                                /* ✅ KEY FIXES */
-                                whiteSpace: "pre-wrap",     // keep line breaks
-                                wordBreak: "break-word",    // break long words
-                                overflowWrap: "anywhere",   // modern browsers
-                                overflowX: "hidden",        // ❌ no horizontal scroll
-                                overflowY: "auto",          // ✅ vertical scroll only
-
-                                boxSizing: "border-box",
-                              }}
-                            >
-                              {typeof allprompt[currentIndex] === "string"
-                                ? allprompt[currentIndex]
-                                : "No prompt available."}
-                            </pre>
-
-
-                          </Modal>
-                          <button
-                            className="full-view-icon d-flex align-center justify-center"
-                            onClick={() => handleModalOpen("modal-output-3")}
-                          >
-                            <svg width="40px" height="40px" viewBox="0 0 512 512">
-                              <polyline
-                                points="304 96 416 96 416 208"
-                                fill="none"
-                                stroke="#000000"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="32"
-                              />
-                              <line
-                                x1="405.77"
-                                y1="106.2"
-                                x2="111.98"
-                                y2="400.02"
-                                fill="none"
-                                stroke="#000000"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="32"
-                              />
-                              <polyline
-                                points="208 416 96 416 96 304"
-                                fill="none"
-                                stroke="#000000"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="32"
-                              />
-                            </svg>
-                          </button>
-                        </span>
-                      </div>
-                    )}
-
-
-                  </>
-                )}
-                {tab2 === "Insights" && userRole === "ADMIN" && (
-                  <>
-                    <div className="tabs secondary d-flex align-center ">
-                      <ul className="d-flex full-width flex-wrap-991">
-                        {[
-                          { key: "Online research", hasInfo: hasOnlineResearch },
-                          { key: "Notes", hasInfo: hasNotes },
-                          { key: "Emails", hasInfo: hasEmails },
-                          {
-                            key: "Professional summary",
-                            hasInfo: hasProfessionalSummary,
-                          },
-                        ].map((insightTab) => (
-                          <li
-                            key={insightTab.key}
-                            className="flex-25percent-991 flex-full-640"
-                          >
-                            <button
-                              onClick={() => setTab3(insightTab.key)}
-                              className={`button full-width ${
-                                tab3 === insightTab.key ? "active" : ""
-                              }`}
-                            >
-                              {insightTab.key}
-                              {insightTab.hasInfo && (
-                                <sup
-                                  title="Information available"
-                                  style={{
-                                    color: "#3f9f42",
-                                    marginLeft: "3px",
-                                    fontSize: "0.85em",
-                                  }}
-                                >
-                                  ✓
-                                </sup>
-                              )}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    {tab3 === "Online research" &&
-                      (!hasOnlineResearch ? (
-                        renderEmptyInsight(onlineResearchText)
-                      ) : (
-                      <div className="form-group">
-                        <div className="d-flex mb-10"></div>
-                        <span className="pos-relative d-flex justify-start">
-                          <div style={{ width: '100%' }}>
-                            <WebResearchCards content={onlineResearchText} />
-                          </div>
-                          <Modal
-                            show={openModals["modal-output-insights-research"]}
-                            closeModal={() => handleModalClose("modal-output-insights-research")}
-                            buttonLabel="Ok"
-                            size="90%"
-                          >
-                            <label>Online research</label>
-                            <div style={{ overflowY: 'auto', maxHeight: '80vh', padding: '8px 0' }}>
-                              <WebResearchCards content={onlineResearchText} />
-                            </div>
-                          </Modal>
-                          <button
-                            className="full-view-icon d-flex align-center justify-center"
-                            onClick={() => handleModalOpen("modal-output-insights-research")}
-                          >
-                            <svg width="40px" height="40px" viewBox="0 0 512 512">
-                              <polyline points="304 96 416 96 416 208" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
-                              <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
-                              <polyline points="208 416 96 416 96 304" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
-                            </svg>
-                          </button>
-                        </span>
-                      </div>
-                      ))}
-                    {tab3 === "Notes" &&
-                      (!hasNotes
-                        ? renderEmptyInsight(notesUsedText)
-                        : renderInsightPre(
-                            notesUsedText,
-                            "modal-output-insights-notes",
-                            "Notes used for personalization",
-                          ))}
-                    {tab3 === "Emails" &&
-                      (!hasEmails
-                        ? renderEmptyInsight(emailInsightText)
-                        : renderInsightPre(
-                            emailInsightText,
-                            "modal-output-insights-emails",
-                            "Emails",
-                            "html",
-                          ))}
-                    {tab3 === "Professional summary" &&
-                      (!hasProfessionalSummary
-                        ? renderEmptyInsight(linkedinInsightText)
-                        : renderInsightPre(
-                            linkedinInsightText,
-                            "modal-output-insights-linkedin",
-                            "Professional summary",
-                          ))}
-                  </>
                 )}
                 {/* Add this after the Output tab and before the Stages tab */}
 

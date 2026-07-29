@@ -220,6 +220,9 @@ interface RichTextEditorProps {
   /** When true the editor grows with its content (uses `height` as a minimum)
    *  instead of being a fixed-height box with an inner scrollbar. */
   autoGrow?: boolean;
+  /** Preview mode: content isn't editable and the formatting controls are
+   *  hidden, so the toolbar carries only the action buttons. */
+  readOnly?: boolean;
   showActionButtons?: boolean;
   outputEmailWidth?: string;
   isCopyText?: boolean;
@@ -235,6 +238,15 @@ interface RichTextEditorProps {
   onToggleHighlight?: () => void;
   /** Edit action. */
   onEdit?: () => void;
+  /** Regenerate action — the button only renders when this is provided. */
+  onRegenerate?: () => void;
+  /** Spins the regenerate icon and blocks repeat clicks. */
+  isRegenerating?: boolean;
+  /** Greys out regenerate (e.g. no contact selected / reset not enabled). */
+  regenerateDisabled?: boolean;
+  /** Render the device-preview (desktop / tab / mobile) control in the action
+   *  bar. Leave false when the host already shows its own device toolbar. */
+  showDeviceButton?: boolean;
   /** Final prompt (admin only) shown in the info panel. */
   finalPrompt?: string;
   /** Online-research data shown in the Insights panel ("Online research" tab). */
@@ -363,6 +375,55 @@ const tbStyles: Record<string, React.CSSProperties> = {
   },
 };
 
+// Device-preview widths. "" is the full-width desktop view.
+const DEVICE_OPTIONS: { label: string; value: string }[] = [
+  { label: "Desktop", value: "" },
+  { label: "Tab", value: "Tab" },
+  { label: "Mobile", value: "Mobile" },
+];
+
+const DEVICE_LABELS: Record<string, string> = {
+  "": "Desktop",
+  Tab: "Tab",
+  Mobile: "Mobile",
+};
+
+/** Monitor / tablet / phone glyph for the device-preview control. */
+const DeviceIcon: React.FC<{ width: string }> = ({ width }) => {
+  const stroke = "#3f9f42";
+
+  if (width === "Mobile") {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
+          stroke={stroke}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (width === "Tab") {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <rect x="4" y="3" width="16" height="18" rx="1" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+        <circle cx="12" cy="18" r="1" fill={stroke} />
+      </svg>
+    );
+  }
+
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="4" width="18" height="13" rx="2" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+      <line x1="7.5" y1="21" x2="16.5" y2="21" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+      <line x1="12" y1="17" x2="12" y2="21" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+};
+
 /** Toolbar icon button — inline styles + transparent background so the
  *  page's global `button` / `.button` rules can't restyle it. */
 const TbButton: React.FC<{
@@ -394,11 +455,20 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   height = 400,
   onChange,
   autoGrow = false,
+  readOnly = false,
   showActionButtons = false,
   isCopyText,
   onCopyToClipboard,
   onExpandEditor,
   onEdit,
+  onRegenerate,
+  isRegenerating = false,
+  regenerateDisabled = false,
+  showDeviceButton = false,
+  outputEmailWidth = "",
+  openDeviceDropdown = false,
+  onDeviceDropdownToggle,
+  onDeviceWidthChange,
   finalPrompt,
   webSearchData,
   insightEmails,
@@ -605,6 +675,21 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   const actionButtonsGroup = (
     <>
+      {/* Insights — online research, emails, notes, professional summary */}
+      <button
+        type="button"
+        title="Insights"
+        aria-pressed={infoPanel === "insights"}
+        onClick={() => setInfoPanel((p) => (p === "insights" ? null : "insights"))}
+        style={{ ...actionBtnStyle, background: infoPanel === "insights" ? "#E4F8E8" : "#ffffff" }}
+      >
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 18h6" />
+          <path d="M10 21h4" />
+          <path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.8.9.9 1.5l.1.7h5.2l.1-.7c.1-.6.4-1.1.9-1.5A6 6 0 0 0 12 3Z" />
+        </svg>
+      </button>
+
       {!infoButtonsOnly && (
         <>
           {/* Highlight on/off (source highlights) */}
@@ -630,6 +715,36 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             </button>
           )}
 
+          {/* Regenerate */}
+          {onRegenerate && (
+            <button
+              type="button"
+              title={isRegenerating ? "Regenerating…" : "Regenerate this email body"}
+              aria-label="Regenerate this email body"
+              onClick={onRegenerate}
+              disabled={isRegenerating || regenerateDisabled}
+              style={{
+                ...actionBtnStyle,
+                cursor: isRegenerating || regenerateDisabled ? "not-allowed" : "pointer",
+                opacity: isRegenerating || regenerateDisabled ? 0.6 : 1,
+              }}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 16 16"
+                fill={ICON}
+                style={
+                  isRegenerating
+                    ? { animation: "rte-spin 1s linear infinite" }
+                    : undefined
+                }
+              >
+                <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
+              </svg>
+            </button>
+          )}
+
           {/* Copy */}
           <button type="button" title="Copy to clipboard" onClick={handleCopyMain} style={actionBtnStyle}>
             {copied || isCopyText ? (
@@ -644,6 +759,59 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             )}
           </button>
 
+          {/* Device preview: desktop / tab / mobile */}
+          {showDeviceButton && (
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                title={`${DEVICE_LABELS[outputEmailWidth] || "Desktop"} view`}
+                aria-label="Preview width"
+                aria-expanded={openDeviceDropdown}
+                onClick={() => onDeviceDropdownToggle?.()}
+                style={{
+                  ...actionBtnStyle,
+                  background: openDeviceDropdown ? "#E4F8E8" : "#ffffff",
+                }}
+              >
+                <DeviceIcon width={outputEmailWidth} />
+              </button>
+
+              {openDeviceDropdown && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 44,
+                    right: 0,
+                    zIndex: 60,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    padding: 4,
+                    background: "#ffffff",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 6,
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  }}
+                >
+                  {DEVICE_OPTIONS.filter((option) => option.value !== outputEmailWidth).map(
+                    (option) => (
+                      <button
+                        key={option.label}
+                        type="button"
+                        title={`${option.label} view`}
+                        aria-label={`${option.label} view`}
+                        onClick={() => onDeviceWidthChange?.(option.value)}
+                        style={{ ...actionBtnStyle, width: 40 }}
+                      >
+                        <DeviceIcon width={option.value} />
+                      </button>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Expand */}
           {onExpandEditor && (
             <button type="button" title="Expand" onClick={onExpandEditor} style={actionBtnStyle}>
@@ -656,21 +824,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           )}
         </>
       )}
-
-      {/* Insights — online research, emails, notes, professional summary */}
-      <button
-        type="button"
-        title="Insights"
-        aria-pressed={infoPanel === "insights"}
-        onClick={() => setInfoPanel((p) => (p === "insights" ? null : "insights"))}
-        style={{ ...actionBtnStyle, background: infoPanel === "insights" ? "#E4F8E8" : "#ffffff" }}
-      >
-        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 18h6" />
-          <path d="M10 21h4" />
-          <path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.8.9.9 1.5l.1.7h5.2l.1-.7c.1-.6.4-1.1.9-1.5A6 6 0 0 0 12 3Z" />
-        </svg>
-      </button>
 
       {/* Final prompt (admin only) */}
       {resolvedIsAdmin && (
@@ -693,10 +846,13 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   return (
     <div className="w-full" style={{ width: "100%" }}>
       {/* Highlight strip is visual-only — keeps the underlying HTML intact */}
-      <style>{`[data-rte-hl="off"] [title^="Sourced from"]{background-color:transparent !important;cursor:auto !important;}`}</style>
+      <style>{`[data-rte-hl="off"] [title^="Sourced from"]{background-color:transparent !important;cursor:auto !important;}
+        @keyframes rte-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
 
       {/* Toolbar (formatting controls + action buttons pinned right) */}
       <div ref={toolbarRef} style={tbStyles.toolbar}>
+        {!readOnly && (
+        <>
         {/* Font family */}
         <select
           onMouseDown={rememberSelection}
@@ -1012,6 +1168,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             <sub style={{ fontSize: "9px" }}>x</sub>
           </span>
         </TbButton>
+        </>
+        )}
 
         {/* Action buttons pinned to the right of the toolbar.
             In infoButtonsOnly mode the host already has its own top-right
@@ -1037,7 +1195,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       <div className="rich-text-editor">
         <div
           ref={editorRef}
-          contentEditable
+          contentEditable={!readOnly}
+          suppressContentEditableWarning
           data-rte-hl={highlightsOn ? "on" : "off"}
           className="p-3 outline-none"
           style={{
