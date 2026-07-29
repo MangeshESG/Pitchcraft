@@ -1,6 +1,32 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import DOMPurify from "dompurify";
 import { repairAndParseJsonObject } from "../../utils/jsonRepair";
+
+// Empty-state copy — identical to the Insights tab in Output.tsx.
+const EMPTY_ONLINE_RESEARCH =
+  "These insights are generated when krafting emails and then saved in the relevant contact.";
+const EMPTY_NOTES =
+  "No notes were used in the krafting of the email. There may be no notes added for this contact, they may not have been set to include in personalization or they may not be useful in krafting this email.";
+const EMPTY_EMAILS =
+  "No emails were used in the krafting of the email. There may be no email communications for this contact or they may not be useful in krafting this email.";
+const EMPTY_PROFESSIONAL_SUMMARY =
+  "No professional summary information was used in the krafting of the email. There may be no professional summary for this contact or it may not be useful in krafting this email.";
+
+type InsightTabKey = "research" | "emails" | "notes" | "summary";
+
+const INSIGHT_TABS: { key: InsightTabKey; label: string }[] = [
+  { key: "research", label: "Online research" },
+  { key: "emails", label: "Emails" },
+  { key: "notes", label: "Notes" },
+  { key: "summary", label: "Professional summary" },
+];
+
+// Placeholder values used across the app while data loads.
+const hasInsightValue = (value?: string) => {
+  const text = (value ?? "").trim();
+  return text !== "" && !/^(na|n\/a|null|undefined)$/i.test(text);
+};
 
 // Renders web-research JSON as cards — identical to Output.tsx "Online research".
 const WebResearchCards: React.FC<{ content: string }> = ({ content }) => {
@@ -211,8 +237,14 @@ interface RichTextEditorProps {
   onEdit?: () => void;
   /** Final prompt (admin only) shown in the info panel. */
   finalPrompt?: string;
-  /** Web-search data shown in the info panel. */
+  /** Online-research data shown in the Insights panel ("Online research" tab). */
   webSearchData?: string;
+  /** Email conversation used in the krafting ("Emails" tab). */
+  insightEmails?: string;
+  /** Notes used in the krafting ("Notes" tab). */
+  insightNotes?: string;
+  /** Professional (LinkedIn) summary used in the krafting ("Professional summary" tab). */
+  insightProfessionalSummary?: string;
   /** Override admin detection (defaults to sessionStorage "isAdmin"). */
   isAdmin?: boolean;
   /** Show ONLY the web-search / final-prompt buttons (no copy/edit/expand/highlight).
@@ -369,6 +401,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   onEdit,
   finalPrompt,
   webSearchData,
+  insightEmails,
+  insightNotes,
+  insightProfessionalSummary,
   isAdmin,
   infoButtonsOnly = false,
   reserveRight = 0,
@@ -382,7 +417,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   // ── Action-bar state ──
   const [copied, setCopied] = useState(false);
-  const [infoPanel, setInfoPanel] = useState<null | "prompt" | "websearch">(null);
+  const [infoPanel, setInfoPanel] = useState<null | "prompt" | "insights">(null);
+  const [insightTab, setInsightTab] = useState<InsightTabKey>("research");
   const [infoCopied, setInfoCopied] = useState(false);
   // Source-highlight toggle (visual only). ON by default, like Output.
   const [highlightsOn, setHighlightsOn] = useState(true);
@@ -413,7 +449,25 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   };
 
-  const infoText = infoPanel === "prompt" ? finalPrompt ?? "" : webSearchData ?? "";
+  // Which insight tabs actually carry information (drives the ✓ markers).
+  const insightHasInfo: Record<InsightTabKey, boolean> = {
+    research: hasInsightValue(webSearchData),
+    emails: hasInsightValue(insightEmails),
+    notes: hasInsightValue(insightNotes),
+    summary: hasInsightValue(insightProfessionalSummary),
+  };
+
+  const activeInsightText =
+    insightTab === "research"
+      ? webSearchData ?? ""
+      : insightTab === "emails"
+        ? insightEmails ?? ""
+        : insightTab === "notes"
+          ? insightNotes ?? ""
+          : insightProfessionalSummary ?? "";
+
+  // The copy button copies whatever the panel is currently showing.
+  const infoText = infoPanel === "prompt" ? finalPrompt ?? "" : activeInsightText;
 
   const handleInfoCopy = async () => {
     const ok = await writeClipboard(infoText);
@@ -603,18 +657,18 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         </>
       )}
 
-      {/* Web search data (all users) */}
+      {/* Insights — online research, emails, notes, professional summary */}
       <button
         type="button"
-        title="Web search data"
-        aria-pressed={infoPanel === "websearch"}
-        onClick={() => setInfoPanel((p) => (p === "websearch" ? null : "websearch"))}
-        style={{ ...actionBtnStyle, background: infoPanel === "websearch" ? "#E4F8E8" : "#ffffff" }}
+        title="Insights"
+        aria-pressed={infoPanel === "insights"}
+        onClick={() => setInfoPanel((p) => (p === "insights" ? null : "insights"))}
+        style={{ ...actionBtnStyle, background: infoPanel === "insights" ? "#E4F8E8" : "#ffffff" }}
       >
         <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="2" y1="12" x2="22" y2="12" />
-          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          <path d="M9 18h6" />
+          <path d="M10 21h4" />
+          <path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.8.9.9 1.5l.1.7h5.2l.1-.7c.1-.6.4-1.1.9-1.5A6 6 0 0 0 12 3Z" />
         </svg>
       </button>
 
@@ -1073,14 +1127,82 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             >
               {infoCopied ? "Copied!" : "Copy"}
             </button>
-            {infoPanel === "websearch" ? (
-              webSearchData?.trim() ? (
-                <div style={{ paddingRight: 64 }}>
-                  <WebResearchCards content={webSearchData} />
+            {infoPanel === "insights" ? (
+              <div style={{ paddingRight: 64 }}>
+                {/* Sub-tabs — same set as the Insights tab in Output */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                  {INSIGHT_TABS.map((tab) => {
+                    const isActive = insightTab === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setInsightTab(tab.key)}
+                        style={{
+                          padding: "5px 12px",
+                          borderRadius: 999,
+                          fontSize: 12.5,
+                          fontWeight: 500,
+                          lineHeight: 1.4,
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                          border: `1px solid ${isActive ? ICON : "#e5e7eb"}`,
+                          background: isActive ? "#E4F8E8" : "#ffffff",
+                          color: isActive ? "#2f7a32" : "#374151",
+                        }}
+                      >
+                        {tab.label}
+                        {insightHasInfo[tab.key] && (
+                          <sup title="Information available" style={{ color: ICON, marginLeft: 3, fontSize: "0.85em" }}>
+                            ✓
+                          </sup>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-              ) : (
-                <div style={{ color: "#9ca3af", fontSize: 13 }}>No online research available.</div>
-              )
+
+                {insightTab === "research" &&
+                  (insightHasInfo.research ? (
+                    <WebResearchCards content={webSearchData as string} />
+                  ) : (
+                    <div style={{ color: "#6b7280", fontSize: 13, lineHeight: 1.5 }}>
+                      {EMPTY_ONLINE_RESEARCH}
+                    </div>
+                  ))}
+
+                {insightTab === "emails" &&
+                  (insightHasInfo.emails ? (
+                    <div
+                      style={{ fontSize: 13, lineHeight: 1.5, color: "#374151", wordBreak: "break-word" }}
+                      dangerouslySetInnerHTML={{
+                        __html: DOMPurify.sanitize((insightEmails || "").replace(/\n/g, "<br/>")),
+                      }}
+                    />
+                  ) : (
+                    <div style={{ color: "#6b7280", fontSize: 13, lineHeight: 1.5 }}>{EMPTY_EMAILS}</div>
+                  ))}
+
+                {insightTab === "notes" &&
+                  (insightHasInfo.notes ? (
+                    <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 13, lineHeight: 1.5, color: "#374151" }}>
+                      {insightNotes}
+                    </div>
+                  ) : (
+                    <div style={{ color: "#6b7280", fontSize: 13, lineHeight: 1.5 }}>{EMPTY_NOTES}</div>
+                  ))}
+
+                {insightTab === "summary" &&
+                  (insightHasInfo.summary ? (
+                    <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 13, lineHeight: 1.5, color: "#374151" }}>
+                      {insightProfessionalSummary}
+                    </div>
+                  ) : (
+                    <div style={{ color: "#6b7280", fontSize: 13, lineHeight: 1.5 }}>
+                      {EMPTY_PROFESSIONAL_SUMMARY}
+                    </div>
+                  ))}
+              </div>
             ) : (
               // A plain div (NOT <pre>) so global `pre` CSS can't add a bordered,
               // max-height scroll box. Preserves line breaks, wraps, grows.

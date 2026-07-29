@@ -32,6 +32,7 @@ import pitchLogo from "../../../assets/images/pitch_logo.png";
 import "react-quill/dist/quill.snow.css";
 import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
 import RichTextEditor from '../../common/RTEEditor';
+import { extractGenerationInsights } from '../../../utils/generationInsights';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import CreditCheckModal from "../../common/CreditCheckModal";
 import Modal from "../../common/Modal";
@@ -52,8 +53,8 @@ import { saveUserCredit } from "../../../slices/authSLice";
 import "../inbox/InboxView.css";
 import { copyToClipboard } from "../../../utils/utils";
 
-const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
-//const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
+//const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
+const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
 
 interface Contact {
   id: number;
@@ -1730,11 +1731,16 @@ const handleGenerateInsights = async () => {
       if (response.data?.success && (response.data?.emailBody || response.data?.emailSubject)) {
         refreshCreditsAfterDeduction();
         window.dispatchEvent(new CustomEvent("creditUpdated", { detail: { clientId: effectiveUserId } }));
+        const generationInsights = extractGenerationInsights(response.data);
+
         return {
           emailBody: response.data.emailBody || "",
           emailSubject: response.data.emailSubject || "",
-          finalPrompt: response.data.finalPrompt || "",
-          webSearchData: response.data.webSearchData || "",
+          finalPrompt: generationInsights.finalPrompt,
+          webSearchData: generationInsights.webSearchData,
+          emails: generationInsights.emails,
+          notes: generationInsights.notes,
+          professionalSummary: generationInsights.professionalSummary,
         };
       }
 

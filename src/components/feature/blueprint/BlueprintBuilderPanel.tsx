@@ -51,6 +51,9 @@ export interface BlueprintBuilderPanelProps {
   setEditableExampleOutput: React.Dispatch<React.SetStateAction<string>>;
   previewFinalPrompt?: string;
   previewWebSearchData?: string;
+  previewEmails?: string;
+  previewNotes?: string;
+  previewProfessionalSummary?: string;
   filledTemplate: string;
   isPreviewLoading: boolean;
   regenerateExampleOutput: () => Promise<void>;
@@ -143,6 +146,9 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   setEditableExampleOutput,
   previewFinalPrompt,
   previewWebSearchData,
+  previewEmails,
+  previewNotes,
+  previewProfessionalSummary,
   filledTemplate,
   isPreviewLoading,
   regenerateExampleOutput,
@@ -488,6 +494,9 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                   setEditableExampleOutput={setEditableExampleOutput}
                   previewFinalPrompt={previewFinalPrompt}
                   previewWebSearchData={previewWebSearchData}
+                  previewEmails={previewEmails}
+                  previewNotes={previewNotes}
+                  previewProfessionalSummary={previewProfessionalSummary}
                   saveExampleEmail={saveExampleEmail}
                   exampleSaveStatus={exampleSaveStatus}
                   isGenerating={isPreviewLoading}
@@ -1051,6 +1060,9 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                 setEditableExampleOutput={setEditableExampleOutput}
                 previewFinalPrompt={previewFinalPrompt}
                 previewWebSearchData={previewWebSearchData}
+                previewEmails={previewEmails}
+                previewNotes={previewNotes}
+                previewProfessionalSummary={previewProfessionalSummary}
                 saveExampleEmail={saveExampleEmail}
                 exampleSaveStatus={exampleSaveStatus}
                 isGenerating={isPreviewLoading}

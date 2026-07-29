@@ -34,6 +34,9 @@ interface ContactComposeEmailPopupProps {
     emailSubject: string;
     finalPrompt?: string;
     webSearchData?: string;
+    emails?: string;
+    notes?: string;
+    professionalSummary?: string;
   }>;
   onSend: (payload: {
     emailSubject: string;
@@ -243,6 +246,9 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   const [hasGeneratedBody, setHasGeneratedBody] = useState(false);
   const [previewFinalPrompt, setPreviewFinalPrompt] = useState("");
   const [previewWebSearchData, setPreviewWebSearchData] = useState("");
+  const [previewEmails, setPreviewEmails] = useState("");
+  const [previewNotes, setPreviewNotes] = useState("");
+  const [previewProfessionalSummary, setPreviewProfessionalSummary] = useState("");
   const signatureSelector = "[data-compose-email-signature]";
 
   const getComposeSignatureBlock = (signature: string) =>
@@ -320,6 +326,9 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       setEmailSubject(generatedEmail.emailSubject || "");
       setPreviewFinalPrompt(generatedEmail.finalPrompt || "");
       setPreviewWebSearchData(generatedEmail.webSearchData || "");
+      setPreviewEmails(generatedEmail.emails || "");
+      setPreviewNotes(generatedEmail.notes || "");
+      setPreviewProfessionalSummary(generatedEmail.professionalSummary || "");
     } finally {
       setIsGenerating(false);
     }
@@ -600,6 +609,9 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
               showActionButtons={hasGeneratedBody}
               finalPrompt={previewFinalPrompt}
               webSearchData={previewWebSearchData}
+              insightEmails={previewEmails}
+              insightNotes={previewNotes}
+              insightProfessionalSummary={previewProfessionalSummary}
             />
             <div
               style={{

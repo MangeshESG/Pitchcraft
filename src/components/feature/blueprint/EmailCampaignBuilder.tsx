@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import API_BASE_URL from "../../../config";
+import { extractGenerationInsights } from "../../../utils/generationInsights";
 import "./EmailCampaignBuilder.css";
 import notificationSound from "../../../assets/sound/notification.mp3";
 import { AlertCircle } from "lucide-react";
@@ -250,7 +251,19 @@ const ExampleEmailEditor: React.FC<{
   showActionButtons?: boolean;
   finalPrompt?: string;
   webSearchData?: string;
-}> = ({ value, onChange, showActionButtons, finalPrompt, webSearchData }) => {
+  insightEmails?: string;
+  insightNotes?: string;
+  insightProfessionalSummary?: string;
+}> = ({
+  value,
+  onChange,
+  showActionButtons,
+  finalPrompt,
+  webSearchData,
+  insightEmails,
+  insightNotes,
+  insightProfessionalSummary,
+}) => {
   return (
     <RichTextEditor
       value={value}
@@ -259,6 +272,9 @@ const ExampleEmailEditor: React.FC<{
       showActionButtons={showActionButtons}
       finalPrompt={finalPrompt}
       webSearchData={webSearchData}
+      insightEmails={insightEmails}
+      insightNotes={insightNotes}
+      insightProfessionalSummary={insightProfessionalSummary}
     />
   );
 };
@@ -1409,6 +1425,9 @@ interface ExampleOutputPanelProps {
   // generation transparency (shown via the editor action bar)
   previewFinalPrompt?: string;
   previewWebSearchData?: string;
+  previewEmails?: string;
+  previewNotes?: string;
+  previewProfessionalSummary?: string;
 
   // contact + data file
   dataFiles: any[];
@@ -1472,6 +1491,9 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   onCollapse,
   previewFinalPrompt,
   previewWebSearchData,
+  previewEmails,
+  previewNotes,
+  previewProfessionalSummary,
 }) => {
   const selectedContact = contacts.find((c) => c.id === selectedContactId);
   const [userRole, setUserRole] = useState<string>("");
@@ -1640,6 +1662,9 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
               showActionButtons
               finalPrompt={previewFinalPrompt}
               webSearchData={previewWebSearchData}
+              insightEmails={previewEmails}
+              insightNotes={previewNotes}
+              insightProfessionalSummary={previewProfessionalSummary}
             />
           ) : (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
@@ -1746,6 +1771,9 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   const [exampleOutput, setExampleOutput] = useState<string>("");
   const [previewFinalPrompt, setPreviewFinalPrompt] = useState<string>("");
   const [previewWebSearchData, setPreviewWebSearchData] = useState<string>("");
+  const [previewEmails, setPreviewEmails] = useState<string>("");
+  const [previewNotes, setPreviewNotes] = useState<string>("");
+  const [previewProfessionalSummary, setPreviewProfessionalSummary] = useState<string>("");
   const [filledTemplate, setFilledTemplate] = useState<string>("");
 
   const [placeholderValues, setPlaceholderValues] = useSessionState<
@@ -2644,8 +2672,12 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
           response.data.emailSubject || response.data.EmailSubject || "";
 
         setExampleOutput(body);
-        setPreviewFinalPrompt(response.data.finalPrompt || response.data.FinalPrompt || "");
-        setPreviewWebSearchData(response.data.webSearchData || response.data.WebSearchData || "");
+        const previewInsights = extractGenerationInsights(response.data);
+        setPreviewFinalPrompt(previewInsights.finalPrompt);
+        setPreviewWebSearchData(previewInsights.webSearchData);
+        setPreviewEmails(previewInsights.emails);
+        setPreviewNotes(previewInsights.notes);
+        setPreviewProfessionalSummary(previewInsights.professionalSummary);
         // subject is available in `subject` if the preview UI wants to show it
         console.log("✅ Preview generated. Subject:", subject);
         playNotificationSound();
@@ -4402,6 +4434,9 @@ const parsePlaceholdersSafe = (block: string) => {
               setEditableExampleOutput={setEditableExampleOutput}
               previewFinalPrompt={previewFinalPrompt}
               previewWebSearchData={previewWebSearchData}
+              previewEmails={previewEmails}
+              previewNotes={previewNotes}
+              previewProfessionalSummary={previewProfessionalSummary}
               filledTemplate={filledTemplate}
               isPreviewLoading={isPreviewLoading}
               regenerateExampleOutput={regenerateExampleOutput}

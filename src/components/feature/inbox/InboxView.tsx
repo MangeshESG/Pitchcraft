@@ -8,6 +8,7 @@ import CreditCheckModal from '../../common/CreditCheckModal';
 import { useCreditCheck } from '../../../hooks/useCreditCheck';
 import { useSoundAlert } from '../../common/useSoundAlert';
 import RichTextEditor from '../../common/RTEEditor';
+import { extractGenerationInsights } from '../../../utils/generationInsights';
 import { RecipientChipInput, mergeRecipients, parseRecipientInput } from '../contact_profile/ContactComposeEmailPopup';
 import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
@@ -145,6 +146,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [replyText, setReplyText] = useState<string>('');
   const [kraftFinalPrompt, setKraftFinalPrompt] = useState<string>('');
   const [kraftWebSearchData, setKraftWebSearchData] = useState<string>('');
+  // Remaining personalization inputs returned by /api/email-generation/generate,
+  // shown in the editor's Insights sub-tabs.
+  const [kraftEmails, setKraftEmails] = useState<string>('');
+  const [kraftNotes, setKraftNotes] = useState<string>('');
+  const [kraftProfessionalSummary, setKraftProfessionalSummary] = useState<string>('');
   const [replyAttachments, setReplyAttachments] = useState<File[]>([]);
   const [replyCcEmails, setReplyCcEmails] = useState<string[]>([]);
   const [replyCcDraft, setReplyCcDraft] = useState('');
@@ -980,8 +986,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
       if (response.data.success && response.data.emailBody) {
         replaceReplyDraftContent(response.data.emailBody);
-        setKraftFinalPrompt(response.data.finalPrompt || '');
-        setKraftWebSearchData(response.data.webSearchData || '');
+        const kraftInsights = extractGenerationInsights(response.data);
+        setKraftFinalPrompt(kraftInsights.finalPrompt);
+        setKraftWebSearchData(kraftInsights.webSearchData);
+        setKraftEmails(kraftInsights.emails);
+        setKraftNotes(kraftInsights.notes);
+        setKraftProfessionalSummary(kraftInsights.professionalSummary);
         playSound();
         window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
       } else {
@@ -1036,8 +1046,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
       if (response.data?.success && response.data?.emailBody) {
         setForwardMessage(response.data.emailBody);
-        setKraftFinalPrompt(response.data.finalPrompt || '');
-        setKraftWebSearchData(response.data.webSearchData || '');
+        const kraftInsights = extractGenerationInsights(response.data);
+        setKraftFinalPrompt(kraftInsights.finalPrompt);
+        setKraftWebSearchData(kraftInsights.webSearchData);
+        setKraftEmails(kraftInsights.emails);
+        setKraftNotes(kraftInsights.notes);
+        setKraftProfessionalSummary(kraftInsights.professionalSummary);
         playSound();
         window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
       } else {
@@ -1984,6 +1998,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           showActionButtons
           finalPrompt={kraftFinalPrompt}
           webSearchData={kraftWebSearchData}
+          insightEmails={kraftEmails}
+          insightNotes={kraftNotes}
+          insightProfessionalSummary={kraftProfessionalSummary}
         />
       </div>
 
@@ -3078,6 +3095,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       reserveRight={64}
                       finalPrompt={kraftFinalPrompt}
                       webSearchData={kraftWebSearchData}
+                      insightEmails={kraftEmails}
+                      insightNotes={kraftNotes}
+                      insightProfessionalSummary={kraftProfessionalSummary}
                       outputEmailWidth={outputEmailWidth}
                       isCopyText={isCopyText}
                       openDeviceDropdown={openDeviceDropdown}
@@ -3762,8 +3782,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
                             if (response.data.success && response.data.emailBody) {
                               replaceReplyDraftContent(response.data.emailBody);
-        setKraftFinalPrompt(response.data.finalPrompt || '');
-        setKraftWebSearchData(response.data.webSearchData || '');
+        const kraftInsights = extractGenerationInsights(response.data);
+        setKraftFinalPrompt(kraftInsights.finalPrompt);
+        setKraftWebSearchData(kraftInsights.webSearchData);
+        setKraftEmails(kraftInsights.emails);
+        setKraftNotes(kraftInsights.notes);
+        setKraftProfessionalSummary(kraftInsights.professionalSummary);
                               playSound();
                               window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
                             } else {
@@ -3805,6 +3829,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         reserveRight={64}
                         finalPrompt={kraftFinalPrompt}
                         webSearchData={kraftWebSearchData}
+                        insightEmails={kraftEmails}
+                        insightNotes={kraftNotes}
+                        insightProfessionalSummary={kraftProfessionalSummary}
                         outputEmailWidth={outputEmailWidth}
                         isCopyText={isCopyText}
                         openDeviceDropdown={openDeviceDropdown}
@@ -4350,8 +4377,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
                             if (response.data.success && response.data.emailBody) {
                               replaceReplyDraftContent(response.data.emailBody);
-        setKraftFinalPrompt(response.data.finalPrompt || '');
-        setKraftWebSearchData(response.data.webSearchData || '');
+        const kraftInsights = extractGenerationInsights(response.data);
+        setKraftFinalPrompt(kraftInsights.finalPrompt);
+        setKraftWebSearchData(kraftInsights.webSearchData);
+        setKraftEmails(kraftInsights.emails);
+        setKraftNotes(kraftInsights.notes);
+        setKraftProfessionalSummary(kraftInsights.professionalSummary);
                               playSound();
                               window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
                             } else {
@@ -4393,6 +4424,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         showActionButtons
                         finalPrompt={kraftFinalPrompt}
                         webSearchData={kraftWebSearchData}
+                        insightEmails={kraftEmails}
+                        insightNotes={kraftNotes}
+                        insightProfessionalSummary={kraftProfessionalSummary}
                         outputEmailWidth={outputEmailWidth}
                         isCopyText={isCopyText}
                         openDeviceDropdown={openDeviceDropdown}
