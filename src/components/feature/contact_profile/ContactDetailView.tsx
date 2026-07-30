@@ -275,8 +275,27 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [showContactForwardBcc, setShowContactForwardBcc] = useState(false);
   const [showContactForwardCc, setShowContactForwardCc] = useState(false);
   const [isForwardingContactEmail, setIsForwardingContactEmail] = useState(false);
+  const [contactForwardEmailWidth, setContactForwardEmailWidth] = useState<string>("");
+  const [openContactForwardDeviceDropdown, setOpenContactForwardDeviceDropdown] = useState(false);
+  const [isContactForwardExpanded, setIsContactForwardExpanded] = useState(false);
   const contactReplyKraftInFlightRef = useRef(false);
   const contactMailDetailRef = useRef<HTMLDivElement | null>(null);
+  // Insights captured from the last kraft, surfaced through the editor's
+  // action bar (same as the Inbox reply/forward editors).
+  const [kraftFinalPrompt, setKraftFinalPrompt] = useState("");
+  const [kraftWebSearchData, setKraftWebSearchData] = useState("");
+  const [kraftEmails, setKraftEmails] = useState("");
+  const [kraftNotes, setKraftNotes] = useState("");
+  const [kraftProfessionalSummary, setKraftProfessionalSummary] = useState("");
+
+  const captureKraftInsights = (responseData: any) => {
+    const insights = extractGenerationInsights(responseData);
+    setKraftFinalPrompt(insights.finalPrompt);
+    setKraftWebSearchData(insights.webSearchData);
+    setKraftEmails(insights.emails);
+    setKraftNotes(insights.notes);
+    setKraftProfessionalSummary(insights.professionalSummary);
+  };
 
   useEffect(() => {
     if (!showContactReplySection && !showContactForwardSection) return;
@@ -1684,6 +1703,7 @@ const handleGenerateInsights = async () => {
 
       if (response.data?.success && response.data?.emailBody) {
         replaceContactReplyDraftContent(response.data.emailBody);
+        captureKraftInsights(response.data);
         refreshCreditsAfterDeduction();
         window.dispatchEvent(new CustomEvent("creditUpdated", { detail: { clientId: effectiveUserId } }));
         return;
@@ -2094,6 +2114,7 @@ const handleGenerateInsights = async () => {
 
       if (response.data?.success && response.data?.emailBody) {
         setContactForwardMessage(response.data.emailBody);
+        captureKraftInsights(response.data);
         refreshCreditsAfterDeduction();
         window.dispatchEvent(new CustomEvent("creditUpdated", { detail: { clientId: effectiveUserId } }));
       } else {
@@ -3668,7 +3689,36 @@ dispatch(closePanel());
                   </button>
                 </div>
               )}
-              <RichTextEditor value={contactForwardMessage} onChange={setContactForwardMessage} />
+              <div
+                style={{
+                  maxWidth: contactForwardEmailWidth === "Mobile" ? "480px" : contactForwardEmailWidth === "Tab" ? "768px" : "100%",
+                  margin: "0 auto",
+                  width: "100%",
+                }}
+              >
+                <RichTextEditor
+                  value={contactForwardMessage}
+                  onChange={setContactForwardMessage}
+                  showActionButtons
+                  onRegenerate={() => handleKraftContactForward(activeThread)}
+                  isRegenerating={isKraftingContactReply}
+                  regenerateDisabled={!selectedContactReplyBlueprint || !activeThread?.contactId}
+                  showDeviceButton
+                  outputEmailWidth={contactForwardEmailWidth}
+                  openDeviceDropdown={openContactForwardDeviceDropdown}
+                  onDeviceDropdownToggle={() => setOpenContactForwardDeviceDropdown((prev) => !prev)}
+                  onDeviceWidthChange={(width) => {
+                    setContactForwardEmailWidth(width);
+                    setOpenContactForwardDeviceDropdown(false);
+                  }}
+                  onExpandEditor={() => setIsContactForwardExpanded(true)}
+                  finalPrompt={kraftFinalPrompt}
+                  webSearchData={kraftWebSearchData}
+                  insightEmails={kraftEmails}
+                  insightNotes={kraftNotes}
+                  insightProfessionalSummary={kraftProfessionalSummary}
+                />
+              </div>
             </div>
             <div style={{ display: "flex", gap: 12 }}>
               <button
@@ -3906,118 +3956,73 @@ dispatch(closePanel());
                 }
               `}
             </style>
-            <div style={{ marginBottom: 12, position: "relative" }}>
+            <div style={{ marginBottom: 12 }}>
               <div
                 style={{
                   maxWidth: contactReplyEmailWidth === "Mobile" ? "480px" : contactReplyEmailWidth === "Tab" ? "768px" : "100%",
                   margin: "0 auto",
+                  // Anchors the floated "Save draft" button to the editor, so it
+                  // follows the device-preview width instead of the full row.
+                  position: "relative",
                 }}
               >
-                <RichTextEditor value={contactReplyText} onChange={setContactReplyText} height={260} />
-              </div>
-              <div
-                className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md"
-                style={{ position: "absolute", right: 10, top: 10, zIndex: 10, display: "flex", gap: 6 }}
-              >
-                <div style={{ position: "relative" }}>
+                {/* Insights / regenerate / copy / device / expand all live in
+                    the editor toolbar — same controls as Inbox and Output. */}
+                <RichTextEditor
+                  value={contactReplyText}
+                  onChange={setContactReplyText}
+                  height={260}
+                  showActionButtons
+                  onRegenerate={() => handleKraftContactReply(activeThread)}
+                  isRegenerating={isKraftingContactReply}
+                  regenerateDisabled={!selectedContactReplyBlueprint || !activeThread?.contactId}
+                  isCopyText={isCopyContactReplyText}
+                  onCopyToClipboard={copyContactReplyToClipboard}
+                  showDeviceButton
+                  outputEmailWidth={contactReplyEmailWidth}
+                  openDeviceDropdown={openContactReplyDeviceDropdown}
+                  onDeviceDropdownToggle={() => setOpenContactReplyDeviceDropdown((prev) => !prev)}
+                  onDeviceWidthChange={(width) => {
+                    setContactReplyEmailWidth(width);
+                    setOpenContactReplyDeviceDropdown(false);
+                  }}
+                  onExpandEditor={() => setIsContactReplyExpanded(true)}
+                  // Clears the floated "Save draft" button that still sits at
+                  // the top-right of this composer.
+                  reserveRight={40}
+                  finalPrompt={kraftFinalPrompt}
+                  webSearchData={kraftWebSearchData}
+                  insightEmails={kraftEmails}
+                  insightNotes={kraftNotes}
+                  insightProfessionalSummary={kraftProfessionalSummary}
+                />
+                <div
+                  className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md"
+                  style={{ position: "absolute", right: 7, top: 5, zIndex: 10, display: "flex", gap: 6 }}
+                >
                   <button
                     type="button"
-                    onClick={() => setOpenContactReplyDeviceDropdown((prev) => !prev)}
-                    className="button square-40 justify-center"
-                    title="Preview width"
-                    style={{ width: 40, minWidth: 40, height: 40, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                    className="button justify-center"
+                    title={isSavingContactReplyDraft ? "Saving draft" : "Save draft"}
+                    aria-label={isSavingContactReplyDraft ? "Saving draft" : "Save draft"}
+                    onClick={() => handleSaveContactReplyDraft(activeThread)}
+                    disabled={isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim()}
+                    style={{
+                      width: 28,
+                      minWidth: 28,
+                      height: 28,
+                      padding: 0,
+                      borderRadius: 5,
+                      fontSize: 12,
+                      background: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "#e5e7eb" : "#e2f1e3",
+                      color: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "#9ca3af" : "#3f9f42",
+                      border: "1px solid #d1d5db",
+                      cursor: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "not-allowed" : "pointer",
+                    }}
                   >
-                    {contactReplyEmailWidth === "Mobile" && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    )}
-                    {contactReplyEmailWidth === "Tab" && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24" fill="none">
-                        <rect x="4" y="3" width="16" height="18" rx="1" stroke="#200E32" strokeWidth="2" strokeLinecap="round"/>
-                        <circle cx="12" cy="18" r="1" fill="#200E32"/>
-                      </svg>
-                    )}
-                    {contactReplyEmailWidth === "" && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24" fill="none">
-                        <rect x="3" y="4" width="18" height="13" rx="2" stroke="#0C0310" strokeWidth="2" strokeLinecap="round" fill="none"/>
-                        <line x1="7.5" y1="21" x2="16.5" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
-                        <line x1="12" y1="17" x2="12" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                    )}
+                    <FontAwesomeIcon icon={faFloppyDisk} />
                   </button>
-                  {openContactReplyDeviceDropdown && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        right: 0,
-                        top: 42,
-                        width: 74,
-                        background: "#eeeeee",
-                        borderRadius: "0 0 6px 6px",
-                        padding: 4,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 4,
-                        boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
-                      }}
-                    >
-                      <button type="button" className="button pad-10" onClick={() => { setContactReplyEmailWidth(""); setOpenContactReplyDeviceDropdown(false); }}>Desktop</button>
-                      <button type="button" className="button pad-10" onClick={() => { setContactReplyEmailWidth("Tab"); setOpenContactReplyDeviceDropdown(false); }}>Tab</button>
-                      <button type="button" className="button pad-10" onClick={() => { setContactReplyEmailWidth("Mobile"); setOpenContactReplyDeviceDropdown(false); }}>Mobile</button>
-                    </div>
-                  )}
                 </div>
-                <button
-                  type="button"
-                  className="button d-flex align-center square-40 justify-center"
-                  title="Copy"
-                  onClick={copyContactReplyToClipboard}
-                  style={{ width: 40, minWidth: 40, height: 40, padding: 0 }}
-                >
-                  {isCopyContactReplyText ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none">
-                      <path d="M7.29417 12.9577L10.5048 16.1681L17.6729 9" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <circle cx="12" cy="12" r="10" stroke="#ffffff" strokeWidth="2"/>
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="#000000" width="22" height="22" viewBox="0 0 32 32">
-                      <path d="M26 4.75h-2c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25h0.75v21.5h-17.5v-21.5h0.75c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25h-2c-0.69 0-1.25 0.56-1.25 1.25v24c0 0.69 0.56 1.25 1.25 1.25h20c0.69-0.001 1.249-0.56 1.25-1.25v-24c0-0.69-0.56-1.25-1.25-1.25zM11 9.249h10c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25h-1.137c0.242-0.513 0.385-1.114 0.387-1.748 0-2.347-1.903-4.25-4.25-4.25s-4.25 1.903-4.25 4.25c0.002 0.635 0.145 1.236 0.398 1.775h-1.137c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25zM14.25 5c0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75-0.966-0.001-1.748-0.783-1.75-1.75zM19.957 13.156l-6.44 7.039-1.516-1.506c-0.226-0.223-0.536-0.361-0.878-0.361-0.69 0-1.25 0.56-1.25 1.25 0 0.345 0.14 0.658 0.366 0.884l2.44 2.424 0.022 0.015 0.015 0.021c0.074 0.061 0.159 0.114 0.25 0.156 0.037 0.026 0.079 0.053 0.123 0.077 0.135 0.056 0.292 0.089 0.457 0.089 0.175 0 0.341-0.037 0.491-0.103 0.053-0.031 0.098-0.061 0.14-0.094 0.102-0.050 0.189-0.11 0.268-0.179l0.015-0.023 0.020-0.014 7.318-8c0.203-0.222 0.328-0.518 0.328-0.844 0-0.69-0.559-1.25-1.25-1.25-0.365 0-0.693 0.156-0.921 0.405z"/>
-                    </svg>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="button square-40 !bg-transparent justify-center"
-                  title="Expand"
-                  onClick={() => setIsContactReplyExpanded(true)}
-                  style={{ width: 40, minWidth: 40, height: 40, padding: 0 }}
-                >
-                  <svg width="28" height="28" viewBox="0 0 512 512">
-                    <polyline points="304 96 416 96 416 208" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
-                    <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
-                    <polyline points="208 416 96 416 96 304" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  className="button square-40 justify-center"
-                  title={isSavingContactReplyDraft ? "Saving draft" : "Save draft"}
-                  aria-label={isSavingContactReplyDraft ? "Saving draft" : "Save draft"}
-                  onClick={() => handleSaveContactReplyDraft(activeThread)}
-                  disabled={isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim()}
-                  style={{
-                    width: 40,
-                    minWidth: 40,
-                    height: 40,
-                    background: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "#e5e7eb" : "#e2f1e3",
-                    color: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "#9ca3af" : "#3f9f42",
-                    border: "1px solid #d1d5db",
-                    cursor: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "not-allowed" : "pointer",
-                  }}
-                >
-                  <FontAwesomeIcon icon={faFloppyDisk} />
-                </button>
               </div>
             </div>
             <div style={{ display: "flex", gap: 12, marginTop: 14, alignItems: "center" }}>
@@ -4099,6 +4104,33 @@ dispatch(closePanel());
                   Done
                 </button>
               </div>
+          </div>
+        </Modal>
+        <Modal
+          show={isContactForwardExpanded}
+          closeModal={() => setIsContactForwardExpanded(false)}
+          buttonLabel="Close"
+          size="90%"
+        >
+          <div style={{ padding: 20 }}>
+            <label style={{ fontWeight: 500, fontSize: 16, marginBottom: 12, display: "block" }}>Forward editor</label>
+            <RichTextEditor value={contactForwardMessage} onChange={setContactForwardMessage} height={520} />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 14 }}>
+              <button
+                type="button"
+                onClick={() => setIsContactForwardExpanded(false)}
+                style={{
+                  padding: "10px 24px",
+                  ...secondaryButtonStyle,
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 500,
+                }}
+              >
+                Done
+              </button>
+            </div>
           </div>
         </Modal>
       </>

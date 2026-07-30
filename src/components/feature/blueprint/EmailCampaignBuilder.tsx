@@ -248,33 +248,64 @@ const CONTACT_PLACEHOLDERS = [
 const ExampleEmailEditor: React.FC<{
   value: string;
   onChange: (val: string) => void;
+  height?: number;
   showActionButtons?: boolean;
   finalPrompt?: string;
   webSearchData?: string;
   insightEmails?: string;
   insightNotes?: string;
   insightProfessionalSummary?: string;
+  // Action-bar wiring — the same set the Inbox and Output editors pass, so the
+  // preview toolbar carries every control in all three places.
+  onRegenerate?: () => void;
+  isRegenerating?: boolean;
+  regenerateDisabled?: boolean;
+  showDeviceButton?: boolean;
+  outputEmailWidth?: string;
+  openDeviceDropdown?: boolean;
+  onDeviceDropdownToggle?: () => void;
+  onDeviceWidthChange?: (width: string) => void;
+  onExpandEditor?: () => void;
 }> = ({
   value,
   onChange,
+  height = 320,
   showActionButtons,
   finalPrompt,
   webSearchData,
   insightEmails,
   insightNotes,
   insightProfessionalSummary,
+  onRegenerate,
+  isRegenerating,
+  regenerateDisabled,
+  showDeviceButton,
+  outputEmailWidth,
+  openDeviceDropdown,
+  onDeviceDropdownToggle,
+  onDeviceWidthChange,
+  onExpandEditor,
 }) => {
   return (
     <RichTextEditor
       value={value}
       onChange={onChange}
-      height={320}
+      height={height}
       showActionButtons={showActionButtons}
       finalPrompt={finalPrompt}
       webSearchData={webSearchData}
       insightEmails={insightEmails}
       insightNotes={insightNotes}
       insightProfessionalSummary={insightProfessionalSummary}
+      onRegenerate={onRegenerate}
+      isRegenerating={isRegenerating}
+      regenerateDisabled={regenerateDisabled}
+      showDeviceButton={showDeviceButton}
+      outputEmailWidth={outputEmailWidth}
+      openDeviceDropdown={openDeviceDropdown}
+      onDeviceDropdownToggle={onDeviceDropdownToggle}
+      onDeviceWidthChange={onDeviceWidthChange}
+      onExpandEditor={onExpandEditor}
     />
   );
 };
@@ -1498,6 +1529,12 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   const selectedContact = contacts.find((c) => c.id === selectedContactId);
   const [userRole, setUserRole] = useState<string>("");
 
+  // Device-preview + expand state for the editor action bar (same controls the
+  // Inbox and Output editors offer).
+  const [previewDeviceWidth, setPreviewDeviceWidth] = useState<string>("");
+  const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
+  const [isEditorExpanded, setIsEditorExpanded] = useState(false);
+
   useEffect(() => {
     setUserRole(sessionStorage.getItem("isAdmin") === "true" ? "ADMIN" : "USER");
   }, []);
@@ -1656,16 +1693,40 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
       <div style={{ flex: 1, overflow: "auto" }}>
         {activeMainTab === "output" && (
           editableExampleOutput || exampleOutput ? (
-            <ExampleEmailEditor
-              value={editableExampleOutput || exampleOutput || ""}
-              onChange={setEditableExampleOutput}
-              showActionButtons
-              finalPrompt={previewFinalPrompt}
-              webSearchData={previewWebSearchData}
-              insightEmails={previewEmails}
-              insightNotes={previewNotes}
-              insightProfessionalSummary={previewProfessionalSummary}
-            />
+            <div
+              style={{
+                maxWidth:
+                  previewDeviceWidth === "Mobile"
+                    ? "480px"
+                    : previewDeviceWidth === "Tab"
+                      ? "768px"
+                      : "100%",
+                margin: "0 auto",
+              }}
+            >
+              <ExampleEmailEditor
+                value={editableExampleOutput || exampleOutput || ""}
+                onChange={setEditableExampleOutput}
+                showActionButtons
+                finalPrompt={previewFinalPrompt}
+                webSearchData={previewWebSearchData}
+                insightEmails={previewEmails}
+                insightNotes={previewNotes}
+                insightProfessionalSummary={previewProfessionalSummary}
+                onRegenerate={handlePreview}
+                isRegenerating={isGenerating}
+                regenerateDisabled={!selectedContactId || !isPreviewAllowed}
+                showDeviceButton
+                outputEmailWidth={previewDeviceWidth}
+                openDeviceDropdown={openDeviceDropdown}
+                onDeviceDropdownToggle={() => setOpenDeviceDropdown((open) => !open)}
+                onDeviceWidthChange={(width) => {
+                  setPreviewDeviceWidth(width);
+                  setOpenDeviceDropdown(false);
+                }}
+                onExpandEditor={() => setIsEditorExpanded(true)}
+              />
+            </div>
           ) : (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
               <div style={{ fontSize: 28, marginBottom: 10 }}>✉️</div>
@@ -1687,6 +1748,44 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             : <p style={{ padding: 20, color: "#9ca3af", fontSize: 13 }}>Filled template will appear here</p>
         )}
       </div>
+
+      {/* Expanded editor — the preview panel is narrow, so the expand action
+          opens the same editor over the full window. */}
+      {isEditorExpanded && (
+        <div
+          onClick={() => setIsEditorExpanded(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 1000,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 10, padding: 20,
+              width: "90%", maxWidth: 1100, maxHeight: "90vh", overflow: "auto",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <span style={{ fontWeight: 600, fontSize: 15, color: "#111827" }}>Example email</span>
+              <button
+                type="button"
+                onClick={() => setIsEditorExpanded(false)}
+                title="Close"
+                style={{ border: "1px solid #e5e7eb", background: "#fff", borderRadius: 6, cursor: "pointer", color: "#6b7280", fontSize: 15, lineHeight: 1, padding: "4px 9px" }}
+              >
+                ✕
+              </button>
+            </div>
+            <ExampleEmailEditor
+              value={editableExampleOutput || exampleOutput || ""}
+              onChange={setEditableExampleOutput}
+              height={520}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

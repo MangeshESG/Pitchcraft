@@ -236,8 +236,6 @@ interface RichTextEditorProps {
   /** Highlight toggle (on/off) — controlled by the parent. */
   highlightActive?: boolean;
   onToggleHighlight?: () => void;
-  /** Edit action. */
-  onEdit?: () => void;
   /** Regenerate action — the button only renders when this is provided. */
   onRegenerate?: () => void;
   /** Spins the regenerate icon and blocks repeat clicks. */
@@ -282,13 +280,9 @@ const FONT_FAMILIES: { label: string; value: string }[] = [
   { label: "Verdana", value: "verdana, sans-serif" },
 ];
 
-// Gmail-style sizes mapped to execCommand fontSize values (1-7)
-const FONT_SIZES: { label: string; value: string }[] = [
-  { label: "Small", value: "1" },
-  { label: "Normal", value: "3" },
-  { label: "Large", value: "5" },
-  { label: "Huge", value: "7" },
-];
+// Word / Gmail point sizes. execCommand only understands the 1-7 scale, so
+// these are applied as real px values (see applyFontSize).
+const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
 
 // Gmail-style color palette
 const COLOR_PALETTE: string[] = [
@@ -305,9 +299,12 @@ const COLOR_PALETTE: string[] = [
 const tbStyles: Record<string, React.CSSProperties> = {
   toolbar: {
     display: "flex",
+    // Compact enough that formatting + action controls sit on one row at normal
+    // widths; wrapping is kept only as a fallback for very narrow containers
+    // (e.g. the mobile device preview).
     flexWrap: "wrap",
     alignItems: "center",
-    gap: "2px",
+    gap: "1px",
     padding: "4px 6px",
     background: "#f8f9fa",
     border: "1px solid #d1d5db",
@@ -317,10 +314,10 @@ const tbStyles: Record<string, React.CSSProperties> = {
   select: {
     flex: "0 0 auto",
     width: "auto",
-    height: "28px",
-    fontSize: "12.5px",
-    lineHeight: "26px",
-    padding: "0 4px",
+    height: "26px",
+    fontSize: "11px",
+    lineHeight: "24px",
+    padding: "0 2px",
     margin: 0,
     border: "1px solid #d1d5db",
     borderRadius: "4px",
@@ -331,9 +328,9 @@ const tbStyles: Record<string, React.CSSProperties> = {
   },
   btn: {
     flex: "0 0 auto",
-    height: "28px",
-    minWidth: "28px",
-    padding: "0 5px",
+    height: "26px",
+    minWidth: "26px",
+    padding: "0 4px",
     margin: 0,
     display: "inline-flex",
     alignItems: "center",
@@ -394,7 +391,7 @@ const DeviceIcon: React.FC<{ width: string }> = ({ width }) => {
 
   if (width === "Mobile") {
     return (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
         <path
           d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
           stroke={stroke}
@@ -408,7 +405,7 @@ const DeviceIcon: React.FC<{ width: string }> = ({ width }) => {
 
   if (width === "Tab") {
     return (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
         <rect x="4" y="3" width="16" height="18" rx="1" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
         <circle cx="12" cy="18" r="1" fill={stroke} />
       </svg>
@@ -416,7 +413,7 @@ const DeviceIcon: React.FC<{ width: string }> = ({ width }) => {
   }
 
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
       <rect x="3" y="4" width="18" height="13" rx="2" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
       <line x1="7.5" y1="21" x2="16.5" y2="21" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
       <line x1="12" y1="17" x2="12" y2="21" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
@@ -460,7 +457,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   isCopyText,
   onCopyToClipboard,
   onExpandEditor,
-  onEdit,
   onRegenerate,
   isRegenerating = false,
   regenerateDisabled = false,
@@ -482,8 +478,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const savedSelectionRef = useRef<Range | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [openMenu, setOpenMenu] = useState<
-    null | "color" | "highlight" | "align"
+    null | "color" | "highlight" | "align" | "indent" | "size"
   >(null);
+  // Size shown in the toolbar — follows the caret, like Word / Gmail.
+  const [currentFontSize, setCurrentFontSize] = useState(16);
 
   // ── Action-bar state ──
   const [copied, setCopied] = useState(false);
@@ -576,12 +574,24 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     return editor.contains(range.commonAncestorContainer);
   };
 
+  /** Reads the size actually rendered at the caret so the toolbar can show it. */
+  const syncFontSizeFromSelection = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    let node: Node | null = selection.getRangeAt(0).startContainer;
+    if (node && node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+    if (!(node instanceof HTMLElement) || !editorRef.current?.contains(node)) return;
+    const px = Math.round(parseFloat(window.getComputedStyle(node).fontSize));
+    if (px > 0) setCurrentFontSize(px);
+  };
+
   const rememberSelection = () => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     const range = selection.getRangeAt(0);
     if (isSelectionInsideEditor(range)) {
       savedSelectionRef.current = range.cloneRange();
+      syncFontSizeFromSelection();
     }
   };
 
@@ -632,6 +642,50 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     handleCommand(command, value);
   };
 
+  /** Applies an exact px size. execCommand's fontSize only accepts the legacy
+   *  1-7 scale, so tag the selection with size 7 and swap those <font> nodes
+   *  for spans carrying the real size (inline styles travel well in email). */
+  const applyFontSize = (px: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    restoreSelection();
+
+    try {
+      // "false" keeps execCommand emitting <font size="7">, which is easy to
+      // find again — with styleWithCSS on it produces a CSS keyword instead.
+      document.execCommand("styleWithCSS", false, "false");
+    } catch {
+      /* ignore — not supported by every browser */
+    }
+    document.execCommand("fontSize", false, "7");
+
+    const replacements: HTMLElement[] = [];
+    editor.querySelectorAll('font[size="7"]').forEach((node) => {
+      const span = document.createElement("span");
+      span.style.fontSize = `${px}px`;
+      while (node.firstChild) span.appendChild(node.firstChild);
+      node.parentNode?.replaceChild(span, node);
+      replacements.push(span);
+    });
+
+    // Swapping the nodes drops the selection — put it back over the new spans
+    // so consecutive changes (size then bold) keep working on the same text.
+    if (replacements.length > 0) {
+      const range = document.createRange();
+      range.setStartBefore(replacements[0]);
+      range.setEndAfter(replacements[replacements.length - 1]);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      savedSelectionRef.current = range.cloneRange();
+    }
+
+    setCurrentFontSize(px);
+    syncEditorValue();
+  };
+
   const handleCreateLink = () => {
     rememberSelection();
     const href = normalizeUrl(prompt("Enter link URL") || "");
@@ -657,17 +711,18 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   const actionBtnStyle: React.CSSProperties = {
-    height: 40,
-    minWidth: 40,
-    padding: "0 8px",
+    height: 28,
+    minWidth: 28,
+    padding: "0 4px",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     border: "1px solid #d1d5db",
-    borderRadius: 6,
+    borderRadius: 5,
     background: "#ffffff",
     cursor: "pointer",
     color: "#374151",
+    flex: "0 0 auto",
   };
 
   // Brand green used for all action icons (per design).
@@ -683,7 +738,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         onClick={() => setInfoPanel((p) => (p === "insights" ? null : "insights"))}
         style={{ ...actionBtnStyle, background: infoPanel === "insights" ? "#E4F8E8" : "#ffffff" }}
       >
-        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 18h6" />
           <path d="M10 21h4" />
           <path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.8.9.9 1.5l.1.7h5.2l.1-.7c.1-.6.4-1.1.9-1.5A6 6 0 0 0 12 3Z" />
@@ -700,20 +755,11 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             onClick={() => setHighlightsOn((v) => !v)}
             style={{ ...actionBtnStyle, background: highlightsOn ? "#E4F8E8" : "#ffffff" }}
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
               <path d="M9 11L3 17V20H12L15 17" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M22 12L17.4 16.6C16.6189 17.381 15.3526 17.381 14.5716 16.6L9.4 11.4284C8.61895 10.6474 8.61895 9.38104 9.4 8.6L14 4L22 12Z" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-
-          {/* Edit */}
-          {onEdit && (
-            <button type="button" title="Edit" onClick={onEdit} style={actionBtnStyle}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          )}
 
           {/* Regenerate */}
           {onRegenerate && (
@@ -748,12 +794,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           {/* Copy */}
           <button type="button" title="Copy to clipboard" onClick={handleCopyMain} style={actionBtnStyle}>
             {copied || isCopyText ? (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
                 <path d="M7.29417 12.9577L10.5048 16.1681L17.6729 9" stroke={ICON} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 <circle cx="12" cy="12" r="10" stroke={ICON} strokeWidth="2" />
               </svg>
             ) : (
-              <svg width="21" height="21" viewBox="0 0 32 32" fill={ICON}>
+              <svg width="16" height="16" viewBox="0 0 32 32" fill={ICON}>
                 <path d="M26 4.75h-2c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0h0.75v21.5h-17.5v-21.5h0.75c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-2c-0.69 0-1.25 0.56-1.25 1.25v0 24c0 0.69 0.56 1.25 1.25 1.25h20c0.69-0.001 1.249-0.56 1.25-1.25v-24c-0-0.69-0.56-1.25-1.25-1.25h-0zM11 9.249h10c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-1.137c0.242-0.513 0.385-1.114 0.387-1.748v-0.001c0-2.347-1.903-4.25-4.25-4.25s-4.25 1.903-4.25 4.25v0c0.002 0.635 0.145 1.236 0.398 1.775l-0.011-0.026h-1.137c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0zM14.25 5c0-0 0-0.001 0-0.001 0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75v0c-0.966-0.001-1.748-0.783-1.75-1.749v-0zM19.957 13.156l-6.44 7.039-1.516-1.506c-0.226-0.223-0.536-0.361-0.878-0.361-0.69 0-1.25 0.56-1.25 1.25 0 0.345 0.14 0.658 0.366 0.884v0l2.44 2.424 0.022 0.015 0.015 0.021c0.074 0.061 0.159 0.114 0.25 0.156l0.007 0.003c0.037 0.026 0.079 0.053 0.123 0.077l0.007 0.003c0.135 0.056 0.292 0.089 0.457 0.089 0.175 0 0.341-0.037 0.491-0.103l-0.008 0.003c0.053-0.031 0.098-0.061 0.14-0.094l-0.003 0.002c0.102-0.050 0.189-0.11 0.268-0.179l-0.001 0.001 0.015-0.023 0.020-0.014 7.318-8c0.203-0.222 0.328-0.518 0.328-0.844 0-0.69-0.559-1.25-1.25-1.25-0.365 0-0.693 0.156-0.921 0.405l-0.001 0.001z" />
               </svg>
             )}
@@ -780,7 +826,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 <div
                   style={{
                     position: "absolute",
-                    top: 44,
+                    top: 32,
                     right: 0,
                     zIndex: 60,
                     display: "flex",
@@ -801,7 +847,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                         title={`${option.label} view`}
                         aria-label={`${option.label} view`}
                         onClick={() => onDeviceWidthChange?.(option.value)}
-                        style={{ ...actionBtnStyle, width: 40 }}
+                        style={{ ...actionBtnStyle, width: 28 }}
                       >
                         <DeviceIcon width={option.value} />
                       </button>
@@ -815,7 +861,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           {/* Expand */}
           {onExpandEditor && (
             <button type="button" title="Expand" onClick={onExpandEditor} style={actionBtnStyle}>
-              <svg width="22" height="22" viewBox="0 0 512 512">
+              <svg width="17" height="17" viewBox="0 0 512 512">
                 <polyline points="304 96 416 96 416 208" fill="none" stroke={ICON} strokeLinecap="round" strokeLinejoin="round" strokeWidth="32" />
                 <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke={ICON} strokeLinecap="round" strokeLinejoin="round" strokeWidth="32" />
                 <polyline points="208 416 96 416 96 304" fill="none" stroke={ICON} strokeLinecap="round" strokeLinejoin="round" strokeWidth="32" />
@@ -834,7 +880,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           onClick={() => setInfoPanel((p) => (p === "prompt" ? null : "prompt"))}
           style={{ ...actionBtnStyle, background: infoPanel === "prompt" ? "#E4F8E8" : "#ffffff" }}
         >
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="4 17 10 11 4 5" />
             <line x1="12" y1="19" x2="20" y2="19" />
           </svg>
@@ -853,19 +899,20 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       <div ref={toolbarRef} style={tbStyles.toolbar}>
         {!readOnly && (
         <>
-        {/* Font family */}
+        {/* Font family — width is pinned (min/max too) so nothing can stretch
+            the control, and the placeholder is kept short for the same reason. */}
         <select
           onMouseDown={rememberSelection}
           onChange={(e) => {
             if (e.target.value) commandWithSelection("fontName", e.target.value);
             e.target.value = "";
           }}
-          style={{ ...tbStyles.select, width: "104px" }}
+          style={{ ...tbStyles.select, width: "56px", minWidth: "56px", maxWidth: "56px" }}
           defaultValue=""
           title="Font"
         >
           <option value="" disabled>
-            Sans Serif
+            Font
           </option>
           {FONT_FAMILIES.map((font) => (
             <option key={font.label} value={font.value} style={{ fontFamily: font.value }}>
@@ -874,46 +921,87 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           ))}
         </select>
 
-        {/* Font size */}
-        <select
-          onMouseDown={rememberSelection}
-          onChange={(e) => {
-            if (e.target.value) commandWithSelection("fontSize", e.target.value);
-            e.target.value = "";
-          }}
-          style={{ ...tbStyles.select, width: "72px" }}
-          defaultValue=""
-          title="Size"
-        >
-          <option value="" disabled>
-            Size
-          </option>
-          {FONT_SIZES.map((size) => (
-            <option key={size.value} value={size.value}>
-              {size.label}
-            </option>
-          ))}
-        </select>
+        {/* Font size — a menu rather than a <select> so the box can show the
+            size at the caret and the list can be styled to match the toolbar. */}
+        <div style={{ position: "relative", flex: "0 0 auto" }}>
+          <button
+            type="button"
+            title="Font size"
+            aria-haspopup="listbox"
+            aria-expanded={openMenu === "size"}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              rememberSelection();
+              setOpenMenu(openMenu === "size" ? null : "size");
+            }}
+            style={{
+              ...tbStyles.select,
+              width: "48px",
+              minWidth: "48px",
+              maxWidth: "48px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0 4px",
+              lineHeight: 1,
+            }}
+          >
+            <span>{currentFontSize}</span>
+            <span style={{ fontSize: "8px", color: "#6b7280" }}>▼</span>
+          </button>
 
-        {/* Heading */}
-        <select
-          onMouseDown={rememberSelection}
-          onChange={(e) => {
-            if (e.target.value) commandWithSelection("formatBlock", e.target.value);
-            e.target.value = "";
-          }}
-          style={{ ...tbStyles.select, width: "76px" }}
-          defaultValue=""
-          title="Paragraph style"
-        >
-          <option value="" disabled>
-            Normal
-          </option>
-          <option value="p">Normal</option>
-          <option value="h1">H1</option>
-          <option value="h2">H2</option>
-          <option value="h3">H3</option>
-        </select>
+          {openMenu === "size" && (
+            <div
+              role="listbox"
+              style={{
+                ...tbStyles.menu,
+                padding: "4px 0",
+                minWidth: "62px",
+                maxHeight: "260px",
+                overflowY: "auto",
+              }}
+            >
+              {FONT_SIZES.map((size) => {
+                const isActive = size === currentFontSize;
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      applyFontSize(size);
+                      setOpenMenu(null);
+                    }}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      padding: "3px 12px",
+                      border: "none",
+                      background: isActive ? "#E4F8E8" : "transparent",
+                      color: isActive ? "#2f7a32" : "#374151",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      lineHeight: 1.35,
+                      // Every row reads at the same size — the number is the
+                      // label, not a preview.
+                      fontSize: "12px",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "#f3f4f6";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                    }}
+                  >
+                    {size}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         <span style={tbStyles.divider} />
 
@@ -1111,32 +1199,46 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </svg>
         </TbButton>
 
-        {/* Indent / Outdent */}
-        <TbButton title="Indent less" onAction={() => handleCommand("outdent")}>
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
-            <rect x="1" y="1.5" width="14" height="1.8" rx="0.9" />
-            <rect x="7" y="5" width="8" height="1.8" rx="0.9" />
-            <rect x="7" y="8.5" width="8" height="1.8" rx="0.9" />
-            <rect x="1" y="12" width="14" height="1.8" rx="0.9" />
-            <path d="M4.5 6l-3 2 3 2z" />
-          </svg>
-        </TbButton>
-        <TbButton title="Indent more" onAction={() => handleCommand("indent")}>
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
-            <rect x="1" y="1.5" width="14" height="1.8" rx="0.9" />
-            <rect x="7" y="5" width="8" height="1.8" rx="0.9" />
-            <rect x="7" y="8.5" width="8" height="1.8" rx="0.9" />
-            <rect x="1" y="12" width="14" height="1.8" rx="0.9" />
-            <path d="M1.5 6l3 2-3 2z" />
-          </svg>
-        </TbButton>
-
-        {/* Quote */}
-        <TbButton title="Quote" onAction={() => handleCommand("formatBlock", "blockquote")}>
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M3.5 4C2 4 1 5.3 1 7c0 1.6 1 2.7 2.4 2.7-.2 1.2-1 2-2.1 2.4l.5 1.2C4 12.7 5.5 11 5.5 8.4 5.5 5.7 4.7 4 3.5 4zM10.5 4C9 4 8 5.3 8 7c0 1.6 1 2.7 2.4 2.7-.2 1.2-1 2-2.1 2.4l.5 1.2c2.2-.6 3.7-2.3 3.7-4.9C12.5 5.7 11.7 4 10.5 4z" />
-          </svg>
-        </TbButton>
+        {/* Indent — one button; hovering reveals increase / decrease */}
+        <div
+          style={{ position: "relative", flex: "0 0 auto" }}
+          onMouseEnter={() => setOpenMenu("indent")}
+          onMouseLeave={() => setOpenMenu((m) => (m === "indent" ? null : m))}
+        >
+          <TbButton title="Indent" onAction={() => handleCommand("indent")}>
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="1" y="1.5" width="14" height="1.8" rx="0.9" />
+              <rect x="7" y="5" width="8" height="1.8" rx="0.9" />
+              <rect x="7" y="8.5" width="8" height="1.8" rx="0.9" />
+              <rect x="1" y="12" width="14" height="1.8" rx="0.9" />
+              <path d="M1.5 6l3 2-3 2z" />
+            </svg>
+          </TbButton>
+          {openMenu === "indent" && (
+            // No top margin — a gap between button and flyout would break the
+            // hover chain and close the menu while the pointer crosses it.
+            <div style={{ ...tbStyles.menu, marginTop: 0, display: "flex", gap: "2px", padding: "4px" }}>
+              <TbButton title="Indent more" onAction={() => handleCommand("indent")}>
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="1" y="1.5" width="14" height="1.8" rx="0.9" />
+                  <rect x="7" y="5" width="8" height="1.8" rx="0.9" />
+                  <rect x="7" y="8.5" width="8" height="1.8" rx="0.9" />
+                  <rect x="1" y="12" width="14" height="1.8" rx="0.9" />
+                  <path d="M1.5 6l3 2-3 2z" />
+                </svg>
+              </TbButton>
+              <TbButton title="Indent less" onAction={() => handleCommand("outdent")}>
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="1" y="1.5" width="14" height="1.8" rx="0.9" />
+                  <rect x="7" y="5" width="8" height="1.8" rx="0.9" />
+                  <rect x="7" y="8.5" width="8" height="1.8" rx="0.9" />
+                  <rect x="1" y="12" width="14" height="1.8" rx="0.9" />
+                  <path d="M4.5 6l-3 2 3 2z" />
+                </svg>
+              </TbButton>
+            </div>
+          )}
+        </div>
 
         <span style={tbStyles.divider} />
 
@@ -1183,7 +1285,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
               marginRight: reserveRight,
               display: "inline-flex",
               alignItems: "center",
-              gap: 6,
+              gap: 4,
+              flex: "0 0 auto",
+              paddingLeft: 8,
             }}
           >
             {actionButtonsGroup}

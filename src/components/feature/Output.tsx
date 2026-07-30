@@ -932,37 +932,7 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
   const [editableContent, setEditableContent] = useState(
     combinedResponses[currentIndex]?.pitch || "",
   );
-  const [isEditing, setIsEditing] = useState(false);
   const [isLogExpanded, setIsLogExpanded] = useState(false);
-  // Toggles the "Sourced from" highlights (colored background + tooltip) in the
-  // email-body preview. When off, sourced text renders as plain text.
-  const [showSourceHighlights, setShowSourceHighlights] = useState(true);
-
-  // Strips the source-highlight styling (background color, help cursor and
-  // "Sourced from" tooltip) from the email body so it reads as plain text.
-  const stripSourceHighlights = (html: string): string => {
-    if (!html) return html;
-    try {
-      const doc = new DOMParser().parseFromString(html, "text/html");
-      doc.querySelectorAll('[title^="Sourced from"]').forEach((el) => {
-        el.removeAttribute("title");
-        const style = (el as HTMLElement).style;
-        style.removeProperty("background-color");
-        style.removeProperty("cursor");
-        if (!(el as HTMLElement).getAttribute("style")) {
-          el.removeAttribute("style");
-        }
-      });
-      return doc.body.innerHTML;
-    } catch {
-      return html;
-    }
-  };
-
-  const displayedPitch = useMemo(() => {
-    const html = combinedResponses[currentIndex]?.pitch || "";
-    return showSourceHighlights ? html : stripSourceHighlights(html);
-  }, [combinedResponses, currentIndex, showSourceHighlights]);
   const [isSaving, setIsSaving] = useState(false);
   // Shows the right-panel loader immediately when the campaign is refreshed or
   // selected, covering the gap before fetchAndDisplayEmailBodies flips
@@ -1116,9 +1086,6 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
           setexistingResponse(updatedExistingResponse);
         }
       }
-
-      // Exit editing mode
-      setIsEditing(false);
 
       // Success message
       toast.success("Content saved successfully!");
@@ -1638,13 +1605,6 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
 
   useEffect(() => {
-    if (isEditing && combinedResponses[currentIndex]?.pitch) {
-      setEditableContent(combinedResponses[currentIndex].pitch);
-    }
-  }, [currentIndex, combinedResponses, isEditing]);
-
-
-  useEffect(() => {
     if (emailFormData.BccEmail) {
       localStorage.setItem("lastBCC", emailFormData.BccEmail);
     }
@@ -2094,9 +2054,6 @@ const usageData = useMemo(() => {
     return null;
   }
 }, [outputForm.usage]);
-
-const [editingIndex, setEditingIndex] = useState<number | null>(null);
-
 
   const editableArea = useRef<HTMLDivElement | null>(null);
   const [tabPanelHeight, setTabPanelHeight] = useState(0); // div2 height
@@ -3103,7 +3060,8 @@ const [editingIndex, setEditingIndex] = useState<number | null>(null);
                         </div>
                       </div>
                       <span className="pos-relative d-flex justify-start">
-                        {isEditing ? (
+                        {/* The krafted email is always editable — "Save changes"
+                            persists it, so there is no separate edit toggle. */}
                           <div
                             className="editor-container"
                             style={{
@@ -3163,7 +3121,7 @@ const [editingIndex, setEditingIndex] = useState<number | null>(null);
                               <button
                                 className="secondary button"
                                 onClick={() => {
-                                  setIsEditing(false);
+                                  // Discard local edits and reload the saved email.
                                   setEditableContent(
                                     combinedResponses[currentIndex]?.pitch || "",
                                   );
@@ -3174,62 +3132,6 @@ const [editingIndex, setEditingIndex] = useState<number | null>(null);
                               </button>
                             </div>
                           </div>
-                        ) : (
-                          <div
-                            className="editor-container"
-                            style={{
-                              width: "100%",
-                              maxWidth: `${outputEmailWidth === "Mobile"
-                                  ? "480px"
-                                  : outputEmailWidth === "Tab"
-                                    ? "768px"
-                                    : "100%"
-                                }`,
-                            }}
-                          >
-                            {/* Read-only view of the krafted email. All controls
-                                (insights, highlights, edit, regenerate, copy,
-                                device preview, expand, final prompt) live in the
-                                editor toolbar. */}
-                            <RichTextEditor
-                              value={displayedPitch}
-                              onChange={() => {}}
-                              readOnly
-                              height={500}
-                              autoGrow
-                              showActionButtons
-                              isCopyText={isCopyText}
-                              onCopyToClipboard={copyToClipboardHandler}
-                              onEdit={() => {
-                                const pitch =
-                                  combinedResponses[currentIndex]?.pitch || "";
-                                setEditableContent(pitch);
-                                setEditingIndex(currentIndex); // 🔒 lock index
-                                setIsEditing(true);
-                              }}
-                              onRegenerate={handleRegenerateCurrentContact}
-                              isRegenerating={isRegenerating}
-                              regenerateDisabled={
-                                !combinedResponses[currentIndex] || !isResetEnabled
-                              }
-                              showDeviceButton
-                              outputEmailWidth={outputEmailWidth}
-                              openDeviceDropdown={openDeviceDropdown}
-                              onDeviceDropdownToggle={() =>
-                                setOpenDeviceDropdown(!openDeviceDropdown)
-                              }
-                              onDeviceWidthChange={toggleOutputEmailWidth}
-                              onExpandEditor={() => handleModalOpen("modal-output-2")}
-                              finalPrompt={allprompt[currentIndex] || ""}
-                              webSearchData={hasOnlineResearch ? onlineResearchText : ""}
-                              insightEmails={hasEmails ? emailInsightText : ""}
-                              insightNotes={hasNotes ? notesUsedText : ""}
-                              insightProfessionalSummary={
-                                hasProfessionalSummary ? linkedinInsightText : ""
-                              }
-                            />
-                          </div>
-                        )}
                       </span>{" "}
                       <div className="d-flex justify-center mt-4"></div>{" "}
                       {/* Add this div for navigation buttons */}
@@ -3261,7 +3163,6 @@ const [editingIndex, setEditingIndex] = useState<number | null>(null);
                       show={openModals["modal-output-2"]}
                       closeModal={() => {
                         handleModalClose("modal-output-2");
-                        setIsEditing(false);
                       }}
                       buttonLabel=""
                       size="100%"
@@ -3297,7 +3198,6 @@ const [editingIndex, setEditingIndex] = useState<number | null>(null);
                               }}
                               onClick={() => {
                                 handleModalClose("modal-output-2");
-                                setIsEditing(false);
                               }}
                               aria-label="Close"
                               title="Close"

@@ -109,7 +109,10 @@
       "PowerShell(Set-Location \"d:\\\\New Pitchcraft\\\\Pitchcraft\"; npm run build > \"$env:TEMP\\\\claude\\\\build12.txt\" 2>&1; Get-Content \"$env:TEMP\\\\claude\\\\build12.txt\" | Select-Object -Last 4; Select-String -Path \"$env:TEMP\\\\claude\\\\build12.txt\" -Pattern \"Failed to compile\" -Context 0,12 | Select-Object -First 1)",
       "Bash(awk 'NR>=2168 && NR<=2673 && /\\(^|[^a-zA-Z]\\)\\(return|break|continue\\)\\( |;\\)/ {printf \"%d: %s\\\\n\", NR, $0}' components/MainPage.tsx)",
       "PowerShell(Set-Location \"d:\\\\New Pitchcraft\\\\Pitchcraft\"; $env:PORT=\"3005\"; $env:BROWSER=\"none\"; Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/c npm start > `\"$env:TEMP\\\\claude\\\\devserver.txt`\" 2>&1\" -WindowStyle Hidden; Start-Sleep -Seconds 75; Get-Content \"$env:TEMP\\\\claude\\\\devserver.txt\" -Tail 25)",
-      "PowerShell(Set-Location \"d:\\\\New Pitchcraft\\\\Pitchcraft\"; & \".\\\\node_modules\\\\.bin\\\\tsc.cmd\" --noEmit -p tsconfig.json --moduleResolution node 2>&1 | Select-String -Pattern \"MainPage|Output.tsx\"; npm run build > \"$env:TEMP\\\\claude\\\\build13.txt\" 2>&1; Get-Content \"$env:TEMP\\\\claude\\\\build13.txt\" | Select-Object -Last 3)"
+      "PowerShell(Set-Location \"d:\\\\New Pitchcraft\\\\Pitchcraft\"; & \".\\\\node_modules\\\\.bin\\\\tsc.cmd\" --noEmit -p tsconfig.json --moduleResolution node 2>&1 | Select-String -Pattern \"MainPage|Output.tsx\"; npm run build > \"$env:TEMP\\\\claude\\\\build13.txt\" 2>&1; Get-Content \"$env:TEMP\\\\claude\\\\build13.txt\" | Select-Object -Last 3)",
+      "PowerShell(.\\\\node_modules\\\\.bin\\\\tsc.cmd --noEmit -p tsconfig.json 2>&1)",
+      "PowerShell(.\\\\node_modules\\\\.bin\\\\tsc.cmd --noEmit -p tsconfig.json --moduleResolution node 2>&1)",
+      "Bash(grep -n \"^select\\\\|[^-a-z]select[ ,{]\" src/index.css src/components/MainPage.css src/components/feature/Output.new.css)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Radhika\\AppData\\Local\\Temp\\claude\\d--New-Pitchcraft-Pitchcraft\\3dbe959a-5a6f-4e2f-871d-d75951ad187b\\scratchpad\\bundle"
