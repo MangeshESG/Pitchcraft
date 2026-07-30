@@ -57,7 +57,8 @@ import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/but
 const DEFAULT_BUILDER_MODEL = "gpt-5.1";
 const toBuilderModel = (model?: string | null): string =>
   !model || isDeepSeekModel(model) ? DEFAULT_BUILDER_MODEL : model;
-
+const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
+//const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
 
 // --- Type Definitions ---
 export interface Message {
@@ -2735,7 +2736,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       setIsPreviewLoading(true);
 
       const response = await axios.post(
-        `${API_BASE_URL}/api/email-generation/generate`,
+        `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
         {
           blueprintId: activeCampaignId,
           contactId: selectedContactId,
