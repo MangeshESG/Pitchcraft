@@ -891,8 +891,16 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   return (
     <div className="w-full" style={{ width: "100%" }}>
-      {/* Highlight strip is visual-only — keeps the underlying HTML intact */}
-      <style>{`[data-rte-hl="off"] [title^="Sourced from"]{background-color:transparent !important;cursor:auto !important;}
+      {/* Highlight strip is visual-only — keeps the underlying HTML intact.
+          The generated spans all carry `cursor:help` (both spacing variants are
+          matched because contentEditable may re-serialize the style attribute),
+          so every highlight colour is covered, not just the sourced-from one.
+          Manual highlights applied from the toolbar have no title/cursor and are
+          deliberately left alone. */}
+      <style>{`[data-rte-hl="off"] [style*="cursor:help"],
+        [data-rte-hl="off"] [style*="cursor: help"],
+        [data-rte-hl="off"] [title^="Sourced from"],
+        [data-rte-hl="off"] [title^="Personalized"]{background-color:transparent !important;cursor:auto !important;}
         @keyframes rte-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
 
       {/* Toolbar (formatting controls + action buttons pinned right) */}
