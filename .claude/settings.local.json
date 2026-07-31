@@ -112,7 +112,17 @@
       "PowerShell(Set-Location \"d:\\\\New Pitchcraft\\\\Pitchcraft\"; & \".\\\\node_modules\\\\.bin\\\\tsc.cmd\" --noEmit -p tsconfig.json --moduleResolution node 2>&1 | Select-String -Pattern \"MainPage|Output.tsx\"; npm run build > \"$env:TEMP\\\\claude\\\\build13.txt\" 2>&1; Get-Content \"$env:TEMP\\\\claude\\\\build13.txt\" | Select-Object -Last 3)",
       "PowerShell(.\\\\node_modules\\\\.bin\\\\tsc.cmd --noEmit -p tsconfig.json 2>&1)",
       "PowerShell(.\\\\node_modules\\\\.bin\\\\tsc.cmd --noEmit -p tsconfig.json --moduleResolution node 2>&1)",
-      "Bash(grep -n \"^select\\\\|[^-a-z]select[ ,{]\" src/index.css src/components/MainPage.css src/components/feature/Output.new.css)"
+      "Bash(grep -n \"^select\\\\|[^-a-z]select[ ,{]\" src/index.css src/components/MainPage.css src/components/feature/Output.new.css)",
+      "PowerShell($files = @\\(\"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\src\\\\components\\\\feature\\\\Settings.tsx\",\"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\src\\\\components\\\\MainPage.tsx\",\"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\src\\\\components\\\\feature\\\\DateTimeSettings.tsx\",\"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\src\\\\components\\\\feature\\\\Myplan.tsx\"\\); foreach \\($f in $files\\) { \"{0}  {1}\" -f \\(Get-Content $f | Measure-Object -Line\\).Lines, $f })",
+      "PowerShell($env:DOTNET_CLI_TELEMETRY_OPTOUT=1; dotnet build \"D:\\\\New Pitchcraft\\\\PitchcraftAPI\\\\PitchGenApi\\\\PitchGenApi.csproj\" -v q --nologo 2>&1 | Select-Object -Last 25)",
+      "PowerShell(npx tsc --noEmit -p \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\tsconfig.json\" 2>&1)",
+      "PowerShell(& \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\node_modules\\\\.bin\\\\tsc.cmd\" --noEmit -p \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\tsconfig.json\" 2>&1)",
+      "PowerShell(& \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\node_modules\\\\.bin\\\\tsc.cmd\" --version; \\(Get-Content \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\package.json\" | Select-String '\"typescript\"'\\))",
+      "PowerShell($o = & \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\node_modules\\\\.bin\\\\tsc.cmd\" -p \"C:\\\\Users\\\\Radhika\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--New-Pitchcraft-Pitchcraft\\\\107e72ec-18e5-43a2-b585-292c80f1c226\\\\scratchpad\\\\tsconfig.check.json\" 2>&1; \"TOTAL: \" + \\($o | Measure-Object -Line\\).Lines; $o | Select-Object -First 12)",
+      "PowerShell(git -C \"d:\\\\New Pitchcraft\\\\Pitchcraft\" status --short)",
+      "PowerShell($o = & \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\node_modules\\\\.bin\\\\tsc.cmd\" -p \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\tsconfig.tmpcheck.json\" 2>&1; \"TOTAL LINES: \" + \\($o | Measure-Object -Line\\).Lines; $o | Select-String -Pattern \"Profile.tsx|MainPage.tsx|Header.tsx\"; \"--- all ---\"; $o | Select-Object -First 8; Remove-Item \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\tsconfig.tmpcheck.json\" -Force)",
+      "PowerShell($o = & \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\node_modules\\\\.bin\\\\tsc.cmd\" -p \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\tsconfig.tmpcheck.json\" 2>&1; \"TOTAL LINES: \" + \\($o | Measure-Object -Line\\).Lines; $o | Select-String -Pattern \"Profile.tsx|MainPage.tsx|Header.tsx\"; Remove-Item \"d:\\\\New Pitchcraft\\\\Pitchcraft\\\\tsconfig.tmpcheck.json\" -Force; git -C \"d:\\\\New Pitchcraft\\\\Pitchcraft\" status --short)",
+      "PowerShell(.\\\\node_modules\\\\.bin\\\\tsc --noEmit -p tsconfig.json 2>&1)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Radhika\\AppData\\Local\\Temp\\claude\\d--New-Pitchcraft-Pitchcraft\\3dbe959a-5a6f-4e2f-871d-d75951ad187b\\scratchpad\\bundle"

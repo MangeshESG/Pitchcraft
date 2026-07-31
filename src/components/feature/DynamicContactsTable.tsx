@@ -231,10 +231,17 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     if (key.toLowerCase().includes("linkedin") && key.toLowerCase().includes("url")) {
       return key.toLowerCase().includes("company") ? "Company LinkedIn URL" : "LinkedIn URL";
     }
-    return key
-      .replace(/([A-Z])/g, " $1")
+    const raw = key.replace(/^custom_/, "").trim();
+
+    // Custom attributes come from the DB already written as readable text
+    // ("DNC reason", "DJ - data status") — show them exactly as stored.
+    if (/\s/.test(raw)) return raw;
+
+    return raw
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")     // camelCase  -> camel Case
+      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")  // DNCReason  -> DNC Reason
       .replace(/[_-]/g, " ")
-      .replace(/\b\w/g, (l) => l.toUpperCase())
+      .replace(/\b[a-z]/g, (l) => l.toUpperCase())
       .trim();
   };
 

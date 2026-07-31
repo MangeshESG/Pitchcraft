@@ -44,6 +44,7 @@ import EmailCampaignBuilder from "./feature/blueprint/EmailCampaignBuilder";
 import DeepSeekSearchGenerator from "./feature/blueprint/DeepSeekSearchGenerator";
 import Tracking from "./feature/Tracking";
 import Settings from "./feature/Settings";
+import Profile from "./feature/Profile";
 import InstructionSetPage from "./feature/blueprint/InstructionSetPage";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { saveUserCredit } from "../slices/authSLice";
@@ -523,6 +524,8 @@ const MainPage: React.FC = () => {
               : "Mail Schedules - Configure email, schedule sends and review analytics";
         case "Settings":
           return "Settings - Application settings and tracking";
+        case "Profile":
+          return "Profile - Edit your account details";
         case "MyPlan":
           return "My Plan";
         default:
@@ -603,7 +606,11 @@ const MainPage: React.FC = () => {
       if (initialTab === "TestTemplate") return "List";
       return prev;
     });
-    if (initialTab !== "Settings") {
+    // Profile lives under the Settings group, so landing there (e.g. via the
+    // header name link) should expand that group rather than collapse it.
+    if (initialTab === "Profile") {
+      setShowSettingsSubmenu(true);
+    } else if (initialTab !== "Settings") {
       setShowSettingsSubmenu(false);
     }
   }, [
@@ -3786,7 +3793,7 @@ try {
                     </li>
 
                     <li
-                      className={`${tab === "Settings" ? "active" : ""} ${
+                      className={`${tab === "Settings" || tab === "Profile" ? "active" : ""} ${
                         showSettingsSubmenu
                           ? "has-submenu submenu-open"
                           : "has-submenu"
@@ -3794,7 +3801,7 @@ try {
                     >
                       <button
                         onClick={() => {
-                          if (tab !== "Settings") {
+                          if (tab !== "Settings" && tab !== "Profile") {
                             setTab("Settings");
                             setShowSettingsSubmenu(true);
                             setShowMailSubmenu(false);
@@ -3822,9 +3829,23 @@ try {
                       </button>
                       {showSettingsSubmenu && (
                         <ul className="submenu">
+                          <li className={tab === "Profile" ? "active" : ""}>
+                            <button
+                              onClick={() => {
+                                setTab("Profile");
+                                setShowMailSubmenu(false);
+                                setShowContactsSubmenu(false);
+                              }}
+                              className="submenu-button"
+                            >
+                              Profile
+                            </button>
+                          </li>
                           <li
                             className={
-                              settingsSubTab === "Tracking" ? "active" : ""
+                              tab === "Settings" && settingsSubTab === "Tracking"
+                                ? "active"
+                                : ""
                             }
                           >
                             <button
@@ -3840,6 +3861,7 @@ try {
                           {userRole === "ADMIN" && (
                             <li
                               className={
+                                tab === "Settings" &&
                                 settingsSubTab === "InstructionSet"
                                   ? "active"
                                   : ""
@@ -3926,14 +3948,14 @@ try {
         <main className={`flex-1 overflow-y-auto h-[calc(100%-87px)] ${
           tab === "Dashboard" || tab === "MyPlan"
             ? "bg-white"
-            : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Mail"
+            : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Profile" || tab === "Mail"
               ? "bg-[#fafbfc]"
               : "bg-[#eeeeee]"
-        } ${tab === "Dashboard" || tab === "MyPlan" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Output" || tab === "Mail" ? "p-0" : "p-[20px]"}`}>
+        } ${tab === "Dashboard" || tab === "MyPlan" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Profile" || tab === "Output" || tab === "Mail" ? "p-0" : "p-[20px]"}`}>
           <div
             className={`
                rounded-md
-              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "MyPlan" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" && tab !== "Output" && tab !== "Mail" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
+              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "MyPlan" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" && tab !== "Profile" && tab !== "Output" && tab !== "Mail" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
             `}
           >
             {/* Main Content Area */}
@@ -4177,6 +4199,11 @@ try {
                 ) : (
                   <Settings selectedClient={(effectiveUserId ?? "").toString()} />
                 )}
+              </div>
+            )}
+            {shouldRenderTab("Profile") && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Profile")}>
+                <Profile />
               </div>
             )}
             {shouldRenderTab("MyPlan") && (

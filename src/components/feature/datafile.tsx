@@ -143,18 +143,18 @@ const REQUIRED_FIELDS = [
   { key: "last_name", label: "Last name", required: false },
   { key: "full_name", label: "Full name", required: false },
   { key: "email", label: "Email address", required: true },
-  { key: "job_title", label: <>Job title <span style={{ color: "blue" }}>*</span></>, required: false },
-  { key: "company", label: <>Company Name <span style={{ color: "blue" }}>*</span></>, required: false },
-  { key: "location", label: <>Company Location <span style={{ color: "blue" }}>*</span></>, required: false },
+  { key: "job_title", label: "Job title", required: false },
+  { key: "company", label: "Company name", required: false },
+  { key: "location", label: "Company location", required: false },
   { key: "linkedin", label: "LinkedIn URL", required: false },
-  { key: "company_website", label: <>Company website <span style={{ color: "blue" }}>*</span></>, required: false },
+  { key: "company_website", label: "Company website", required: false },
   { key: "company_telephone", label: "Company telephone", required: false },
   {
     key: "company_employee_count",
     label: "Company employee count",
     required: false,
   },
-  { key: "company_industry", label: <>Company industry <span style={{ color: "blue" }}>*</span></>, required: false },
+  { key: "company_industry", label: "Company industry", required: false },
   {
     key: "company_linkedin_url",
     label: "Company LinkedIn URL",
@@ -721,12 +721,15 @@ useEffect(() => {
     return v === undefined || v === null ? "" : String(v).trim();
   };
 
-  // Sentence-cased label for a target field key (map-stage dropdown + row subtitle)
+  // Label for a target field key (map-stage dropdown + row subtitle).
+  // Prefers the field's declared label so casing like "LinkedIn URL" is preserved.
   const fieldLabel = (fieldKey: string): string => {
     if (!fieldKey) return "";
     if (fieldKey.startsWith("custom_")) return fieldKey.replace("custom_", "");
-    if (fieldKey === "company") return "Company name";
-    if (fieldKey === "location") return "Company location";
+
+    const declared = allFields.find((f) => f.key === fieldKey)?.label;
+    if (typeof declared === "string") return declared;
+
     return fieldKey
       .replace(/_/g, " ")
       .toLowerCase()

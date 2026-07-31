@@ -157,7 +157,15 @@ const logoutHandler = () => {
                       <path d="M14 12C14 10.3431 12.6569 9 11 9H5C3.34315 9 2 10.3431 2 12V15H14V12Z" fill="#000000" />
                     </svg>
                   </span>
-                  Hello <Link to="" className="ml-5 green">{firstName || ''}</Link>
+                  {/* Name links to the profile page (edit details / change password). */}
+                  Hello{" "}
+                  <Link
+                    to="/main?tab=Profile"
+                    className="ml-5 green"
+                    title="View and edit your profile"
+                  >
+                    {firstName || ''}
+                  </Link>
                 </div>
 
                 {/* <div className="user-credit text-sm text-gray-600 sticky-right"> */}
