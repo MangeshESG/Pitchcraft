@@ -330,7 +330,7 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
   };
 
   return (
-    <div className="email-signature-container p-6">
+    <div className="email-signature-container">
       <ToastMessage
         show={showToast}
         message={toastMessage}
@@ -340,7 +340,7 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
         duration={5}
       />
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Email signatures</h2>
+        <h2 className="text-base font-semibold text-[#0b1220]">Email signatures</h2>
         <button
           onClick={handleAddSignature}
           className="btn-default"

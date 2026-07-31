@@ -1,20 +1,97 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL from '../../config';
-import './blueprint/Template.new.css';
 import { Mail, RotateCcw } from 'lucide-react';
+import {
+  bannerClass,
+  cardClass,
+  hintClass,
+  sectionClass,
+  sectionTitleClass,
+} from '../common/settingsStyles';
 
 interface TrackingProps {
   selectedClient?: string;
 }
+
+type Banner = { type: 'success' | 'error'; text: string } | null;
+
+const badgeClass = (state: 'enabled' | 'disabled' | 'busy') => {
+  const base =
+    'rounded-full border px-2.5 py-0.5 text-[13px] font-semibold';
+  if (state === 'enabled')
+    return `${base} border-[#e2f1e3] bg-[#f1f8f2] text-[#2d7a30]`;
+  if (state === 'busy')
+    return `${base} border-[#e8eaee] bg-[#f4f5f7] text-[#6b7280]`;
+  return `${base} border-[#e8eaee] bg-[#f4f5f7] text-[#6b7280]`;
+};
+
+interface ToggleRowProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  checked: boolean;
+  busy: boolean;
+  disabled: boolean;
+  statusText: string;
+  onToggle: () => void;
+}
+
+const ToggleRow: React.FC<ToggleRowProps> = ({
+  icon,
+  title,
+  description,
+  checked,
+  busy,
+  disabled,
+  statusText,
+  onToggle,
+}) => (
+  <div className="flex items-start justify-between gap-6">
+    <div className="flex min-w-0 items-start gap-3.5">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#e2f1e3] bg-[#f1f8f2] text-[#3f9f42]">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-[#0b1220]">{title}</div>
+        <p className="mt-0.5 text-[13px] leading-relaxed text-[#6b7280]">
+          {description}
+        </p>
+      </div>
+    </div>
+
+    <div className="flex shrink-0 items-center gap-3.5">
+      <span className={badgeClass(busy ? 'busy' : checked ? 'enabled' : 'disabled')}>
+        {statusText}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={`Toggle ${title.toLowerCase()}`}
+        onClick={onToggle}
+        disabled={disabled}
+        className={`relative h-6 w-11 rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+          checked
+            ? 'border-[#3f9f42] bg-[#3f9f42]'
+            : 'border-[#d1d5db] bg-[#e5e7eb]'
+        }`}
+      >
+        <span
+          className={`absolute top-[3px] h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.18)] transition-all ${
+            checked ? 'left-[22px]' : 'left-[3px]'
+          }`}
+        />
+      </button>
+    </div>
+  </div>
+);
 
 const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
   const [isTracking, setIsTracking] = useState(false);
   const [isBounceBack, setIsBounceBack] = useState(false);
   const [loading, setLoading] = useState(false);
   const [bounceBackLoading, setBounceBackLoading] = useState(false);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [showErrorToast, setShowErrorToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
+  const [banner, setBanner] = useState<Banner>(null);
 
   const getClientId = () => {
     if (selectedClient && selectedClient !== '') return selectedClient;
@@ -39,30 +116,20 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
             (typeof bounceBack === 'string' && bounceBack.toLowerCase() === 'true')
           );
         } else {
-          showToast('Failed to load tracking status', 'error');
+          setBanner({ type: 'error', text: 'Failed to load tracking status.' });
         }
       } catch {
-        showToast('Failed to load tracking status', 'error');
+        setBanner({ type: 'error', text: 'Failed to load tracking status.' });
       } finally {
         setLoading(false);
       }
     };
     fetchTrackingStatus();
-  }, [selectedClient]);
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToastMessage(message);
-    if (type === 'success') {
-      setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 6000);
-    } else {
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 6000);
-    }
-  };
+  }, [selectedClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggleTracking = async () => {
     setLoading(true);
+    setBanner(null);
     const newState = !isTracking;
     try {
       const response = await fetch(
@@ -71,12 +138,18 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
       );
       if (response.ok) {
         setIsTracking(newState);
-        showToast(`Email tracking ${newState ? 'enabled' : 'disabled'} successfully!`, 'success');
+        setBanner({
+          type: 'success',
+          text: `Email tracking ${newState ? 'enabled' : 'disabled'} successfully.`,
+        });
       } else {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch {
-      showToast('Failed to update tracking settings. Please try again.', 'error');
+      setBanner({
+        type: 'error',
+        text: 'Could not update tracking settings. Please try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -84,6 +157,7 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
 
   const handleToggleBounceBack = async () => {
     setBounceBackLoading(true);
+    setBanner(null);
     const newState = !isBounceBack;
     try {
       const response = await fetch(
@@ -92,235 +166,67 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
       );
       if (response.ok) {
         setIsBounceBack(newState);
-        showToast(`Bounce back ${newState ? 'enabled' : 'disabled'} successfully!`, 'success');
+        setBanner({
+          type: 'success',
+          text: `Bounceback deletion ${newState ? 'enabled' : 'disabled'} successfully.`,
+        });
       } else {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch {
-      showToast('Failed to update bounce back setting. Please try again.', 'error');
+      setBanner({
+        type: 'error',
+        text: 'Could not update the bounceback setting. Please try again.',
+      });
     } finally {
       setBounceBackLoading(false);
     }
   };
 
   return (
-    <div className="bp-list-wrap">
-      <style>{`
-        @keyframes toastProgress { from { width: 100%; } to { width: 0%; } }
-        .tracking-card {
-          background: #fff;
-          border: 1px solid var(--bp-line);
-          border-radius: 12px;
-          overflow: hidden;
-        }
-        .tracking-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          padding: 20px 24px;
-        }
-        .tracking-row + .tracking-row {
-          border-top: 1px solid var(--bp-line);
-        }
-        .tracking-row__left {
-          display: flex;
-          align-items: flex-start;
-          gap: 14px;
-          min-width: 0;
-        }
-        .tracking-row__icon {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          background: var(--bp-brand-50);
-          border: 1px solid var(--bp-brand-100);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          color: var(--bp-brand);
-        }
-        .tracking-row__title {
-          font-size: 14.5px;
-          font-weight: 600;
-          color: var(--bp-ink);
-          margin-bottom: 3px;
-        }
-        .tracking-row__sub {
-          font-size: 13px;
-          color: var(--bp-ink-faint);
-          line-height: 1.4;
-        }
-        .tracking-row__right {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          flex-shrink: 0;
-        }
-        .tracking-status-badge {
-          font-size: 13px;
-          font-weight: 600;
-          padding: 3px 10px;
-          border-radius: 999px;
-        }
-        .tracking-status-badge.enabled {
-          background: var(--bp-brand-50);
-          color: var(--bp-brand-d);
-          border: 1px solid var(--bp-brand-100);
-        }
-        .tracking-status-badge.disabled {
-          background: var(--bp-bg-2);
-          color: var(--bp-ink-faint);
-          border: 1px solid var(--bp-line-2);
-        }
-        .tracking-status-badge.loading {
-          background: var(--bp-bg-2);
-          color: var(--bp-ink-dim);
-          border: 1px solid var(--bp-line);
-        }
-        .tracking-toggle {
-          position: relative;
-          width: 44px;
-          height: 24px;
-          border-radius: 999px;
-          border: 1px solid #d1d5db;
-          cursor: pointer;
-          transition: background 0.2s ease;
-        }
-        .tracking-toggle:disabled { cursor: not-allowed; opacity: 0.6; }
-        .tracking-toggle__knob {
-          position: absolute;
-          top: 3px;
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          background: #fff;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.18);
-          transition: left 0.2s ease;
-        }
-      `}</style>
+    <div className="max-w-4xl">
+      {banner && <div className={bannerClass(banner.type)}>{banner.text}</div>}
 
-      <div className="bp-page-header">
-        <div className="bp-page-header__inner">
-          <div>
-           
-            <h1 className="bp-page-title">Tracking</h1>
-            <p className="bp-page-sub">
-              Configure email tracking to monitor opens and clicks across your campaigns.
-            </p>
-          </div>
+      <div className={sectionClass}>
+        <h2 className={sectionTitleClass}>Email tracking</h2>
+        <div className={cardClass}>
+          <ToggleRow
+            icon={<Mail className="h-5 w-5" />}
+            title="Email tracking"
+            description="Track opens and clicks for emails sent to contacts."
+            checked={isTracking}
+            busy={loading}
+            disabled={loading}
+            statusText={loading ? 'Updating…' : isTracking ? 'Enabled' : 'Disabled'}
+            onToggle={handleToggleTracking}
+          />
+
+          <div className="my-5 border-t border-[#e8eaee]" />
+
+          <ToggleRow
+            icon={<RotateCcw className="h-5 w-5" />}
+            title="Delete bounceback emails"
+            description="Remove bounce-back replies from the inbox automatically for this client."
+            checked={isBounceBack}
+            busy={loading || bounceBackLoading}
+            disabled={loading || bounceBackLoading}
+            statusText={
+              loading
+                ? 'Loading…'
+                : bounceBackLoading
+                ? 'Updating…'
+                : isBounceBack
+                ? 'Enabled'
+                : 'Disabled'
+            }
+            onToggle={handleToggleBounceBack}
+          />
+
+          <p className={hintClass}>
+            Changes take effect immediately for all future emails in all campaigns.
+          </p>
         </div>
       </div>
-
-      <div className="bp-list-body">
-        <div className="tracking-card">
-          <div className="tracking-row">
-            <div className="tracking-row__left">
-              <div className="tracking-row__icon">
-                <Mail className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="tracking-row__title">Email tracking</div>
-                <div className="tracking-row__sub">
-                  Track opens and clicks for emails sent to contacts.
-                </div>
-              </div>
-            </div>
-            <div className="tracking-row__right">
-              <span
-                className={`tracking-status-badge ${
-                  loading ? 'loading' : isTracking ? 'enabled' : 'disabled'
-                }`}
-              >
-                {loading ? 'Updating…' : isTracking ? 'Enabled' : 'Disabled'}
-              </span>
-              <button
-                className="tracking-toggle"
-                style={{ background: isTracking ? '#3f9f42' : '#e5e7eb' }}
-                onClick={handleToggleTracking}
-                disabled={loading}
-                aria-label="Toggle email tracking"
-              >
-                <span
-                  className="tracking-toggle__knob"
-                  style={{ left: isTracking ? 22 : 3 }}
-                />
-              </button>
-            </div>
-          </div>
-
-          <div className="tracking-row">
-            <div className="tracking-row__left">
-              <div className="tracking-row__icon">
-                <RotateCcw className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="tracking-row__title">Delete bounceback emails</div>
-                <div className="tracking-row__sub">
-                  Show whether bounce-back handling is enabled for this client.
-                </div>
-              </div>
-            </div>
-            <div className="tracking-row__right">
-              <span
-                className={`tracking-status-badge ${
-                  loading || bounceBackLoading ? 'loading' : isBounceBack ? 'enabled' : 'disabled'
-                }`}
-              >
-                {loading ? 'Loading…' : bounceBackLoading ? 'Updating…' : isBounceBack ? 'Enabled' : 'Disabled'}
-              </span>
-              <button
-                className="tracking-toggle"
-                style={{ background: isBounceBack ? '#3f9f42' : '#e5e7eb' }}
-                onClick={handleToggleBounceBack}
-                disabled={loading || bounceBackLoading}
-                aria-label="Toggle bounce back"
-                aria-pressed={isBounceBack}
-              >
-                <span
-                  className="tracking-toggle__knob"
-                  style={{ left: isBounceBack ? 22 : 3 }}
-                />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <p className="bp-tip" style={{ marginTop: 16 }}>
-         Changes take effect immediately for all future emails in all campaigns.
-        </p>
-      </div>
-
-      {showSuccessToast && (
-        <div style={{
-          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#E6F4EF', color: '#2F3A34', padding: '14px 22px', borderRadius: 12,
-          display: 'flex', alignItems: 'center', gap: 16,
-          boxShadow: '0 6px 18px rgba(0,0,0,0.06)', zIndex: 99999,
-          minWidth: 420, fontSize: 16, fontWeight: 500, overflow: 'hidden',
-        }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, height: 4, width: '100%', background: '#1F9D74', animation: 'toastProgress 6s linear forwards' }} />
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#1F9D74', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, flexShrink: 0 }}>✓</div>
-          <div style={{ flex: 1 }}>{toastMessage}</div>
-          <div onClick={() => setShowSuccessToast(false)} style={{ cursor: 'pointer', fontSize: 30, fontWeight: 500, color: '#6B7280', lineHeight: 1 }}>×</div>
-        </div>
-      )}
-
-      {showErrorToast && (
-        <div style={{
-          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#FDECEC', color: '#2F3A34', padding: '14px 22px', borderRadius: 12,
-          display: 'flex', alignItems: 'center', gap: 16,
-          boxShadow: '0 6px 18px rgba(0,0,0,0.06)', zIndex: 99999,
-          minWidth: 420, fontSize: 16, fontWeight: 500, overflow: 'hidden',
-        }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, height: 4, width: '100%', background: '#DC2626', animation: 'toastProgress 6s linear forwards' }} />
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#DC2626', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, flexShrink: 0 }}>!</div>
-          <div style={{ flex: 1 }}>{toastMessage}</div>
-          <div onClick={() => setShowErrorToast(false)} style={{ cursor: 'pointer', fontSize: 30, fontWeight: 500, color: '#9CA3AF', lineHeight: 1 }}>×</div>
-        </div>
-      )}
     </div>
   );
 };

@@ -42,7 +42,6 @@ import { useAppData } from "../contexts/AppDataContext";
 import { Dashboard } from "./feature/Dashboard";
 import EmailCampaignBuilder from "./feature/blueprint/EmailCampaignBuilder";
 import DeepSeekSearchGenerator from "./feature/blueprint/DeepSeekSearchGenerator";
-import Tracking from "./feature/Tracking";
 import Settings from "./feature/Settings";
 import Profile from "./feature/Profile";
 import InstructionSetPage from "./feature/blueprint/InstructionSetPage";
@@ -541,7 +540,7 @@ const MainPage: React.FC = () => {
     initialTab === "DataCampaigns",
   );
   const [showSettingsSubmenu, setShowSettingsSubmenu] = useState(false);
-  const [settingsSubTab, setSettingsSubTab] = useState<string>("Tracking");
+  const [settingsSubTab, setSettingsSubTab] = useState<string>("General");
   const [inboxUnreadCount, setInboxUnreadCount] = useState<number>(0);
   const [selectedInboxUnreadCounts, setSelectedInboxUnreadCounts] =
     useState<SelectedInboxUnreadCounts>({
@@ -3811,7 +3810,7 @@ try {
                           }
                         }}
                         className="side-menu-button"
-                        title="Application settings and tracking"
+                        title="Application settings"
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
@@ -3843,19 +3842,19 @@ try {
                           </li>
                           <li
                             className={
-                              tab === "Settings" && settingsSubTab === "Tracking"
+                              tab === "Settings" && settingsSubTab === "General"
                                 ? "active"
                                 : ""
                             }
                           >
                             <button
                               onClick={() => {
-                                setSettingsSubTab("Tracking");
+                                setSettingsSubTab("General");
                                 setTab("Settings");
                               }}
                               className="submenu-button"
                             >
-                              Tracking
+                              General
                             </button>
                           </li>
                           {userRole === "ADMIN" && (

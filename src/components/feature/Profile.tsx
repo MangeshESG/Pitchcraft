@@ -8,6 +8,23 @@ import {
   saveLastName,
   saveUserName,
 } from "../../slices/authSLice";
+import {
+  bannerClass,
+  cardClass,
+  hintClass,
+  inputClass,
+  labelClass,
+  pageBodyClass,
+  pageClass,
+  pageHeaderClass,
+  pageSubClass,
+  pageTitleClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+  sectionClass,
+  sectionTitleClass,
+  tabClass,
+} from "../common/settingsStyles";
 
 interface ProfileForm {
   firstName: string;
@@ -42,12 +59,6 @@ const EMPTY_PASSWORD: PasswordForm = {
 type ProfileTab = "Information" | "Password";
 type Banner = { type: "success" | "error"; text: string } | null;
 
-const inputClass =
-  "w-full rounded-lg border border-[#e8eaee] px-3.5 py-2.5 text-sm text-[#0b1220] outline-none transition-colors focus:border-[#3f9f42] focus:ring-1 focus:ring-[#3f9f42] disabled:bg-[#f4f5f7] disabled:text-[#6b7280]";
-const labelClass = "mb-1.5 block text-sm font-medium text-[#374151]";
-const cardClass = "rounded-xl border border-[#e8eaee] bg-white p-6";
-const sectionClass = "grid grid-cols-1 gap-4 md:grid-cols-[220px_1fr] md:gap-8";
-const sectionTitleClass = "text-base font-semibold text-[#0b1220] md:pt-1";
 const required = <span className="text-[#ef4444]"> *</span>;
 
 const Profile: React.FC = () => {
@@ -244,32 +255,15 @@ const Profile: React.FC = () => {
 
   const renderBanner = (banner: Banner) =>
     banner ? (
-      <div
-        className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
-          banner.type === "success"
-            ? "border-[#e2f1e3] bg-[#f1f8f2] text-[#2d7a30]"
-            : "border-red-200 bg-red-50 text-red-700"
-        }`}
-      >
-        {banner.text}
-      </div>
+      <div className={bannerClass(banner.type)}>{banner.text}</div>
     ) : null;
 
-  const tabClass = (tabName: ProfileTab) =>
-    `-mb-px border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-      activeTab === tabName
-        ? "border-[#3f9f42] text-[#3f9f42]"
-        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-    }`;
-
   return (
-    <div className="min-h-[calc(100vh-87px)] bg-[#fafbfc]">
+    <div className={pageClass}>
       {/* Page header — mirrors the Blueprints / list page chrome */}
-      <div className="border-b border-[#eef0f3] bg-white px-8 pt-7">
-        <h1 className="text-[28px] font-bold tracking-[-0.02em] text-[#0b1220]">
-          Profile
-        </h1>
-        <p className="mt-1.5 text-[13.5px] text-[#6b7280]">
+      <div className={pageHeaderClass}>
+        <h1 className={pageTitleClass}>Profile</h1>
+        <p className={pageSubClass}>
           Manage your personal details, company information and password.
           {memberSince ? ` Member since ${memberSince}.` : ""}
         </p>
@@ -277,20 +271,20 @@ const Profile: React.FC = () => {
         <nav className="mt-5 flex gap-8" aria-label="Profile tabs">
           <button
             onClick={() => setActiveTab("Information")}
-            className={tabClass("Information")}
+            className={tabClass(activeTab === "Information")}
           >
             Information
           </button>
           <button
             onClick={() => setActiveTab("Password")}
-            className={tabClass("Password")}
+            className={tabClass(activeTab === "Password")}
           >
             Password
           </button>
         </nav>
       </div>
 
-      <div className="p-8">
+      <div className={pageBodyClass}>
         {!userId ? (
           <p className="text-sm text-[#6b7280]">
             You need to be signed in to view your profile.
@@ -343,7 +337,7 @@ const Profile: React.FC = () => {
                     disabled={loading}
                     onChange={(event) => updateField("username", event.target.value)}
                   />
-                  <p className="mt-2 text-[13px] text-[#6b7280]">
+                  <p className={hintClass}>
                     Email and username are both used to sign in, so each must be unique.
                   </p>
                 </div>
@@ -381,7 +375,7 @@ const Profile: React.FC = () => {
                 <button
                   onClick={saveProfile}
                   disabled={saving || loading || !isDirty}
-                  className="rounded-lg bg-[#3f9f42] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2d7a30] disabled:opacity-50 disabled:hover:bg-[#3f9f42]"
+                  className={primaryButtonClass}
                 >
                   {saving ? "Saving..." : "Save changes"}
                 </button>
@@ -391,7 +385,7 @@ const Profile: React.FC = () => {
                     setProfileBanner(null);
                   }}
                   disabled={saving || loading || !isDirty}
-                  className="rounded-lg border border-[#e8eaee] bg-white px-5 py-2.5 text-sm font-medium text-[#374151] transition-colors hover:bg-[#f4f5f7] disabled:opacity-50"
+                  className={secondaryButtonClass}
                 >
                   Cancel
                 </button>
@@ -445,7 +439,7 @@ const Profile: React.FC = () => {
                   </div>
                 </div>
 
-                <p className="mt-2 text-[13px] text-[#6b7280]">
+                <p className={hintClass}>
                   Use at least 8 characters. Your new password must be different from the
                   current one.
                 </p>
@@ -458,7 +452,7 @@ const Profile: React.FC = () => {
                 <button
                   onClick={changePassword}
                   disabled={changingPassword}
-                  className="rounded-lg bg-[#3f9f42] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2d7a30] disabled:opacity-50 disabled:hover:bg-[#3f9f42]"
+                  className={primaryButtonClass}
                 >
                   {changingPassword ? "Updating..." : "Update password"}
                 </button>
