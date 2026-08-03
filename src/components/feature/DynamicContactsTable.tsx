@@ -3,6 +3,7 @@ import React from "react";
 import PaginationControls from "./PaginationControls";
 import CommonSidePanel from "../common/CommonSidePanel";
 import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
+import type { ColumnPreference } from "../../api/columnPreferences";
 import "./DynamicContactsTable.css";
 
 // ---------- Types ----------
@@ -58,10 +59,23 @@ interface DynamicContactsTableProps {
   onAddItem?: () => void;
   hideSearch?: boolean;
   customHeader?: React.ReactNode;
+  /** Fires with the full column list in display order — position is the sequence. */
   onColumnsChange?: (columns: ColumnConfig[]) => void;
   columnNameMap?: Record<string, string>;
 
-  persistedColumnSelection?: string[];
+  /**
+   * Client-level saved layout (visibility + order). Columns it doesn't mention
+   * keep their default visibility and are appended after the saved ones.
+   */
+  persistedColumnLayout?: ColumnPreference[];
+  /** Clears the saved layout. When omitted, "Reset to default" only resets locally. */
+  onResetColumns?: () => void;
+  /**
+   * Columns shown when the client has no saved layout, and what "Reset to
+   * default" restores. Anything outside the list starts hidden. Falls back to a
+   * name/email/company heuristic when not supplied.
+   */
+  defaultVisibleColumns?: string[];
   onPageSizeChange?: (size: number) => void;
 
   currentTab?: string;
@@ -161,7 +175,9 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   customHeader,
   onColumnsChange,
   columnNameMap,
-  persistedColumnSelection = [],
+  persistedColumnLayout = [],
+  onResetColumns,
+  defaultVisibleColumns,
   currentTab,
   bulkActions,
   onClearSelection,
@@ -172,6 +188,12 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const [pageSize, setPageSize]         = useState<PageSize>(pageSizeProp);
   const [sortConfig, setSortConfig]     = useState<SortConfig>({ key: null, direction: "asc" });
   const isInitializedRef                = useRef(false);
+  /** Column order before any saved layout is applied — restored by "Reset to default". */
+  const naturalOrderRef                 = useRef<string[]>([]);
+
+  // Column reordering (drag & drop in the Columns panel)
+  const [dragKey, setDragKey]           = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey]   = useState<string | null>(null);
 
   // ---------- Column generation ----------
   const generateColumnsFromData = useCallback((dataArray: any[]): ColumnConfig[] => {
@@ -245,10 +267,14 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       .trim();
   };
 
+  // Pure default — the saved layout is applied separately by applyLayout(), so
+  // that "Reset to default" really does fall back to defaults.
   const getDefaultVisibility = (key: string, _type: ColumnConfig["type"]): boolean => {
+    if (defaultVisibleColumns && defaultVisibleColumns.length > 0)
+      return defaultVisibleColumns.includes(key);
+
     const k = key.toLowerCase();
     if (["body", "html", "content", "description", "notes"].some((h) => k.includes(h))) return false;
-    if (persistedColumnSelection.length > 0) return persistedColumnSelection.includes(key);
     if (["name", "email", "company", "title", "type", "status", "date"].some((s) => k.includes(s))) return true;
     return true;
   };
@@ -339,18 +365,23 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   }, [data]);
 
   // ---------- Initialize columns ----------
+  const rememberNaturalOrder = (cols: ColumnConfig[]) => {
+    naturalOrderRef.current = cols.map((c) => c.key);
+    return cols;
+  };
+
   useEffect(() => {
     if (!isInitializedRef.current && data.length > 0) {
       if (customColumns) {
-        setColumns(applyPersistence(customColumns, persistedColumnSelection));
+        setColumns(applyLayout(rememberNaturalOrder(customColumns), persistedColumnLayout));
       } else if (autoGenerateColumns) {
-        setColumns(generateColumnsFromData(processedData));
+        setColumns(applyLayout(rememberNaturalOrder(generateColumnsFromData(processedData)), persistedColumnLayout));
       }
       isInitializedRef.current = true;
     } else if (customColumns && isInitializedRef.current) {
-      setColumns(applyPersistence(customColumns, persistedColumnSelection));
+      setColumns(applyLayout(rememberNaturalOrder(customColumns), persistedColumnLayout));
     }
-  }, [processedData.length, customColumns, autoGenerateColumns, persistedColumnSelection]); // eslint-disable-line
+  }, [processedData.length, customColumns, autoGenerateColumns, persistedColumnLayout]); // eslint-disable-line
 
   useEffect(() => { if (data.length === 0) isInitializedRef.current = false; }, [data.length]);
 
@@ -358,13 +389,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     setPageSize(pageSizeProp);
   }, [pageSizeProp]);
 
+  // The layout can land after the columns are built (it is fetched separately).
   useEffect(() => {
-    if (persistedColumnSelection.length > 0 && columns.length > 0) {
-      setColumns((prev) => prev.map((col) =>
-        col.key === "checkbox" ? col : { ...col, visible: persistedColumnSelection.includes(col.key) }
-      ));
-    }
-  }, [persistedColumnSelection]); // eslint-disable-line
+    if (persistedColumnLayout.length === 0) return;
+    setColumns((prev) => (prev.length > 0 ? applyLayout(prev, persistedColumnLayout) : prev));
+  }, [persistedColumnLayout]); // eslint-disable-line
 
   useEffect(() => { setShowColumnPanel(false); }, [currentTab]);
 
@@ -383,6 +412,32 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       })
     );
   }, [processedData, search, searchFields, columns, serverSidePagination]);
+
+  // ---------- Column reordering ----------
+  /** Moves `fromKey` into the slot currently held by `toKey` and persists the new sequence. */
+  const moveColumn = (fromKey: string, toKey: string) => {
+    if (!fromKey || !toKey || fromKey === toKey) return;
+
+    const list = [...columns];
+    const from = list.findIndex((c) => c.key === fromKey);
+    const to   = list.findIndex((c) => c.key === toKey);
+    if (from < 0 || to < 0) return;
+
+    const [moved] = list.splice(from, 1);
+    list.splice(to, 0, moved);
+
+    setColumns(list);
+    onColumnsChange?.(list);
+  };
+
+  const toggleColumn = (columnKey: string) => {
+    const updated = columns.map((c) =>
+      c.key === columnKey ? { ...c, visible: !c.visible } : c
+    );
+
+    setColumns(updated);
+    onColumnsChange?.(updated);
+  };
 
   // ---------- Sort ----------
   const handleSort = (columnKey: string) => {
@@ -849,47 +904,98 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             <div className="dt-cols-panel__actions">
               <button
                 className="dt-link-btn"
-                onClick={() =>
-                  setColumns((prev) => {
-                    const updated = prev.map((c) => c.key === "checkbox" ? c : { ...c, visible: true });
-                    onColumnsChange?.(updated);
-                    return updated;
-                  })
-                }
+                onClick={() => {
+                  const updated = columns.map((c) => c.key === "checkbox" ? c : { ...c, visible: true });
+                  setColumns(updated);
+                  onColumnsChange?.(updated);
+                }}
               >
                 Select all
               </button>
               <span className="dt-muted">·</span>
               <button
                 className="dt-link-btn dt-link-btn--muted"
-                onClick={() =>
-                  setColumns((prev) => {
-                    const updated = prev.map((c) =>
-                      c.key === "checkbox" ? c : { ...c, visible: getDefaultVisibility(c.key, c.type) }
-                    );
-                    onColumnsChange?.(updated);
-                    return updated;
-                  })
-                }
+                onClick={() => {
+                  // Restore the original sequence as well as default visibility.
+                  const natural = naturalOrderRef.current;
+                  const ordered = natural.length > 0
+                    ? [...columns].sort((a, b) => natural.indexOf(a.key) - natural.indexOf(b.key))
+                    : columns;
+
+                  const updated = ordered.map((c) =>
+                    c.key === "checkbox" ? c : { ...c, visible: getDefaultVisibility(c.key, c.type) }
+                  );
+
+                  setColumns(updated);
+
+                  // onResetColumns clears the stored layout; falling back to
+                  // onColumnsChange would just save the defaults straight back.
+                  if (onResetColumns) onResetColumns();
+                  else onColumnsChange?.(updated);
+                }}
               >
                 Reset to default
               </button>
             </div>
 
+            <p className="dt-cols-panel__hint">
+              Drag the handle to change the column order. Your layout is saved for
+              everyone on this account and applies to every list and segment.
+            </p>
+
             <div className="dt-cols-panel__list">
               {columns.filter((c) => c.key !== "checkbox").map((column) => (
-                <label key={column.key} className={`dt-col-row${column.visible ? " is-on" : ""}`}>
+                <div
+                  key={column.key}
+                  className={
+                    "dt-col-row" +
+                    (column.visible ? " is-on" : "") +
+                    (dragKey === column.key ? " is-dragging" : "") +
+                    (dragOverKey === column.key && dragKey !== column.key ? " is-drop-target" : "")
+                  }
+                  draggable
+                  onDragStart={(e) => {
+                    setDragKey(column.key);
+                    e.dataTransfer.effectAllowed = "move";
+                    // Firefox only starts a drag when data is set.
+                    e.dataTransfer.setData("text/plain", column.key);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dragOverKey !== column.key) setDragOverKey(column.key);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const from = dragKey || e.dataTransfer.getData("text/plain");
+                    moveColumn(from, column.key);
+                    setDragKey(null);
+                    setDragOverKey(null);
+                  }}
+                  onDragEnd={() => { setDragKey(null); setDragOverKey(null); }}
+                  onClick={() => toggleColumn(column.key)}
+                >
+                  <span
+                    className="dt-col-row__grip"
+                    aria-hidden="true"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <svg viewBox="0 0 16 16" width="12" height="12">
+                      <circle cx="5.5" cy="3"  r="1.35" fill="currentColor"/>
+                      <circle cx="10.5" cy="3"  r="1.35" fill="currentColor"/>
+                      <circle cx="5.5" cy="8"  r="1.35" fill="currentColor"/>
+                      <circle cx="10.5" cy="8"  r="1.35" fill="currentColor"/>
+                      <circle cx="5.5" cy="13" r="1.35" fill="currentColor"/>
+                      <circle cx="10.5" cy="13" r="1.35" fill="currentColor"/>
+                    </svg>
+                  </span>
                   <input
                     type="checkbox"
                     className="dt-checkbox"
                     checked={column.visible}
-                    onChange={() => {
-                      const updated = columns.map((c) =>
-                        c.key === column.key ? { ...c, visible: !c.visible } : c
-                      );
-                      setColumns(updated);
-                      onColumnsChange?.(updated);
-                    }}
+                    aria-label={columnNameMap?.[column.key] || column.label}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => toggleColumn(column.key)}
                   />
                   <div className="dt-col-row__text">
                     <div className="dt-col-row__label">
@@ -902,7 +1008,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                       <path fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" d="m5 12 5 5 9-11"/>
                     </svg>
                   )}
-                </label>
+                </div>
               ))}
             </div>
           </div>
@@ -923,11 +1029,37 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 };
 
 // ---------- Internal helper ----------
-function applyPersistence(cols: ColumnConfig[], selection: string[]): ColumnConfig[] {
-  if (selection.length === 0) return cols;
-  return cols.map((col) =>
-    col.key === "checkbox" ? col : { ...col, visible: selection.includes(col.key) }
+/**
+ * Applies a saved client layout to a column list: visibility from the layout,
+ * order from the layout's position. Columns the layout has never seen (a new
+ * custom attribute, a newly returned field) keep their default visibility and
+ * are appended after the saved ones. The selection checkbox always leads.
+ */
+function applyLayout(cols: ColumnConfig[], layout: ColumnPreference[]): ColumnConfig[] {
+  if (!layout || layout.length === 0) return cols;
+
+  const positionByKey = new Map<string, ColumnPreference>();
+  layout.forEach((pref, index) => {
+    positionByKey.set(pref.columnKey, { ...pref, sortOrder: index });
+  });
+
+  const checkbox: ColumnConfig[] = [];
+  const saved: ColumnConfig[]    = [];
+  const appended: ColumnConfig[] = [];
+
+  cols.forEach((col) => {
+    if (col.key === "checkbox") { checkbox.push(col); return; }
+
+    const pref = positionByKey.get(col.key);
+    if (pref) saved.push({ ...col, visible: pref.isVisible });
+    else appended.push(col);
+  });
+
+  saved.sort(
+    (a, b) => (positionByKey.get(a.key)!.sortOrder) - (positionByKey.get(b.key)!.sortOrder)
   );
+
+  return [...checkbox, ...saved, ...appended];
 }
 
 export default DynamicContactsTable;

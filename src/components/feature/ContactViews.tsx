@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import API_BASE_URL from "../../config";
 import DynamicContactsTable from "./DynamicContactsTable";
+import type { ColumnPreference } from "../../api/columnPreferences";
 import PaginationControls from "./PaginationControls";
 import FilterBuilder from "../common/FilterBuilder";
 import type { ViewEditorPayload } from "../common/FilterBuilder";
@@ -72,8 +73,10 @@ interface ContactViewsProps {
   clientId: string | number;
   filterFields: ContactFieldOption[];
   columnNameMap?: Record<string, string>;
-  persistedColumnSelection?: string[];
+  persistedColumnLayout?: ColumnPreference[];
   onColumnsChange?: (columns: any[]) => void;
+  onResetColumns?: () => void;
+  defaultVisibleColumns?: string[];
   onShowMessage?: (message: string, type: "success" | "error") => void;
   isActive?: boolean;
   refreshToken?: number;
@@ -404,8 +407,10 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   clientId,
   filterFields,
   columnNameMap,
-  persistedColumnSelection = [],
+  persistedColumnLayout = [],
   onColumnsChange,
+  onResetColumns,
+  defaultVisibleColumns,
   isActive = false,
   refreshToken = 0,
   currentTab,
@@ -2134,8 +2139,10 @@ const handleDeleteContacts = () => {
                 "customFields",
               ]}
               onColumnsChange={onColumnsChange}
+              onResetColumns={onResetColumns}
               currentTab={currentTab}
-              persistedColumnSelection={persistedColumnSelection}
+              persistedColumnLayout={persistedColumnLayout}
+              defaultVisibleColumns={defaultVisibleColumns}
               customFormatters={{
                 first_name: (value: any, row: any) => {
                   const { firstName, fullName } = getContactNameParts(row);
