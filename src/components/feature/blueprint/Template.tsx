@@ -115,6 +115,41 @@ interface TemplateDefinition {
   usageCount: number;
 }
 
+// Builder/conversation session keys that must be dropped whenever we leave a
+// blueprint or swap the builder over to a different one, so the next blueprint
+// never inherits stale state.
+const BUILDER_SESSION_KEYS = [
+  // Active campaign / navigation
+  "newCampaignId",
+  "newCampaignName",
+  "autoStartConversation",
+  "openConversationTab",
+  "initialExampleEmail",
+  // Conversation + derived state (useSessionState keys)
+  "campaign_messages",
+  "campaign_final_prompt",
+  "campaign_final_preview",
+  "campaign_placeholder_values",
+  "campaign_is_complete",
+  "campaign_started",
+  "campaign_system_prompt",
+  "campaign_system_prompt_edit",
+  "campaign_master_prompt",
+  "campaign_master_prompt_extensive",
+  "campaign_preview_text",
+  "campaign_selected_model",
+  "campaign_template_name",
+  "campaign_web_search_instructions",
+  "campaign_activeMainTab",
+  "campaign_activeBuildTab",
+];
+
+// Note: keeps selectedTemplateDefinitionId and campaign_sound_enabled
+// (needed next time / user preference).
+const clearBuilderSessionState = () => {
+  BUILDER_SESSION_KEYS.forEach((key) => sessionStorage.removeItem(key));
+};
+
 interface TemplateProps {
   selectedClient: string;
   userRole?: string;
@@ -797,38 +832,49 @@ const Template: React.FC<TemplateProps> = ({
     }
   };
 
-//for picklist of blueprint
-//for picklist of blueprint
-const handleBlueprintSwitch = async (blueprintId: number) => {
-  const blueprint = campaignTemplates.find(b => b.id === blueprintId);
-  if (!blueprint) return;
+  // ==================================================================
+  // BLUEPRINT SWITCHER (admin only) — picklist next to "Back to blueprints"
+  // ==================================================================
+  // Swaps the open builder over to another blueprint: the previous blueprint's
+  // builder/conversation session state is cleared, the new blueprint's ids and
+  // example email are written to sessionStorage, and the builder is remounted
+  // (via its `key`) so it reloads everything from the new blueprint. Because
+  // `editTemplateMode` is set, the builder runs loadTemplateForEdit — a
+  // completed blueprint (one that already has an example output email) opens
+  // directly in edit mode.
+  const handleBlueprintSwitch = async (blueprintId: number) => {
+    const blueprint = campaignTemplates.find((b) => b.id === blueprintId);
+    if (!blueprint || blueprintId === activeBlueprintId) return;
+    if (isSwitchingBlueprint) return;
 
-  // Fetch the example email for this blueprint
-  try {
-    const fullTemplate = await fetchCampaignTemplateDetails(blueprintId);
-    
-    // Extract the example email
-    const example =  fullTemplate?.placeholderValues?.example_output_email || "";
-    
-    // Update session storage with the example email
-    sessionStorage.setItem("initialExampleEmail", example);
-  } catch (error) {
-    console.error("Error loading blueprint example:", error);
-    sessionStorage.setItem("initialExampleEmail", "");
-  }
+    setIsSwitchingBlueprint(true);
 
-    // Update session storage (builder depends on this)
-    sessionStorage.setItem("newCampaignId", blueprint.id.toString());
-    sessionStorage.setItem("newCampaignName", blueprint.templateName);
-    sessionStorage.setItem("editTemplateId", blueprint.id.toString());
-    sessionStorage.setItem("editTemplateMode", "true");
-    setActiveBlueprintId(blueprint.id);
+    let example = "";
+    try {
+      const fullTemplate = await fetchCampaignTemplateDetails(blueprintId);
+      example = fullTemplate?.placeholderValues?.example_output_email || "";
+    } catch (error) {
+      console.error("Error loading blueprint example:", error);
+    }
 
-    // Force builder re-mount
-    setShowCampaignBuilder(false);
-    setTimeout(() => {
+    try {
+      // Drop the outgoing blueprint's state before the new builder instance
+      // reads sessionStorage in its state initialisers.
+      clearBuilderSessionState();
+
+      sessionStorage.setItem("newCampaignId", blueprint.id.toString());
+      sessionStorage.setItem("newCampaignName", blueprint.templateName || "");
+      sessionStorage.setItem("editTemplateId", blueprint.id.toString());
+      sessionStorage.setItem("editTemplateMode", "true");
+      sessionStorage.setItem("initialExampleEmail", example);
+      sessionStorage.setItem(BLUEPRINT_BUILDER_SESSION_KEY, "true");
+
+      setExampleCache((prev) => ({ ...prev, [blueprint.id]: example }));
+      setActiveBlueprintId(blueprint.id);
       setShowCampaignBuilder(true);
-    }, 0);
+    } finally {
+      setIsSwitchingBlueprint(false);
+    }
   };
 
   const fetchCampaignTemplateDetails = async (templateId: number) => {
@@ -999,6 +1045,36 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
   const [activeBlueprintId, setActiveBlueprintId] = useState<number | null>(() =>
     getStoredActiveBlueprintId(),
   );
+  const [isSwitchingBlueprint, setIsSwitchingBlueprint] = useState(false);
+
+  // Blueprints offered by the admin-only switcher inside the builder, sorted by
+  // name so the picklist is predictable regardless of the list's sort column.
+  const blueprintSwitcherOptions = React.useMemo(() => {
+    const options = campaignTemplates.map((template) => ({
+      id: template.id,
+      templateName: template.templateName || `Blueprint #${template.id}`,
+    }));
+
+    // A blueprint that was just created may not be in the fetched list yet —
+    // keep it selectable so the dropdown never looks empty.
+    if (
+      activeBlueprintId !== null &&
+      !options.some((option) => option.id === activeBlueprintId)
+    ) {
+      options.push({
+        id: activeBlueprintId,
+        templateName:
+          sessionStorage.getItem("newCampaignName") ||
+          `Blueprint #${activeBlueprintId}`,
+      });
+    }
+
+    return options.sort((a, b) =>
+      a.templateName.localeCompare(b.templateName, undefined, {
+        sensitivity: "base",
+      }),
+    );
+  }, [campaignTemplates, activeBlueprintId]);
 
   const openStoredBlueprintInBuilder = useCallback((templateId: number) => {
     if (!Number.isFinite(templateId) || templateId <= 0) return;
@@ -1072,34 +1148,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     // (stale session state was causing intermittent bugs). Runs after the builder
     // unmounts so its useSessionState effects don't write the old values back.
     setTimeout(async () => {
-      const keysToClear = [
-        // Active campaign / navigation
-        "newCampaignId",
-        "newCampaignName",
-        "autoStartConversation",
-        "openConversationTab",
-        "initialExampleEmail",
-        // Conversation + derived state (useSessionState keys)
-        "campaign_messages",
-        "campaign_final_prompt",
-        "campaign_final_preview",
-        "campaign_placeholder_values",
-        "campaign_is_complete",
-        "campaign_started",
-        "campaign_system_prompt",
-        "campaign_system_prompt_edit",
-        "campaign_master_prompt",
-        "campaign_master_prompt_extensive",
-        "campaign_preview_text",
-        "campaign_selected_model",
-        "campaign_template_name",
-        "campaign_web_search_instructions",
-        "campaign_activeMainTab",
-        "campaign_activeBuildTab",
-      ];
-      keysToClear.forEach((key) => sessionStorage.removeItem(key));
-      // Note: keep selectedTemplateDefinitionId and campaign_sound_enabled
-      // (needed next time / user preference).
+      clearBuilderSessionState();
       await fetchCampaignTemplates();
     }, 300);
   };
@@ -1799,10 +1848,17 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
       ) : (
         /* ✅ Show Campaign Builder Inline */
         <div style={{ padding: "4px 20px 20px" }}>
+          {/* `key` forces a full remount when the admin switches blueprint, so
+              every piece of builder state is rebuilt from the new blueprint. */}
           <EmailCampaignBuilder
+            key={activeBlueprintId ?? "new-blueprint"}
             selectedClient={effectiveUserId}
             onBeforeAiChatOpen={ensureCanOpenAiChat}
             onExitBuilder={handleExitBuilder}
+            blueprintOptions={isAdmin ? blueprintSwitcherOptions : undefined}
+            activeBlueprintId={activeBlueprintId}
+            onBlueprintChange={handleBlueprintSwitch}
+            isSwitchingBlueprint={isSwitchingBlueprint}
           />
         </div>
       )}

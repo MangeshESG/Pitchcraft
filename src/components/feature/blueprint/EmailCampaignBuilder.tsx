@@ -55,6 +55,12 @@ import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/but
 // Coerce any DeepSeek (or empty) value back to a safe OpenAI default so loading
 // an older definition/template that was saved with DeepSeek doesn't bring it back.
 const DEFAULT_BUILDER_MODEL = "gpt-5.1";
+
+// Minimum plain-text length (HTML stripped, ends trimmed) for a blueprint's
+// example_output_email to count as "a real example email". Two things share this
+// bar so they can never disagree: a loaded blueprint that clears it opens
+// straight in edit mode instead of the chat wizard, and the preview is unlocked.
+const MIN_EXAMPLE_EMAIL_LENGTH = 10;
 const toBuilderModel = (model?: string | null): string =>
   !model || isDeepSeekModel(model) ? DEFAULT_BUILDER_MODEL : model;
 const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
@@ -154,10 +160,22 @@ interface TemplateTabProps {
   setTemplateName: (value: string) => void;
 }
 
+// Minimal shape needed to render the blueprint switcher dropdown in the header.
+export interface BlueprintSwitcherOption {
+  id: number;
+  templateName: string;
+}
+
 interface EmailCampaignBuilderProps {
   selectedClient: string | null;
   onBeforeAiChatOpen?: () => Promise<boolean>;
   onExitBuilder?: () => void;
+  // Admin-only blueprint switcher. The parent passes these only when the user is
+  // an ADMIN; when omitted the dropdown is not rendered at all.
+  blueprintOptions?: BlueprintSwitcherOption[];
+  activeBlueprintId?: number | null;
+  onBlueprintChange?: (blueprintId: number) => void;
+  isSwitchingBlueprint?: boolean;
 }
 
 interface ConversationTabProps {
@@ -1821,12 +1839,92 @@ const RichTextInput: React.FC<{
 
 
 // ====================================================================
+// BLUEPRINT SWITCHER (admin only)
+// ====================================================================
+// Compact picklist shown next to "Back to blueprints" that lets an admin jump
+// straight from one blueprint to another without going back to the list.
+const BlueprintSwitcher: React.FC<{
+  options: BlueprintSwitcherOption[];
+  activeBlueprintId: number | null;
+  isSwitching?: boolean;
+  onChange: (blueprintId: number) => void;
+}> = ({ options, activeBlueprintId, isSwitching = false, onChange }) => {
+  const [isFocused, setIsFocused] = useState(false);
+
+  const hasActive =
+    activeBlueprintId !== null &&
+    options.some((option) => option.id === activeBlueprintId);
+
+  return (
+    <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+      <select
+        value={hasActive ? String(activeBlueprintId) : ""}
+        disabled={isSwitching}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        onChange={(e) => {
+          const nextId = Number(e.target.value);
+          if (!Number.isFinite(nextId) || nextId <= 0) return;
+          if (nextId === activeBlueprintId) return;
+          onChange(nextId);
+        }}
+        title="Switch blueprint"
+        aria-label="Switch blueprint"
+        style={{
+          appearance: "none",
+          WebkitAppearance: "none",
+          MozAppearance: "none",
+          minWidth: 220,
+          maxWidth: 340,
+          padding: "10px 34px 10px 14px",
+          borderRadius: 8,
+          border: `1.5px solid ${isFocused ? "#3f9f42" : "#d1d5db"}`,
+          background: isSwitching ? "#f3f4f6" : "#ffffff",
+          color: hasActive ? "#111827" : "#6b7280",
+          fontSize: 13,
+          fontWeight: 500,
+          lineHeight: "16px",
+          cursor: isSwitching ? "wait" : "pointer",
+          outline: "none",
+          boxShadow: isFocused ? "0 0 0 3px rgba(63, 159, 66, 0.15)" : "none",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {!hasActive && (
+          <option value="" disabled>
+            Select a blueprint
+          </option>
+        )}
+        {options.map((option) => (
+          <option key={option.id} value={String(option.id)}>
+            {option.templateName || `Blueprint #${option.id}`}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        size={15}
+        style={{
+          position: "absolute",
+          right: 11,
+          pointerEvents: "none",
+          color: "#6b7280",
+        }}
+      />
+    </div>
+  );
+};
+
+// ====================================================================
 // MAIN COMPONENT
 // ====================================================================
 const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   selectedClient,
   onBeforeAiChatOpen,
   onExitBuilder,
+  blueprintOptions,
+  activeBlueprintId = null,
+  onBlueprintChange,
+  isSwitchingBlueprint = false,
 }) => {
   // --- State Management ---
   const [currentAnswer, setCurrentAnswer] = useState("");
@@ -1954,7 +2052,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
 
   const isPreviewAllowed = React.useMemo(() => {
     const emailHtml = placeholderValues?.example_output_email;
-    return getPlainTextLength(emailHtml) >= 20;
+    return getPlainTextLength(emailHtml) >= MIN_EXAMPLE_EMAIL_LENGTH;
   }, [placeholderValues?.example_output_email]);
 
   // isEditMode is driven by explicit completion, NOT by example_output_email content.
@@ -3192,7 +3290,9 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       }
 
       const loadedExampleEmail = template.placeholderValues?.example_output_email;
-      const hasExistingEmail = typeof loadedExampleEmail === "string" && getPlainTextLength(loadedExampleEmail) >= 20;
+      const hasExistingEmail =
+        typeof loadedExampleEmail === "string" &&
+        getPlainTextLength(loadedExampleEmail) >= MIN_EXAMPLE_EMAIL_LENGTH;
 
       setWizardCompleted(hasExistingEmail);
       setActiveMainTab("build");
@@ -4476,7 +4576,15 @@ const parsePlaceholdersSafe = (block: string) => {
           of the builder (replaces the per-step "Cancel" buttons). Rendered in
           normal flow above the main container so it sits above each step's
           content instead of floating over it. */}
-      <div style={{ display: "flex", padding: "12px 16px 0" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          flexWrap: "wrap",
+          padding: "12px 16px 0",
+        }}
+      >
         <button
           onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())}
           title="Back to blueprints"
@@ -4489,6 +4597,20 @@ const parsePlaceholdersSafe = (block: string) => {
         >
           <FontAwesomeIcon icon={faAngleLeft} /> Back to blueprints
         </button>
+
+        {/* ---- ADMIN-ONLY BLUEPRINT SWITCHER ----
+            Rendered only when the parent supplies options (Template.tsx passes
+            them for ADMIN users only). Changing the selection reloads the whole
+            builder against the chosen blueprint; a completed blueprint (one that
+            already has an example output email) opens straight in edit mode. */}
+        {blueprintOptions && blueprintOptions.length > 0 && (
+          <BlueprintSwitcher
+            options={blueprintOptions}
+            activeBlueprintId={activeBlueprintId}
+            isSwitching={isSwitchingBlueprint}
+            onChange={(id) => onBlueprintChange?.(id)}
+          />
+        )}
       </div>
 
       {/* ================= LOADING OVERLAYS ================= */}

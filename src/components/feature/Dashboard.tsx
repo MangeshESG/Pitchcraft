@@ -145,7 +145,7 @@ const buildSteps = (
       cta: "New campaign",
       ctaPath: "/main?tab=Campaigns",
       illustration: CreateACampaign,
-      videoSrc: "https://www.youtube.com/embed/nko6bc9T_xo",
+      videoSrc: "https://www.youtube.com/embed/A9v62GRIXfs",
       tipsUrl: "https://www.pitchkraft.ai/campaigns",
     },
     {
