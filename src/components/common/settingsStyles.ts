@@ -15,9 +15,9 @@ export const inputClass =
   "w-full rounded-lg border border-[#e8eaee] px-3.5 py-2.5 text-sm text-[#0b1220] outline-none transition-colors focus:border-[#3f9f42] focus:ring-1 focus:ring-[#3f9f42] disabled:bg-[#f4f5f7] disabled:text-[#6b7280]";
 export const labelClass = "mb-1.5 block text-sm font-medium text-[#374151]";
 export const cardClass = "rounded-xl border border-[#e8eaee] bg-white p-6";
-export const sectionClass =
-  "grid grid-cols-1 gap-4 md:grid-cols-[220px_1fr] md:gap-8";
-export const sectionTitleClass = "text-base font-semibold text-[#0b1220] md:pt-1";
+// Sections run the full width of the page body — no left title column, so the
+// card starts flush with the page header above it.
+export const sectionClass = "w-full";
 export const hintClass = "mt-2 text-[13px] text-[#6b7280]";
 
 export const primaryButtonClass =

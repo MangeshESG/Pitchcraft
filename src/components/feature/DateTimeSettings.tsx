@@ -14,7 +14,6 @@ import {
   labelClass,
   primaryButtonClass,
   sectionClass,
-  sectionTitleClass,
 } from "../common/settingsStyles";
 
 const DateTimeSettings: React.FC<{ selectedClient: string }> = ({ selectedClient }) => {
@@ -67,7 +66,6 @@ const DateTimeSettings: React.FC<{ selectedClient: string }> = ({ selectedClient
       {banner && <div className={bannerClass(banner.type)}>{banner.text}</div>}
 
       <div className={`${sectionClass} mb-8`}>
-        <h2 className={sectionTitleClass}>Date and time</h2>
         <div className={cardClass}>
           <div className="mb-4">
             <label className={labelClass}>Time zone</label>
@@ -108,12 +106,9 @@ const DateTimeSettings: React.FC<{ selectedClient: string }> = ({ selectedClient
       </div>
 
       <div className={sectionClass}>
-        <div />
-        <div>
-          <button onClick={save} disabled={saving || !selectedClient} className={primaryButtonClass}>
-            {saving ? "Saving..." : "Save changes"}
-          </button>
-        </div>
+        <button onClick={save} disabled={saving || !selectedClient} className={primaryButtonClass}>
+          {saving ? "Saving..." : "Save changes"}
+        </button>
       </div>
     </div>
   );

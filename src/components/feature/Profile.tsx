@@ -22,7 +22,6 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
   sectionClass,
-  sectionTitleClass,
   tabClass,
 } from "../common/settingsStyles";
 
@@ -295,7 +294,6 @@ const Profile: React.FC = () => {
 
             {/* Personal information */}
             <div className={`${sectionClass} mb-8`}>
-              <h2 className={sectionTitleClass}>Personal information</h2>
               <div className={cardClass}>
                 <div className="mb-4">
                   <label className={labelClass}>Email address{required}</label>
@@ -346,7 +344,6 @@ const Profile: React.FC = () => {
 
             {/* Company information */}
             <div className={`${sectionClass} mb-8`}>
-              <h2 className={sectionTitleClass}>Company information</h2>
               <div className={cardClass}>
                 <div className="mb-4">
                   <label className={labelClass}>Company / Organisation</label>
@@ -370,7 +367,6 @@ const Profile: React.FC = () => {
             </div>
 
             <div className={sectionClass}>
-              <div />
               <div className="flex items-center gap-3">
                 <button
                   onClick={saveProfile}
@@ -397,7 +393,6 @@ const Profile: React.FC = () => {
             {renderBanner(passwordBanner)}
 
             <div className={`${sectionClass} mb-8`}>
-              <h2 className={sectionTitleClass}>Change password</h2>
               <div className={cardClass}>
                 <div className="mb-4">
                   <label className={labelClass}>Current password{required}</label>
@@ -447,16 +442,13 @@ const Profile: React.FC = () => {
             </div>
 
             <div className={sectionClass}>
-              <div />
-              <div>
-                <button
-                  onClick={changePassword}
-                  disabled={changingPassword}
-                  className={primaryButtonClass}
-                >
-                  {changingPassword ? "Updating..." : "Update password"}
-                </button>
-              </div>
+              <button
+                onClick={changePassword}
+                disabled={changingPassword}
+                className={primaryButtonClass}
+              >
+                {changingPassword ? "Updating..." : "Update password"}
+              </button>
             </div>
           </div>
         )}

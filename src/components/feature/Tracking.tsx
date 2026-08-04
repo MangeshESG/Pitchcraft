@@ -6,7 +6,6 @@ import {
   cardClass,
   hintClass,
   sectionClass,
-  sectionTitleClass,
 } from '../common/settingsStyles';
 
 interface TrackingProps {
@@ -188,7 +187,6 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
       {banner && <div className={bannerClass(banner.type)}>{banner.text}</div>}
 
       <div className={sectionClass}>
-        <h2 className={sectionTitleClass}>Email tracking</h2>
         <div className={cardClass}>
           <ToggleRow
             icon={<Mail className="h-5 w-5" />}

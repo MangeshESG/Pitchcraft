@@ -339,18 +339,14 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
         position="bottom-center"
         duration={5}
       />
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-base font-semibold text-[#0b1220]">Email signatures</h2>
+      <div className="flex justify-between items-center gap-6">
+        <p className="text-sm text-gray-600">Manage your email signatures here.</p>
         <button
           onClick={handleAddSignature}
           className="btn-default"
         >
           Add signature
         </button>
-      </div>
-
-      <div className="text-gray-600">
-        <p>Manage your email signatures here.</p>
       </div>
 
       {/* Signatures List */}
