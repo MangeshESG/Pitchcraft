@@ -45,6 +45,7 @@ import DeepSeekSearchGenerator from "./feature/blueprint/DeepSeekSearchGenerator
 import Settings from "./feature/Settings";
 import Profile from "./feature/Profile";
 import InstructionSetPage from "./feature/blueprint/InstructionSetPage";
+import AiModelSettings from "./feature/AiModelSettings";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
@@ -3877,6 +3878,26 @@ try {
                               </button>
                             </li>
                           )}
+                          {userRole === "ADMIN" && (
+                            <li
+                              className={
+                                tab === "Settings" &&
+                                settingsSubTab === "AiModels"
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <button
+                                onClick={() => {
+                                  setSettingsSubTab("AiModels");
+                                  setTab("Settings");
+                                }}
+                                className="submenu-button"
+                              >
+                                AI models
+                              </button>
+                            </li>
+                          )}
                         </ul>
                       )}
                     </li>
@@ -4195,6 +4216,8 @@ try {
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Settings")}>
                 {settingsSubTab === "InstructionSet" && userRole === "ADMIN" ? (
                   <InstructionSetPage selectedClient={(effectiveUserId ?? "").toString()} />
+                ) : settingsSubTab === "AiModels" && userRole === "ADMIN" ? (
+                  <AiModelSettings />
                 ) : (
                   <Settings selectedClient={(effectiveUserId ?? "").toString()} />
                 )}

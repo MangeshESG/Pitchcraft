@@ -3587,9 +3587,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   // ====================================================================
   // AVAILABLE MODELS
   // ====================================================================
-  // OpenAI models only — DeepSeek is intentionally excluded from blueprint
-  // creation/editing (it's only used in the DeepSeek Search feature).
-  const availableModels: GPTModel[] = OPENAI_MODELS;
+  // The blueprint-generation model is no longer picked here — an admin sets it
+  // once in Settings > AI models and the API resolves it server-side.
 
   // ====================================================================
   // EXTRACT PLACEHOLDERS
@@ -4731,9 +4730,6 @@ const parsePlaceholdersSafe = (block: string) => {
               setSubjectInstructions={setSubjectInstructions}
               webSearchInstructions={webSearchInstructions}
               setWebSearchInstructions={setWebSearchInstructions}
-              selectedModel={selectedModel}
-              setSelectedModel={setSelectedModel}
-              availableModels={availableModels}
               uiPlaceholders={uiPlaceholders}
               setUiPlaceholders={setUiPlaceholders}
               onLoadTemplateDefinition={loadTemplateDefinitionById}
