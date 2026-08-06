@@ -57,9 +57,9 @@ import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/but
 const DEFAULT_BUILDER_MODEL = "gpt-5.1";
 
 // Minimum plain-text length (HTML stripped, ends trimmed) for a blueprint's
-// example_output_email to count as "a real example email". Two things share this
-// bar so they can never disagree: a loaded blueprint that clears it opens
-// straight in edit mode instead of the chat wizard, and the preview is unlocked.
+// example_output_email to count as "a real example email" — one of the signals
+// that a loaded blueprint is already built (opens in edit mode) and that the
+// preview can be generated. It is not the only one: see loadTemplateForEdit.
 const MIN_EXAMPLE_EMAIL_LENGTH = 10;
 const toBuilderModel = (model?: string | null): string =>
   !model || isDeepSeekModel(model) ? DEFAULT_BUILDER_MODEL : model;
@@ -2050,10 +2050,14 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   // true once the user has completed the full wizard or an existing blueprint is loaded
   const [wizardCompleted, setWizardCompleted] = useState(false);
 
+  // A real example email unlocks the preview mid-wizard; once the blueprint is
+  // built, the preview stays available even for blueprints that never carry an
+  // example email.
   const isPreviewAllowed = React.useMemo(() => {
+    if (wizardCompleted) return true;
     const emailHtml = placeholderValues?.example_output_email;
     return getPlainTextLength(emailHtml) >= MIN_EXAMPLE_EMAIL_LENGTH;
-  }, [placeholderValues?.example_output_email]);
+  }, [placeholderValues?.example_output_email, wizardCompleted]);
 
   // isEditMode is driven by explicit completion, NOT by example_output_email content.
   // This prevents the wizard from jumping to edit mode mid-conversation when the AI
@@ -3294,9 +3298,45 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
         typeof loadedExampleEmail === "string" &&
         getPlainTextLength(loadedExampleEmail) >= MIN_EXAMPLE_EMAIL_LENGTH;
 
-      setWizardCompleted(hasExistingEmail);
+      // An example email is only ONE sign that a saved blueprint is already
+      // built. Blueprints whose type never produces one (or that predate the
+      // example step) are just as finished, so gating edit mode on the email
+      // alone stranded them in the wizard with no way to reach the elements
+      // editor. Saved elements or a conversation that reached the completion
+      // marker count just as well.
+      const savedElementValues = getConversationPlaceholders(
+        template.placeholderValues || {},
+      );
+      const hasSavedElements = Object.entries(savedElementValues).some(
+        ([key, value]) =>
+          key !== "example_output_email" &&
+          typeof value === "string" &&
+          value.trim().length > 0,
+      );
+      const conversationReachedCompletion = (
+        storedConversationMessages || []
+      ).some((message) => {
+        const content = message?.content || "";
+        return (
+          content.includes("==PLACEHOLDER_VALUES_START==") &&
+          content.includes("==PLACEHOLDER_VALUES_END==") &&
+          content.includes('"complete"')
+        );
+      });
+      // A conversation that was started but never completed still owes the user
+      // the wizard — dropping them into the elements editor would abandon a
+      // half-built blueprint mid-question.
+      const hasUnfinishedConversation =
+        loadedMessages.length > 0 && !conversationReachedCompletion;
+
+      const isBuiltBlueprint =
+        hasExistingEmail ||
+        conversationReachedCompletion ||
+        (hasSavedElements && !hasUnfinishedConversation);
+
+      setWizardCompleted(isBuiltBlueprint);
       setActiveMainTab("build");
-      setActiveBuildTab(hasExistingEmail ? "elements" : "chat");
+      setActiveBuildTab(isBuiltBlueprint ? "elements" : "chat");
       setConversationStarted(loadedMessages.length > 0);
       setIsTyping(false);
       // setIsEditMode(true);
