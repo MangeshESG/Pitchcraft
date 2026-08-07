@@ -158,7 +158,7 @@ const buildSteps = (
       cta: "Kraft emails",
       ctaPath: "/main?tab=Output",
       illustration: GenerateEmail,
-      videoSrc: "https://www.youtube.com/embed/C9xqxoc6Rwg",
+      videoSrc: "https://www.youtube.com/embed/yvtSIWUBnFg",
       tipsUrl: "https://www.pitchkraft.ai/kraft-email/",
     },
   ];

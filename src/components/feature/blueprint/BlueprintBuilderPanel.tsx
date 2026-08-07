@@ -4,7 +4,7 @@ import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import { Loader2 } from "lucide-react";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
-import { defaultButtonStyle } from "../../../styles/buttonStyles";
+import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import witchLogo from "../../../assets/images/Witch_logo_AI.png";
 
 export interface BlueprintBuilderPanelProps {
@@ -187,6 +187,9 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
 
   // Elements phase: preview panel open/collapse.
   const [previewPanelOpen, setPreviewPanelOpen] = useState(false);
+  // The element the preview displaced, so closing the preview can put it back
+  // instead of leaving the right column empty.
+  const elementBehindPreviewRef = useRef<any>(null);
 
   // Elements phase: resizable split. Default to 40% so the elements list sits at
   // 40% of the screen and the open edit/preview panel fills the remaining 60%.
@@ -264,6 +267,9 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
 
   // Side-panel chat scroll handling (floating scroll-to-bottom arrow)
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  // Sentinel rendered after the last bubble and the thinking indicator; scrolling
+  // it into view is what keeps both on screen (see the pinning effect below).
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
 
   const handleChatScroll = useCallback(() => {
@@ -279,13 +285,35 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
     el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
   }, []);
 
-  // Keep the chat pinned to the latest message as it grows.
+  // Keep the chat pinned to the latest message — and, once a message is sent, to
+  // the "Blueprint Builder is thinking…" indicator — as the conversation grows.
+  //
+  // Setting scrollTop on the chat box alone was not enough: the panel also lives
+  // inside the page's own scroll container, so whenever the chat box is not the
+  // element that actually overflows, the new bubble and the indicator render
+  // below the fold and the view just stays put. Scrolling an end sentinel into
+  // view walks every scrollable ancestor, the window included.
+  //
+  // It runs on the next frame (so the freshly appended nodes are measured after
+  // layout) and once more shortly after, because late layout — rendered HTML,
+  // images, the auto-growing composer — can push the indicator back out of view.
   useEffect(() => {
     if (sidePanelTab !== "chat") return;
-    const el = chatScrollRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-    setShowScrollDown(false);
+
+    const pinToBottom = () => {
+      const el = chatScrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+      chatEndRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+      setShowScrollDown(false);
+    };
+
+    const frame = requestAnimationFrame(pinToBottom);
+    const settleTimer = window.setTimeout(pinToBottom, 200);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(settleTimer);
+    };
   }, [messages, isTyping, sidePanelTab, chatStartedForKey]);
 
   // Reset pagination when data file changes
@@ -454,23 +482,11 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 16 }}>👁️</span>
                     <span style={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>Live preview</span>
                   </div>
+                  {/* No Generate here — the panel below carries it, beside the
+                      contact navigation it acts on. */}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={async () => {
-                        const contact = contacts.find((c) => c.id === selectedContactId);
-                        if (contact) {
-                          await applyContactPlaceholders(contact);
-                          await regenerateExampleOutput();
-                        }
-                      }}
-                      disabled={isPreviewLoading || !selectedContactId}
-                      style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", fontSize: 13, cursor: selectedContactId ? "pointer" : "not-allowed", color: "#374151", display: "flex", alignItems: "center", gap: 5 }}
-                    >
-                      ⚡ Generate
-                    </button>
                     <button
                       onClick={() => setChatPreviewOpen(false)}
                       style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
@@ -533,6 +549,22 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   // The element side panel takes precedence when an element is being edited.
   const rightPanelOpen = previewPanelOpen || !!sidePanelElement;
 
+  const togglePreviewPanel = () => {
+    if (previewPanelOpen) {
+      setPreviewPanelOpen(false);
+      if (elementBehindPreviewRef.current) {
+        setSidePanelElement(elementBehindPreviewRef.current);
+        elementBehindPreviewRef.current = null;
+      }
+      return;
+    }
+    // Opening the live preview closes the element edit panel so the preview
+    // takes over the right column instead of stacking under it.
+    elementBehindPreviewRef.current = sidePanelElement;
+    setSidePanelElement(null);
+    setPreviewPanelOpen(true);
+  };
+
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", marginTop: 0 }}>
@@ -564,31 +596,16 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
           {/* Action buttons */}
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginLeft: "auto" }}>
             {onExitBuilder && (
-              <button
-                onClick={onExitBuilder}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", fontWeight: 500 }}
-              >
+              <button onClick={onExitBuilder} style={lessPriorityButtonStyle}>
                 Cancel
               </button>
             )}
             <button
-              onClick={() => {
-                // Opening the live preview closes the element edit panel so the
-                // preview takes over the right column instead of stacking under it.
-                setSidePanelElement(null);
-                setPreviewPanelOpen((v) => !v);
-              }}
-              style={{
-                display: "flex", alignItems: "center", gap: 5, padding: "7px 14px",
-                border: previewPanelOpen ? "2px solid #3f9f42" : "1px solid #d1d5db",
-                borderRadius: 8,
-                background: previewPanelOpen ? "#f0fdf4" : "#fff",
-                fontSize: 13, cursor: "pointer",
-                color: previewPanelOpen ? "#3f9f42" : "#374151",
-                fontWeight: previewPanelOpen ? 600 : 400,
-              }}
+              onClick={togglePreviewPanel}
+              aria-pressed={previewPanelOpen}
+              style={lessPriorityButtonStyle}
             >
-              <span style={{ fontSize: 14 }}>👁️</span> Preview email
+              Preview email
             </button>
             {isAdmin && onShowVT && (
               <button
@@ -635,8 +652,11 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
               setFormValues={setFormValues}
               onExpandElement={(p) => {
                 // Opening the edit panel closes the live preview so only one
-                // right-column panel is shown at a time.
+                // right-column panel is shown at a time. This element is now the
+                // one on show, so there is nothing left for the preview to
+                // restore when it closes.
                 setPreviewPanelOpen(false);
+                elementBehindPreviewRef.current = null;
                 setSidePanelElement(p);
                 setSidePanelTab("manual");
                 setChatStartedForKey(null);
@@ -951,10 +971,17 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                                     }} />
                                   ))}
                                 </div>
-                                <span style={{ fontSize: 12, color: "#6b7280" }}>Thinking…</span>
+                                <span style={{ fontSize: 12, color: "#6b7280" }}>
+                                  Blueprint Builder is thinking…
+                                </span>
                               </div>
                             </div>
                           )}
+
+                          {/* End sentinel — the pinning effect scrolls this into
+                              view so the newest bubble and the thinking indicator
+                              are always on screen. */}
+                          <div ref={chatEndRef} />
                         </div>
 
                         {/* Floating scroll-to-bottom arrow */}
@@ -1081,7 +1108,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                 allSourcedData={allSourcedData}
                 sourcedSummary={sourcedSummary}
                 isPreviewAllowed={isPreviewAllowed}
-                onCollapse={() => setPreviewPanelOpen(false)}
+                onCollapse={togglePreviewPanel}
               />
             </div>
           ) : null}

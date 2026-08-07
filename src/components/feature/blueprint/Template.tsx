@@ -791,7 +791,7 @@ const Template: React.FC<TemplateProps> = ({
   };
 
   // ==================================================================
-  // BLUEPRINT SWITCHER (admin only) — picklist next to "Back to blueprints"
+  // BLUEPRINT SWITCHER — picklist next to "Back to blueprints"
   // ==================================================================
   // Swaps the open builder over to another blueprint: the previous blueprint's
   // builder/conversation session state is cleared, the new blueprint's ids and
@@ -999,8 +999,10 @@ const Template: React.FC<TemplateProps> = ({
   );
   const [isSwitchingBlueprint, setIsSwitchingBlueprint] = useState(false);
 
-  // Blueprints offered by the admin-only switcher inside the builder, sorted by
-  // name so the picklist is predictable regardless of the list's sort column.
+  // Blueprints offered by the switcher inside the builder, sorted by name so the
+  // picklist is predictable regardless of the list's sort column. Built from
+  // campaignTemplates, which is already scoped to effectiveUserId — an admin sees
+  // the selected client's blueprints, a normal user only their own.
   const blueprintSwitcherOptions = React.useMemo(() => {
     const options = campaignTemplates.map((template) => ({
       id: template.id,
@@ -1685,14 +1687,14 @@ const Template: React.FC<TemplateProps> = ({
       ) : (
         /* ✅ Show Campaign Builder Inline */
         <div style={{ padding: "4px 20px 20px" }}>
-          {/* `key` forces a full remount when the admin switches blueprint, so
+          {/* `key` forces a full remount when the user switches blueprint, so
               every piece of builder state is rebuilt from the new blueprint. */}
           <EmailCampaignBuilder
             key={activeBlueprintId ?? "new-blueprint"}
             selectedClient={effectiveUserId}
             onBeforeAiChatOpen={ensureCanOpenAiChat}
             onExitBuilder={handleExitBuilder}
-            blueprintOptions={isAdmin ? blueprintSwitcherOptions : undefined}
+            blueprintOptions={blueprintSwitcherOptions}
             activeBlueprintId={activeBlueprintId}
             onBlueprintChange={handleBlueprintSwitch}
             isSwitchingBlueprint={isSwitchingBlueprint}

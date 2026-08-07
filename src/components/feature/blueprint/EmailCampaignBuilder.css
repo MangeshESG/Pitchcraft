@@ -530,6 +530,19 @@
 .email-campaign-builder .messages-area {
   padding: 1.25rem 1.25rem 1.5rem;
   background: #fff;
+  /* No scroller here — the thread grows and the page scrolls, so there is only
+     ever one scrollbar. Scroll anchoring is off because it fights the
+     pin-to-bottom effect when a message or the thinking indicator is appended. */
+  overflow: visible;
+  overflow-anchor: none;
+}
+
+/* The composer is sticky at the bottom of the viewport, so anything scrolled to
+   the "end" would land underneath it. This reserves its height when the chat
+   pins the newest message or the thinking indicator into view. */
+.email-campaign-builder .message-wrapper,
+.email-campaign-builder .typing-indicator {
+  scroll-margin-bottom: 150px;
 }
 
 
@@ -792,11 +805,14 @@
   30% { transform: translateY(-7px); opacity: 1; }
 }
 
+/* Inline with the dots bubble (see .typing-dots-row), so the label can never be
+   the bit that falls below the fold of the messages area. */
 .email-campaign-builder .typing-label {
   font-size: 11px;
   color: #9ca3af;
-  margin-left: 42px;
   font-style: italic;
+  white-space: nowrap;
+  padding-bottom: 4px;
 }
 
 .email-campaign-builder .typing-bubble {

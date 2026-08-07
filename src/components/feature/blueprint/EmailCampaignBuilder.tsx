@@ -45,6 +45,8 @@ import PopupModal from "../../common/PopupModal";
 import toggleOn from "../../../assets/images/on-button.png";
 import toggleOff from "../../../assets/images/off-button.png";
 import witchLogo from "../../../assets/images/Witch_logo_AI.png";
+import startFromExistingEmail from "../../../assets/images/blueprint_start_existing_email.png";
+import startFromScratch from "../../../assets/images/blueprint_start_from_scratch.png";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
 import LoadingSpinner from "../../common/LoadingSpinner";
@@ -617,24 +619,11 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
     el.style.overflowY = el.scrollHeight > 160 ? "auto" : "hidden";
   }, [currentAnswer]);
 
-  // Size the chat area to fill exactly the space from its top edge down to the
-  // bottom of the viewport. Replaces a hardcoded `calc(100vh - 180px)` guess,
-  // which left dead space below the composer (or overflowed) whenever the header
-  // above the chat — e.g. the optional token-usage bar — didn't match 180px.
-  const chatAreaRef = useRef<HTMLDivElement>(null);
-  const [chatAreaHeight, setChatAreaHeight] = useState("calc(100vh - 180px)");
-  useLayoutEffect(() => {
-    const el = chatAreaRef.current;
-    if (!el) return;
-    const recompute = () => {
-      const docTop = el.getBoundingClientRect().top + window.scrollY;
-      const next = `calc(100vh - ${Math.round(docTop)}px)`;
-      setChatAreaHeight((prev) => (prev === next ? prev : next));
-    };
-    recompute();
-    window.addEventListener("resize", recompute);
-    return () => window.removeEventListener("resize", recompute);
-  }, [isEditMode, conversationStarted, isComplete, blueprintApproved, isTyping, messages.length]);
+  // The chat area is deliberately unbounded in height: the thread grows with the
+  // conversation and the page is the only thing that scrolls. It used to be
+  // capped to the viewport with its own inner scroller, which meant two nested
+  // scrollbars down the right-hand side. The composer stays reachable because
+  // it is `position: sticky` at the bottom of this column.
   // ========================================
   // IMAGE ATTACHMENT STATE
 
@@ -651,11 +640,26 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
     // While the bot is composing a reply, keep the "Blueprint Builder is
     // thinking…" indicator in view so the user sees the response is coming.
+    // The thread has no scroller of its own, so this scrolls the page; the
+    // indicator's `scroll-margin-bottom` keeps it clear of the sticky composer.
+    // It re-pins on the next frame and once after layout settles, because late
+    // layout (rendered HTML, images, the auto-growing composer) can otherwise
+    // leave the indicator below the fold.
     if (isTyping) {
-      const typingIndicator = container.querySelector(".typing-indicator") as HTMLElement | null;
+      const typingIndicator = container.querySelector(".typing-indicator");
       if (typingIndicator) {
-        typingIndicator.scrollIntoView({ block: "end", behavior: "smooth" });
-        return;
+        const pinToIndicator = () => {
+          messagesContainerRef.current
+            ?.querySelector(".typing-indicator")
+            ?.scrollIntoView({ block: "end", behavior: "auto" });
+        };
+        pinToIndicator();
+        const frame = requestAnimationFrame(pinToIndicator);
+        const settleTimer = window.setTimeout(pinToIndicator, 200);
+        return () => {
+          cancelAnimationFrame(frame);
+          window.clearTimeout(settleTimer);
+        };
       }
     }
 
@@ -788,7 +792,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
               {[
                 {
                   id: "reference" as const,
-                  icon: "📧",
+                  image: startFromExistingEmail,
                   accent: "#3f9f42",
                   iconBg: "#e7f6e8",
                   tagColor: "#2f7d32",
@@ -803,7 +807,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                 },
                 {
                   id: "description" as const,
-                  icon: "🪄",
+                  image: startFromScratch,
                   accent: "#7c3aed",
                   iconBg: "#f1ecfe",
                   tagColor: "#6d28d9",
@@ -825,9 +829,15 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                     style={{ flex: "1 1 290px", minWidth: 270, padding: 20, border: `2px solid ${selected ? opt.accent : "#e5e7eb"}`, borderRadius: 14, cursor: "pointer", background: "#fff", transition: "all 0.2s", display: "flex", flexDirection: "column" }}>
                     {/* Top row: icon + (recommended) + radio */}
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 13 }}>
-                      <div style={{ width: 40, height: 40, background: opt.iconBg, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
-                        {opt.icon}
-                      </div>
+                      {/* Illustration rather than a glyph in a tinted chip — the
+                          artwork carries the detail, so it gets room to breathe
+                          and no background tint behind it. */}
+                      <img
+                        src={opt.image}
+                        alt=""
+                        style={{ width: 96, height: 68, objectFit: "contain", objectPosition: "left center", flexShrink: 0 }}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                      />
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         {opt.recommended && (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#e7f6e8", color: "#2f7d32", fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 999 }}>
@@ -927,9 +937,9 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
       {/* ===== PHASE 2: PROVIDE INPUT (CHAT) ===== */}
       {(isEditMode || wizardPhase === 2) && (
-        <div ref={chatAreaRef} style={{ display: "flex", flexDirection: "column", height: chatAreaHeight, minHeight: 420 }}>
-          {/* Messages */}
-          <div className="messages-area" ref={messagesContainerRef} style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 180px)" }}>
+          {/* Messages — no overflow of its own; the page scrolls instead */}
+          <div className="messages-area" ref={messagesContainerRef} style={{ flex: 1 }}>
             {isEditMode && !conversationStarted && selectedPlaceholder && (
               <div className="empty-conversation"><p>Preparing conversation…</p></div>
             )}
@@ -973,8 +983,12 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                         <div className="typing-dot" />
                         <div className="typing-dot" />
                       </div>
+                      {/* Sits on the dots row, not under it: as the last thing in
+                          the thread the indicator hugs the bottom of the scroll
+                          area, and a label on its own line below the bubble was
+                          the part that got clipped. */}
+                      <span className="typing-label">Blueprint Builder is thinking…</span>
                     </div>
-                    <span className="typing-label">Blueprint Builder is thinking…</span>
                   </div>
                 )}
               </div>
@@ -1576,26 +1590,9 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
       {/* ── HEADER ── */}
       <div style={{ padding: "10px 14px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <span style={{ fontSize: 13 }}>👁️</span>
           <span style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>Live preview</span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button
-            onClick={handlePreview}
-            disabled={isGenerating || !selectedContactId || !isPreviewAllowed}
-            title="Refresh preview for this contact"
-            style={{
-              padding: "4px 10px", borderRadius: 6, border: "1px solid #d1d5db",
-              background: "#fff", fontSize: 12, cursor: (!selectedContactId || !isPreviewAllowed) ? "not-allowed" : "pointer",
-              color: "#374151", display: "flex", alignItems: "center", gap: 4,
-              opacity: (!selectedContactId || !isPreviewAllowed) ? 0.45 : 1,
-            }}
-          >
-            {isGenerating
-              ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
-              : <RefreshCw size={11} />}
-            Generate
-          </button>
           {onCollapse && (
             <button onClick={onCollapse} title="Collapse preview"
               style={{ padding: "4px 7px", borderRadius: 6, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", color: "#9ca3af", fontSize: 14, lineHeight: 1, display: "flex", alignItems: "center" }}>
@@ -1662,6 +1659,24 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             showPageSizeDropdown={false}
             showInfo={false}
           />
+          {/* Generate sits beside the contact navigation: it acts on whichever
+              contact those arrows land on. */}
+          <button
+            onClick={handlePreview}
+            disabled={isGenerating || !selectedContactId || !isPreviewAllowed}
+            title="Generate the preview for this contact"
+            style={{
+              padding: "4px 10px", borderRadius: 6, border: "1px solid #d1d5db",
+              background: "#fff", fontSize: 12, cursor: (!selectedContactId || !isPreviewAllowed) ? "not-allowed" : "pointer",
+              color: "#374151", display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
+              opacity: (!selectedContactId || !isPreviewAllowed) ? 0.45 : 1,
+            }}
+          >
+            {isGenerating
+              ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+              : <RefreshCw size={11} />}
+            Generate
+          </button>
         </div>
       )}
 
@@ -1748,10 +1763,9 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             </div>
           ) : (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
-              <div style={{ fontSize: 28, marginBottom: 10 }}>✉️</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>No preview yet</div>
               <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, maxWidth: 200, margin: "0 auto" }}>
-                Select a contact list and a contact, then click <strong>Refresh</strong> to generate a preview.
+                Select a contact list and a contact, then click <strong>Generate</strong> to generate a preview.
               </div>
               {!isPreviewAllowed && (
                 <div style={{ marginTop: 14, fontSize: 11, color: "#d97706", background: "#fef3c7", borderRadius: 6, padding: "6px 12px", display: "inline-block" }}>
@@ -1839,9 +1853,9 @@ const RichTextInput: React.FC<{
 
 
 // ====================================================================
-// BLUEPRINT SWITCHER (admin only)
+// BLUEPRINT SWITCHER
 // ====================================================================
-// Compact picklist shown next to "Back to blueprints" that lets an admin jump
+// Compact picklist shown next to "Back to blueprints" that lets the user jump
 // straight from one blueprint to another without going back to the list.
 const BlueprintSwitcher: React.FC<{
   options: BlueprintSwitcherOption[];
@@ -4637,11 +4651,12 @@ const parsePlaceholdersSafe = (block: string) => {
           <FontAwesomeIcon icon={faAngleLeft} /> Back to blueprints
         </button>
 
-        {/* ---- ADMIN-ONLY BLUEPRINT SWITCHER ----
-            Rendered only when the parent supplies options (Template.tsx passes
-            them for ADMIN users only). Changing the selection reloads the whole
-            builder against the chosen blueprint; a completed blueprint (one that
-            already has an example output email) opens straight in edit mode. */}
+        {/* ---- BLUEPRINT SWITCHER ----
+            Rendered whenever the parent supplies options (Template.tsx passes the
+            blueprints in scope for the current user). Changing the selection
+            reloads the whole builder against the chosen blueprint; a completed
+            blueprint (one that already has an example output email) opens
+            straight in edit mode. */}
         {blueprintOptions && blueprintOptions.length > 0 && (
           <BlueprintSwitcher
             options={blueprintOptions}
