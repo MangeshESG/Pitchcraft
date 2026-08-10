@@ -361,7 +361,7 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
             <p className="text-gray-500">No signatures found. Create your first signature!</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-lg border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>

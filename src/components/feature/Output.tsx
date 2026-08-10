@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef , useMemo } from "react";
+import React, { useState, useEffect, useRef , useMemo, useCallback } from "react";
 import Modal from "../common/Modal";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { copyToClipboard } from "../../utils/utils";
@@ -2028,6 +2028,42 @@ const sleepWithCountdown = async (ms: number) => {
   const [kraftEndIndex, setKraftEndIndex] = useState("");
   const [kraftEnableIndexRange, setKraftEnableIndexRange] = useState(false);
 
+  // Resizable split between the left controls card and the output panel —
+  // same drag behaviour as the blueprint builder's elements/preview split.
+  const [leftPaneWidth, setLeftPaneWidth] = useState(380); // px
+  const isDraggingSplit = useRef(false);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+
+  const onSplitMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingSplit.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDraggingSplit.current || !splitContainerRef.current) return;
+      const rect = splitContainerRef.current.getBoundingClientRect();
+      const width = e.clientX - rect.left;
+      // Keep both panels usable: the controls card never collapses and the
+      // output panel always keeps at least ~40% of the row.
+      setLeftPaneWidth(Math.min(Math.max(width, 340), Math.max(340, rect.width * 0.6)));
+    };
+    const onMouseUp = () => {
+      if (!isDraggingSplit.current) return;
+      isDraggingSplit.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
 
 const usageData = useMemo(() => {
   if (!outputForm?.usage) return null;
@@ -2115,24 +2151,34 @@ const usageData = useMemo(() => {
               <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}><strong>Total:</strong><span>Emails {usageData.total.emails}</span><span>Tokens {usageData.total.tokens}</span><span>💲{usageData.total.cost.toFixed(6)}</span></div>
             </div>
           )}
-          <div className="flex items-center">
+          {/* Download, bell and on/off toggle share one bordered group. The
+              sound toggle only fires from the bell/toggle half. */}
+          <div
+            className="flex items-center gap-2 rounded-lg border px-2 py-1"
+            style={{ borderColor: '#e8eaee', background: '#ffffff' }}
+          >
             <ReactTooltip anchorSelect="#download-data-tooltip" place="top">Download all loaded emails to a spreadsheet</ReactTooltip>
             <a href="#" id="download-data-tooltip" onClick={(e) => { e.preventDefault(); if (!isExporting && combinedResponses.length > 0) { exportToExcel(); } }} className="export-link green flex items-center">
               <FontAwesomeIcon icon={faDownload} style={{ color: "#3f9f42", fontSize: 18 }} />
             </a>
-          </div>
-          <div className="flex items-center gap-2 cursor-pointer" title={isSoundEnabled ? "Sound ON" : "Sound OFF"} onClick={() => setIsSoundEnabled((prev) => !prev)}>
-            <FontAwesomeIcon icon={faBell} style={{ color: "#3f9f42", fontSize: 18 }} />
-            <img src={isSoundEnabled ? toggleOn : toggleOff} alt="Sound Toggle" style={{ height: "28px", width: "32px" }}/>
+            <span style={{ width: 1, height: 20, background: '#e8eaee' }} />
+            <div
+              className="flex items-center gap-2 cursor-pointer"
+              title={isSoundEnabled ? "Sound ON" : "Sound OFF"}
+              onClick={() => setIsSoundEnabled((prev) => !prev)}
+            >
+              <FontAwesomeIcon icon={faBell} style={{ color: "#3f9f42", fontSize: 18 }} />
+              <img src={isSoundEnabled ? toggleOn : toggleOff} alt="Sound Toggle" style={{ height: "24px", width: "28px" }}/>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="px-6 pb-12">
-        <div className="grid gap-5 items-start" style={{ gridTemplateColumns: '380px 1fr' }}>
+        <div ref={splitContainerRef} className="flex items-start">
 
           {/* LEFT CARD */}
-          <div className="bg-white rounded-2xl border p-5" style={{ borderColor: '#e8eaee' }}>
+          <div className="bg-white rounded-2xl border p-5" style={{ borderColor: '#e8eaee', width: leftPaneWidth, flexShrink: 0 }}>
             {/* Campaign section */}
             <div className="mb-1">
               <div className="flex items-center gap-2">
@@ -2261,7 +2307,7 @@ const usageData = useMemo(() => {
                         positionStrategy="fixed"
                         style={{ zIndex: 99999 }}
                       >
-                        Edit this campaign's blueprint
+                        Edit blueprint
                       </ReactTooltip>
                       <button
                         id="edit-blueprint-tooltip"
@@ -2293,7 +2339,7 @@ const usageData = useMemo(() => {
                             }
                           }
                         }}
-                        aria-label="Edit this campaign's blueprint"
+                        aria-label="Edit blueprint"
                       >
                         <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", fontSize: 18 }}/>
                       </button>
@@ -2437,8 +2483,43 @@ const usageData = useMemo(() => {
             />
           </div>
 
+          {/* DRAG HANDLE — doubles as the gap between the two cards. */}
+          <div
+            onMouseDown={onSplitMouseDown}
+            title="Drag to resize"
+            style={{ width: 22, flexShrink: 0, alignSelf: "stretch", background: "transparent", cursor: "col-resize", display: "flex", flexDirection: "column", alignItems: "center", zIndex: 10 }}
+          >
+            {/* Resize affordance: ‹||› arrows in light green near the top so it
+                is clear the two panels can be dragged wider/narrower. */}
+            <div
+              style={{
+                marginTop: 40,
+                width: 22, height: 34,
+                borderRadius: 6,
+                background: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5cae60"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="4 8 1 12 4 16" />
+                <polyline points="20 8 23 12 20 16" />
+                <line x1="9" y1="6" x2="9" y2="18" />
+                <line x1="15" y1="6" x2="15" y2="18" />
+              </svg>
+            </div>
+
+            {/* Hairline running down the rest of the gap so the handle reads as
+                one continuous divider rather than a badge with loose dots. */}
+            <div style={{ flex: 1, display: "flex", justifyContent: "center", paddingTop: 6, paddingBottom: 6 }}>
+              <div style={{ width: 1, background: "#eef1f4" }} />
+            </div>
+          </div>
+
           {/* RIGHT PANEL */}
-          <div ref={editableArea} className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: '#e8eaee', position: 'relative' }}>
+          <div ref={editableArea} className="bg-white rounded-2xl border overflow-hidden flex-1 min-w-0" style={{ borderColor: '#e8eaee', position: 'relative' }}>
             {/* Right-panel overlay: loading contacts */}
             {(isFetchingContacts || isRefreshing) && (
               <div style={{ position: 'absolute', inset: 0, background: '#fff', zIndex: 10, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '48px' }}>
@@ -3083,7 +3164,10 @@ const usageData = useMemo(() => {
                               isCopyText={isCopyText}
                               onCopyToClipboard={copyToClipboardHandler}
                               onRegenerate={handleRegenerateCurrentContact}
-                              isRegenerating={isRegenerating}
+                              // Spin the regenerate icon for a single-contact
+                              // regeneration *and* while the bulk kraft run is
+                              // still processing contacts.
+                              isRegenerating={isRegenerating || !isResetEnabled}
                               regenerateDisabled={
                                 !combinedResponses[currentIndex] || !isResetEnabled
                               }

@@ -172,9 +172,9 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                 onClick={onConfirm}
                 style={{
                   padding: '12px 24px',
-                  background: isPermanent ? '#3f9f42' : '#f59e0b',
-                  color: '#fff',
-                  border: 'none',
+                  background: isPermanent ? 'var(--btn-danger-bg)' : '#f59e0b',
+                  color: isPermanent ? 'var(--btn-danger-fg)' : '#fff',
+                  border: isPermanent ? '1px solid var(--btn-danger-border)' : 'none',
                   borderRadius: '8px',
                   cursor: 'pointer',
                   fontSize: '14px',
@@ -187,12 +187,12 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                   gap: '8px'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = isPermanent ? '#358938' : '#d97706';
+                  e.currentTarget.style.background = isPermanent ? 'var(--btn-danger-bg-hover)' : '#d97706';
                   e.currentTarget.style.transform = 'translateY(-1px)';
                   e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = isPermanent ? '#3f9f42' : '#f59e0b';
+                  e.currentTarget.style.background = isPermanent ? 'var(--btn-danger-bg)' : '#f59e0b';
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = 'none';
                 }}

@@ -20,7 +20,7 @@ type SettingsTab = "Tracking" | "DateTime" | "EmailSignature";
 const TABS: { key: SettingsTab; label: string }[] = [
   { key: "Tracking", label: "Tracking" },
   { key: "DateTime", label: "Date and time" },
-  { key: "EmailSignature", label: "Email signature" },
+  { key: "EmailSignature", label: "Email signatures" },
 ];
 
 const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {

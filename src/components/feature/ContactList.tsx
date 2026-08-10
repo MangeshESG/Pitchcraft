@@ -4265,8 +4265,9 @@ const filterFields: any = useMemo(() => {
         }}
       />
       
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirmation && (
+      {/* Delete Confirmation Modal - portaled so `position: fixed` centres
+          against the viewport instead of a transformed ancestor */}
+      {showDeleteConfirmation && createPortal(
         <div
           style={{
             position: "fixed",
@@ -4323,7 +4324,8 @@ const filterFields: any = useMemo(() => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
