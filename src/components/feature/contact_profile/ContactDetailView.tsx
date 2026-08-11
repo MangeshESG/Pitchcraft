@@ -267,6 +267,7 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [isContactReplyExpanded, setIsContactReplyExpanded] = useState(false);
   const [showContactForwardSection, setShowContactForwardSection] = useState(false);
   const [contactForwardEmail, setContactForwardEmail] = useState("");
+  const [contactForwardDraft, setContactForwardDraft] = useState("");
   const [contactForwardCcEmails, setContactForwardCcEmails] = useState<string[]>([]);
   const [contactForwardCcDraft, setContactForwardCcDraft] = useState("");
   const [contactForwardBccEmails, setContactForwardBccEmails] = useState<string[]>([]);
@@ -1506,6 +1507,7 @@ const handleGenerateInsights = async () => {
   };
 
   const contactReplyTrailMarker = 'data-reply-email-trail="true"';
+  const contactReplySignatureMarker = 'data-reply-email-signature="true"';
   const contactReplyTrailSeparator = '<hr style="border:0;border-top:1px solid #d1d5db;margin:16px 0;width:100%;" />';
 
   const escapeContactReplyHtml = (value: string): string =>
@@ -2141,6 +2143,7 @@ const handleGenerateInsights = async () => {
 
   const openContactForwardSection = (thread: any) => {
     setContactForwardEmail("");
+    setContactForwardDraft("");
     setContactForwardCcEmails([]);
     setContactForwardCcDraft("");
     setContactForwardBccEmails([]);
@@ -2155,6 +2158,7 @@ const handleGenerateInsights = async () => {
   const closeContactForwardSection = () => {
     if (isForwardingContactEmail) return;
     setContactForwardEmail("");
+    setContactForwardDraft("");
     setContactForwardCcEmails([]);
     setContactForwardCcDraft("");
     setContactForwardBccEmails([]);
@@ -2165,8 +2169,14 @@ const handleGenerateInsights = async () => {
     setShowContactForwardSection(false);
   };
 
+  // The To panel keeps a single committed address; fall back to whatever is
+  // still uncommitted in the chip input so a click straight from typing works.
+  const getContactForwardRecipient = () =>
+    (contactForwardEmail.trim() || parseRecipientInput(contactForwardDraft)[0] || "").trim();
+
   const handleForwardContactEmail = async (thread: any) => {
-    if (!thread?.trackingId || !contactForwardEmail.trim() || !contactForwardMessage.trim()) return;
+    const forwardRecipient = getContactForwardRecipient();
+    if (!thread?.trackingId || !forwardRecipient || !contactForwardMessage.trim()) return;
 
     const threadMessages = Array.isArray(thread?.messages) ? thread.messages : [];
     const forwardOutboxId =
@@ -2192,7 +2202,7 @@ const handleGenerateInsights = async () => {
         {
           trackingId: thread.trackingId,
           clientId: Number(effectiveUserId),
-          forwardToEmail: contactForwardEmail.trim(),
+          forwardToEmail: forwardRecipient,
           forwardMessage: contactForwardMessage,
           outboxId: forwardOutboxId,
           ccEmail: mergeRecipients(contactForwardCcEmails, parseRecipientInput(contactForwardCcDraft)).join(","),
@@ -2214,6 +2224,7 @@ const handleGenerateInsights = async () => {
 
       showContactMailSuccess("Email forwarded successfully!");
       setContactForwardEmail("");
+      setContactForwardDraft("");
       setContactForwardCcEmails([]);
       setContactForwardCcDraft("");
       setContactForwardBccEmails([]);
@@ -3228,6 +3239,69 @@ dispatch(closePanel());
     };
   }, [showContactReplySection, selectedContactThread?.trackingId, token]);
 
+  // Load the mailbox signature into the reply draft, the same way Mail > Inbox
+  // > Reply does. The thread carries the inbox it arrived on, so the signature
+  // is resolved from that inbox rather than the compose "From" selection.
+  useEffect(() => {
+    const thread = selectedContactThread;
+
+    if (!showContactReplySection || !thread || !effectiveUserId) {
+      return;
+    }
+
+    const threadMessages = Array.isArray(thread?.messages) ? thread.messages : [];
+    const signatureInboxId =
+      getInboxIdValue(thread) ??
+      getInboxIdValue(thread?.lastMessage) ??
+      threadMessages.map(getInboxIdValue).find(Boolean);
+    const signatureProvider = normalizeSignatureProvider(getContactThreadProvider(thread));
+
+    if (!signatureInboxId || !signatureProvider) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchContactReplySignature = async () => {
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${signatureInboxId}&Provider=${encodeURIComponent(signatureProvider)}&Mathod=Inbox`,
+          {
+            headers: {
+              accept: "*/*",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+
+        if (isCancelled) return;
+
+        const signatureHtml = response.data?.signatureHtml || "";
+        if (!signatureHtml) return;
+
+        setContactReplyText((currentReplyText) => {
+          const { draftHtml, trailHtml } = splitContactReplyTrail(currentReplyText || "");
+          if (draftHtml.includes(contactReplySignatureMarker)) {
+            return currentReplyText;
+          }
+
+          const compactDraftHtml = draftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
+          return `${compactDraftHtml}<br/><br/><div ${contactReplySignatureMarker}>${signatureHtml}</div>${trailHtml || contactReplyTrailHtml}`;
+        });
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Failed to fetch contact reply signature:", error);
+        }
+      }
+    };
+
+    fetchContactReplySignature();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [showContactReplySection, selectedContactThread?.trackingId, effectiveUserId, token]);
+
   useEffect(() => {
     setSelectedContactThread(null);
     setContactCollapsedEmails({});
@@ -3617,20 +3691,15 @@ dispatch(closePanel());
             </style>
             <div style={{ display: "grid", gap: 12, marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="email"
-                  value={contactForwardEmail}
-                  onChange={(event) => setContactForwardEmail(event.target.value)}
-                  placeholder="To"
-                  required
-                  style={{
-                    flex: 1,
-                    width: "100%",
-                    padding: "10px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    fontSize: 14,
-                  }}
+                <RecipientChipInput
+                  prefixLabel="To"
+                  recipients={contactForwardEmail.trim() ? [contactForwardEmail.trim()] : []}
+                  draft={contactForwardDraft}
+                  onRecipientsChange={(recipients) => setContactForwardEmail(recipients[0] || "")}
+                  onDraftChange={setContactForwardDraft}
+                  placeholder="Enter recipient email"
+                  maxRecipients={1}
+                  containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
                 />
                 {!showContactForwardCc && (
                   <button
@@ -3723,7 +3792,11 @@ dispatch(closePanel());
             <div style={{ display: "flex", gap: 12 }}>
               <button
                 type="submit"
-                disabled={isForwardingContactEmail || !contactForwardEmail.trim() || !contactForwardMessage.trim()}
+                disabled={
+                  isForwardingContactEmail ||
+                  (!contactForwardEmail.trim() && !contactForwardDraft.trim()) ||
+                  !contactForwardMessage.trim()
+                }
                 className="btn-default"
               >
                 {isForwardingContactEmail ? "Forwarding..." : "Forward"}
@@ -3845,6 +3918,20 @@ dispatch(closePanel());
                 </button>
               </div>
             </div>
+            {(activeThread.contactEmail || contact?.email) && (
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                <RecipientChipInput
+                  readOnly
+                  prefixLabel="To"
+                  recipients={[extractEmailAddress(activeThread.contactEmail || contact?.email || "")]}
+                  draft=""
+                  onRecipientsChange={() => {}}
+                  onDraftChange={() => {}}
+                  placeholder=""
+                  containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
+                />
+              </div>
+            )}
             {(showContactReplyCc || showContactReplyBcc) && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
                 {showContactReplyCc && (

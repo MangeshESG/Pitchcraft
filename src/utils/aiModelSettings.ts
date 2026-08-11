@@ -10,7 +10,8 @@ export type AiModelPurposeKey =
   | "web_search"
   | "blueprint_generation"
   | "email_generation"
-  | "contact_qa";
+  | "contact_qa"
+  | "find_email";
 
 export interface AiModelSetting {
   purposeKey: AiModelPurposeKey;
@@ -18,6 +19,13 @@ export interface AiModelSetting {
   description: string;
   modelName: string;
   defaultModel: string;
+  /**
+   * False when the API did not return this purpose — i.e. the frontend knows
+   * about a purpose the deployed backend does not have yet. It is still shown,
+   * but read-only: sending it would make the API reject the whole save with
+   * "Unknown purpose key(s)".
+   */
+  supportedByApi: boolean;
 }
 
 export interface AiModelSettingsResponse {
@@ -32,6 +40,7 @@ export const AI_MODEL_PURPOSE_ORDER: AiModelPurposeKey[] = [
   "blueprint_generation",
   "email_generation",
   "contact_qa",
+  "find_email",
 ];
 
 // Used only when the API can't be reached, so the page still renders something
@@ -64,6 +73,12 @@ const FALLBACK_SETTINGS: Record<
       "Answers questions asked on a contact profile from CRM context.",
     defaultModel: "gpt-4o-mini",
   },
+  find_email: {
+    label: "Find email (AI)",
+    description:
+      "Researches a person's professional email address from public sources.",
+    defaultModel: "gpt-5.6-luna",
+  },
 };
 
 const isPurposeKey = (value: string): value is AiModelPurposeKey =>
@@ -83,6 +98,7 @@ const normalizeSetting = (raw: any): AiModelSetting | null => {
       raw?.modelName || raw?.ModelName || fallback.defaultModel,
     defaultModel:
       raw?.defaultModel || raw?.DefaultModel || fallback.defaultModel,
+    supportedByApi: true,
   };
 };
 
@@ -91,6 +107,7 @@ export const buildFallbackSettings = (): AiModelSetting[] =>
     purposeKey,
     ...FALLBACK_SETTINGS[purposeKey],
     modelName: FALLBACK_SETTINGS[purposeKey].defaultModel,
+    supportedByApi: true,
   }));
 
 export const fetchAiModelSettings =
@@ -111,6 +128,20 @@ export const fetchAiModelSettings =
     const settings = rawSettings
       .map(normalizeSetting)
       .filter((setting): setting is AiModelSetting => setting !== null);
+
+    // A purpose this build knows about but the deployed API doesn't return yet
+    // is still listed, so the page shows the whole set instead of silently
+    // hiding one. It is flagged so the UI can keep it read-only.
+    AI_MODEL_PURPOSE_ORDER.filter(
+      (purposeKey) => !settings.some((setting) => setting.purposeKey === purposeKey),
+    ).forEach((purposeKey) =>
+      settings.push({
+        purposeKey,
+        ...FALLBACK_SETTINGS[purposeKey],
+        modelName: FALLBACK_SETTINGS[purposeKey].defaultModel,
+        supportedByApi: false,
+      }),
+    );
 
     // Keep the page order stable regardless of what the API returns.
     settings.sort(

@@ -232,15 +232,31 @@ const DataFile: React.FC<DataFileProps> = ({
 }
 
 const [customFields, setCustomFields] = useState<CustomField[]>([]);
-const allFields = React.useMemo(() => [
-  ...REQUIRED_FIELDS,
-  ...customFields.map((f: CustomField) => ({
-    key: `custom_${f.field_name}`,
-    label: f.field_name,
-    required: false,
-    isCustom: true,
-  })),
-], [customFields]);
+// The map-stage pick list lists the system fields A–Z first, then the client's
+// custom attributes A–Z under their own group heading.
+const systemFieldOptions = React.useMemo(
+  () =>
+    [...REQUIRED_FIELDS].sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+    ),
+  []
+);
+const customFieldOptions = React.useMemo(
+  () =>
+    customFields
+      .map((f: CustomField) => ({
+        key: `custom_${f.field_name}`,
+        label: f.field_name,
+        required: false,
+        isCustom: true,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" })),
+  [customFields]
+);
+const allFields = React.useMemo(
+  () => [...systemFieldOptions, ...customFieldOptions],
+  [systemFieldOptions, customFieldOptions]
+);
 useEffect(() => {
   const fetchCustomFields = async () => {
     try {
@@ -721,6 +737,16 @@ useEffect(() => {
     return v === undefined || v === null ? "" : String(v).trim();
   };
 
+  // A field stays selectable for this row while it is unmapped elsewhere.
+  const selectableFields = (
+    fields: Array<{ key: string; label: string }>,
+    mapped: string
+  ) =>
+    fields.filter(
+      (field) =>
+        !Object.values(columnMappings).includes(field.key) || mapped === field.key
+    );
+
   // Label for a target field key (map-stage dropdown + row subtitle).
   // Prefers the field's declared label so casing like "LinkedIn URL" is preserved.
   const fieldLabel = (fieldKey: string): string => {
@@ -840,22 +866,33 @@ useEffect(() => {
                   Required fields
                 </div>
                 <div className="flex flex-col gap-2.5">
-                  {([["Full name", FI.user], ["Email address", FI.mail]] as const).map(
-                    ([l, Ic]) => (
-                      <div
-                        key={l}
-                        className="flex items-center gap-2.5 text-[13.5px] font-medium text-[#374151]"
+                  {([
+                    { label: "Full name", hint: "or ‘First name’ and ‘Surname’", Ic: FI.user },
+                    { label: "Email address", hint: "", Ic: FI.mail },
+                  ] as const).map(({ label, hint, Ic }) => (
+                    <div
+                      key={label}
+                      className="flex items-start gap-2.5 text-[13.5px] font-medium text-[#374151]"
+                    >
+                      <span
+                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: G_BG, color: G }}
                       >
-                        <span
-                          className="w-7 h-7 rounded-lg flex items-center justify-center"
-                          style={{ background: G_BG, color: G }}
-                        >
-                          <Ic className="w-4 h-4" />
-                        </span>
-                        {l}
-                      </div>
-                    )
-                  )}
+                        <Ic className="w-4 h-4" />
+                      </span>
+                      <span>
+                        <span className="block leading-7">{label}</span>
+                        {hint && (
+                          <span
+                            className="block text-[12.5px] font-normal leading-tight"
+                            style={{ color: TEXT_MUTED }}
+                          >
+                            {hint}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
                 </div>
                 <div
                   className="text-[12px] font-semibold uppercase tracking-wide mt-5 mb-3"
@@ -993,17 +1030,20 @@ useEffect(() => {
                         }}
                       >
                         <option value="">— Don’t include —</option>
-                        {allFields
-                          .filter(
-                            (field) =>
-                              !Object.values(columnMappings).includes(field.key) ||
-                              mapped === field.key
-                          )
-                          .map((field) => (
-                            <option key={field.key} value={field.key}>
-                              {fieldLabel(field.key)}
-                            </option>
-                          ))}
+                        {selectableFields(systemFieldOptions, mapped).map((field) => (
+                          <option key={field.key} value={field.key}>
+                            {fieldLabel(field.key)}
+                          </option>
+                        ))}
+                        {selectableFields(customFieldOptions, mapped).length > 0 && (
+                          <optgroup label="Custom attributes">
+                            {selectableFields(customFieldOptions, mapped).map((field) => (
+                              <option key={field.key} value={field.key}>
+                                {fieldLabel(field.key)}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                       <FI.chev
                         className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
@@ -1038,8 +1078,8 @@ useEffect(() => {
                       Required:{" "}
                     </span>
                     <span style={{ color: TEXT_MUTED }}>
-                      map an <b>Email address</b> and a <b>Full name</b> (or first name) to
-                      continue.
+                      map an <b>Email address</b> and a <b>Full name</b> (or <b>First name</b>{" "}
+                      and <b>Surname</b>) to continue.
                     </span>
                   </div>
                 </div>

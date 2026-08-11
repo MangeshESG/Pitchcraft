@@ -20,10 +20,14 @@ export const cardClass = "rounded-xl border border-[#e8eaee] bg-white p-6";
 export const sectionClass = "w-full";
 export const hintClass = "mt-2 text-[13px] text-[#6b7280]";
 
-export const primaryButtonClass =
-  "rounded-lg bg-[#3f9f42] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2d7a30] disabled:opacity-50 disabled:hover:bg-[#3f9f42]";
-export const secondaryButtonClass =
-  "rounded-lg border border-[#e8eaee] bg-white px-5 py-2.5 text-sm font-medium text-[#374151] transition-colors hover:bg-[#f4f5f7] disabled:opacity-50";
+// Affirmative action (Save changes, Update password). This is the app-wide
+// default button — .btn-default in src/index.css, backed by the same --btn-*
+// tokens as defaultButtonStyle in src/styles/buttonStyles.ts — so these pages
+// follow the brand button automatically instead of hard-coding a colour here.
+export const primaryButtonClass = "btn-default";
+// Its less-priority counterpart (Cancel, Reset to defaults) — .btn-muted, so it
+// keeps the same height and padding as the default button beside it.
+export const secondaryButtonClass = "btn-muted";
 
 export const tabClass = (isActive: boolean) =>
   `-mb-px border-b-2 px-1 py-4 text-sm font-medium transition-colors ${

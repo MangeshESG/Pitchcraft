@@ -25,8 +25,8 @@ import {
 
 /**
  * Admin-only page: one model picker per AI purpose. Every API that calls a
- * model reads its model from here, so these four selects are the only place a
- * model is chosen in the product.
+ * model reads its model from here, so these selects are the only place a model
+ * is chosen in the product.
  */
 const AiModelSettings: React.FC = () => {
   const [settings, setSettings] = useState<AiModelSetting[]>([]);
@@ -83,7 +83,9 @@ const AiModelSettings: React.FC = () => {
   const hasChanges = useMemo(
     () =>
       settings.some(
-        (setting) => draft[setting.purposeKey] !== setting.modelName,
+        (setting) =>
+          setting.supportedByApi &&
+          draft[setting.purposeKey] !== setting.modelName,
       ),
     [draft, settings],
   );
@@ -93,15 +95,27 @@ const AiModelSettings: React.FC = () => {
     setBanner(null);
 
     try {
+      // Purposes the API doesn't know yet are left out: it rejects the whole
+      // request when any key is unknown, which would block the others too.
+      const savable = Object.fromEntries(
+        settings
+          .filter((setting) => setting.supportedByApi)
+          .map((setting) => [
+            setting.purposeKey,
+            draft[setting.purposeKey] ?? setting.modelName,
+          ]),
+      );
+
       await saveAiModelSettings(
-        draft,
+        savable,
         sessionStorage.getItem("clientId") || undefined,
       );
       setSettings((previous) =>
-        previous.map((setting) => ({
-          ...setting,
-          modelName: draft[setting.purposeKey] ?? setting.modelName,
-        })),
+        previous.map((setting) =>
+          setting.supportedByApi
+            ? { ...setting, modelName: draft[setting.purposeKey] ?? setting.modelName }
+            : setting,
+        ),
       );
       setBanner({ type: "success", text: "AI model settings saved." });
     } catch (error: any) {
@@ -117,7 +131,10 @@ const AiModelSettings: React.FC = () => {
   const handleResetToDefaults = () => {
     setDraft(
       Object.fromEntries(
-        settings.map((setting) => [setting.purposeKey, setting.defaultModel]),
+        settings.map((setting) => [
+          setting.purposeKey,
+          setting.supportedByApi ? setting.defaultModel : setting.modelName,
+        ]),
       ),
     );
   };
@@ -170,6 +187,7 @@ const AiModelSettings: React.FC = () => {
                           id={`ai-model-${setting.purposeKey}`}
                           className={inputClass}
                           value={selected}
+                          disabled={!setting.supportedByApi}
                           onChange={(event) =>
                             setDraft((previous) => ({
                               ...previous,
@@ -193,6 +211,15 @@ const AiModelSettings: React.FC = () => {
                         <p className={hintClass}>
                           {setting.description} Default:{" "}
                           <strong>{getModelLabel(setting.defaultModel)}</strong>.
+                          {!setting.supportedByApi && (
+                            <>
+                              {" "}
+                              <span className="text-[#b45309]">
+                                This API does not serve this purpose yet, so it
+                                runs on its default and cannot be changed here.
+                              </span>
+                            </>
+                          )}
                         </p>
                       </div>
                     );

@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 interface ValidationError {
   row: number;
@@ -27,15 +28,20 @@ const ValidationErrorModal: React.FC<ValidationErrorModalProps> = ({
   const emailErrors = errors.filter(error => error.field === 'email');
   const otherErrors = errors.filter(error => error.field !== 'email');
 
-  return (
+  // Rendered into <body> so the overlay is always anchored to the viewport —
+  // inside the page tree a transformed ancestor would pin it to the (tall)
+  // import page instead, pushing the dialog below the fold.
+  return createPortal(
     <div style={{
       position: 'fixed',
       zIndex: 99999,
       inset: 0,
       background: 'rgba(0,0,0,0.45)',
       display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      padding: '48px 16px 24px',
+      overflowY: 'auto'
     }}>
       <div style={{
         background: '#ffffff',
@@ -43,7 +49,7 @@ const ValidationErrorModal: React.FC<ValidationErrorModalProps> = ({
         borderRadius: 8,
         width: '90%',
         maxWidth: 600,
-        maxHeight: '80vh',
+        maxHeight: 'calc(100vh - 72px)',
         overflow: 'auto',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
       }}>
@@ -243,7 +249,8 @@ const ValidationErrorModal: React.FC<ValidationErrorModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

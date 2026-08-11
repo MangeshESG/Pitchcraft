@@ -185,6 +185,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showBulkDeleteDropdown, setShowBulkDeleteDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages'>(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages');
   const [forwardEmail, setForwardEmail] = useState('');
+  const [forwardDraft, setForwardDraft] = useState('');
   const [forwardCcEmails, setForwardCcEmails] = useState<string[]>([]);
   const [forwardCcDraft, setForwardCcDraft] = useState('');
   const [forwardBccEmails, setForwardBccEmails] = useState<string[]>([]);
@@ -1803,8 +1804,22 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     </>
   );
 
-  const renderReplyRecipientFields = () => (
+  const renderReplyRecipientFields = (toEmail?: string) => (
     <>
+      {toEmail && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <RecipientChipInput
+            readOnly
+            prefixLabel="To"
+            recipients={[extractEmailAddress(toEmail)]}
+            draft=""
+            onRecipientsChange={() => {}}
+            onDraftChange={() => {}}
+            placeholder=""
+            containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
+          />
+        </div>
+      )}
       {showReplyCc && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
           <RecipientChipInput
@@ -1853,6 +1868,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const openForwardModal = (thread: InboxThread) => {
     setForwardTrackingId(thread.trackingId);
     setForwardEmail('');
+    setForwardDraft('');
     setForwardCcEmails([]);
     setForwardCcDraft('');
     setForwardBccEmails([]);
@@ -1867,6 +1883,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const closeForwardModal = () => {
     if (isForwarding) return;
     setForwardEmail('');
+    setForwardDraft('');
     setForwardCcEmails([]);
     setForwardCcDraft('');
     setForwardBccEmails([]);
@@ -1878,8 +1895,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowForwardSection(false);
   };
 
+  // The To panel keeps a single committed address; fall back to whatever is
+  // still uncommitted in the chip input so a click straight from typing works.
+  const getForwardRecipient = () =>
+    (forwardEmail.trim() || parseRecipientInput(forwardDraft)[0] || '').trim();
+
   const handleForwardEmail = async () => {
-    if (!forwardTrackingId || !forwardEmail.trim() || !forwardMessage.trim()) return;
+    const forwardRecipient = getForwardRecipient();
+    if (!forwardTrackingId || !forwardRecipient || !forwardMessage.trim()) return;
 
     setIsForwarding(true);
     try {
@@ -1888,7 +1911,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         {
           trackingId: forwardTrackingId,
           clientId: parseInt(effectiveUserId),
-          forwardToEmail: forwardEmail.trim(),
+          forwardToEmail: forwardRecipient,
           forwardMessage,
           outboxId: selectedInboxId || 0,
           ccEmail: mergeRecipients(forwardCcEmails, parseRecipientInput(forwardCcDraft)).join(','),
@@ -1913,6 +1936,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
       setForwardEmail('');
+      setForwardDraft('');
       setForwardCcEmails([]);
       setForwardCcDraft('');
       setForwardBccEmails([]);
@@ -1994,20 +2018,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
       <div style={{ display: 'grid', gap: '12px', marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <input
-            type="email"
-            value={forwardEmail}
-            onChange={(e) => setForwardEmail(e.target.value)}
-            placeholder="To"
-            required
-            style={{
-              flex: 1,
-              width: '100%',
-              padding: '10px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              fontSize: '14px'
-            }}
+          <RecipientChipInput
+            prefixLabel="To"
+            recipients={forwardEmail.trim() ? [forwardEmail.trim()] : []}
+            draft={forwardDraft}
+            onRecipientsChange={(recipients) => setForwardEmail(recipients[0] || '')}
+            onDraftChange={setForwardDraft}
+            placeholder="Enter recipient email"
+            maxRecipients={1}
+            containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
           />
           {!showForwardCc && (
             <button
@@ -2100,7 +2119,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       <div style={{ display: 'flex', gap: '12px' }}>
         <button
           type="submit"
-          disabled={isForwarding || !forwardEmail.trim() || !forwardMessage.trim()}
+          disabled={isForwarding || (!forwardEmail.trim() && !forwardDraft.trim()) || !forwardMessage.trim()}
           className="btn-default"
         >
           {isForwarding ? 'Forwarding...' : 'Forward'}
@@ -3166,7 +3185,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     </button>
                   </div>
                 </div>
-                {renderReplyRecipientFields()}
+                {renderReplyRecipientFields(selectedThread?.contactEmail)}
                 <style>
                   {`
                     .reply-section .rich-text-editor > div {
@@ -3843,7 +3862,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </button>
                     </div>
                   </div>
-                  {renderReplyRecipientFields()}
+                  {renderReplyRecipientFields(selectedUnassignedThread?.contactEmail)}
                   <style>
                     {`
                       .reply-section .rich-text-editor > div {
@@ -4386,7 +4405,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </button>
                     </div>
                   </div>
-                  {renderReplyRecipientFields()}
+                  {renderReplyRecipientFields(selectedAllMessagesThread?.contactEmail)}
                   <style>
                     {`
                       .reply-section .rich-text-editor > div {

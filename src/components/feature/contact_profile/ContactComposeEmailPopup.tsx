@@ -97,6 +97,12 @@ interface RecipientChipInputProps {
   onDraftChange: (draft: string) => void;
   placeholder: string;
   containerStyle?: React.CSSProperties;
+  /** Static label rendered inside the panel (e.g. "To") so a filled field stays identifiable. */
+  prefixLabel?: string;
+  /** Renders the addresses as a completed panel — nothing to type or remove. */
+  readOnly?: boolean;
+  /** Caps how many addresses can be entered (Forward accepts a single recipient). */
+  maxRecipients?: number;
 }
 
 export const RecipientChipInput: React.FC<RecipientChipInputProps> = ({
@@ -106,14 +112,21 @@ export const RecipientChipInput: React.FC<RecipientChipInputProps> = ({
   onDraftChange,
   placeholder,
   containerStyle,
+  prefixLabel,
+  readOnly = false,
+  maxRecipients,
 }) => {
+  const applyLimit = (nextRecipients: string[]) =>
+    maxRecipients === undefined ? nextRecipients : nextRecipients.slice(0, maxRecipients);
+  const canAddMore = maxRecipients === undefined || recipients.length < maxRecipients;
+
   const commitDraft = () => {
     const nextRecipients = parseRecipientInput(draft);
     if (!nextRecipients.length) {
       onDraftChange("");
       return;
     }
-    onRecipientsChange(mergeRecipients(recipients, nextRecipients));
+    onRecipientsChange(applyLimit(mergeRecipients(recipients, nextRecipients)));
     onDraftChange("");
   };
 
@@ -134,13 +147,20 @@ export const RecipientChipInput: React.FC<RecipientChipInputProps> = ({
         flexWrap: "wrap",
         gap: 6,
         background: "#fff",
+        cursor: readOnly ? "default" : "text",
         ...containerStyle,
       }}
       onClick={(event) => {
+        if (readOnly) return;
         const input = event.currentTarget.querySelector("input");
         input?.focus();
       }}
     >
+      {prefixLabel && (
+        <span style={{ fontSize: 13, color: "#64748b", fontWeight: 600, lineHeight: 1 }}>
+          {prefixLabel}
+        </span>
+      )}
       {recipients.map((recipient) => (
         <span
           key={recipient}
@@ -161,60 +181,64 @@ export const RecipientChipInput: React.FC<RecipientChipInputProps> = ({
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {recipient}
           </span>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              removeRecipient(recipient);
-            }}
-            style={{
-              border: "none",
-              background: "transparent",
-              color: "#334155",
-              cursor: "pointer",
-              padding: 0,
-              lineHeight: 1,
-              display: "inline-flex",
-            }}
-            aria-label={`Remove ${recipient}`}
-          >
-            <FontAwesomeIcon icon={faTimes} />
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                removeRecipient(recipient);
+              }}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "#334155",
+                cursor: "pointer",
+                padding: 0,
+                lineHeight: 1,
+                display: "inline-flex",
+              }}
+              aria-label={`Remove ${recipient}`}
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          )}
         </span>
       ))}
-      <input
-        value={draft}
-        onChange={(event) => {
-          const value = event.target.value;
-          if (/[,\n;]/.test(value)) {
-            onRecipientsChange(mergeRecipients(recipients, parseRecipientInput(value)));
-            onDraftChange("");
-            return;
-          }
-          onDraftChange(value);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === "Tab") {
-            if (draft.trim()) {
-              event.preventDefault();
-              commitDraft();
+      {!readOnly && canAddMore && (
+        <input
+          value={draft}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (/[,\n;]/.test(value)) {
+              onRecipientsChange(applyLimit(mergeRecipients(recipients, parseRecipientInput(value))));
+              onDraftChange("");
+              return;
             }
-          } else if (event.key === "Backspace" && !draft && recipients.length) {
-            onRecipientsChange(recipients.slice(0, -1));
-          }
-        }}
-        onBlur={commitDraft}
-        style={{
-          flex: "1 1 120px",
-          minWidth: 90,
-          border: "none",
-          outline: "none",
-          height: 28,
-          fontSize: 13,
-          color: "#111827",
-        }}
-        placeholder={recipients.length ? "" : placeholder}
-      />
+            onDraftChange(value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === "Tab") {
+              if (draft.trim()) {
+                event.preventDefault();
+                commitDraft();
+              }
+            } else if (event.key === "Backspace" && !draft && recipients.length) {
+              onRecipientsChange(recipients.slice(0, -1));
+            }
+          }}
+          onBlur={commitDraft}
+          style={{
+            flex: "1 1 120px",
+            minWidth: 90,
+            border: "none",
+            outline: "none",
+            height: 28,
+            fontSize: 13,
+            color: "#111827",
+          }}
+          placeholder={recipients.length ? "" : placeholder}
+        />
+      )}
     </div>
   );
 };

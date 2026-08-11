@@ -949,14 +949,9 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                 <div style={{ width: 104, height: 104, borderRadius: "50%", background: "radial-gradient(circle, #eafaf0 0%, #f7fdf9 65%, transparent 100%)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
                   <img src={witchLogo} alt="Blueprint Assistant" style={{ width: 78, height: 78, objectFit: "contain" }} />
                 </div>
-                <h2 style={{ fontSize: 26, fontWeight: 800, color: "#111827", marginBottom: 8, lineHeight: 1.2 }}>
-                  Hi! I'm your <span style={{ color: "#3f9f42" }}>Blueprint Assistant</span> 👋
+                <h2 style={{ fontSize: 26, fontWeight: 800, color: "#111827", lineHeight: 1.2 }}>
+                  Hi! I am your <span style={{ color: "#3f9f42" }}>Blueprint Assistant</span>
                 </h2>
-                <p style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6, maxWidth: 540, margin: "0 auto" }}>
-                  {localSelectedMethod === "reference"
-                    ? "I'll help you build a hyper-personalized blueprint from your reference email. Paste your reference email below to get started."
-                    : "I'll help you build a hyper-personalized blueprint. Answer a few questions below to get started."}
-                </p>
               </div>
             )}
             {(conversationStarted || isEditMode) && (

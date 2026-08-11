@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Plus, Mic, ArrowUp } from "lucide-react";
 import API_BASE_URL from "../../../config";
-import { lessPriorityButtonStyle } from "../../../styles/buttonStyles";
+import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import witchLogo from "../../../assets/images/Witch_logo_AI.png";
 import "./ContactQA.css";
 
@@ -913,6 +913,11 @@ const ContactQA: React.FC<ContactQAProps> = ({
                       key={suggestion}
                       type="button"
                       className="contact-qa-suggestion"
+                      style={{
+                        ...defaultButtonStyle,
+                        textAlign: "left",
+                        opacity: loading || isSending || !hasContext ? 0.6 : 1,
+                      }}
                       onClick={() => sendQuestion(suggestion)}
                       disabled={loading || isSending || !hasContext}
                     >
