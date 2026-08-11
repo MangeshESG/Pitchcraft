@@ -1977,13 +1977,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
       <div style={{ display: 'flex', gap: '12px' }}>
         <button
-          type="submit"
-          disabled={isForwarding || !forwardEmail.trim() || !forwardMessage.trim()}
-          className="btn-default"
-        >
-          {isForwarding ? 'Forwarding...' : 'Forward'}
-        </button>
-        <button
           type="button"
           onClick={closeForwardModal}
           disabled={isForwarding}
@@ -1997,6 +1990,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           }}
         >
           Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={isForwarding || !forwardEmail.trim() || !forwardMessage.trim()}
+          className="btn-default"
+        >
+          {isForwarding ? 'Forwarding...' : 'Forward'}
         </button>
       </div>
     </form>
@@ -3135,7 +3135,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       </div>
                     </div>
                     
-                    <button className="button d-flex align-center square-40 justify-center" onClick={copyToClipboardHandler}>
+                    <button className="button inbox-editor-action" onClick={copyToClipboardHandler}>
                       {isCopyText ? (
                         <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 24" fill="none">
                           <path d="M7.29417 12.9577L10.5048 16.1681L17.6729 9" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -3148,7 +3148,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       )}
                     </button>
                     
-                    <button className="button square-40 !bg-transparent justify-center" onClick={() => handleModalOpen('modal-reply-expand')}>
+                    <button className="button inbox-editor-action" onClick={() => handleModalOpen('modal-reply-expand')}>
                       <svg width="30px" height="30px" viewBox="0 0 512 512">
                         <polyline points="304 96 416 96 416 208" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
                         <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
@@ -3158,7 +3158,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
                     <button 
                       type="button"
-                      className="button square-40 justify-center"
+                      className="button inbox-editor-action"
                       title={isSavingDraft ? 'Saving draft' : 'Save draft'}
                       aria-label={isSavingDraft ? 'Saving draft' : 'Save draft'}
                       style={{ 
@@ -3193,7 +3193,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   </div>
                 </Modal>
                 {renderReplyAttachments()}
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="reply-editor-footer" style={{ display: 'flex', gap: '12px' }}>
                   <button
                     onClick={handleSendReply}
                     disabled={!replyText.trim() || isSending}
@@ -3899,7 +3899,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         </div>
                       </div>
                       
-                      <button className="button d-flex align-center square-40 justify-center" onClick={copyToClipboardHandler}>
+                      <button className="button inbox-editor-action" onClick={copyToClipboardHandler}>
                         {isCopyText ? (
                           <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 24" fill="none">
                             <path d="M7.29417 12.9577L10.5048 16.1681L17.6729 9" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -3912,7 +3912,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         )}
                       </button>
                       
-                      <button className="button square-40 !bg-transparent justify-center" onClick={() => handleModalOpen('modal-reply-expand')}>
+                      <button className="button inbox-editor-action" onClick={() => handleModalOpen('modal-reply-expand')}>
                         <svg width="30px" height="30px" viewBox="0 0 512 512">
                           <polyline points="304 96 416 96 416 208" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
                           <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
@@ -3922,7 +3922,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
                       <button 
                         type="button"
-                        className="button square-40 justify-center"
+                        className="button inbox-editor-action"
                         title={isSavingDraft ? 'Saving draft' : 'Save draft'}
                         aria-label={isSavingDraft ? 'Saving draft' : 'Save draft'}
                         style={{ 
@@ -3957,7 +3957,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     </div>
                   </Modal>
                   {renderReplyAttachments()}
-                  <div style={{ display: 'flex', gap: '12px' }}>
+                  <div className="reply-editor-footer" style={{ display: 'flex', gap: '12px' }}>
                     <button
                       onClick={async () => {
                         if (!replyText.trim()) return;
@@ -4468,7 +4468,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
                     {/* Toolbar */}
                     <div className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md" style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 10 }}>
-                      <button className="button d-flex align-center square-40 justify-center" onClick={copyToClipboardHandler}>
+                      <button className="button inbox-editor-action" onClick={copyToClipboardHandler}>
                         {isCopyText ? (
                           <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 24" fill="none">
                             <path d="M7.29417 12.9577L10.5048 16.1681L17.6729 9" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -4481,7 +4481,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         )}
                       </button>
 
-                      <button className="button square-40 !bg-transparent justify-center" onClick={() => handleModalOpen('modal-reply-expand')}>
+                      <button className="button inbox-editor-action" onClick={() => handleModalOpen('modal-reply-expand')}>
                         <svg width="30px" height="30px" viewBox="0 0 512 512">
                           <polyline points="304 96 416 96 416 208" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
                           <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
@@ -4491,7 +4491,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
                       <button
                         type="button"
-                        className="button square-40 justify-center"
+                        className="button inbox-editor-action"
                         title={isSavingDraft ? 'Saving draft' : 'Save draft'}
                         aria-label={isSavingDraft ? 'Saving draft' : 'Save draft'}
                         style={{
@@ -4526,7 +4526,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     </div>
                   </Modal>
                   {renderReplyAttachments()}
-                  <div style={{ display: 'flex', gap: '12px' }}>
+                  <div className="reply-editor-footer" style={{ display: 'flex', gap: '12px' }}>
                     <button
                       onClick={async () => {
                         if (!replyText.trim()) return;

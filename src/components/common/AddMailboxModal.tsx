@@ -161,16 +161,21 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
       if (response.ok) {
         setShowOtpModal(false);
         onSuccess('Outgoing mail configuration saved successfully!');
+        return true;
       } else {
-        const errorData = await response.json();
-        setToastMessage(errorData.message || 'Invalid OTP');
+        const errorData = await response.json().catch(() => null);
+        setToastMessage(errorData?.message || 'Invalid OTP');
         setToastType('error');
         setShowToast(true);
         setTimeout(() => setShowToast(false), 6000);
-        throw new Error('Invalid OTP');
+        return false;
       }
     } catch (error) {
-      throw error;
+      setToastMessage('Unable to verify OTP. Please try again.');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
+      return false;
     }
   };
 

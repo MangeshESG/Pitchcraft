@@ -4722,7 +4722,6 @@ try {
                       selectedClient={selectedClient}
                       onDataProcessed={(data) => {
                         handleExcelDataProcessed(data);
-                        setShowDataFileUpload(false);
                       }}
                       isProcessing={isProcessing}
                       onBack={() => setShowDataFileUpload(false)}

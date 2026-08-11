@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 interface OtpModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (otp: string) => void;
+  onSubmit: (otp: string) => Promise<boolean | void> | boolean | void;
   emailDomain: string;
 }
 
@@ -22,9 +22,14 @@ const OtpModal: React.FC<OtpModalProps> = ({
     if (otp.trim()) {
       setIsLoading(true);
       try {
-        await onSubmit(otp);
-        setOtp('');
-        onClose();
+        const succeeded = await onSubmit(otp);
+        if (succeeded !== false) {
+          setOtp('');
+          onClose();
+        }
+      } catch {
+        // The parent owns the visible error message. Keep the modal open so
+        // the user can correct the code without creating an unhandled promise.
       } finally {
         setIsLoading(false);
       }

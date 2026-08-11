@@ -734,6 +734,28 @@
 .reply-pill-button:hover { background: var(--green-dark); }
 .reply-pill-icon { font-size: 14px; }
 
+/* Keep the Copy, Expand and Save actions visually aligned in reply toolbars. */
+.inbox-editor-action {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.inbox-editor-action svg {
+  width: 20px;
+  height: 20px;
+}
+.inbox-editor-action:hover:not(:disabled) { background: #f3f4f6; }
+.reply-editor-footer > button:first-child { order: 2; }
+.reply-editor-footer > button:last-child { order: 1; }
+
 details[data-reply-email-trail] > summary::-webkit-details-marker {
   display: none;
 }

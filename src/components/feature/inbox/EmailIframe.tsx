@@ -50,8 +50,9 @@ function buildEmailDocument(raw: string): string {
   // Some emails have a malformed tracking fragment prepended before the
   // real DOCTYPE/html/body.  Find the LAST <body ...> tag to get the
   // proper email body.
-  const bodyOpen = normalizedRaw.search(/<body[^>]*>/i);
-  const bodyClose = normalizedRaw.search(/<\/body>/i);
+  const bodyMatches = Array.from(normalizedRaw.matchAll(/<body[^>]*>/gi));
+  const bodyOpen = bodyMatches.length > 0 ? bodyMatches[bodyMatches.length - 1].index! : -1;
+  const bodyClose = normalizedRaw.toLowerCase().lastIndexOf('</body>');
 
   let bodyContent: string;
 
@@ -127,6 +128,13 @@ const EmailIframe: React.FC<EmailIframeProps> = ({ html, onBodyClick }) => {
       if (doc?.body && onBodyClick) {
         doc.body.style.cursor = 'pointer';
         doc.body.addEventListener('click', onBodyClick);
+      }
+      if (doc?.body) {
+        const observer = new ResizeObserver(resize);
+        observer.observe(doc.body);
+        doc.querySelectorAll('img').forEach((image) => {
+          if (!image.complete) image.addEventListener('load', resize, { once: true });
+        });
       }
     } catch { /* cross-origin guard */ }
 

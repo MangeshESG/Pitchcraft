@@ -202,7 +202,12 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
       );
 
       if (!response.ok) {
-        throw new Error('Failed to add contact');
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.code === 'DUPLICATE_EMAIL'
+            ? `A contact with email ${formData.email.trim()} already exists.`
+            : errorData?.message || 'Failed to add contact'
+        );
       }
 
       onShowMessage('Contact added successfully!', 'success');
@@ -210,7 +215,10 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
       handleClose();
     } catch (error) {
       console.error('Error adding contact:', error);
-      onShowMessage('Failed to add contact. Please try again.', 'error');
+      onShowMessage(
+        error instanceof Error ? error.message : 'Failed to add contact. Please try again.',
+        'error'
+      );
     } finally {
       setIsSubmitting(false);
     }

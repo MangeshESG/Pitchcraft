@@ -4,6 +4,8 @@ import {
   DateTimePreferences,
   DEFAULT_DATE_TIME_PREFERENCES,
   getDateTimePreferences,
+  getLocalTimeZone,
+  getLocalTimeZoneLabel,
   setDateTimePreferences,
 } from "../common/dateTimePreferences";
 import { timezoneOptions } from "./schedule/ScheduleTab";
@@ -12,6 +14,8 @@ const DateTimeSettings: React.FC<{ selectedClient: string }> = ({ selectedClient
   const [form, setForm] = useState<DateTimePreferences>(getDateTimePreferences());
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const localTimeZone = getLocalTimeZone();
+  const localTimeZoneLabel = getLocalTimeZoneLabel();
 
   useEffect(() => {
     if (!selectedClient) return;
@@ -61,11 +65,18 @@ const DateTimeSettings: React.FC<{ selectedClient: string }> = ({ selectedClient
           value={form.timeZone}
           onChange={(event) => {
             const option = timezoneOptions.find((item) => item.iana === event.target.value);
-            setForm({ ...form, timeZone: event.target.value, timeZoneLabel: option?.label });
+            setForm({
+              ...form,
+              timeZone: event.target.value,
+              timeZoneLabel: event.target.value === localTimeZone ? localTimeZoneLabel : option?.label,
+            });
           }}
         >
+          <option value={localTimeZone}>{localTimeZoneLabel}</option>
           {timezoneOptions.map((option) => (
-            <option key={`${option.value}-${option.iana}`} value={option.iana}>{option.label}</option>
+            option.iana !== localTimeZone && (
+              <option key={`${option.value}-${option.iana}`} value={option.iana}>{option.label}</option>
+            )
           ))}
         </select>
 

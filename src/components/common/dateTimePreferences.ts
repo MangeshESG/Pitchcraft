@@ -8,9 +8,19 @@ export interface DateTimePreferences {
   timeFormat: TimeFormatPreference;
 }
 
+export const getLocalTimeZone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+};
+
+export const getLocalTimeZoneLabel = (): string => `Local (${getLocalTimeZone()})`;
+
 export const DEFAULT_DATE_TIME_PREFERENCES: DateTimePreferences = {
-  timeZone: "Asia/Kolkata",
-  timeZoneLabel: "(UTC+05:30) Chennai, Kolkata, Mumbai, New Delhi",
+  timeZone: getLocalTimeZone(),
+  timeZoneLabel: getLocalTimeZoneLabel(),
   dateFormat: "DD-MM-YYYY",
   timeFormat: "24",
 };
