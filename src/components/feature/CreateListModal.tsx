@@ -3,6 +3,7 @@ import API_BASE_URL from '../../config';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
 import CommonSidePanel from '../common/CommonSidePanel';
+import { defaultButtonStyle, lessPriorityButtonStyle } from '../../styles/buttonStyles';
 
 interface CreateListModalProps {
   isOpen: boolean;
@@ -101,16 +102,7 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
           <button
             type="button"
             onClick={handleClose}
-            style={{
-              padding: '10px 24px',
-              borderRadius: '24px',
-              border: '2px solid #ddd',
-              background: '#fff',
-              color: '#666',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: 'pointer'
-            }}
+            style={lessPriorityButtonStyle}
           >
             Cancel
           </button>
@@ -118,13 +110,7 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
             onClick={handleSubmit}
             disabled={isSubmitting || !listName.trim()}
             style={{
-              padding: '10px 24px',
-              borderRadius: '24px',
-              border: '2px solid #dc3545',
-              background: '#fff',
-              color: '#dc3545',
-              fontSize: '14px',
-              fontWeight: '500',
+              ...defaultButtonStyle,
               cursor: (isSubmitting || !listName.trim()) ? 'not-allowed' : 'pointer',
               opacity: (isSubmitting || !listName.trim()) ? 0.5 : 1
             }}
@@ -135,46 +121,43 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
       }
     >
       <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 24, padding: 16, background: '#f8f9fa', borderRadius: 6 }}>
-            <h4 style={{ marginTop: 0, marginBottom: 16 }}>List details</h4>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                List name <span style={{ color: 'red' }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={listName}
-                onChange={(e) => setListName(e.target.value)}
-                required
-                placeholder="Enter list name"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px'
-                }}
-              />
-            </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              List name <span style={{ color: 'red' }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={listName}
+              onChange={(e) => setListName(e.target.value)}
+              required
+              placeholder="Enter list name"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Description
-              </label>
-              <textarea
-                value={listDescription}
-                onChange={(e) => setListDescription(e.target.value)}
-                rows={4}
-                placeholder="Enter description for this list (optional)"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  resize: 'vertical',
-                  fontFamily: 'inherit'
-                }}
-              />
-            </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Description
+            </label>
+            <textarea
+              value={listDescription}
+              onChange={(e) => setListDescription(e.target.value)}
+              rows={4}
+              placeholder="Enter description for this list (optional)"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                resize: 'vertical',
+                fontFamily: 'inherit'
+              }}
+            />
           </div>
         </form>
     </CommonSidePanel>
