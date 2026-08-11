@@ -424,19 +424,42 @@
 .dt-link-btn:hover { text-decoration: underline; }
 .dt-link-btn--muted { color: var(--dt-ink-faint); font-weight: 500; }
 
+.dt-cols-panel__hint {
+  margin: 0;
+  font-size: 11.5px; line-height: 1.5;
+  color: var(--dt-ink-dim);
+}
+
 .dt-cols-panel__list {
   display: flex; flex-direction: column; gap: 6px;
 }
 .dt-col-row {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid var(--dt-line);
   background: #fff;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
 }
 .dt-col-row:hover { background: var(--dt-bg); }
+
+/* Drag handle + drag feedback */
+.dt-col-row__grip {
+  display: flex; align-items: center;
+  color: var(--dt-ink-dim);
+  cursor: grab;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 4px;
+}
+.dt-col-row__grip:hover { color: var(--dt-ink-soft); background: var(--dt-line); }
+.dt-col-row__grip:active { cursor: grabbing; }
+.dt-col-row.is-dragging { opacity: 0.45; }
+.dt-col-row.is-drop-target {
+  border-color: var(--dt-brand);
+  box-shadow: inset 0 2px 0 -1px var(--dt-brand);
+}
 .dt-col-row.is-on {
   background: var(--dt-brand-50);
   border-color: var(--dt-brand-100);

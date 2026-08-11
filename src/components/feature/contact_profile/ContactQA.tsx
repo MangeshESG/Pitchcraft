@@ -83,8 +83,8 @@ interface ContactQAProps {
 const CONTACT_QA_STORAGE_PREFIX = "contact_qa_messages";
 const CONTACT_QA_USAGE_STORAGE_PREFIX = "contact_qa_usage";
 
-// Model used to answer contact Q&A questions (surfaced in the UI and sent to the API).
-const CONTACT_QA_MODEL = "gpt-4o-mini";
+// The model is not chosen here — an admin sets it in Settings > AI models and
+// the API resolves it server-side.
 
 const SUGGESTED_QUESTIONS = [
   "What questions has this contact already been asked in previous emails?",
@@ -754,7 +754,6 @@ const ContactQA: React.FC<ContactQAProps> = ({
         body: JSON.stringify({
           clientId,
           contactId: Number(contactId),
-          modelName: CONTACT_QA_MODEL,
           question: prompt,
           messages: messages.map(({ role, content }) => ({ role, content })),
 

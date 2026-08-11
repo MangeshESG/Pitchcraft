@@ -54,45 +54,24 @@ import {
 import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/free-regular-svg-icons";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../styles/buttonStyles";
+import useColumnPreferences from "../../hooks/useColumnPreferences";
 
-// Persistent column selection utilities
-const CONTACTLIST_COLUMNS_KEY = 'contactlist_selected_columns';
-
-const saveSelectedColumns = (columns: string[]) => {
-  try {
-    localStorage.setItem(CONTACTLIST_COLUMNS_KEY, JSON.stringify(columns));
-  } catch (error) {
-    console.warn('Failed to save column selection:', error);
-  }
-};
-
-const loadSelectedColumns = (): string[] => {
-  try {
-    const saved = localStorage.getItem(CONTACTLIST_COLUMNS_KEY);
-    const parsed = saved ? JSON.parse(saved) : [];
-    if (!Array.isArray(parsed)) return [];
-    if (parsed.length === 0) return [];
-    const requiredColumns = ["first_name", "last_name"];
-    return Array.from(new Set([...parsed, ...requiredColumns]));
-  } catch (error) {
-    console.warn('Failed to load column selection:', error);
-    return [];
-  }
-};
-
-const getDefaultVisibleColumns = (): string[] => {
-  return [
-    'first_name',
-    'last_name',
-    'full_name',
-    'email',
-    'company_name',
-    'job_title',
-    'country_or_address',
-    'hasLinkedInInfo',
-    'hasNotes'
-  ];
-};
+/**
+ * Columns shown to a client who has never arranged their own layout, and what
+ * "Reset to default" restores. Everything else — including custom attributes —
+ * starts hidden.
+ */
+const DEFAULT_VISIBLE_COLUMNS = [
+  'first_name',
+  'last_name',
+  'full_name',
+  'email',
+  'company_name',
+  'job_title',
+  'country_or_address',
+  'hasLinkedInInfo',
+  'hasNotes',
+];
 
 const menuBtnStyle = {
   width: "100%",
@@ -216,12 +195,6 @@ interface ContactsResponse {
   contacts: Contact[];
 }
 
-interface ColumnConfig {
-  key: string;
-  label: string;
-  visible: boolean;
-  width?: string;
-}
 interface SortConfig {
   key: string;
   direction: "asc" | "desc";
@@ -328,32 +301,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [isLoadingHeaderViews, setIsLoadingHeaderViews] = useState(false);
 
 
-  // Persistent column selection state
-  const [savedColumnSelection, setSavedColumnSelection] = useState<string[]>(() => {
-    const saved = loadSelectedColumns();
-    return saved.length > 0 ? saved : getDefaultVisibleColumns();
-  });
   const [viewRefreshToken, setViewRefreshToken] = useState(0);
-
-  // Column configuration - excluding email_subject and email_body
-  const [columns, setColumns] = useState<ColumnConfig[]>([
-    { key: "checkbox", label: "", visible: true, width: "40px" },
-    { key: "first_name", label: "First name", visible: true },
-    { key: "last_name", label: "Last name", visible: true },
-    { key: "full_name", label: "Full name", visible: true },
-    { key: "email", label: "Email address", visible: true },
-    { key: "company_name", label: "Company name", visible: true },
-    { key: "job_title", label: "Job title", visible: true },
-    { key: "website", label: "Website", visible: false },
-    { key: "linkedin_url", label: "LinkedIn profile", visible: false },
-    { key: "country_or_address", label: "Location", visible: true },
-    { key: "hasLinkedInInfo", label: "LinkedIn information", visible: true },
-    { key: "hasNotes", label: "Notes", visible: true },
-    { key: "created_at", label: "Created date", visible: false },
-    { key: "updated_at", label: "Last updated", visible: false },
-    { key: "email_sent_at", label: "Email Sent Date", visible: false },
-    { key: "notes", label: "Notes Text", visible: false },
-  ]);
 
   const { toast, showToast, hideToast } = useToast();
   const { refreshTrigger, triggerRefresh } = useAppData();
@@ -380,6 +328,34 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       .then((res) => res.json())
       .then((data) => setCustomFields(data));
   }, [effectiveUserId]);
+
+  // Custom attribute columns are keyed by field_name, so the layout needs the
+  // id alongside it to survive a rename on the server.
+  const customFieldIdByName = useMemo(() => {
+    const map: Record<string, number> = {};
+    (Array.isArray(customFields) ? customFields : []).forEach((field: any) => {
+      if (field?.field_name && typeof field?.id === "number") {
+        map[field.field_name] = field.id;
+      }
+    });
+    return map;
+  }, [customFields]);
+
+  // Client-level column layout (show/hide + sequence), stored in the DB and
+  // shared by every list, segment and saved view.
+  const {
+    layout: columnLayout,
+    saveLayout: saveColumnLayout,
+    resetLayout: resetColumnLayout,
+    migratedLegacySelection,
+  } = useColumnPreferences(effectiveUserId, {
+    customFieldIdByName,
+    onError: (message) => showContactMessage(message, "error"),
+  });
+
+  // A just-migrated localStorage selection stands in for the defaults, so the
+  // columns a user had hidden before the move to the DB stay hidden.
+  const defaultVisibleColumns = migratedLegacySelection ?? DEFAULT_VISIBLE_COLUMNS;
 
   // Fetch data files
   const fetchDataFiles = async () => {
@@ -668,46 +644,9 @@ const formatTimeIST = formatUserTime;
     });
   };
 
-  // Apply saved column selection to current columns
-  const applyColumnSelection = (currentColumns: ColumnConfig[], savedSelection: string[]) => {
-    return currentColumns.map(col => {
-      if (col.key === 'checkbox') return col;
-
-      // If no saved selection, use default visibility
-      if (savedSelection.length === 0) {
-        return { ...col, visible: getDefaultVisibleColumns().includes(col.key) };
-      }
-
-      // Apply saved selection, defaulting to false for columns not in selection
-      return { ...col, visible: savedSelection.includes(col.key) };
-    });
-  };
-
-  // Toggle column visibility with persistence
-  const toggleColumnVisibility = (columnKey: string) => {
-    setColumns((prev) => {
-      const updated = prev.map((col) =>
-        col.key === columnKey ? { ...col, visible: !col.visible } : col
-      );
-
-      // Save the new selection to localStorage
-      const visibleColumns = updated
-        .filter(col => col.visible && col.key !== 'checkbox')
-        .map(col => col.key);
-
-      setSavedColumnSelection(visibleColumns);
-      saveSelectedColumns(visibleColumns);
-
-      return updated;
-    });
-  };
   const numericPageSize = getNumericPageSize(pageSize, filteredContacts.length);
   const startIndex = (currentPage - 1) * numericPageSize;
   const endIndex = Math.min(currentPage * numericPageSize, filteredContacts.length)
-
-  useEffect(() => {
-    setColumns(prev => applyColumnSelection(prev, savedColumnSelection));
-  }, [savedColumnSelection]);
 
   // Load data when client changes or component mounts
   useEffect(() => {
@@ -2252,15 +2191,10 @@ const filterFields: any = useMemo(() => {
                     "data_file",
                     "customFields",
                   ]} // Hide large/unwanted fields
-                  onColumnsChange={(updatedColumns) => {
-                    // Handle column changes from DynamicContactsTable
-                    const visibleColumns = updatedColumns
-                      .filter(col => col.visible && col.key !== 'checkbox')
-                      .map(col => col.key);
-                    setSavedColumnSelection(visibleColumns);
-                    saveSelectedColumns(visibleColumns);
-                  }}
-                  persistedColumnSelection={savedColumnSelection}
+                  onColumnsChange={saveColumnLayout}
+                  onResetColumns={resetColumnLayout}
+                  persistedColumnLayout={columnLayout}
+                  defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
                     first_name: (value: any, row: any) => {
                       const { firstName, fullName } = getContactNameParts(row as Contact);
@@ -2425,7 +2359,7 @@ const filterFields: any = useMemo(() => {
                     setViewMode("list");
                     setSelectedDataFileForView(null);
                   }}
-                  backLabel="Back to list"
+                  backLabel="Back to lists"
                   onAddItem={() => 
                     //setShowAddContactModal(true)
                     dispatch(openPanel("add-contact-modal"))
@@ -3291,15 +3225,10 @@ const filterFields: any = useMemo(() => {
                     "data_file",
                     "customFields",
                   ]}
-                  onColumnsChange={(updatedColumns) => {
-                    // Handle column changes from DynamicContactsTable
-                    const visibleColumns = updatedColumns
-                      .filter(col => col.visible && col.key !== 'checkbox')
-                      .map(col => col.key);
-                    setSavedColumnSelection(visibleColumns);
-                    saveSelectedColumns(visibleColumns);
-                  }}
-                  persistedColumnSelection={savedColumnSelection}
+                  onColumnsChange={saveColumnLayout}
+                  onResetColumns={resetColumnLayout}
+                  persistedColumnLayout={columnLayout}
+                  defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
                     first_name: (value: any, row: any) => {
                       const { firstName, fullName } = getContactNameParts(row as Contact);
@@ -3469,7 +3398,7 @@ const filterFields: any = useMemo(() => {
                     setSegmentViewMode("list");
                     setSelectedSegmentForView(null);
                   }}
-                  backLabel="Back to segment"
+                  backLabel="Back to segments"
                   customHeader={
                     <>
                       <div style={{ marginBottom: 16 }}>
@@ -4041,14 +3970,10 @@ const filterFields: any = useMemo(() => {
           isActive={activeSubTab === "View"}
           refreshToken={viewRefreshToken}
           columnNameMap={columnNameMap}
-          persistedColumnSelection={savedColumnSelection}
-          onColumnsChange={(updatedColumns) => {
-            const visibleColumns = updatedColumns
-              .filter((col: any) => col.visible && col.key !== "checkbox")
-              .map((col: any) => col.key);
-            setSavedColumnSelection(visibleColumns);
-            saveSelectedColumns(visibleColumns);
-          }}
+          persistedColumnLayout={columnLayout}
+          onColumnsChange={saveColumnLayout}
+          onResetColumns={resetColumnLayout}
+          defaultVisibleColumns={defaultVisibleColumns}
           onShowMessage={(message, type) => {
             showContactMessage(message, type === "success" ? "success" : "error");
           }}
@@ -4340,8 +4265,9 @@ const filterFields: any = useMemo(() => {
         }}
       />
       
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirmation && (
+      {/* Delete Confirmation Modal - portaled so `position: fixed` centres
+          against the viewport instead of a transformed ancestor */}
+      {showDeleteConfirmation && createPortal(
         <div
           style={{
             position: "fixed",
@@ -4398,7 +4324,8 @@ const filterFields: any = useMemo(() => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -36,6 +36,21 @@ export const OPENAI_MODELS = [
     name: "GPT-5 Nano",
     description: "Ultra-fast, minimal resource usage",
   },
+  {
+    id: "gpt-5.6-sol",
+    name: "GPT-5.6 Sol",
+    description: "Deepest reasoning tier of the 5.6 family",
+  },
+  {
+    id: "gpt-5.6-terra",
+    name: "GPT-5.6 Terra",
+    description: "Balanced capability and cost tier",
+  },
+  {
+    id: "gpt-5.6-luna",
+    name: "GPT-5.6 Luna",
+    description: "Fastest, lowest-cost tier",
+  },
 ];
 
 export const DEEPSEEK_MODELS = [

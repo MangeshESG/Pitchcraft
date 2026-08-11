@@ -330,7 +330,7 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
   };
 
   return (
-    <div className="email-signature-container p-6">
+    <div className="email-signature-container">
       <ToastMessage
         show={showToast}
         message={toastMessage}
@@ -339,18 +339,14 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
         position="bottom-center"
         duration={5}
       />
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Email signatures</h2>
+      <div className="flex justify-between items-center gap-6">
+        <p className="text-sm text-gray-600">Manage your email signatures here.</p>
         <button
           onClick={handleAddSignature}
           className="btn-default"
         >
           Add signature
         </button>
-      </div>
-
-      <div className="text-gray-600">
-        <p>Manage your email signatures here.</p>
       </div>
 
       {/* Signatures List */}
@@ -365,7 +361,7 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
             <p className="text-gray-500">No signatures found. Create your first signature!</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-lg border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>

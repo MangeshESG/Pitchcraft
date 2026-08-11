@@ -5,8 +5,6 @@ import CommonSidePanel from "../../common/CommonSidePanel";
 import { defaultButtonStyle } from "../../../styles/buttonStyles";
 import "./EmailCampaignBuilder.css";
 
-type GPTModel = { id: string; name: string; description?: string };
-
 export interface TemplateDefinition {
   id: number;
   templateName: string;
@@ -46,9 +44,8 @@ export interface InstructionSetManagerProps {
   setSubjectInstructions: (v: string) => void;
   webSearchInstructions: string;
   setWebSearchInstructions: (v: string) => void;
-  selectedModel: string;
-  setSelectedModel: (v: string) => void;
-  availableModels: GPTModel[];
+  // No model picker here — the blueprint-generation model is set once by an
+  // admin in Settings > AI models.
 
   // Placeholder manager (shared with builder)
   uiPlaceholders: PlaceholderDefinitionUI[];
@@ -87,8 +84,6 @@ const InstructionSetManager: React.FC<InstructionSetManagerProps> = ({
   searchURLCount, setSearchURLCount,
   subjectInstructions, setSubjectInstructions,
   webSearchInstructions, setWebSearchInstructions,
-  selectedModel, setSelectedModel,
-  availableModels,
   uiPlaceholders, setUiPlaceholders,
   onLoadTemplateDefinition,
   onSaveTemplateDefinition,
@@ -248,20 +243,6 @@ const InstructionSetManager: React.FC<InstructionSetManagerProps> = ({
               placeholder="Enter template name"
               className="text-input"
             />
-          </div>
-
-          {/* Model Picker */}
-          <div className="model-select-box">
-            <label className="section-label">Select AI model</label>
-            <select
-              className="definition-select"
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-            >
-              {availableModels.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
           </div>
 
           <div className="search-count-box">

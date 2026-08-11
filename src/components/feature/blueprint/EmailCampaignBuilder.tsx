@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import API_BASE_URL from "../../../config";
+import { extractGenerationInsights } from "../../../utils/generationInsights";
 import "./EmailCampaignBuilder.css";
 import notificationSound from "../../../assets/sound/notification.mp3";
 import { AlertCircle } from "lucide-react";
@@ -44,6 +45,8 @@ import PopupModal from "../../common/PopupModal";
 import toggleOn from "../../../assets/images/on-button.png";
 import toggleOff from "../../../assets/images/off-button.png";
 import witchLogo from "../../../assets/images/Witch_logo_AI.png";
+import startFromExistingEmail from "../../../assets/images/blueprint_start_existing_email.png";
+import startFromScratch from "../../../assets/images/blueprint_start_from_scratch.png";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
 import LoadingSpinner from "../../common/LoadingSpinner";
@@ -54,9 +57,16 @@ import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/but
 // Coerce any DeepSeek (or empty) value back to a safe OpenAI default so loading
 // an older definition/template that was saved with DeepSeek doesn't bring it back.
 const DEFAULT_BUILDER_MODEL = "gpt-5.1";
+
+// Minimum plain-text length (HTML stripped, ends trimmed) for a blueprint's
+// example_output_email to count as "a real example email" — one of the signals
+// that a loaded blueprint is already built (opens in edit mode) and that the
+// preview can be generated. It is not the only one: see loadTemplateForEdit.
+const MIN_EXAMPLE_EMAIL_LENGTH = 10;
 const toBuilderModel = (model?: string | null): string =>
   !model || isDeepSeekModel(model) ? DEFAULT_BUILDER_MODEL : model;
-
+const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
+//const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
 
 // --- Type Definitions ---
 export interface Message {
@@ -152,10 +162,22 @@ interface TemplateTabProps {
   setTemplateName: (value: string) => void;
 }
 
+// Minimal shape needed to render the blueprint switcher dropdown in the header.
+export interface BlueprintSwitcherOption {
+  id: number;
+  templateName: string;
+}
+
 interface EmailCampaignBuilderProps {
   selectedClient: string | null;
   onBeforeAiChatOpen?: () => Promise<boolean>;
   onExitBuilder?: () => void;
+  // Admin-only blueprint switcher. The parent passes these only when the user is
+  // an ADMIN; when omitted the dropdown is not rendered at all.
+  blueprintOptions?: BlueprintSwitcherOption[];
+  activeBlueprintId?: number | null;
+  onBlueprintChange?: (blueprintId: number) => void;
+  isSwitchingBlueprint?: boolean;
 }
 
 interface ConversationTabProps {
@@ -247,28 +269,64 @@ const CONTACT_PLACEHOLDERS = [
 const ExampleEmailEditor: React.FC<{
   value: string;
   onChange: (val: string) => void;
-}> = ({ value, onChange }) => {
-  const editorRef = useRef<HTMLDivElement | null>(null);
-  const localDraft = useRef<string>("");
-
-  useEffect(() => {
-    if (!editorRef.current) return;
-    editorRef.current.innerHTML = value || "";
-    localDraft.current = value || "";
-  }, [value]);
-
+  height?: number;
+  showActionButtons?: boolean;
+  finalPrompt?: string;
+  webSearchData?: string;
+  insightEmails?: string;
+  insightNotes?: string;
+  insightProfessionalSummary?: string;
+  // Action-bar wiring — the same set the Inbox and Output editors pass, so the
+  // preview toolbar carries every control in all three places.
+  onRegenerate?: () => void;
+  isRegenerating?: boolean;
+  regenerateDisabled?: boolean;
+  showDeviceButton?: boolean;
+  outputEmailWidth?: string;
+  openDeviceDropdown?: boolean;
+  onDeviceDropdownToggle?: () => void;
+  onDeviceWidthChange?: (width: string) => void;
+  onExpandEditor?: () => void;
+}> = ({
+  value,
+  onChange,
+  height = 320,
+  showActionButtons,
+  finalPrompt,
+  webSearchData,
+  insightEmails,
+  insightNotes,
+  insightProfessionalSummary,
+  onRegenerate,
+  isRegenerating,
+  regenerateDisabled,
+  showDeviceButton,
+  outputEmailWidth,
+  openDeviceDropdown,
+  onDeviceDropdownToggle,
+  onDeviceWidthChange,
+  onExpandEditor,
+}) => {
   return (
-    <div
-      ref={editorRef}
-      contentEditable
-      suppressContentEditableWarning
-      className="example-content"
-      onInput={() => {
-        if (editorRef.current) {
-          localDraft.current = editorRef.current.innerHTML;
-        }
-      }}
-      onBlur={() => onChange(localDraft.current)}
+    <RichTextEditor
+      value={value}
+      onChange={onChange}
+      height={height}
+      showActionButtons={showActionButtons}
+      finalPrompt={finalPrompt}
+      webSearchData={webSearchData}
+      insightEmails={insightEmails}
+      insightNotes={insightNotes}
+      insightProfessionalSummary={insightProfessionalSummary}
+      onRegenerate={onRegenerate}
+      isRegenerating={isRegenerating}
+      regenerateDisabled={regenerateDisabled}
+      showDeviceButton={showDeviceButton}
+      outputEmailWidth={outputEmailWidth}
+      openDeviceDropdown={openDeviceDropdown}
+      onDeviceDropdownToggle={onDeviceDropdownToggle}
+      onDeviceWidthChange={onDeviceWidthChange}
+      onExpandEditor={onExpandEditor}
     />
   );
 };
@@ -561,24 +619,11 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
     el.style.overflowY = el.scrollHeight > 160 ? "auto" : "hidden";
   }, [currentAnswer]);
 
-  // Size the chat area to fill exactly the space from its top edge down to the
-  // bottom of the viewport. Replaces a hardcoded `calc(100vh - 180px)` guess,
-  // which left dead space below the composer (or overflowed) whenever the header
-  // above the chat — e.g. the optional token-usage bar — didn't match 180px.
-  const chatAreaRef = useRef<HTMLDivElement>(null);
-  const [chatAreaHeight, setChatAreaHeight] = useState("calc(100vh - 180px)");
-  useLayoutEffect(() => {
-    const el = chatAreaRef.current;
-    if (!el) return;
-    const recompute = () => {
-      const docTop = el.getBoundingClientRect().top + window.scrollY;
-      const next = `calc(100vh - ${Math.round(docTop)}px)`;
-      setChatAreaHeight((prev) => (prev === next ? prev : next));
-    };
-    recompute();
-    window.addEventListener("resize", recompute);
-    return () => window.removeEventListener("resize", recompute);
-  }, [isEditMode, conversationStarted, isComplete, blueprintApproved, isTyping, messages.length]);
+  // The chat area is deliberately unbounded in height: the thread grows with the
+  // conversation and the page is the only thing that scrolls. It used to be
+  // capped to the viewport with its own inner scroller, which meant two nested
+  // scrollbars down the right-hand side. The composer stays reachable because
+  // it is `position: sticky` at the bottom of this column.
   // ========================================
   // IMAGE ATTACHMENT STATE
 
@@ -593,6 +638,31 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
     const container = messagesContainerRef.current;
     if (!container || !messages.length) return;
 
+    // While the bot is composing a reply, keep the "Blueprint Builder is
+    // thinking…" indicator in view so the user sees the response is coming.
+    // The thread has no scroller of its own, so this scrolls the page; the
+    // indicator's `scroll-margin-bottom` keeps it clear of the sticky composer.
+    // It re-pins on the next frame and once after layout settles, because late
+    // layout (rendered HTML, images, the auto-growing composer) can otherwise
+    // leave the indicator below the fold.
+    if (isTyping) {
+      const typingIndicator = container.querySelector(".typing-indicator");
+      if (typingIndicator) {
+        const pinToIndicator = () => {
+          messagesContainerRef.current
+            ?.querySelector(".typing-indicator")
+            ?.scrollIntoView({ block: "end", behavior: "auto" });
+        };
+        pinToIndicator();
+        const frame = requestAnimationFrame(pinToIndicator);
+        const settleTimer = window.setTimeout(pinToIndicator, 200);
+        return () => {
+          cancelAnimationFrame(frame);
+          window.clearTimeout(settleTimer);
+        };
+      }
+    }
+
     const messageElements = container.querySelectorAll(".message-wrapper");
     if (!messageElements.length) return;
 
@@ -605,7 +675,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
       lastMessage.scrollIntoView({ block: "start", behavior: "auto" });
       window.scrollBy(0, -16);
     }
-  }, [messages]);
+  }, [messages, isTyping]);
 
   useEffect(() => {
     if (!isTyping && conversationStarted) {
@@ -722,7 +792,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
               {[
                 {
                   id: "reference" as const,
-                  icon: "📧",
+                  image: startFromExistingEmail,
                   accent: "#3f9f42",
                   iconBg: "#e7f6e8",
                   tagColor: "#2f7d32",
@@ -737,7 +807,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                 },
                 {
                   id: "description" as const,
-                  icon: "🪄",
+                  image: startFromScratch,
                   accent: "#7c3aed",
                   iconBg: "#f1ecfe",
                   tagColor: "#6d28d9",
@@ -759,9 +829,15 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                     style={{ flex: "1 1 290px", minWidth: 270, padding: 20, border: `2px solid ${selected ? opt.accent : "#e5e7eb"}`, borderRadius: 14, cursor: "pointer", background: "#fff", transition: "all 0.2s", display: "flex", flexDirection: "column" }}>
                     {/* Top row: icon + (recommended) + radio */}
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 13 }}>
-                      <div style={{ width: 40, height: 40, background: opt.iconBg, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
-                        {opt.icon}
-                      </div>
+                      {/* Illustration rather than a glyph in a tinted chip — the
+                          artwork carries the detail, so it gets room to breathe
+                          and no background tint behind it. */}
+                      <img
+                        src={opt.image}
+                        alt=""
+                        style={{ width: 96, height: 68, objectFit: "contain", objectPosition: "left center", flexShrink: 0 }}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                      />
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         {opt.recommended && (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#e7f6e8", color: "#2f7d32", fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 999 }}>
@@ -861,9 +937,9 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
       {/* ===== PHASE 2: PROVIDE INPUT (CHAT) ===== */}
       {(isEditMode || wizardPhase === 2) && (
-        <div ref={chatAreaRef} style={{ display: "flex", flexDirection: "column", height: chatAreaHeight, minHeight: 420 }}>
-          {/* Messages */}
-          <div className="messages-area" ref={messagesContainerRef} style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 180px)" }}>
+          {/* Messages — no overflow of its own; the page scrolls instead */}
+          <div className="messages-area" ref={messagesContainerRef} style={{ flex: 1 }}>
             {isEditMode && !conversationStarted && selectedPlaceholder && (
               <div className="empty-conversation"><p>Preparing conversation…</p></div>
             )}
@@ -907,8 +983,12 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                         <div className="typing-dot" />
                         <div className="typing-dot" />
                       </div>
+                      {/* Sits on the dots row, not under it: as the last thing in
+                          the thread the indicator hugs the bottom of the scroll
+                          area, and a label on its own line below the bubble was
+                          the part that got clipped. */}
+                      <span className="typing-label">Blueprint Builder is thinking…</span>
                     </div>
-                    <span className="typing-label">Blueprint builder is thinking…</span>
                   </div>
                 )}
               </div>
@@ -1406,6 +1486,13 @@ interface ExampleOutputPanelProps {
   saveExampleEmail: () => Promise<void>;
   exampleSaveStatus?: "idle" | "saving" | "saved";
 
+  // generation transparency (shown via the editor action bar)
+  previewFinalPrompt?: string;
+  previewWebSearchData?: string;
+  previewEmails?: string;
+  previewNotes?: string;
+  previewProfessionalSummary?: string;
+
   // contact + data file
   dataFiles: any[];
   contacts: any[];
@@ -1466,9 +1553,20 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   exampleOutput,
   isPreviewAllowed,
   onCollapse,
+  previewFinalPrompt,
+  previewWebSearchData,
+  previewEmails,
+  previewNotes,
+  previewProfessionalSummary,
 }) => {
   const selectedContact = contacts.find((c) => c.id === selectedContactId);
   const [userRole, setUserRole] = useState<string>("");
+
+  // Device-preview + expand state for the editor action bar (same controls the
+  // Inbox and Output editors offer).
+  const [previewDeviceWidth, setPreviewDeviceWidth] = useState<string>("");
+  const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
+  const [isEditorExpanded, setIsEditorExpanded] = useState(false);
 
   useEffect(() => {
     setUserRole(sessionStorage.getItem("isAdmin") === "true" ? "ADMIN" : "USER");
@@ -1492,26 +1590,9 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
       {/* ── HEADER ── */}
       <div style={{ padding: "10px 14px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <span style={{ fontSize: 13 }}>👁️</span>
           <span style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>Live preview</span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button
-            onClick={handlePreview}
-            disabled={isGenerating || !selectedContactId || !isPreviewAllowed}
-            title="Refresh preview for this contact"
-            style={{
-              padding: "4px 10px", borderRadius: 6, border: "1px solid #d1d5db",
-              background: "#fff", fontSize: 12, cursor: (!selectedContactId || !isPreviewAllowed) ? "not-allowed" : "pointer",
-              color: "#374151", display: "flex", alignItems: "center", gap: 4,
-              opacity: (!selectedContactId || !isPreviewAllowed) ? 0.45 : 1,
-            }}
-          >
-            {isGenerating
-              ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
-              : <RefreshCw size={11} />}
-            Generate
-          </button>
           {onCollapse && (
             <button onClick={onCollapse} title="Collapse preview"
               style={{ padding: "4px 7px", borderRadius: 6, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", color: "#9ca3af", fontSize: 14, lineHeight: 1, display: "flex", alignItems: "center" }}>
@@ -1578,6 +1659,24 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             showPageSizeDropdown={false}
             showInfo={false}
           />
+          {/* Generate sits beside the contact navigation: it acts on whichever
+              contact those arrows land on. */}
+          <button
+            onClick={handlePreview}
+            disabled={isGenerating || !selectedContactId || !isPreviewAllowed}
+            title="Generate the preview for this contact"
+            style={{
+              padding: "4px 10px", borderRadius: 6, border: "1px solid #d1d5db",
+              background: "#fff", fontSize: 12, cursor: (!selectedContactId || !isPreviewAllowed) ? "not-allowed" : "pointer",
+              color: "#374151", display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
+              opacity: (!selectedContactId || !isPreviewAllowed) ? 0.45 : 1,
+            }}
+          >
+            {isGenerating
+              ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+              : <RefreshCw size={11} />}
+            Generate
+          </button>
         </div>
       )}
 
@@ -1628,16 +1727,45 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
       <div style={{ flex: 1, overflow: "auto" }}>
         {activeMainTab === "output" && (
           editableExampleOutput || exampleOutput ? (
-            <ExampleEmailEditor
-              value={editableExampleOutput || exampleOutput || ""}
-              onChange={setEditableExampleOutput}
-            />
+            <div
+              style={{
+                maxWidth:
+                  previewDeviceWidth === "Mobile"
+                    ? "480px"
+                    : previewDeviceWidth === "Tab"
+                      ? "768px"
+                      : "100%",
+                margin: "0 auto",
+              }}
+            >
+              <ExampleEmailEditor
+                value={editableExampleOutput || exampleOutput || ""}
+                onChange={setEditableExampleOutput}
+                showActionButtons
+                finalPrompt={previewFinalPrompt}
+                webSearchData={previewWebSearchData}
+                insightEmails={previewEmails}
+                insightNotes={previewNotes}
+                insightProfessionalSummary={previewProfessionalSummary}
+                onRegenerate={handlePreview}
+                isRegenerating={isGenerating}
+                regenerateDisabled={!selectedContactId || !isPreviewAllowed}
+                showDeviceButton
+                outputEmailWidth={previewDeviceWidth}
+                openDeviceDropdown={openDeviceDropdown}
+                onDeviceDropdownToggle={() => setOpenDeviceDropdown((open) => !open)}
+                onDeviceWidthChange={(width) => {
+                  setPreviewDeviceWidth(width);
+                  setOpenDeviceDropdown(false);
+                }}
+                onExpandEditor={() => setIsEditorExpanded(true)}
+              />
+            </div>
           ) : (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
-              <div style={{ fontSize: 28, marginBottom: 10 }}>✉️</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>No preview yet</div>
               <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, maxWidth: 200, margin: "0 auto" }}>
-                Select a contact list and a contact, then click <strong>Refresh</strong> to generate a preview.
+                Select a contact list and a contact, then click <strong>Generate</strong> to generate a preview.
               </div>
               {!isPreviewAllowed && (
                 <div style={{ marginTop: 14, fontSize: 11, color: "#d97706", background: "#fef3c7", borderRadius: 6, padding: "6px 12px", display: "inline-block" }}>
@@ -1653,6 +1781,44 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             : <p style={{ padding: 20, color: "#9ca3af", fontSize: 13 }}>Filled template will appear here</p>
         )}
       </div>
+
+      {/* Expanded editor — the preview panel is narrow, so the expand action
+          opens the same editor over the full window. */}
+      {isEditorExpanded && (
+        <div
+          onClick={() => setIsEditorExpanded(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 1000,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 10, padding: 20,
+              width: "90%", maxWidth: 1100, maxHeight: "90vh", overflow: "auto",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <span style={{ fontWeight: 600, fontSize: 15, color: "#111827" }}>Example email</span>
+              <button
+                type="button"
+                onClick={() => setIsEditorExpanded(false)}
+                title="Close"
+                style={{ border: "1px solid #e5e7eb", background: "#fff", borderRadius: 6, cursor: "pointer", color: "#6b7280", fontSize: 15, lineHeight: 1, padding: "4px 9px" }}
+              >
+                ✕
+              </button>
+            </div>
+            <ExampleEmailEditor
+              value={editableExampleOutput || exampleOutput || ""}
+              onChange={setEditableExampleOutput}
+              height={520}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1687,12 +1853,92 @@ const RichTextInput: React.FC<{
 
 
 // ====================================================================
+// BLUEPRINT SWITCHER
+// ====================================================================
+// Compact picklist shown next to "Back to blueprints" that lets the user jump
+// straight from one blueprint to another without going back to the list.
+const BlueprintSwitcher: React.FC<{
+  options: BlueprintSwitcherOption[];
+  activeBlueprintId: number | null;
+  isSwitching?: boolean;
+  onChange: (blueprintId: number) => void;
+}> = ({ options, activeBlueprintId, isSwitching = false, onChange }) => {
+  const [isFocused, setIsFocused] = useState(false);
+
+  const hasActive =
+    activeBlueprintId !== null &&
+    options.some((option) => option.id === activeBlueprintId);
+
+  return (
+    <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+      <select
+        value={hasActive ? String(activeBlueprintId) : ""}
+        disabled={isSwitching}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        onChange={(e) => {
+          const nextId = Number(e.target.value);
+          if (!Number.isFinite(nextId) || nextId <= 0) return;
+          if (nextId === activeBlueprintId) return;
+          onChange(nextId);
+        }}
+        title="Switch blueprint"
+        aria-label="Switch blueprint"
+        style={{
+          appearance: "none",
+          WebkitAppearance: "none",
+          MozAppearance: "none",
+          minWidth: 220,
+          maxWidth: 340,
+          padding: "10px 34px 10px 14px",
+          borderRadius: 8,
+          border: `1.5px solid ${isFocused ? "#3f9f42" : "#d1d5db"}`,
+          background: isSwitching ? "#f3f4f6" : "#ffffff",
+          color: hasActive ? "#111827" : "#6b7280",
+          fontSize: 13,
+          fontWeight: 500,
+          lineHeight: "16px",
+          cursor: isSwitching ? "wait" : "pointer",
+          outline: "none",
+          boxShadow: isFocused ? "0 0 0 3px rgba(63, 159, 66, 0.15)" : "none",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {!hasActive && (
+          <option value="" disabled>
+            Select a blueprint
+          </option>
+        )}
+        {options.map((option) => (
+          <option key={option.id} value={String(option.id)}>
+            {option.templateName || `Blueprint #${option.id}`}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        size={15}
+        style={{
+          position: "absolute",
+          right: 11,
+          pointerEvents: "none",
+          color: "#6b7280",
+        }}
+      />
+    </div>
+  );
+};
+
+// ====================================================================
 // MAIN COMPONENT
 // ====================================================================
 const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   selectedClient,
   onBeforeAiChatOpen,
   onExitBuilder,
+  blueprintOptions,
+  activeBlueprintId = null,
+  onBlueprintChange,
+  isSwitchingBlueprint = false,
 }) => {
   // --- State Management ---
   const [currentAnswer, setCurrentAnswer] = useState("");
@@ -1735,6 +1981,11 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     "",
   );
   const [exampleOutput, setExampleOutput] = useState<string>("");
+  const [previewFinalPrompt, setPreviewFinalPrompt] = useState<string>("");
+  const [previewWebSearchData, setPreviewWebSearchData] = useState<string>("");
+  const [previewEmails, setPreviewEmails] = useState<string>("");
+  const [previewNotes, setPreviewNotes] = useState<string>("");
+  const [previewProfessionalSummary, setPreviewProfessionalSummary] = useState<string>("");
   const [filledTemplate, setFilledTemplate] = useState<string>("");
 
   const [placeholderValues, setPlaceholderValues] = useSessionState<
@@ -1813,10 +2064,14 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   // true once the user has completed the full wizard or an existing blueprint is loaded
   const [wizardCompleted, setWizardCompleted] = useState(false);
 
+  // A real example email unlocks the preview mid-wizard; once the blueprint is
+  // built, the preview stays available even for blueprints that never carry an
+  // example email.
   const isPreviewAllowed = React.useMemo(() => {
+    if (wizardCompleted) return true;
     const emailHtml = placeholderValues?.example_output_email;
-    return getPlainTextLength(emailHtml) >= 20;
-  }, [placeholderValues?.example_output_email]);
+    return getPlainTextLength(emailHtml) >= MIN_EXAMPLE_EMAIL_LENGTH;
+  }, [placeholderValues?.example_output_email, wizardCompleted]);
 
   // isEditMode is driven by explicit completion, NOT by example_output_email content.
   // This prevents the wizard from jumping to edit mode mid-conversation when the AI
@@ -2552,199 +2807,100 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       const conversationValues = getConversationPlaceholders(placeholderValues);
       const contactValues = getContactPlaceholders(placeholderValues);
 
-      // Used for SEARCH + replacement checks
-      const mergedForSearch = getMergedPlaceholdersForDisplay(
-        conversationValues,
-        contactValues,
-      );
-
       console.log("📦 Conversation elements:", Object.keys(conversationValues));
       console.log("📇 Contact elements:", Object.keys(contactValues));
 
       // --------------------------------------------------
-      // 2️⃣ SEARCH FLOW (optional)
-      // --------------------------------------------------
-      const hasSearchTermsPlaceholder = masterPrompt.includes(
-        "{hook_search_terms}",
-      );
-      let searchResultSummary = "";
-
-      if (
-        hasSearchTermsPlaceholder &&
-        conversationValues["hook_search_terms"]
-      ) {
-        console.log("🔍 Search terms detected, preparing search API call...");
-
-        if (!conversationValues["vendor_company_email_main_theme"]) {
-          showModal(
-            "Error",
-            '❌ Missing "vendor_company_email_main_theme" value. Please complete the conversation first.',
-          );
-          return;
-        }
-
-        const processedSearchTerm = replacePlaceholdersInString(
-          conversationValues["hook_search_terms"],
-          mergedForSearch,
-        );
-
-        const unreplaced = processedSearchTerm.match(/\{[^}]+\}/g);
-        if (unreplaced) {
-          const missing = unreplaced.map((p) => p.replace(/[{}]/g, ""));
-          showModal("Error", `⚠️ Missing values: ${missing.join(", ")}`);
-          return;
-        }
-
-        const searchInstructionTemplate =
-          webSearchInstructions.trim() || conversationValues["search_objective"] || "";
-
-        if (!searchInstructionTemplate.trim()) {
-          showModal("Error", "❌ Missing search_objective value.");
-          return;
-        }
-
-        const processedInstructions = replacePlaceholdersInString(
-          searchInstructionTemplate,
-          mergedForSearch,
-        );
-
-        try {
-          console.log("📤 Calling Search API...");
-          const searchResponse = await axios.post(
-            `${API_BASE_URL}/api/auth/process`,
-            {
-              searchTerm: processedSearchTerm,
-              instructions: processedInstructions,
-              modelName: selectedModel,
-              searchCount: 5,
-            },
-          );
-
-          const pitch =
-            searchResponse.data?.pitchResponse ||
-            searchResponse.data?.PitchResponse;
-
-          searchResultSummary = pitch?.content || pitch?.Content || "";
-
-          if (searchResultSummary) {
-            conversationValues["search_output_summary"] = searchResultSummary;
-
-            // Update UI (merged, runtime-safe)
-            const updatedMerged = getMergedPlaceholdersForDisplay(
-              conversationValues,
-              contactValues,
-            );
-            setPlaceholderValues(updatedMerged);
-
-            // Save ONLY conversation placeholders
-            const storedId = sessionStorage.getItem("newCampaignId");
-            const activeCampaignId =
-              editTemplateId ?? (storedId ? Number(storedId) : null);
-
-            if (activeCampaignId) {
-              await axios.post(
-                `${API_BASE_URL}/api/CampaignPrompt/template/update`,
-                {
-                  id: activeCampaignId,
-                  placeholderValues: conversationValues,
-                },
-              );
-              await reloadCampaignBlueprint();
-            }
-          }
-        } catch (err: any) {
-          console.error("❌ Search API failed:", err);
-         // showModal("Error", "Search failed. Continuing without search data.");
-         setToastMessage("Search failed. Continuing without search data.");
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 5000);
-        }
-      }
-
-      // --------------------------------------------------
-      // 3️⃣ GENERATE EXAMPLE OUTPUT (IMPORTANT PART)
+      // 2️⃣ + 3️⃣ GENERATE PREVIEW via the real generation endpoint
+      //    Uses the SAME path as actual sending (notes, web search,
+      //    email history, subject) but preview:true → no DB write,
+      //    no credit deduction, no kraft history.
       // --------------------------------------------------
       const storedId = sessionStorage.getItem("newCampaignId");
       const activeCampaignId =
         editTemplateId ?? (storedId ? Number(storedId) : null);
 
       if (!activeCampaignId) {
-       // showModal("Error", "❌ No campaign instance found.");
-       setToastMessage("No campaign instance found.");
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 5000);
+        setToastMessage("No campaign instance found.");
+        setShowErrorToast(true);
+        setTimeout(() => setShowErrorToast(false), 5000);
         return;
       }
 
-      // Merge placeholders (conversation + contact)
+      if (!selectedContactId) {
+        setToastMessage("Select a contact to preview.");
+        setShowErrorToast(true);
+        setTimeout(() => setShowErrorToast(false), 5000);
+        return;
+      }
+
+      // Persist the current campaign placeholder edits so the backend reads
+      // fresh values (runtime-only placeholders are filtered out server-side).
       const mergedAll = getMergedPlaceholdersForDisplay(
         conversationValues,
         contactValues,
       );
-
-      // 🔥 SPLIT PLACEHOLDERS
-      const { persisted } = splitPlaceholders(mergedAll);
-
-      console.log("📧 Generating example output...");
-      console.log("📦 Persisted elements only:", Object.keys(persisted));
-      setIsPreviewLoading(true);
-      const response = await axios.post(
-        `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
+      await axios.post(
+        `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
         {
-          userId: effectiveUserId,
-          campaignTemplateId: activeCampaignId,
-          model: selectedModel,
-          placeholderValues: mergedAll, // ✅ SEND EVERYTHING
+          templateId: activeCampaignId,
+          placeholderValues: mergedAll,
+        },
+      );
+
+      console.log("📧 Generating preview via generate-single-contact...");
+      setIsPreviewLoading(true);
+
+      const response = await axios.post(
+        `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
+        {
+          blueprintId: activeCampaignId,
+          contactId: selectedContactId,
+          clientId: String(effectiveUserId),
+          overwriteExisting: true,
+          preview: true, // ⬅️ no save, no credit, no history
         },
       );
 
       if (response.data?.usage) {
         const u = response.data.usage;
-
-        const inTokens =
-          u.promptTokens ?? u.prompt_tokens ?? u.inputTokens ?? 0;
-        const outTokens =
-          u.completionTokens ?? u.completion_tokens ?? u.outputTokens ?? 0;
-        const cost = u.cost ?? u.totalCost ?? 0;
+        const inTokens = u.totalTokens ?? u.TotalTokens ?? 0;
+        const cost = u.totalCost ?? u.TotalCost ?? 0;
 
         setUsageInfo({
           promptTokens: inTokens,
-          completionTokens: outTokens,
+          completionTokens: 0,
           cost,
         });
 
         setTotalUsage((prev) => ({
           totalInput: prev.totalInput + inTokens,
-          totalOutput: prev.totalOutput + outTokens,
+          totalOutput: prev.totalOutput,
           totalCalls: prev.totalCalls + 1,
           totalCost: prev.totalCost + cost,
         }));
       }
 
-      // Dispatch credit update event after successful API call
-      window.dispatchEvent(
-        new CustomEvent("creditUpdated", {
-          detail: { clientId: effectiveUserId },
-        }),
-      );
-
       if (response.data?.success || response.data?.Success) {
-        const html =
-          response.data.exampleOutput || response.data.ExampleOutput || "";
+        const body =
+          response.data.emailBody || response.data.EmailBody || "";
+        const subject =
+          response.data.emailSubject || response.data.EmailSubject || "";
 
-        const filled =
-          response.data.filledTemplate || response.data.FilledTemplate || "";
-
-        setExampleOutput(html);
-        setFilledTemplate(filled);
-
-        console.log("✅ Example output generated");
+        setExampleOutput(body);
+        const previewInsights = extractGenerationInsights(response.data);
+        setPreviewFinalPrompt(previewInsights.finalPrompt);
+        setPreviewWebSearchData(previewInsights.webSearchData);
+        setPreviewEmails(previewInsights.emails);
+        setPreviewNotes(previewInsights.notes);
+        setPreviewProfessionalSummary(previewInsights.professionalSummary);
+        // subject is available in `subject` if the preview UI wants to show it
+        console.log("✅ Preview generated. Subject:", subject);
         playNotificationSound();
       } else {
-       // showModal("Warning", "⚠️ Example generation returned no output.");
-        setToastMessage("Example generation returned no output.");
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 5000);
+        setToastMessage("Preview generation returned no output.");
+        setShowErrorToast(true);
+        setTimeout(() => setShowErrorToast(false), 5000);
       }
     } catch (error: any) {
       console.error("❌ regenerateExampleOutput failed:", error);
@@ -3152,11 +3308,49 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       }
 
       const loadedExampleEmail = template.placeholderValues?.example_output_email;
-      const hasExistingEmail = typeof loadedExampleEmail === "string" && getPlainTextLength(loadedExampleEmail) >= 20;
+      const hasExistingEmail =
+        typeof loadedExampleEmail === "string" &&
+        getPlainTextLength(loadedExampleEmail) >= MIN_EXAMPLE_EMAIL_LENGTH;
 
-      setWizardCompleted(hasExistingEmail);
+      // An example email is only ONE sign that a saved blueprint is already
+      // built. Blueprints whose type never produces one (or that predate the
+      // example step) are just as finished, so gating edit mode on the email
+      // alone stranded them in the wizard with no way to reach the elements
+      // editor. Saved elements or a conversation that reached the completion
+      // marker count just as well.
+      const savedElementValues = getConversationPlaceholders(
+        template.placeholderValues || {},
+      );
+      const hasSavedElements = Object.entries(savedElementValues).some(
+        ([key, value]) =>
+          key !== "example_output_email" &&
+          typeof value === "string" &&
+          value.trim().length > 0,
+      );
+      const conversationReachedCompletion = (
+        storedConversationMessages || []
+      ).some((message) => {
+        const content = message?.content || "";
+        return (
+          content.includes("==PLACEHOLDER_VALUES_START==") &&
+          content.includes("==PLACEHOLDER_VALUES_END==") &&
+          content.includes('"complete"')
+        );
+      });
+      // A conversation that was started but never completed still owes the user
+      // the wizard — dropping them into the elements editor would abandon a
+      // half-built blueprint mid-question.
+      const hasUnfinishedConversation =
+        loadedMessages.length > 0 && !conversationReachedCompletion;
+
+      const isBuiltBlueprint =
+        hasExistingEmail ||
+        conversationReachedCompletion ||
+        (hasSavedElements && !hasUnfinishedConversation);
+
+      setWizardCompleted(isBuiltBlueprint);
       setActiveMainTab("build");
-      setActiveBuildTab(hasExistingEmail ? "elements" : "chat");
+      setActiveBuildTab(isBuiltBlueprint ? "elements" : "chat");
       setConversationStarted(loadedMessages.length > 0);
       setIsTyping(false);
       // setIsEditMode(true);
@@ -3447,9 +3641,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   // ====================================================================
   // AVAILABLE MODELS
   // ====================================================================
-  // OpenAI models only — DeepSeek is intentionally excluded from blueprint
-  // creation/editing (it's only used in the DeepSeek Search feature).
-  const availableModels: GPTModel[] = OPENAI_MODELS;
+  // The blueprint-generation model is no longer picked here — an admin sets it
+  // once in Settings > AI models and the API resolves it server-side.
 
   // ====================================================================
   // EXTRACT PLACEHOLDERS
@@ -4436,7 +4629,15 @@ const parsePlaceholdersSafe = (block: string) => {
           of the builder (replaces the per-step "Cancel" buttons). Rendered in
           normal flow above the main container so it sits above each step's
           content instead of floating over it. */}
-      <div style={{ display: "flex", padding: "12px 16px 0" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          flexWrap: "wrap",
+          padding: "12px 16px 0",
+        }}
+      >
         <button
           onClick={() => (onExitBuilder ? onExitBuilder() : resetAll())}
           title="Back to blueprints"
@@ -4449,6 +4650,21 @@ const parsePlaceholdersSafe = (block: string) => {
         >
           <FontAwesomeIcon icon={faAngleLeft} /> Back to blueprints
         </button>
+
+        {/* ---- BLUEPRINT SWITCHER ----
+            Rendered whenever the parent supplies options (Template.tsx passes the
+            blueprints in scope for the current user). Changing the selection
+            reloads the whole builder against the chosen blueprint; a completed
+            blueprint (one that already has an example output email) opens
+            straight in edit mode. */}
+        {blueprintOptions && blueprintOptions.length > 0 && (
+          <BlueprintSwitcher
+            options={blueprintOptions}
+            activeBlueprintId={activeBlueprintId}
+            isSwitching={isSwitchingBlueprint}
+            onChange={(id) => onBlueprintChange?.(id)}
+          />
+        )}
       </div>
 
       {/* ================= LOADING OVERLAYS ================= */}
@@ -4492,6 +4708,11 @@ const parsePlaceholdersSafe = (block: string) => {
               exampleOutput={exampleOutput}
               editableExampleOutput={editableExampleOutput}
               setEditableExampleOutput={setEditableExampleOutput}
+              previewFinalPrompt={previewFinalPrompt}
+              previewWebSearchData={previewWebSearchData}
+              previewEmails={previewEmails}
+              previewNotes={previewNotes}
+              previewProfessionalSummary={previewProfessionalSummary}
               filledTemplate={filledTemplate}
               isPreviewLoading={isPreviewLoading}
               regenerateExampleOutput={regenerateExampleOutput}
@@ -4564,9 +4785,6 @@ const parsePlaceholdersSafe = (block: string) => {
               setSubjectInstructions={setSubjectInstructions}
               webSearchInstructions={webSearchInstructions}
               setWebSearchInstructions={setWebSearchInstructions}
-              selectedModel={selectedModel}
-              setSelectedModel={setSelectedModel}
-              availableModels={availableModels}
               uiPlaceholders={uiPlaceholders}
               setUiPlaceholders={setUiPlaceholders}
               onLoadTemplateDefinition={loadTemplateDefinitionById}

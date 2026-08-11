@@ -119,6 +119,34 @@ setOverwriteDatabase,
   const enableIndexRange = externalEnableIndexRange ?? internalEnableIndexRange;
   const setEnableIndexRange = externalSetEnableIndexRange ?? setInternalEnableIndexRange;
 
+  // How many emails the current selection will actually process — the
+  // "Restrict contacts" range when one is set, otherwise everything loaded.
+  const emailCount = React.useMemo(() => {
+    const total = filteredResponses?.length ?? combinedResponses.length;
+    if (enableIndexRange) {
+      const from = parseInt(startIndex, 10);
+      const to = parseInt(endIndex, 10);
+      if (!isNaN(from) && !isNaN(to) && to >= from) {
+        return Math.min(to, total) - Math.max(from, 1) + 1;
+      }
+    }
+    return total;
+  }, [filteredResponses, combinedResponses, enableIndexRange, startIndex, endIndex]);
+
+  // The delay sits *between* emails, so N emails have N-1 gaps. Each gap
+  // averages the midpoint of the randomized min/max range.
+  const estimatedTotalSeconds =
+    Math.max(0, emailCount - 1) * ((minDelay + maxDelay) / 2);
+
+  const formatDuration = (totalSeconds: number) => {
+    const secs = Math.round(totalSeconds);
+    const hours = Math.floor(secs / 3600);
+    const minutes = Math.floor((secs % 3600) / 60);
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m`;
+    return `${secs}s`;
+  };
+
   // Calculate current filter value for display
   const getCurrentFilterValue = () => {
     if (kraftedNotSentEnabled === true) return "kraft-not-sent";
@@ -156,8 +184,10 @@ setOverwriteDatabase,
   return (
     <>
 
+      {/* Tracks the width of the resizable left card instead of holding a
+          fixed 320px floor, which used to overflow the card when dragged in. */}
       <div
-        className={`min-w-[320px] flex flex-1 flex-col bg-[#ffffff] rounded-[10px] border border-[#cccccc] overflow-hidden shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]`}
+        className={`w-[100%] min-w-0 flex flex-1 flex-col bg-[#ffffff] rounded-[10px] border border-[#cccccc] overflow-hidden shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]`}
       >
         {/* Shared controls — apply to both Kraft and Send tabs */}
         {!actionsCollapsed && (
@@ -562,6 +592,29 @@ setOverwriteDatabase,
                             </option>
                           ))}
                         </select>
+                      </div>
+                      <div style={{ width: "110px" }}>
+                        <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
+                          Total
+                        </label>
+                        <div
+                          title={`The total estimated time to send ${emailCount} emails with the selected randomized delay`}
+                          style={{
+                            width: "100%",
+                            padding: "6px 8px",
+                            fontSize: 13,
+                            border: "1px solid #cccccc",
+                            borderRadius: "4px",
+                            background: "#f7f8f9",
+                            color: "#333",
+                            cursor: "help",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {formatDuration(estimatedTotalSeconds)}
+                        </div>
                       </div>
                     </div>
                   )}
