@@ -4,11 +4,8 @@ import API_BASE_URL from "../../../config";
 import InstructionSetManager, {
   TemplateDefinition,
 } from "./InstructionSetManager";
-import type {
-  PlaceholderDefinitionUI,
-  GPTModel,
-} from "./EmailCampaignBuilder";
-import { OPENAI_MODELS, isDeepSeekModel } from "../../../utils/aiModels";
+import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
+import { isDeepSeekModel } from "../../../utils/aiModels";
 import LoadingSpinner from "../../common/LoadingSpinner";
 import "./EmailCampaignBuilder.css";
 
@@ -39,8 +36,6 @@ const InstructionSetPage: React.FC<InstructionSetPageProps> = ({
 }) => {
   const effectiveUserId =
     selectedClient || sessionStorage.getItem("clientId") || "";
-
-  const availableModels: GPTModel[] = OPENAI_MODELS;
 
   // ---- Template definition list ----
   const [templateDefinitions, setTemplateDefinitions] = useState<
@@ -399,9 +394,6 @@ const InstructionSetPage: React.FC<InstructionSetPageProps> = ({
         setSubjectInstructions={setSubjectInstructions}
         webSearchInstructions={webSearchInstructions}
         setWebSearchInstructions={setWebSearchInstructions}
-        selectedModel={selectedModel}
-        setSelectedModel={setSelectedModel}
-        availableModels={availableModels}
         uiPlaceholders={uiPlaceholders}
         setUiPlaceholders={setUiPlaceholders}
         onLoadTemplateDefinition={loadTemplateDefinitionById}

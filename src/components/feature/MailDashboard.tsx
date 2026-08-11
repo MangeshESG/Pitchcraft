@@ -12,7 +12,6 @@ import { faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
 import { faPlus, faDownload } from "@fortawesome/free-solid-svg-icons";
 import mailDashboardNewUserImage from "../../assets/images/mail_dashboard_new_user.png";
-import mailDashboardSelectImage from "../../assets/images/mail_dashboard_new_user.png";
 
 import {
   AreaChart,
@@ -143,7 +142,6 @@ interface CampaignSelectProps {
   onChange: (campaignId: string) => void | Promise<void>;
   campaignEmailCounts?: Record<string, number>;
   getCampaignLabel: (campaign: Campaign) => string;
-  variant?: "default" | "empty";
 }
 
 const CampaignSelect: React.FC<CampaignSelectProps> = ({
@@ -152,7 +150,6 @@ const CampaignSelect: React.FC<CampaignSelectProps> = ({
   onChange,
   campaignEmailCounts = {},
   getCampaignLabel,
-  variant = "default",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -195,10 +192,7 @@ const CampaignSelect: React.FC<CampaignSelectProps> = ({
   };
 
   return (
-    <div
-      ref={containerRef}
-      className={`md-campaign-select${variant === "empty" ? " md-campaign-select--empty" : ""}`}
-    >
+    <div ref={containerRef} className="md-campaign-select">
       <button
         type="button"
         className={`md-campaign-select__trigger${!selectedCampaign ? " md-campaign-select__trigger--error" : ""}`}
@@ -227,13 +221,6 @@ const CampaignSelect: React.FC<CampaignSelectProps> = ({
 
       {isOpen && (
         <div className="md-campaign-select__menu" role="listbox">
-          <button
-            type="button"
-            className="md-campaign-select__option md-campaign-select__option--placeholder"
-            onClick={() => handleSelect("")}
-          >
-            <span>Select a campaign</span>
-          </button>
           {options.map((option) => (
             <button
               key={option.value}
@@ -302,65 +289,73 @@ const MailDashboardEmptyState: React.FC<{
   );
 };
 
-const MailDashboardCampaignSelectState: React.FC<{
-  availableCampaigns?: Campaign[];
-  selectedCampaign?: string;
-  handleCampaignChange: (campaignId: string) => void | Promise<void>;
-  campaignEmailCounts?: Record<string, number>;
-  getCampaignLabel: (campaign: Campaign) => string;
-}> = ({
-  availableCampaigns,
-  selectedCampaign,
-  handleCampaignChange,
-  campaignEmailCounts = {},
-  getCampaignLabel,
-}) => {
-  return (
-    <div className="mde-empty-wrap">
-      <div className="mde-empty-hero">
-        <div className="mde-empty-hero__bg" />
-        <div className="mde-empty-hero__content">
-          <div className="mde-empty-hero__copy">
-            <span className="mde-start-pill">Stats dashboard</span>
-            <div className="mde-empty-headline">Select a campaign to view analytics</div>
-            <p className="mde-empty-body-text">
-              Choose a campaign and date range above to see sent, opens, clicks, and
-              other performance insights.
-            </p>
-            <div className="mde-empty-actions">
-              <div className="mde-empty-campaign-select">
-                <label className="mde-select-label">
-                  Campaign <span className="mde-required">*</span>
-                </label>
-                <CampaignSelect
-                  availableCampaigns={availableCampaigns}
-                  selectedCampaign={selectedCampaign}
-                  onChange={handleCampaignChange}
-                  campaignEmailCounts={campaignEmailCounts}
-                  getCampaignLabel={getCampaignLabel}
-                  variant="empty"
-                />
-              </div>
-            </div>
-          </div>
-          <div className="mde-empty-hero__art">
-            <img
-              src={mailDashboardSelectImage}
-              alt=""
-              style={{ width: 430, height: "auto", maxWidth: "100%" }}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = "none";
-              }}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const ALL_CAMPAIGNS_VALUE = "all";
 const DETAIL_PAGE_SIZE = 10;
+
+// ── Date range presets ──────────────────────────────────────────────────────
+// Same vocabulary as the main Dashboard screen so both dashboards read alike.
+type DateRangePreset =
+  | "1d"
+  | "24h"
+  | "yesterday"
+  | "7d"
+  | "30d"
+  | "all"
+  | "custom";
+
+const DATE_RANGE_PRESETS: { value: DateRangePreset; label: string }[] = [
+  { value: "1d", label: "Today" },
+  { value: "24h", label: "Last 24 hours" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last month" },
+  { value: "all", label: "All time" },
+  { value: "custom", label: "Custom range" },
+];
+
+const DEFAULT_DATE_RANGE_PRESET: DateRangePreset = "1d";
+
+const getDateRangeLabel = (preset: DateRangePreset) =>
+  DATE_RANGE_PRESETS.find((option) => option.value === preset)?.label ?? "";
+
+const toDateKeyValue = (value: Date): string =>
+  [
+    value.getFullYear(),
+    String(value.getMonth() + 1).padStart(2, "0"),
+    String(value.getDate()).padStart(2, "0"),
+  ].join("-");
+
+// The analytics endpoints filter on whole days, so hour-level presets resolve to
+// the span of days that contains them.
+const resolveDateRangePreset = (
+  preset: DateRangePreset
+): { startDate: string; endDate: string } => {
+  const today = new Date();
+  const daysAgo = (days: number) => {
+    const date = new Date(today);
+    date.setDate(date.getDate() - days);
+    return date;
+  };
+
+  switch (preset) {
+    case "1d":
+      return { startDate: toDateKeyValue(today), endDate: toDateKeyValue(today) };
+    case "24h":
+      return { startDate: toDateKeyValue(daysAgo(1)), endDate: toDateKeyValue(today) };
+    case "yesterday":
+      return {
+        startDate: toDateKeyValue(daysAgo(1)),
+        endDate: toDateKeyValue(daysAgo(1)),
+      };
+    case "7d":
+      return { startDate: toDateKeyValue(daysAgo(6)), endDate: toDateKeyValue(today) };
+    case "30d":
+      return { startDate: toDateKeyValue(daysAgo(29)), endDate: toDateKeyValue(today) };
+    default:
+      // "all" (and "custom" before the user picks dates) means no date filter.
+      return { startDate: "", endDate: "" };
+  }
+};
 
 const asArray = <T,>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[];
@@ -464,15 +459,24 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const FORM_STATE_KEY = "mail-dashboard";
   const dispatch = useDispatch();
   // All useState hooks - Changed selectedView to selectedCampaign
-  const [selectedCampaign, setSelectedCampaign] = useState<string>("");
+  // Defaults to "All campaigns" so the dashboard opens straight onto the stats
+  // instead of a campaign picker screen.
+  const [selectedCampaign, setSelectedCampaign] = useState<string>(ALL_CAMPAIGNS_VALUE);
   const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([]);
   const [senderOptions, setSenderOptions] = useState<SenderOption[]>([]);
   const [selectedSender, setSelectedSender] = useState("");
   const [campaignEmailCounts, setCampaignEmailCounts] = useState<Record<string, number>>({});
   const [campaignsLoaded, setCampaignsLoaded] = useState(false);
   const [dashboardTab, setDashboardTab] = useState("Overview");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>(
+    DEFAULT_DATE_RANGE_PRESET
+  );
+  const [startDate, setStartDate] = useState(
+    () => resolveDateRangePreset(DEFAULT_DATE_RANGE_PRESET).startDate
+  );
+  const [endDate, setEndDate] = useState(
+    () => resolveDateRangePreset(DEFAULT_DATE_RANGE_PRESET).endDate
+  );
   const [loading, setLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [allEventData, setAllEventData] = useState<EventItem[]>([]);
@@ -706,6 +710,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           saveFormState(FORM_STATE_KEY, {
             selectedCampaign: requestedCampaignId,
             dashboardTab: "Overview",
+            dateRangePreset,
             startDate,
             endDate,
             selectedSender,
@@ -737,11 +742,22 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         ) {
           setDashboardTab(savedState.dashboardTab);
         }
-        if (savedState.startDate && savedState.startDate !== startDate) {
-          setStartDate(savedState.startDate);
-        }
-        if (savedState.endDate && savedState.endDate !== endDate) {
-          setEndDate(savedState.endDate);
+        // Relative presets are re-resolved on load so yesterday's "Today" does
+        // not linger as a stale date range.
+        if (savedState.dateRangePreset) {
+          setDateRangePreset(savedState.dateRangePreset);
+          if (savedState.dateRangePreset === "custom") {
+            setStartDate(savedState.startDate || "");
+            setEndDate(savedState.endDate || "");
+          } else {
+            const resolved = resolveDateRangePreset(savedState.dateRangePreset);
+            setStartDate(resolved.startDate);
+            setEndDate(resolved.endDate);
+          }
+        } else if (savedState.startDate || savedState.endDate) {
+          setDateRangePreset("custom");
+          setStartDate(savedState.startDate || "");
+          setEndDate(savedState.endDate || "");
         }
         if (savedState.selectedSender && savedState.selectedSender !== selectedSender) {
           setSelectedSender(savedState.selectedSender);
@@ -808,6 +824,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     saveFormState(FORM_STATE_KEY, {
       selectedCampaign: redirectedCampaignId,
       dashboardTab: "Overview",
+      dateRangePreset,
       startDate,
       endDate,
       selectedSender,
@@ -925,6 +942,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   // 3. Fetch data when selectedCampaign changes
   useEffect(() => {
     if (!isVisible || !effectiveUserId || !selectedCampaign) return;
+    // Nothing to chart for a client without campaigns — the empty state renders instead.
+    if (campaignsLoaded && availableCampaigns.length === 0) return;
     if (
       campaignsLoaded &&
       selectedCampaign !== ALL_CAMPAIGNS_VALUE &&
@@ -1244,6 +1263,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     selectedCampaign,
     effectiveUserId,
     dashboardTab,
+    dateRangePreset,
     startDate,
     endDate,
     selectedSender,
@@ -1265,6 +1285,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     const stateToSave = {
       selectedCampaign,
       dashboardTab,
+      dateRangePreset,
       startDate,
       endDate,
       selectedSender,
@@ -1846,6 +1867,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       const stateToSave = {
         selectedCampaign: newCampaignId,
         dashboardTab,
+        dateRangePreset,
         startDate,
         endDate,
         selectedSender: nextSelectedSender,
@@ -1887,14 +1909,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     return new Date(year, month - 1, day);
   };
 
-  const toDateInputValue = (value: Date | null): string => {
-    if (!value) return "";
-    return [
-      value.getFullYear(),
-      String(value.getMonth() + 1).padStart(2, "0"),
-      String(value.getDate()).padStart(2, "0"),
-    ].join("-");
-  };
+  const toDateInputValue = (value: Date | null): string =>
+    value ? toDateKeyValue(value) : "";
 
   const pickerDateFormat =
     dateTimePreferences.dateFormat === "MM-DD-YYYY" ? "MM-dd-yyyy" : "dd-MM-yyyy";
@@ -1905,8 +1921,45 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     } else {
       setEndDate(value);
     }
+    setDateRangePreset("custom");
     saveCurrentState();
   };
+
+  const handleDateRangePresetChange = (preset: DateRangePreset) => {
+    setDateRangePreset(preset);
+
+    // "Custom range" keeps whatever the previous preset resolved to, so the
+    // pickers open pre-filled instead of blank.
+    if (preset === "custom") return;
+
+    const resolved = resolveDateRangePreset(preset);
+    setStartDate(resolved.startDate);
+    setEndDate(resolved.endDate);
+  };
+
+  const formatRangeDate = (value: string) => {
+    const parsed = parseDateInput(value);
+    if (!parsed) return "";
+    const day = String(parsed.getDate()).padStart(2, "0");
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    return dateTimePreferences.dateFormat === "MM-DD-YYYY"
+      ? `${month}-${day}-${parsed.getFullYear()}`
+      : `${day}-${month}-${parsed.getFullYear()}`;
+  };
+
+  // Caption under the chart title spelling out the range the numbers cover.
+  const dateRangeSummary = (() => {
+    const label = getDateRangeLabel(dateRangePreset);
+    if (!startDate && !endDate) {
+      return dateRangePreset === "custom" ? "All time" : label;
+    }
+
+    const from = formatRangeDate(startDate);
+    const to = formatRangeDate(endDate);
+    const span = from && to ? (from === to ? from : `${from} – ${to}`) : from || to;
+
+    return dateRangePreset === "custom" ? span : `${label} · ${span}`;
+  })();
 
   const handleSenderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newSenderId = e.target.value;
@@ -1923,6 +1976,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       saveFormState(FORM_STATE_KEY, {
         selectedCampaign,
         dashboardTab,
+        dateRangePreset,
         startDate,
         endDate,
         selectedSender: newSenderId,
@@ -3023,7 +3077,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         <div className="md-controls-bar">
           {/* Campaign — grows to fill available space */}
           <div className="md-control-campaign">
-            <label className="md-label">Campaign <span className="md-required">*</span></label>
+            <label className="md-label">Campaign</label>
             <CampaignSelect
               availableCampaigns={availableCampaigns}
               selectedCampaign={selectedCampaign}
@@ -3055,39 +3109,60 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             </select>
           </div>
 
-          {/* Start date */}
+          {/* Date range preset */}
           <div className="md-control-group">
-            <label className="md-label">Start date</label>
-            <DatePicker
-              selected={parseDateInput(startDate)}
-              onChange={(date: Date | null) => handleDateChange("start", toDateInputValue(date))}
-              maxDate={parseDateInput(endDate) || undefined}
-              dateFormat={pickerDateFormat}
-              placeholderText={dateTimePreferences.dateFormat}
-              className={`md-date-input${!startDate ? " md-date-input--empty" : ""}`}
-            />
+            <label className="md-label">Dates</label>
+            <select
+              value={dateRangePreset}
+              onChange={(e) => handleDateRangePresetChange(e.target.value as DateRangePreset)}
+              className="md-select md-select--dates"
+            >
+              {DATE_RANGE_PRESETS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* End date */}
-          <div className="md-control-group">
-            <label className="md-label">End date</label>
-            <DatePicker
-              selected={parseDateInput(endDate)}
-              onChange={(date: Date | null) => handleDateChange("end", toDateInputValue(date))}
-              minDate={parseDateInput(startDate) || undefined}
-              dateFormat={pickerDateFormat}
-              placeholderText={dateTimePreferences.dateFormat}
-              className={`md-date-input${!endDate ? " md-date-input--empty" : ""}`}
-            />
-          </div>
+          {/* Custom range pickers — only when "Custom range" is chosen */}
+          {dateRangePreset === "custom" && (
+            <>
+              <div className="md-control-group">
+                <label className="md-label">Start date</label>
+                <DatePicker
+                  selected={parseDateInput(startDate)}
+                  onChange={(date: Date | null) => handleDateChange("start", toDateInputValue(date))}
+                  maxDate={parseDateInput(endDate) || undefined}
+                  dateFormat={pickerDateFormat}
+                  placeholderText={dateTimePreferences.dateFormat}
+                  className={`md-date-input${!startDate ? " md-date-input--empty" : ""}`}
+                />
+              </div>
 
-          {(startDate || endDate) && (
-            <div className="md-control-clear">
-              <button className="md-clear-btn"
-                onClick={() => { setStartDate(""); setEndDate(""); saveCurrentState(); }}>
-                Clear dates
-              </button>
-            </div>
+              <div className="md-control-group">
+                <label className="md-label">End date</label>
+                <DatePicker
+                  selected={parseDateInput(endDate)}
+                  onChange={(date: Date | null) => handleDateChange("end", toDateInputValue(date))}
+                  minDate={parseDateInput(startDate) || undefined}
+                  dateFormat={pickerDateFormat}
+                  placeholderText={dateTimePreferences.dateFormat}
+                  className={`md-date-input${!endDate ? " md-date-input--empty" : ""}`}
+                />
+              </div>
+
+              {(startDate || endDate) && (
+                <div className="md-control-clear">
+                  <button
+                    className="md-clear-btn"
+                    onClick={() => { setStartDate(""); setEndDate(""); }}
+                  >
+                    Clear dates
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
           {/* Refresh icon button */}
@@ -3215,21 +3290,14 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
       {/* ── Overview Tab ── */}
       {dashboardTab === "Overview" && (
-        !selectedCampaign ? (
-          <MailDashboardCampaignSelectState
-            availableCampaigns={availableCampaigns}
-            selectedCampaign={selectedCampaign}
-            handleCampaignChange={handleCampaignValueChange}
-            campaignEmailCounts={campaignEmailCounts}
-            getCampaignLabel={getCampaignLabel}
-          />
-        ) : (
-          /* ─── Populated state ─── */
           <>
             {/* Chart card with totals panel */}
             <div className="md-chart-card">
               <div className="md-chart-header">
-                <h2 className="md-chart-title">Statistics overview</h2>
+                <div>
+                  <h2 className="md-chart-title">Statistics overview</h2>
+                  <div className="md-chart-subtitle">{dateRangeSummary}</div>
+                </div>
                 <div className="md-chart-legend-tags">
                   <span className="md-legend-tag" style={{ background: "#e8f3e9", color: "#3f9f42" }}>● Sent</span>
                   <span className="md-legend-tag" style={{ background: "#fff4e5", color: "#FF8042" }}>● Unique opens</span>
@@ -3301,7 +3369,6 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               </div>
             </div>
           </>
-        )
       )}
 
       {/* ── Details Tab ── */}

@@ -194,7 +194,7 @@ export const ContactsPageHeader: React.FC<PageHeaderProps> = ({
             </button>
             <button className="ct-btn-tertiary" onClick={onCreateList}>
               <FontAwesomeIcon icon={faPlus} style={{ color: "var(--btn-muted-fg)" }} />
-              Create a list
+              Create list
             </button>
           </div>
         </div>
@@ -251,7 +251,7 @@ export const ContactsEmptyState: React.FC<{
             </button>
             <button className="ct-btn-muted" onClick={onCreateList}>
               <FontAwesomeIcon icon={faPlus} style={{ color: "var(--btn-muted-fg)" }} />
-              Create a list
+              Create list
             </button>
           </div>
           <div className="ct-empty-meta">

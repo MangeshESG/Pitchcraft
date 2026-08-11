@@ -145,7 +145,7 @@ const buildSteps = (
       cta: "New campaign",
       ctaPath: "/main?tab=Campaigns",
       illustration: CreateACampaign,
-      videoSrc: "https://www.youtube.com/embed/nko6bc9T_xo",
+      videoSrc: "https://www.youtube.com/embed/A9v62GRIXfs",
       tipsUrl: "https://www.pitchkraft.ai/campaigns",
     },
     {
@@ -158,7 +158,7 @@ const buildSteps = (
       cta: "Kraft emails",
       ctaPath: "/main?tab=Output",
       illustration: GenerateEmail,
-      videoSrc: "https://www.youtube.com/embed/C9xqxoc6Rwg",
+      videoSrc: "https://www.youtube.com/embed/yvtSIWUBnFg",
       tipsUrl: "https://www.pitchkraft.ai/kraft-email/",
     },
   ];
