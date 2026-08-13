@@ -11,7 +11,8 @@ export type AiModelPurposeKey =
   | "blueprint_generation"
   | "email_generation"
   | "contact_qa"
-  | "find_email";
+  | "find_email"
+  | "profile_summary";
 
 export interface AiModelSetting {
   purposeKey: AiModelPurposeKey;
@@ -41,6 +42,7 @@ export const AI_MODEL_PURPOSE_ORDER: AiModelPurposeKey[] = [
   "email_generation",
   "contact_qa",
   "find_email",
+  "profile_summary",
 ];
 
 // Used only when the API can't be reached, so the page still renders something
@@ -77,6 +79,12 @@ const FALLBACK_SETTINGS: Record<
     label: "Find email (AI)",
     description:
       "Researches a person's professional email address from public sources.",
+    defaultModel: "gpt-5.6-luna",
+  },
+  profile_summary: {
+    label: "Profile summary (extension)",
+    description:
+      "Writes the professional summary from the LinkedIn profile the browser extension captured.",
     defaultModel: "gpt-5.6-luna",
   },
 };
