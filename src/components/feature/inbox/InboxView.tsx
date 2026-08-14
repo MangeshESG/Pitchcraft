@@ -2111,6 +2111,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
       <div style={{ display: 'flex', gap: '12px' }}>
         <button
+          type="submit"
+          disabled={isForwarding || !forwardEmail.trim() || !forwardMessage.trim()}
+          className="btn-default"
+        >
+          {isForwarding ? 'Forwarding...' : 'Forward'}
+        </button>
+        <button
           type="button"
           onClick={closeForwardModal}
           disabled={isForwarding}
@@ -2124,13 +2131,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           }}
         >
           Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isForwarding || !forwardEmail.trim() || !forwardMessage.trim()}
-          className="btn-default"
-        >
-          {isForwarding ? 'Forwarding...' : 'Forward'}
         </button>
       </div>
     </form>
