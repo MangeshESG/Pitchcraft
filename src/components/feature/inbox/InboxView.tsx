@@ -352,7 +352,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   ]);
 
   useEffect(() => {
-    if (!showReplySection || !replyTrailTrackingId) {
+    if ((!showReplySection && !showForwardSection) || !replyTrailTrackingId) {
       return;
     }
 
@@ -382,9 +382,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             console.log(formattedTrail);
             console.log('=== END FORMATTED ===');
             
-            setReplyText((currentReplyText) => {
-              return appendReplyTrail(currentReplyText, formattedTrail);
-            });
+            if (showForwardSection) {
+              setForwardMessage((currentForwardMessage) => appendReplyTrail(currentForwardMessage, formattedTrail));
+            } else {
+              setReplyText((currentReplyText) => appendReplyTrail(currentReplyText, formattedTrail));
+            }
           }
         }
       } catch (err: any) {
@@ -399,7 +401,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     return () => {
       isCancelled = true;
     };
-  }, [showReplySection, replyTrailTrackingId, token]);
+  }, [showReplySection, showForwardSection, replyTrailTrackingId, token]);
 
   // Auto-open contact panel when a thread is selected
   useEffect(() => {
@@ -993,7 +995,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
       if (response.data?.success && response.data?.emailBody) {
         if (target === 'forward') {
-          setForwardMessage(response.data.emailBody);
+          replaceForwardDraftContent(response.data.emailBody);
         } else {
           replaceReplyDraftContent(response.data.emailBody);
         }
@@ -1117,7 +1119,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       );
 
       if (response.data?.success && response.data?.emailBody) {
-        setForwardMessage(response.data.emailBody);
+        replaceForwardDraftContent(response.data.emailBody);
         const kraftInsights = extractGenerationInsights(response.data);
         setKraftFinalPrompt(kraftInsights.finalPrompt);
         setKraftWebSearchData(kraftInsights.webSearchData);
@@ -1517,6 +1519,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     });
   };
 
+  const replaceForwardDraftContent = (nextDraftHtml: string) => {
+    setForwardMessage((currentForwardMessage) => {
+      const { trailHtml } = splitReplyTrail(currentForwardMessage);
+      return `${nextDraftHtml || ''}${trailHtml}`;
+    });
+  };
+
   const getSendableReplyBody = (html: string): string => {
     if (!html.includes(replyTrailMarker)) {
       return html;
@@ -1912,7 +1921,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           trackingId: forwardTrackingId,
           clientId: parseInt(effectiveUserId),
           forwardToEmail: forwardRecipient,
-          forwardMessage,
+          forwardMessage: getSendableReplyBody(forwardMessage),
           outboxId: selectedInboxId || 0,
           ccEmail: mergeRecipients(forwardCcEmails, parseRecipientInput(forwardCcDraft)).join(','),
           bccEmail: mergeRecipients(forwardBccEmails, parseRecipientInput(forwardBccDraft)).join(','),
@@ -2970,10 +2979,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </div>
               </div>
               
-              {/* Sort messages by date - latest first, oldest last */}
+              {/* The latest provider body already contains the complete quoted conversation. */}
               {[...selectedThread.messages].sort((a, b) => 
                 new Date(b.date).getTime() - new Date(a.date).getTime()
-              ).map((message, index, sortedMessages) => {
+              ).slice(0, 1).map((message, index, sortedMessages) => {
                 const messageContactId = message.type === 'Reply' ? message.contactId : null;
                 const uniqueKey = `${message.messageId}-${index}`;
                 console.log('Message type:', message.type, 'contactId:', messageContactId);
@@ -3390,10 +3399,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   </div>
                 </div>
 
-                {/* Sort messages by date - latest first, oldest last */}
+                {/* Render one conversation: the latest body contains the quoted trail. */}
                 {[...selectedSentThread.messages].sort((a, b) => 
                   new Date(b.date).getTime() - new Date(a.date).getTime()
-                ).map((message, index, sortedMessages) => {
+                ).slice(0, 1).map((message, index, sortedMessages) => {
                   const uniqueKey = `sent-${message.messageId}-${index}`;
                   return (
                   <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? '16px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
@@ -3602,10 +3611,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   </div>
                 </div>
 
-                {/* Sort messages by date - latest first, oldest last */}
+                {/* Render one conversation: the latest body contains the quoted trail. */}
                 {[...selectedUnassignedThread.messages].sort((a, b) => 
                   new Date(b.date).getTime() - new Date(a.date).getTime()
-                ).map((message, index, sortedMessages) => {
+                ).slice(0, 1).map((message, index, sortedMessages) => {
                   const uniqueKey = `unassigned-${message.messageId}-${index}`;
                   return (
                   <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? '16px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
@@ -4137,10 +4146,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   </div>
                 </div>
 
-                {/* Sort messages by date - latest first, oldest last */}
+                {/* Render one conversation: the latest body contains the quoted trail. */}
                 {[...selectedAllMessagesThread.messages].sort((a, b) => 
                   new Date(b.date).getTime() - new Date(a.date).getTime()
-                ).map((message, index, sortedMessages) => {
+                ).slice(0, 1).map((message, index, sortedMessages) => {
                   const uniqueKey = `all-${message.messageId}-${index}`;
                   return (
                   <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? '16px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>

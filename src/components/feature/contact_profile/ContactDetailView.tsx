@@ -1561,6 +1561,13 @@ const handleGenerateInsights = async () => {
     });
   };
 
+  const replaceContactForwardDraftContent = (nextDraftHtml: string) => {
+    setContactForwardMessage((currentForwardMessage) => {
+      const { trailHtml } = splitContactReplyTrail(currentForwardMessage);
+      return `${nextDraftHtml || ""}${trailHtml}`;
+    });
+  };
+
   const getSendableContactReplyBody = (html: string): string => {
     if (!/data-reply-email-trail(?:=(?:"true"|'true'|true|""))?/i.test(html)) {
       return html;
@@ -2114,7 +2121,7 @@ const handleGenerateInsights = async () => {
       );
 
       if (response.data?.success && response.data?.emailBody) {
-        setContactForwardMessage(response.data.emailBody);
+        replaceContactForwardDraftContent(response.data.emailBody);
         captureKraftInsights(response.data);
         refreshCreditsAfterDeduction();
         window.dispatchEvent(new CustomEvent("creditUpdated", { detail: { clientId: effectiveUserId } }));
@@ -2202,7 +2209,7 @@ const handleGenerateInsights = async () => {
           trackingId: thread.trackingId,
           clientId: Number(effectiveUserId),
           forwardToEmail: forwardRecipient,
-          forwardMessage: contactForwardMessage,
+          forwardMessage: getSendableContactReplyBody(contactForwardMessage),
           outboxId: forwardOutboxId,
           ccEmail: mergeRecipients(contactForwardCcEmails, parseRecipientInput(contactForwardCcDraft)).join(","),
           bccEmail: mergeRecipients(contactForwardBccEmails, parseRecipientInput(contactForwardBccDraft)).join(","),
@@ -3193,7 +3200,7 @@ dispatch(closePanel());
   useEffect(() => {
     const trackingId = selectedContactThread?.trackingId;
 
-    if (!showContactReplySection || !trackingId) {
+    if ((!showContactReplySection && !showContactForwardSection) || !trackingId) {
       return;
     }
 
@@ -3217,12 +3224,18 @@ dispatch(closePanel());
         if (emailTrail) {
           const formattedTrail = formatContactReplyEmailTrail(emailTrail);
           const collapsedTrail = buildCollapsedContactReplyTrail(formattedTrail);
-          setContactReplyTrailHtml(collapsedTrail);
-          setContactReplyText((currentReplyText) => {
-            const { draftHtml: currentDraftHtml } = splitContactReplyTrail(currentReplyText || "");
-            const compactDraftHtml = currentDraftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
-            return `${compactDraftHtml}${collapsedTrail}`;
-          });
+          if (showContactForwardSection) {
+            setContactForwardMessage((currentForwardMessage) =>
+              appendContactReplyTrail(currentForwardMessage, formattedTrail)
+            );
+          } else {
+            setContactReplyTrailHtml(collapsedTrail);
+            setContactReplyText((currentReplyText) => {
+              const { draftHtml: currentDraftHtml } = splitContactReplyTrail(currentReplyText || "");
+              const compactDraftHtml = currentDraftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
+              return `${compactDraftHtml}${collapsedTrail}`;
+            });
+          }
         }
       } catch (error) {
         if (!isCancelled) {
@@ -3236,7 +3249,7 @@ dispatch(closePanel());
     return () => {
       isCancelled = true;
     };
-  }, [showContactReplySection, selectedContactThread?.trackingId, token]);
+  }, [showContactReplySection, showContactForwardSection, selectedContactThread?.trackingId, token]);
 
   // Load the mailbox signature into the reply draft, the same way Mail > Inbox
   // > Reply does. The thread carries the inbox it arrived on, so the signature
@@ -3525,7 +3538,7 @@ dispatch(closePanel());
           ref={contactMailDetailRef}
           style={{ paddingBottom: !showContactReplySection && !showContactForwardSection ? 82 : 0 }}
         >
-          {sortedMessages.map((message: any, index: number) => {
+          {sortedMessages.slice(0, 1).map((message: any, index: number) => {
             const uniqueKey = getContactMessageCollapseKey(activeThread, message, index);
             const isCollapsed = contactCollapsedEmails[uniqueKey] ?? index !== 0;
             const isHeaderExpanded = expandedContactMessageHeaders[uniqueKey];
@@ -3790,17 +3803,6 @@ dispatch(closePanel());
             </div>
             <div style={{ display: "flex", gap: 12 }}>
               <button
-                type="submit"
-                disabled={
-                  isForwardingContactEmail ||
-                  (!contactForwardEmail.trim() && !contactForwardDraft.trim()) ||
-                  !contactForwardMessage.trim()
-                }
-                className="btn-default"
-              >
-                {isForwardingContactEmail ? "Forwarding..." : "Forward"}
-              </button>
-              <button
                 type="button"
                 onClick={closeContactForwardSection}
                 disabled={isForwardingContactEmail}
@@ -3817,7 +3819,11 @@ dispatch(closePanel());
               </button>
               <button
                 type="submit"
-                disabled={isForwardingContactEmail || !contactForwardEmail.trim() || !contactForwardMessage.trim()}
+                disabled={
+                  isForwardingContactEmail ||
+                  (!contactForwardEmail.trim() && !contactForwardDraft.trim()) ||
+                  !contactForwardMessage.trim()
+                }
                 className="btn-default"
               >
                 {isForwardingContactEmail ? "Forwarding..." : "Forward"}

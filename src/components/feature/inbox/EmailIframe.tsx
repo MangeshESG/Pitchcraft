@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 
 interface EmailIframeProps {
   html: string;
@@ -100,14 +100,23 @@ ${bodyContent}
 
 const EmailIframe: React.FC<EmailIframeProps> = ({ html, onBodyClick }) => {
   const ref = useRef<HTMLIFrameElement>(null);
+  const cleanupRef = useRef<() => void>(() => undefined);
+
+  useEffect(() => () => cleanupRef.current(), []);
 
   const handleLoad = useCallback(() => {
+    cleanupRef.current();
+
     const frame = ref.current;
     if (!frame) return;
 
     // Set a generous initial height so the email lays out at full width
     // before we measure the real scroll height.
     frame.style.height = '600px';
+
+    let animationFrameId: number | null = null;
+    const timeoutIds: number[] = [];
+    const imageCleanups: Array<() => void> = [];
 
     const resize = () => {
       try {
@@ -119,8 +128,18 @@ const EmailIframe: React.FC<EmailIframeProps> = ({ html, onBodyClick }) => {
         // value. <body> has no explicit height, so it always reflects
         // the actual content height.
         const h = Math.max(doc.body.scrollHeight, doc.body.offsetHeight, 24);
-        frame.style.height = h + 'px';
+        if (Math.abs(frame.getBoundingClientRect().height - h) > 1) {
+          frame.style.height = h + 'px';
+        }
       } catch { /* cross-origin guard */ }
+    };
+
+    const scheduleResize = () => {
+      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(() => {
+        animationFrameId = null;
+        resize();
+      });
     };
 
     try {
@@ -130,19 +149,37 @@ const EmailIframe: React.FC<EmailIframeProps> = ({ html, onBodyClick }) => {
         doc.body.addEventListener('click', onBodyClick);
       }
       if (doc?.body) {
-        const observer = new ResizeObserver(resize);
-        observer.observe(doc.body);
         doc.querySelectorAll('img').forEach((image) => {
-          if (!image.complete) image.addEventListener('load', resize, { once: true });
+          if (!image.complete) {
+            image.addEventListener('load', scheduleResize);
+            image.addEventListener('error', scheduleResize);
+            imageCleanups.push(() => {
+              image.removeEventListener('load', scheduleResize);
+              image.removeEventListener('error', scheduleResize);
+            });
+          }
         });
+
+        doc.fonts?.ready.then(scheduleResize).catch(() => undefined);
       }
     } catch { /* cross-origin guard */ }
 
-    requestAnimationFrame(() => {
-      resize();
-      setTimeout(resize, 400);
-      setTimeout(resize, 1200);
-    });
+    scheduleResize();
+    timeoutIds.push(window.setTimeout(scheduleResize, 400));
+    timeoutIds.push(window.setTimeout(scheduleResize, 1200));
+
+    cleanupRef.current = () => {
+      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+      timeoutIds.forEach(window.clearTimeout);
+      imageCleanups.forEach((cleanup) => cleanup());
+
+      try {
+        const doc = frame.contentDocument || frame.contentWindow?.document;
+        if (doc?.body && onBodyClick) {
+          doc.body.removeEventListener('click', onBodyClick);
+        }
+      } catch { /* cross-origin guard */ }
+    };
   }, [onBodyClick]);
 
   return (
