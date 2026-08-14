@@ -26,6 +26,11 @@ import {
   faRobot,
   faThumbtack, // Add this for Campaign Builder
   faAngleDown,
+  faBriefcase,
+  faGraduationCap,
+  faStar,
+  faNewspaper,
+  faCertificate,
 } from "@fortawesome/free-solid-svg-icons"
 import { useAppModal } from '../../../hooks/useAppModal';
 import RichTextEditor from '../../common/RTEEditor';
@@ -41,6 +46,7 @@ import CommonSidePanel from '../../common/CommonSidePanel';
 import { closePanel, openPanel } from '../../../slices/panelSlice';
 import { pinEmail } from '../inbox/inboxPin';
 import { repairAndParseJsonObject } from '../../../utils/jsonRepair';
+import GenderAvatar from './GenderAvatar';
 
 interface Contact {
   id: number;
@@ -137,6 +143,82 @@ interface EmailEngagementStats {
   clickCount: number;
   bounceBackCount: number;
 }
+
+/**
+ * The JSON the profile-summary model returns (see ProfileSummaryPrompt.cs).
+ * Every field is optional here because older contacts hold a plain-text or HTML
+ * summary in linkedIninformation instead, and because the model may legitimately
+ * return null / [] for anything the profile did not cover.
+ */
+interface ProfileSummaryJson {
+  generatedOn?: string | null;
+  fullName?: string | null;
+  firstName?: string | null;
+  pronunciation?: string | null;
+  nameUsuallyAssociatedWith?: string | null;
+  estimatedAge?: string | null;
+  headline?: string | null;
+  currentJobTitle?: string | null;
+  currentCompany?: string | null;
+  location?: string | null;
+  quickSummary?: string | null;
+  chronology?: {
+    dates?: string | null;
+    jobTitle?: string | null;
+    company?: string | null;
+    location?: string | null;
+    description?: string | null;
+  }[];
+  education?: {
+    institution?: string | null;
+    qualification?: string | null;
+    dates?: string | null;
+    details?: string | null;
+  }[];
+  certifications?: { name?: string | null; issuer?: string | null; date?: string | null }[];
+  projectsAndPublications?: { title?: string | null; description?: string | null }[];
+  skills?: string[];
+  recentVisibleFocus?: { hasRecentActivity?: boolean; paragraphs?: string[] };
+  notProvided?: string[];
+}
+
+// Personal accordion tabs. Everything after "professional" only appears once the
+// stored summary is the structured JSON.
+type PersonalTab =
+  | "information"
+  | "professional"
+  | "chronology"
+  | "education"
+  | "skills"
+  | "recentFocus";
+
+const PROFILE_TABS: { key: PersonalTab; label: string }[] = [
+  { key: "chronology", label: "Chronology" },
+  { key: "education", label: "Education" },
+  { key: "skills", label: "Skills" },
+  { key: "recentFocus", label: "Recent focus" },
+];
+
+/** Trims a model string and treats "null"/"N/A"-style filler as absent. */
+const cleanText = (value: any): string => {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  return /^(null|n\/a|none|not provided|not known|unknown)$/i.test(text) ? "" : text;
+};
+
+const asArray = <T,>(value: any): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+/**
+ * The stored summary is raw JSON as it comes back from the API, but a round trip
+ * through the rich-text editor wraps it in markup and escapes its quotes, so
+ * unwrap that before trying to parse it.
+ */
+const stripHtmlToText = (value: string): string => {
+  if (!/<[a-z/][\s\S]*>/i.test(value)) return value;
+  const holder = document.createElement("div");
+  holder.innerHTML = value;
+  return (holder.textContent || "").trim();
+};
 
 // Company "Insights" tab: known sections of the contact's web_search_data.
 // Rendered dynamically — only sections that actually contain data are shown.
@@ -399,7 +481,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const editorRef = React.useRef<HTMLDivElement | null>(null);
   const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
   const [isLinkedInExpanded, setIsLinkedInExpanded] = useState(false);
-  const [personalTab, setPersonalTab] = useState<"information" | "professional">("information");
+  const [personalTab, setPersonalTab] = useState<PersonalTab>("information");
   // "insights" is the Overview tab (shown by default when the Company section opens)
   const [companyTab, setCompanyTab] = useState<"information" | "insights">("insights");
   // Only one accordion section open at a time; opening one closes the others.
@@ -423,6 +505,33 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     if (typeof raw === "object") return raw;
     return repairAndParseJsonObject(raw);
   }, [contact]);
+  // The professional summary is stored as the structured JSON described in
+  // ProfileSummaryPrompt.cs. Contacts summarised before that change hold plain
+  // text or HTML, so this stays null and the summary renders as it always did.
+  const profileSummary = React.useMemo<ProfileSummaryJson | null>(() => {
+    const raw = stripHtmlToText((savedLinkedInSummary || "").trim());
+    if (!/^(```[a-z]*\s*)?\{/i.test(raw)) return null;
+
+    const parsed = repairAndParseJsonObject(raw);
+    if (!parsed) return null;
+
+    // Only treat it as a profile if it carries at least one section we render,
+    // so unrelated JSON keeps falling through to the plain-text path.
+    const isProfile =
+      "quickSummary" in parsed ||
+      "chronology" in parsed ||
+      "nameUsuallyAssociatedWith" in parsed;
+
+    return isProfile ? (parsed as ProfileSummaryJson) : null;
+  }, [savedLinkedInSummary]);
+
+  // Tabs beyond Information / Professional summary only exist for JSON summaries.
+  useEffect(() => {
+    if (!profileSummary && PROFILE_TABS.some((tab) => tab.key === personalTab)) {
+      setPersonalTab("professional");
+    }
+  }, [profileSummary, personalTab]);
+
   const [isSavingLinkedIn, setIsSavingLinkedIn] = useState(false);
    const [showErrorToast, setShowErrorToast] = useState(false);
    const [linkedInActionsAnchor, setLinkedInActionsAnchor] = useState<boolean>(false);
@@ -1476,6 +1585,204 @@ case "boolean":
   };
   if (!isOpen || !contact) return null;
 
+  // ---- Structured profile summary (JSON) helpers -------------------------
+  // Sections of the parsed summary, each rendered in its own Personal tab.
+  const chronologyItems = asArray<NonNullable<ProfileSummaryJson["chronology"]>[number]>(
+    profileSummary?.chronology,
+  );
+  const educationItems = asArray<NonNullable<ProfileSummaryJson["education"]>[number]>(
+    profileSummary?.education,
+  );
+  const certificationItems = asArray<NonNullable<ProfileSummaryJson["certifications"]>[number]>(
+    profileSummary?.certifications,
+  );
+  const projectItems = asArray<NonNullable<ProfileSummaryJson["projectsAndPublications"]>[number]>(
+    profileSummary?.projectsAndPublications,
+  );
+  const skillItems = asArray<string>(profileSummary?.skills)
+    .map((skill) => cleanText(skill))
+    .filter(Boolean);
+  const focusParagraphs = asArray<string>(profileSummary?.recentVisibleFocus?.paragraphs)
+    .map((paragraph) => cleanText(paragraph))
+    .filter(Boolean);
+  const notProvidedItems = asArray<string>(profileSummary?.notProvided)
+    .map((item) => cleanText(item))
+    .filter(Boolean);
+
+  // Shared card chrome for the profile section tabs.
+  const profileCard = (title: string, icon: any, body: React.ReactNode) => (
+    <div className="rounded-lg border border-[#e5e7eb] bg-white p-5">
+      <div className="mb-4 flex items-center gap-[10px]">
+        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-[#f0fdf4] text-[#3f9f42]">
+          <FontAwesomeIcon icon={icon} />
+        </span>
+        <h3 className="text-base font-semibold text-foreground">{title}</h3>
+      </div>
+      {body}
+    </div>
+  );
+
+  const profileEmptyState = (message: string) => (
+    <p className="text-sm italic text-gray-400">{message}</p>
+  );
+
+  const profileSubHeading = (label: string) => (
+    <div className="flex items-center gap-2 pt-1">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-[#3f9f42]">{label}</span>
+      <span className="h-px flex-1 bg-gray-100" />
+    </div>
+  );
+
+  const chronologyBlock = profileCard(
+    "Chronology",
+    faBriefcase,
+    chronologyItems.length > 0 ? (
+      <ol className="flex flex-col gap-5">
+        {chronologyItems.map((role, index) => (
+          <li key={index} className="relative border-l-2 border-[#e5f5e6] pl-4">
+            <span className="absolute -left-[5px] top-[7px] h-2 w-2 rounded-full bg-[#3f9f42]" />
+            {cleanText(role.dates) && (
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#3f9f42]">
+                {cleanText(role.dates)}
+              </p>
+            )}
+            {cleanText(role.jobTitle) && (
+              <p className="text-sm font-semibold text-gray-900">{cleanText(role.jobTitle)}</p>
+            )}
+            {(cleanText(role.company) || cleanText(role.location)) && (
+              <p className="text-sm text-gray-600">
+                {[cleanText(role.company), cleanText(role.location)].filter(Boolean).join(" · ")}
+              </p>
+            )}
+            {cleanText(role.description) && (
+              <p className="mt-1.5 text-sm leading-relaxed text-gray-600">
+                {cleanText(role.description)}
+              </p>
+            )}
+          </li>
+        ))}
+      </ol>
+    ) : (
+      profileEmptyState("No employment history was provided in the supplied profile.")
+    ),
+  );
+
+  const educationBlock = (
+    <div className="flex flex-col gap-3">
+      {profileCard(
+        "Education",
+        faGraduationCap,
+        educationItems.length > 0 ? (
+          <ul className="flex flex-col gap-4">
+            {educationItems.map((entry, index) => (
+              <li key={index} className="border-l-2 border-[#e5f5e6] pl-4">
+                {cleanText(entry.institution) && (
+                  <p className="text-sm font-semibold text-gray-900">{cleanText(entry.institution)}</p>
+                )}
+                {cleanText(entry.qualification) && (
+                  <p className="text-sm text-gray-600">{cleanText(entry.qualification)}</p>
+                )}
+                {cleanText(entry.dates) && (
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#3f9f42]">
+                    {cleanText(entry.dates)}
+                  </p>
+                )}
+                {cleanText(entry.details) && (
+                  <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{cleanText(entry.details)}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          profileEmptyState("No education information was provided in the supplied profile.")
+        ),
+      )}
+
+      {projectItems.length > 0 &&
+        profileCard(
+          "Projects & publications",
+          faFileAlt,
+          <ul className="flex flex-col gap-3">
+            {projectItems.map((project, index) => (
+              <li key={index}>
+                {cleanText(project.title) && (
+                  <p className="text-sm font-semibold text-gray-900">{cleanText(project.title)}</p>
+                )}
+                {cleanText(project.description) && (
+                  <p className="text-sm leading-relaxed text-gray-600">{cleanText(project.description)}</p>
+                )}
+              </li>
+            ))}
+          </ul>,
+        )}
+    </div>
+  );
+
+  const skillsBlock = (
+    <div className="flex flex-col gap-3">
+      {profileCard(
+        "Skills & core expertise",
+        faStar,
+        skillItems.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {skillItems.map((skill, index) => (
+              <span
+                key={index}
+                className="rounded-full border border-[#d7ecd8] bg-[#f0fdf4] px-3 py-1 text-[13px] font-medium text-[#2f7a32]"
+              >
+                {skill}
+              </span>
+            ))}
+          </div>
+        ) : (
+          profileEmptyState("No skills were evidenced in the supplied profile.")
+        ),
+      )}
+
+      {certificationItems.length > 0 &&
+        profileCard(
+          "Certifications",
+          faCertificate,
+          <ul className="flex flex-col gap-3">
+            {certificationItems.map((certification, index) => (
+              <li key={index}>
+                {cleanText(certification.name) && (
+                  <p className="text-sm font-semibold text-gray-900">{cleanText(certification.name)}</p>
+                )}
+                {(cleanText(certification.issuer) || cleanText(certification.date)) && (
+                  <p className="text-sm text-gray-600">
+                    {[cleanText(certification.issuer), cleanText(certification.date)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>,
+        )}
+    </div>
+  );
+
+  const recentFocusBlock = profileCard(
+    `${cleanText(profileSummary?.firstName) || "Recent"}${
+      cleanText(profileSummary?.firstName) ? "’s recent visible focus" : " visible focus"
+    }`,
+    faNewspaper,
+    focusParagraphs.length > 0 ? (
+      <div className="flex flex-col gap-3">
+        {profileSummary?.recentVisibleFocus?.hasRecentActivity === false &&
+          profileSubHeading("No recent activity")}
+        {focusParagraphs.map((paragraph, index) => (
+          <p key={index} className="text-sm leading-relaxed text-gray-600">
+            {paragraph}
+          </p>
+        ))}
+      </div>
+    ) : (
+      profileEmptyState("No recent LinkedIn posts or articles were visible on the supplied profile.")
+    ),
+  );
+
   // LinkedIn summary card shown inside Personal > Professional summary tab
   const linkedInSummaryBlock = (
     <div>
@@ -1554,8 +1861,58 @@ case "boolean":
           )}
         </div>
 
-        {/* HTML RENDERER */}
-        {savedLinkedInSummary ? (
+        {/* STRUCTURED JSON SUMMARY — the quick summary paragraph plus the
+            identifying fields; the rest of the JSON lives in its own tabs. */}
+        {profileSummary ? (
+          <div
+            style={{
+              marginTop: 12,
+              maxHeight: isLinkedInExpanded ? "none" : 260,
+              overflowY: isLinkedInExpanded ? "visible" : "auto",
+            }}
+          >
+            {(cleanText(profileSummary.currentJobTitle) ||
+              cleanText(profileSummary.currentCompany) ||
+              cleanText(profileSummary.location) ||
+              cleanText(profileSummary.estimatedAge)) && (
+              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                {[
+                  [cleanText(profileSummary.currentJobTitle), cleanText(profileSummary.currentCompany)]
+                    .filter(Boolean)
+                    .join(" at "),
+                  cleanText(profileSummary.location),
+                  cleanText(profileSummary.estimatedAge) &&
+                    `Estimated age: ${cleanText(profileSummary.estimatedAge)}`,
+                ]
+                  .filter(Boolean)
+                  .map((meta, index) => (
+                    <span key={index}>{meta}</span>
+                  ))}
+              </div>
+            )}
+
+            {cleanText(profileSummary.quickSummary) ? (
+              <p className="text-sm leading-relaxed text-[#374151]">
+                {cleanText(profileSummary.quickSummary)}
+              </p>
+            ) : (
+              profileEmptyState("The summary paragraph was not returned for this profile.")
+            )}
+
+            {notProvidedItems.length > 0 && (
+              <p className="mt-3 text-xs italic text-gray-400">
+                Not provided in the supplied profile: {notProvidedItems.join(", ")}.
+              </p>
+            )}
+
+            {cleanText(profileSummary.generatedOn) && (
+              <p className="mt-3 text-xs text-gray-400">
+                Summary generated on {cleanText(profileSummary.generatedOn)}
+              </p>
+            )}
+          </div>
+        ) : savedLinkedInSummary ? (
+          /* HTML RENDERER — contacts summarised before the JSON format */
           <div
             style={{
               fontSize: 14,
@@ -1595,9 +1952,12 @@ case "boolean":
         )}
       </div>
 
-      {/* View more / View less toggle below the card */}
+      {/* View more / View less toggle below the card. For a JSON summary only
+          the quick-summary paragraph is in this card, so measure that. */}
       {savedLinkedInSummary &&
-        getPlainText(savedLinkedInSummary).length > LINKEDIN_TRUNCATE_LENGTH && (
+        (profileSummary
+          ? cleanText(profileSummary.quickSummary).length
+          : getPlainText(savedLinkedInSummary).length) > LINKEDIN_TRUNCATE_LENGTH && (
           <div className="flex justify-center mt-4">
             <button
               type="button"
@@ -1777,12 +2137,25 @@ case "boolean":
           {/* Header */}
           <div className="mb-3 flex justify-between">
             <div className='flex flex-col'>
-              <h1 className="text-xl font-[600] text-gray-900">
-                {[formData.firstName, formData.lastName].filter(Boolean).join(" ").trim() ||
-                  formData.fullName ||
-                  "Edit contact"}
-              </h1>
-             
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-xl font-[600] text-gray-900">
+                  {[formData.firstName, formData.lastName].filter(Boolean).join(" ").trim() ||
+                    formData.fullName ||
+                    "Edit contact"}
+                </h1>
+                {/* How the first name is usually used, then how the name sounds —
+                    both come from the structured profile summary. */}
+                <GenderAvatar value={profileSummary?.nameUsuallyAssociatedWith} />
+                {cleanText(profileSummary?.pronunciation) && (
+                  <span
+                    title="Pronunciation"
+                    className="rounded-full bg-[#f8fafc] border border-[#e2e8f0] px-2.5 py-1 text-xs italic text-gray-500"
+                  >
+                    “{cleanText(profileSummary?.pronunciation)}”
+                  </span>
+                )}
+              </div>
+
             </div>
              {/* Buttons */}
               <div className="flex items-center justify-end gap-3">
@@ -1820,12 +2193,13 @@ case "boolean":
                 }
                 title="Personal"
               >
-                {/* Tabs: Information / Professional summary */}
-                <div className="flex gap-6 border-b border-gray-200 mb-6">
+                {/* Tabs: Information / Professional summary, then one tab per
+                    section of the structured summary when there is one. */}
+                <div className="flex gap-6 border-b border-gray-200 mb-6 overflow-x-auto">
                   <button
                     type="button"
                     onClick={() => setPersonalTab("information")}
-                    className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
                       personalTab === "information"
                         ? "border-[#3f9f42] text-[#3f9f42]"
                         : "border-transparent text-gray-500 hover:text-gray-700"
@@ -1836,7 +2210,7 @@ case "boolean":
                   <button
                     type="button"
                     onClick={() => setPersonalTab("professional")}
-                    className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
                       personalTab === "professional"
                         ? "border-[#3f9f42] text-[#3f9f42]"
                         : "border-transparent text-gray-500 hover:text-gray-700"
@@ -1844,6 +2218,21 @@ case "boolean":
                   >
                     Professional summary
                   </button>
+                  {profileSummary &&
+                    PROFILE_TABS.map((tab) => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setPersonalTab(tab.key)}
+                        className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+                          personalTab === tab.key
+                            ? "border-[#3f9f42] text-[#3f9f42]"
+                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
                 </div>
 
                 {/* INFORMATION TAB */}
@@ -1946,6 +2335,12 @@ case "boolean":
 
                 {/* PROFESSIONAL SUMMARY TAB */}
                 {personalTab === "professional" && linkedInSummaryBlock}
+
+                {/* STRUCTURED SUMMARY TABS */}
+                {profileSummary && personalTab === "chronology" && chronologyBlock}
+                {profileSummary && personalTab === "education" && educationBlock}
+                {profileSummary && personalTab === "skills" && skillsBlock}
+                {profileSummary && personalTab === "recentFocus" && recentFocusBlock}
               </AccordionSection>
 
               {/* COMPANY INFORMATION */}
