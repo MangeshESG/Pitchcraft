@@ -21,7 +21,6 @@ import {
   faPaperclip,
   faDownload,
   faReply,
-  faFloppyDisk,
   faPen,
   faShare,
 } from "@fortawesome/free-solid-svg-icons";
@@ -3722,13 +3721,6 @@ dispatch(closePanel());
             </div>
             <div style={{ display: "flex", gap: 12 }}>
               <button
-                type="submit"
-                disabled={isForwardingContactEmail || !contactForwardEmail.trim() || !contactForwardMessage.trim()}
-                className="btn-default"
-              >
-                {isForwardingContactEmail ? "Forwarding..." : "Forward"}
-              </button>
-              <button
                 type="button"
                 onClick={closeContactForwardSection}
                 disabled={isForwardingContactEmail}
@@ -3742,6 +3734,13 @@ dispatch(closePanel());
                 }}
               >
                 Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isForwardingContactEmail || !contactForwardEmail.trim() || !contactForwardMessage.trim()}
+                className="btn-default"
+              >
+                {isForwardingContactEmail ? "Forwarding..." : "Forward"}
               </button>
             </div>
           </form>
@@ -3987,42 +3986,12 @@ dispatch(closePanel());
                     setOpenContactReplyDeviceDropdown(false);
                   }}
                   onExpandEditor={() => setIsContactReplyExpanded(true)}
-                  // Clears the floated "Save draft" button that still sits at
-                  // the top-right of this composer.
-                  reserveRight={40}
                   finalPrompt={kraftFinalPrompt}
                   webSearchData={kraftWebSearchData}
                   insightEmails={kraftEmails}
                   insightNotes={kraftNotes}
                   insightProfessionalSummary={kraftProfessionalSummary}
                 />
-                <div
-                  className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md"
-                  style={{ position: "absolute", right: 7, top: 5, zIndex: 10, display: "flex", gap: 6 }}
-                >
-                  <button
-                    type="button"
-                    className="button justify-center"
-                    title={isSavingContactReplyDraft ? "Saving draft" : "Save draft"}
-                    aria-label={isSavingContactReplyDraft ? "Saving draft" : "Save draft"}
-                    onClick={() => handleSaveContactReplyDraft(activeThread)}
-                    disabled={isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim()}
-                    style={{
-                      width: 28,
-                      minWidth: 28,
-                      height: 28,
-                      padding: 0,
-                      borderRadius: 5,
-                      fontSize: 12,
-                      background: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "#e5e7eb" : "#e2f1e3",
-                      color: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "#9ca3af" : "#3f9f42",
-                      border: "1px solid #d1d5db",
-                      cursor: isSavingContactReplyDraft || !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faFloppyDisk} />
-                  </button>
-                </div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 12, marginTop: 14, alignItems: "center" }}>
@@ -4031,6 +4000,7 @@ dispatch(closePanel());
                 onClick={() => handleSendContactReply(activeThread)}
                 disabled={!getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() || isSendingContactReply}
                 className="btn-default"
+                style={{ order: 2 }}
               >
                 {isSendingContactReply ? "Sending..." : "Send reply"}
               </button>
@@ -4049,6 +4019,7 @@ dispatch(closePanel());
                   setContactReplyAttachments([]);
                 }}
                 style={{
+                  order: 1,
                   padding: "10px 24px",
                   ...secondaryButtonStyle,
                   borderRadius: 6,

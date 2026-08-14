@@ -32,11 +32,16 @@ const Modal: React.FC<ModalProps> = ({
         {children}
          {buttonLabel && (
           <button
-            className="absolute top-3 right-10 px-4 py-1 rounded-md"
+            type="button"
+            className="absolute top-3 right-10"
             style={{
-              background: "#e2f1e3",
-              color: "#3f9f42",
-              border: "1px solid #cfecd6",
+              padding: "10px 24px",
+              background: "#f8fafc",
+              color: "#374151",
+              border: "1px solid #d1d5db",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: 14,
               fontWeight: 500,
             }}
             onClick={closeModal}

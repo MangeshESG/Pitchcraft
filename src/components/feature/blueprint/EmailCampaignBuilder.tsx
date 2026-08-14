@@ -2894,6 +2894,11 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
         setPreviewEmails(previewInsights.emails);
         setPreviewNotes(previewInsights.notes);
         setPreviewProfessionalSummary(previewInsights.professionalSummary);
+        window.dispatchEvent(
+          new CustomEvent("creditUpdated", {
+            detail: { clientId: String(effectiveUserId) },
+          }),
+        );
         // subject is available in `subject` if the preview UI wants to show it
         console.log("✅ Preview generated. Subject:", subject);
         playNotificationSound();

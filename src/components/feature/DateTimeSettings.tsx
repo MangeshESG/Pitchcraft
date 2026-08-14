@@ -4,6 +4,7 @@ import {
   DateTimePreferences,
   DEFAULT_DATE_TIME_PREFERENCES,
   getDateTimePreferences,
+  getLocalTimeZone,
   setDateTimePreferences,
 } from "../common/dateTimePreferences";
 import { timezoneOptions } from "./schedule/ScheduleTab";
@@ -15,6 +16,19 @@ import {
   primaryButtonClass,
   sectionClass,
 } from "../common/settingsStyles";
+
+const localTimeZone = getLocalTimeZone();
+const localTimeZoneOption = timezoneOptions.find((option) => option.iana === localTimeZone);
+const selectableTimeZones = localTimeZoneOption
+  ? timezoneOptions
+  : [
+      {
+        value: localTimeZone,
+        label: `Local (${localTimeZone})`,
+        iana: localTimeZone,
+      },
+      ...timezoneOptions,
+    ];
 
 const DateTimeSettings: React.FC<{ selectedClient: string }> = ({ selectedClient }) => {
   const [form, setForm] = useState<DateTimePreferences>(getDateTimePreferences());
@@ -29,10 +43,13 @@ const DateTimeSettings: React.FC<{ selectedClient: string }> = ({ selectedClient
       .then(async (response) => response.ok ? response.json() : null)
       .then((data) => {
         if (!data) return;
+        const timeZone = data.timeZone || data.TimeZone || localTimeZone;
+        const timeZoneOption = selectableTimeZones.find((option) => option.iana === timeZone);
         const preferences = {
           ...DEFAULT_DATE_TIME_PREFERENCES,
-          timeZone: data.timeZone || data.TimeZone || DEFAULT_DATE_TIME_PREFERENCES.timeZone,
-          timeZoneLabel: data.timeZoneLabel || data.TimeZoneLabel,
+          timeZone,
+          timeZoneLabel:
+            data.timeZoneLabel || data.TimeZoneLabel || timeZoneOption?.label || `Local (${timeZone})`,
           dateFormat: data.dateFormat || data.DateFormat || DEFAULT_DATE_TIME_PREFERENCES.dateFormat,
           timeFormat: data.timeFormat || data.TimeFormat || DEFAULT_DATE_TIME_PREFERENCES.timeFormat,
         } as DateTimePreferences;
@@ -73,11 +90,11 @@ const DateTimeSettings: React.FC<{ selectedClient: string }> = ({ selectedClient
               className={inputClass}
               value={form.timeZone}
               onChange={(event) => {
-                const option = timezoneOptions.find((item) => item.iana === event.target.value);
+                const option = selectableTimeZones.find((item) => item.iana === event.target.value);
                 setForm({ ...form, timeZone: event.target.value, timeZoneLabel: option?.label });
               }}
             >
-              {timezoneOptions.map((option) => (
+              {selectableTimeZones.map((option) => (
                 <option key={`${option.value}-${option.iana}`} value={option.iana}>{option.label}</option>
               ))}
             </select>
