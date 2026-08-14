@@ -18,7 +18,7 @@ import { formatUserDateTime } from '../../common/dateTimePreferences';
 import ToastMessage from '../../common/ToastMessage';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
-import { faCaretDown, faEllipsisV, faFloppyDisk, faPaperclip, faReply, faShare } from '@fortawesome/free-solid-svg-icons';
+import { faCaretDown, faEllipsisV, faPaperclip, faReply, faShare } from '@fortawesome/free-solid-svg-icons';
 import { Pin, PinOff, X } from 'lucide-react';
 import UnassignedTab from './UnassignedTab';
 import SentTab from './SentTab';
@@ -2108,12 +2108,24 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             setOutputEmailWidth(width);
             setOpenDeviceDropdown(false);
           }}
+          onExpandEditor={() => handleModalOpen('modal-forward-expand')}
           finalPrompt={kraftFinalPrompt}
           webSearchData={kraftWebSearchData}
           insightEmails={kraftEmails}
           insightNotes={kraftNotes}
           insightProfessionalSummary={kraftProfessionalSummary}
         />
+        <Modal
+          show={openModals['modal-forward-expand']}
+          closeModal={() => handleModalClose('modal-forward-expand')}
+          buttonLabel="Close"
+          size="90%"
+        >
+          <div style={{ padding: '20px' }}>
+            <label style={{ fontWeight: 500, fontSize: '16px', marginBottom: '12px', display: 'block' }}>Forward editor</label>
+            <RichTextEditor value={forwardMessage} onChange={setForwardMessage} height={520} />
+          </div>
+        </Modal>
       </div>
 
       <div style={{ display: 'flex', gap: '12px' }}>
@@ -3246,6 +3258,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     onClick={handleSendReply}
                     disabled={!replyText.trim() || isSending}
                     className="btn-default"
+                    style={{ order: 2 }}
                   >
                     {isSending ? 'Sending...' : 'Send reply'}
                   </button>
@@ -3262,6 +3275,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       setShowReplyBcc(false);
                     }}
                     style={{
+                      order: 1,
                       padding: '10px 24px',
                       ...secondaryButtonStyle,
                       borderRadius: '6px',
@@ -3993,6 +4007,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       }}
                       disabled={!replyText.trim() || isSending}
                       className="btn-default"
+                      style={{ order: 2 }}
                     >
                       {isSending ? 'Sending...' : 'Send reply'}
                     </button>
@@ -4009,6 +4024,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         setShowReplyBcc(false);
                       }}
                       style={{
+                        order: 1,
                         padding: '10px 24px',
                         ...secondaryButtonStyle,
                         borderRadius: '6px',
@@ -4534,6 +4550,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       }}
                       disabled={!replyText.trim() || isSending}
                       className="btn-default"
+                      style={{ order: 2 }}
                     >
                       {isSending ? 'Sending...' : 'Send reply'}
                     </button>
@@ -4550,6 +4567,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         setShowReplyBcc(false);
                       }}
                       style={{
+                        order: 1,
                         padding: '10px 24px',
                         ...secondaryButtonStyle,
                         borderRadius: '6px',

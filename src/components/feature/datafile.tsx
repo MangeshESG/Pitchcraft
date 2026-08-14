@@ -117,6 +117,7 @@ interface ColumnMapping {
 }
 
 interface ProcessedContact {
+  sourceRowNumber?: number;
   first_name?: string;
   last_name?: string;
   full_name?: string;
@@ -136,6 +137,13 @@ interface ProcessedContact {
   linkedIninformation?: string;
     customFields?: Record<string, string>;
 
+}
+
+interface SkippedContact {
+  rowNumber: number;
+  email?: string;
+  fullName?: string;
+  reason: string;
 }
 
 const REQUIRED_FIELDS = [
@@ -188,6 +196,7 @@ const DataFile: React.FC<DataFileProps> = ({
     valid: 0,
     invalid: 0,
   });
+  const [skippedContacts, setSkippedContacts] = useState<SkippedContact[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
  const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
@@ -487,6 +496,7 @@ useEffect(() => {
 
     excelData.forEach((row, rowIndex) => {
       const mappedRow: any = {
+        sourceRowNumber: rowIndex + 2,
         customFields: {}
       };
       let isValid = true;
@@ -609,6 +619,7 @@ useEffect(() => {
               firstName: firstName || undefined,
               lastName: lastName || undefined,
               fullName: fullName || undefined,
+              sourceRowNumber: contact.sourceRowNumber,
               email: contact.email,
               website: contact.company_website || "",
               companyName: contact.company || "",
@@ -643,24 +654,31 @@ useEffect(() => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to upload contacts");
+        throw new Error(errorData.message || errorData.error || "Failed to upload contacts");
       }
 
       triggerRefresh();
 
       const result = await response.json();
+      const importedCount = Number(result.contactCount || 0);
+      const apiSkippedContacts: SkippedContact[] = Array.isArray(result.skippedContacts)
+        ? result.skippedContacts
+        : [];
+      setSkippedContacts(apiSkippedContacts);
 
       setUploadProgress(100);
 
       setProcessingStats({
         total: excelData.length,
-        valid: result.contactCount || contactsToUpload.length,
-        invalid:
-          excelData.length - (result.contactCount || contactsToUpload.length),
+        valid: importedCount,
+        invalid: excelData.length - importedCount,
       });
 
       onDataProcessed(contactsToUpload);
-      showImportToast(`${contactsToUpload.length} contacts imported successfully`, "success");
+      showImportToast(
+        `${importedCount} contact${importedCount === 1 ? "" : "s"} imported${apiSkippedContacts.length ? `, ${apiSkippedContacts.length} duplicate${apiSkippedContacts.length === 1 ? "" : "s"} skipped` : ""}`,
+        "success"
+      );
     } catch (error) {
       console.error("Error processing data:", error);
       const errorMessage =
@@ -684,6 +702,7 @@ useEffect(() => {
     setPreviewData([]);
     setErrors([]);
     setUploadProgress(0);
+    setSkippedContacts([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1386,6 +1405,40 @@ useEffect(() => {
                       </span>
                     )}
                   </div>
+                  {skippedContacts.length > 0 && (
+                    <div className="mt-6 w-full max-w-4xl text-left">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <h4 className="text-[14px] font-bold text-[#92400e]">
+                          Contacts not imported ({skippedContacts.length})
+                        </h4>
+                        <span className="text-[12px] text-[#6b7280]">
+                          Duplicate email addresses are not imported.
+                        </span>
+                      </div>
+                      <div className="max-h-64 overflow-auto rounded-xl border border-[#f3d6a2] bg-white">
+                        <table className="w-full border-collapse text-[13px]">
+                          <thead className="sticky top-0 bg-[#fff8eb] text-[#78350f]">
+                            <tr>
+                              <th className="border-b border-[#f3d6a2] px-4 py-3 text-left">Row</th>
+                              <th className="border-b border-[#f3d6a2] px-4 py-3 text-left">Contact</th>
+                              <th className="border-b border-[#f3d6a2] px-4 py-3 text-left">Email</th>
+                              <th className="border-b border-[#f3d6a2] px-4 py-3 text-left">Reason</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {skippedContacts.map((contact, index) => (
+                              <tr key={`${contact.rowNumber}-${contact.email || index}`} className="border-b border-[#f5ead6] last:border-b-0">
+                                <td className="px-4 py-3 text-[#6b7280]">{contact.rowNumber || "—"}</td>
+                                <td className="px-4 py-3 font-medium text-[#111827]">{contact.fullName || "—"}</td>
+                                <td className="px-4 py-3 text-[#374151]">{contact.email || "—"}</td>
+                                <td className="px-4 py-3 text-[#b45309]">{contact.reason}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                   <div className="mt-7 flex items-center gap-3 flex-wrap justify-center">
                     <button
                       onClick={resetUpload}
@@ -1395,7 +1448,10 @@ useEffect(() => {
                       Upload another file
                     </button>
                     <button
-                      onClick={resetUpload}
+                      onClick={() => {
+                        resetUpload();
+                        onBack?.();
+                      }}
                       className="shadow-sm transition"
                       style={{ ...defaultButtonStyle, display: "inline-flex", alignItems: "center", gap: 8 }}
                     >
