@@ -1561,10 +1561,25 @@ const handleGenerateInsights = async () => {
     });
   };
 
+  const getContactForwardSignatureHtml = (html: string): string => {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    return wrapper.querySelector("[data-reply-email-signature]")?.outerHTML || "";
+  };
+
+  const appendContactForwardSignature = (html: string, signatureHtml: string): string => {
+    const { draftHtml, trailHtml } = splitContactReplyTrail(html || "");
+    if (draftHtml.includes(contactReplySignatureMarker)) return html;
+
+    const compactDraftHtml = draftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
+    return `${compactDraftHtml}<br/><br/><div ${contactReplySignatureMarker}>${signatureHtml}</div>${trailHtml}`;
+  };
+
   const replaceContactForwardDraftContent = (nextDraftHtml: string) => {
     setContactForwardMessage((currentForwardMessage) => {
       const { trailHtml } = splitContactReplyTrail(currentForwardMessage);
-      return `${nextDraftHtml || ""}${trailHtml}`;
+      const signatureHtml = getContactForwardSignatureHtml(currentForwardMessage);
+      return `${nextDraftHtml || ""}${signatureHtml ? `<br/><br/>${signatureHtml}` : ""}${trailHtml}`;
     });
   };
 
@@ -3170,25 +3185,23 @@ dispatch(closePanel());
   const visibleContactMailThreads = useMemo(() => {
     if (contactMailTab === "sent") {
       return contactMailThreads
-        .map((thread: any) => {
+        .flatMap((thread: any) => {
           const threadMessages = Array.isArray(thread.messages) ? thread.messages : [];
-          const hasOnlySentMessages =
-            threadMessages.length > 0 &&
-            threadMessages.every((message: any) => String(message.type || "").toLowerCase() === "sent");
+          const sentMessages = threadMessages.filter(
+            (message: any) => String(message.type || "").toLowerCase() === "sent"
+          );
 
-          if (!hasOnlySentMessages) return null;
-
-          const sentMessages = threadMessages;
-          const latestMessage = sentMessages[sentMessages.length - 1] || thread.lastMessage;
-          return {
+          return sentMessages.map((message: any, messageIndex: number) => ({
             ...thread,
-            totalMessages: sentMessages.length,
-            messages: sentMessages,
-            lastMessage: latestMessage,
-            lastMessageDate: latestMessage?.date || thread.lastMessageDate,
-          };
+            sentItemKey: `${thread.trackingId}-sent-${getMessageIdValue(message) || messageIndex}`,
+            subject: message.subject || thread.subject,
+            totalMessages: 1,
+            messages: [message],
+            lastMessage: message,
+            lastMessageDate: message.date || thread.lastMessageDate,
+          }));
         })
-        .filter(Boolean);
+        .sort((a: any, b: any) => getMessageTime(b.lastMessage) - getMessageTime(a.lastMessage));
     }
 
     return contactMailThreads.filter((thread: any) => {
@@ -3196,6 +3209,9 @@ dispatch(closePanel());
       return threadMessages.some((message: any) => String(message.type || "").toLowerCase() !== "sent");
     });
   }, [contactMailTab, contactMailThreads]);
+
+  const getContactMailViewKey = (thread: any): string =>
+    thread?.sentItemKey || thread?.trackingId || "";
 
   useEffect(() => {
     const trackingId = selectedContactThread?.trackingId;
@@ -3251,13 +3267,13 @@ dispatch(closePanel());
     };
   }, [showContactReplySection, showContactForwardSection, selectedContactThread?.trackingId, token]);
 
-  // Load the mailbox signature into the reply draft, the same way Mail > Inbox
-  // > Reply does. The thread carries the inbox it arrived on, so the signature
-  // is resolved from that inbox rather than the compose "From" selection.
+  // Load the mailbox signature into reply and forward drafts. The thread
+  // carries the inbox it arrived on, so the signature is resolved from that
+  // inbox rather than the compose "From" selection.
   useEffect(() => {
     const thread = selectedContactThread;
 
-    if (!showContactReplySection || !thread || !effectiveUserId) {
+    if ((!showContactReplySection && !showContactForwardSection) || !thread || !effectiveUserId) {
       return;
     }
 
@@ -3291,15 +3307,21 @@ dispatch(closePanel());
         const signatureHtml = response.data?.signatureHtml || "";
         if (!signatureHtml) return;
 
-        setContactReplyText((currentReplyText) => {
-          const { draftHtml, trailHtml } = splitContactReplyTrail(currentReplyText || "");
-          if (draftHtml.includes(contactReplySignatureMarker)) {
-            return currentReplyText;
-          }
+        if (showContactForwardSection) {
+          setContactForwardMessage((currentForwardMessage) =>
+            appendContactForwardSignature(currentForwardMessage, signatureHtml)
+          );
+        } else {
+          setContactReplyText((currentReplyText) => {
+            const { draftHtml, trailHtml } = splitContactReplyTrail(currentReplyText || "");
+            if (draftHtml.includes(contactReplySignatureMarker)) {
+              return currentReplyText;
+            }
 
-          const compactDraftHtml = draftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
-          return `${compactDraftHtml}<br/><br/><div ${contactReplySignatureMarker}>${signatureHtml}</div>${trailHtml || contactReplyTrailHtml}`;
-        });
+            const compactDraftHtml = draftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
+            return `${compactDraftHtml}<br/><br/><div ${contactReplySignatureMarker}>${signatureHtml}</div>${trailHtml || contactReplyTrailHtml}`;
+          });
+        }
       } catch (error) {
         if (!isCancelled) {
           console.error("Failed to fetch contact reply signature:", error);
@@ -3312,7 +3334,7 @@ dispatch(closePanel());
     return () => {
       isCancelled = true;
     };
-  }, [showContactReplySection, selectedContactThread?.trackingId, effectiveUserId, token]);
+  }, [showContactReplySection, showContactForwardSection, selectedContactThread?.trackingId, effectiveUserId, token]);
 
   useEffect(() => {
     setSelectedContactThread(null);
@@ -3344,7 +3366,9 @@ dispatch(closePanel());
   useEffect(() => {
     if (
       selectedContactThread &&
-      !visibleContactMailThreads.some((thread: any) => thread.trackingId === selectedContactThread.trackingId)
+      !visibleContactMailThreads.some(
+        (thread: any) => getContactMailViewKey(thread) === getContactMailViewKey(selectedContactThread)
+      )
     ) {
       setSelectedContactThread(null);
       setContactCollapsedEmails({});
@@ -3375,7 +3399,7 @@ dispatch(closePanel());
 
     if (selectedContactThread) {
       const refreshedThread = visibleContactMailThreads.find(
-        (thread: any) => thread.trackingId === selectedContactThread.trackingId
+        (thread: any) => getContactMailViewKey(thread) === getContactMailViewKey(selectedContactThread)
       );
 
       if (refreshedThread && refreshedThread !== selectedContactThread) {
@@ -3449,13 +3473,14 @@ dispatch(closePanel());
       <div className="list-scroll">
         {visibleContactMailThreads.map((thread: any) => {
           const lastMessage = thread.lastMessage || thread.messages[thread.messages.length - 1] || {};
-          const isSelected = selectedContactThread?.trackingId === thread.trackingId;
+          const threadViewKey = getContactMailViewKey(thread);
+          const isSelected = getContactMailViewKey(selectedContactThread) === threadViewKey;
           const attachmentCount = thread.messages.reduce((count: number, message: any) => count + (message.attachments?.length || 0), 0);
           const pinned = isEmailPinned(thread);
 
           return (
             <div
-              key={thread.trackingId}
+              key={threadViewKey}
               className={`mail-item ${thread.hasUnread ? "unread" : ""} ${isSelected ? "selected" : ""}`}
               onClick={() => handleContactThreadSelect(thread)}
             >
@@ -3504,9 +3529,16 @@ dispatch(closePanel());
     }
 
     const activeThread =
-      visibleContactMailThreads.find((thread: any) => thread.trackingId === selectedContactThread.trackingId) ||
+      visibleContactMailThreads.find(
+        (thread: any) => getContactMailViewKey(thread) === getContactMailViewKey(selectedContactThread)
+      ) ||
       selectedContactThread;
-    const sortedMessages = [...(activeThread.messages || [])].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const readerMessages = contactMailTab === "sent"
+      ? [...(activeThread.messages || [])]
+      : [...(activeThread.messages || [])].filter(
+          (message: any) => String(message.type || "").toLowerCase() !== "sent"
+        );
+    const sortedMessages = readerMessages.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return (
       <>
@@ -3536,7 +3568,7 @@ dispatch(closePanel());
         <div
           className="mail-detail contact-mail-detail"
           ref={contactMailDetailRef}
-          style={{ paddingBottom: !showContactReplySection && !showContactForwardSection ? 82 : 0 }}
+          style={{ paddingBottom: contactMailTab !== "sent" && !showContactReplySection && !showContactForwardSection ? 82 : 0 }}
         >
           {sortedMessages.slice(0, 1).map((message: any, index: number) => {
             const uniqueKey = getContactMessageCollapseKey(activeThread, message, index);
@@ -3639,7 +3671,7 @@ dispatch(closePanel());
               </div>
             );
           })}
-          {!showContactReplySection && !showContactForwardSection && (
+          {contactMailTab !== "sent" && !showContactReplySection && !showContactForwardSection && (
             <div className="reply-button-sticky">
               <button
                 type="button"
@@ -3831,7 +3863,7 @@ dispatch(closePanel());
             </div>
           </form>
         )}
-        {showContactReplySection && (
+        {contactMailTab !== "sent" && showContactReplySection && (
           <div
             className="reply-section"
             style={{

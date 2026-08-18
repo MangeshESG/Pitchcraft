@@ -111,6 +111,9 @@ interface InboxThread {
   messages: InboxMessage[];
 }
 
+const isReceivedInboxMessage = (message: { type?: string }): boolean =>
+  String(message.type || '').toLowerCase() !== 'sent';
+
 interface InboxViewProps {
   effectiveUserId: string;
   token: string | null;
@@ -323,6 +326,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [activeActionThreadId, setActiveActionThreadId] = useState<string | null>(null);
   const [pendingDeleteThreadId, setPendingDeleteThreadId] = useState<string | null>(null);
   const replyTrailMarker = 'data-reply-email-trail="true"';
+  const forwardSignatureMarker = 'data-forward-email-signature="true"';
   const replyTrailTrackingId = activeTab === 'inbox'
     ? selectedThread?.trackingId
     : activeTab === 'sent'
@@ -675,6 +679,25 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }
     return '';
   }, [effectiveUserId, selectedInboxId, selectedProvider, token]);
+
+  useEffect(() => {
+    if (!showForwardSection) return;
+
+    let isCancelled = false;
+    const loadForwardSignature = async () => {
+      const signature = await fetchDefaultSignature();
+      if (!isCancelled && signature) {
+        setForwardMessage((currentForwardMessage) =>
+          appendForwardSignature(currentForwardMessage, signature)
+        );
+      }
+    };
+
+    loadForwardSignature();
+    return () => {
+      isCancelled = true;
+    };
+  }, [showForwardSection, replyTrailTrackingId, fetchDefaultSignature]);
 
   const handleThreadClick = async (thread: InboxThread) => {
     setSelectedThread(thread);
@@ -1506,6 +1529,21 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     return `${compactDraftHtml}${buildCollapsedReplyTrail(formattedTrail)}`;
   };
 
+  const getForwardSignatureHtml = (html: string): string => {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    return wrapper.querySelector('[data-forward-email-signature]')?.outerHTML || '';
+  };
+
+  const appendForwardSignature = (html: string, signatureHtml: string): string => {
+    const { draftHtml, trailHtml } = splitReplyTrail(html || '');
+    if (draftHtml.includes(forwardSignatureMarker)) return html;
+
+    const compactDraftHtml = draftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, '');
+    const normalizedSignature = signatureHtml.replace(/^(?:<br\s*\/?>|\s)+/gi, '');
+    return `${compactDraftHtml}<br/><br/><div ${forwardSignatureMarker}>${normalizedSignature}</div>${trailHtml}`;
+  };
+
   const replyTrailSeparator = '<hr style="border:0;border-top:1px solid #d1d5db;margin:16px 0;width:100%;" />';
 
   const buildCollapsedReplyTrail = (formattedTrail: string): string => {
@@ -1522,7 +1560,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const replaceForwardDraftContent = (nextDraftHtml: string) => {
     setForwardMessage((currentForwardMessage) => {
       const { trailHtml } = splitReplyTrail(currentForwardMessage);
-      return `${nextDraftHtml || ''}${trailHtml}`;
+      const signatureHtml = getForwardSignatureHtml(currentForwardMessage);
+      return `${nextDraftHtml || ''}${signatureHtml ? `<br/><br/>${signatureHtml}` : ''}${trailHtml}`;
     });
   };
 
@@ -2980,7 +3019,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
               </div>
               
               {/* The latest provider body already contains the complete quoted conversation. */}
-              {[...selectedThread.messages].sort((a, b) => 
+              {[...selectedThread.messages].filter(isReceivedInboxMessage).sort((a, b) =>
                 new Date(b.date).getTime() - new Date(a.date).getTime()
               ).slice(0, 1).map((message, index, sortedMessages) => {
                 const messageContactId = message.type === 'Reply' ? message.contactId : null;
@@ -3612,7 +3651,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </div>
 
                 {/* Render one conversation: the latest body contains the quoted trail. */}
-                {[...selectedUnassignedThread.messages].sort((a, b) => 
+                {[...selectedUnassignedThread.messages].filter(isReceivedInboxMessage).sort((a, b) =>
                   new Date(b.date).getTime() - new Date(a.date).getTime()
                 ).slice(0, 1).map((message, index, sortedMessages) => {
                   const uniqueKey = `unassigned-${message.messageId}-${index}`;
@@ -4147,7 +4186,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </div>
 
                 {/* Render one conversation: the latest body contains the quoted trail. */}
-                {[...selectedAllMessagesThread.messages].sort((a, b) => 
+                {[...selectedAllMessagesThread.messages].filter(isReceivedInboxMessage).sort((a, b) =>
                   new Date(b.date).getTime() - new Date(a.date).getTime()
                 ).slice(0, 1).map((message, index, sortedMessages) => {
                   const uniqueKey = `all-${message.messageId}-${index}`;
