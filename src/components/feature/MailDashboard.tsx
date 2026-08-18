@@ -874,7 +874,12 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             headers: { ...(token && { Authorization: `Bearer ${token}` }) },
           }
         );
-        setSenderOptions(asArray<SenderOption>(response.data?.data || response.data));
+        const senders = asArray<SenderOption>(response.data?.data || response.data);
+        setSenderOptions([...senders].sort((a, b) => {
+          const getSenderLabel = (sender: SenderOption) =>
+            sender.email || sender.Email || sender.username || sender.Username || "";
+          return getSenderLabel(a).localeCompare(getSenderLabel(b), undefined, { sensitivity: "base" });
+        }));
       } catch (error) {
         console.error("Dashboard: Error loading senders:", error);
         setSenderOptions([]);
