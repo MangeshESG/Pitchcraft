@@ -89,6 +89,9 @@ const SentTab: React.FC<SentTabProps> = ({
   const [activeActionThreadId, setActiveActionThreadId] = useState<string | null>(null);
   const [pendingDeleteThreadId, setPendingDeleteThreadId] = useState<string | null>(null);
 
+  const getSentItemKey = (thread: SentThread): string =>
+    thread.messages[thread.messages.length - 1]?.messageId || thread.trackingId;
+
   const fetchSentEmails = useCallback(async (showLoader = true) => {
     if (!isActive || !effectiveUserId || !selectedInboxId || !selectedProvider) return;
 
@@ -179,7 +182,7 @@ const SentTab: React.FC<SentTabProps> = ({
     onInitializeCollapsedEmails(collapsed);
   };
 
-  const currentPageThreadIds = (Array.isArray(threads) ? threads : []).map(thread => thread.trackingId);
+  const currentPageThreadIds = (Array.isArray(threads) ? threads : []).map(getSentItemKey);
   const areAllCurrentPageThreadsSelected = currentPageThreadIds.length > 0 && currentPageThreadIds.every(id => selectedThreadIds.includes(id));
 
   const toggleCurrentPageThreadSelection = () => {
@@ -201,7 +204,13 @@ const SentTab: React.FC<SentTabProps> = ({
   };
 
   const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
-    const trackingIdsToDelete = pendingDeleteThreadId ? [pendingDeleteThreadId] : selectedThreadIds;
+    const trackingIdsToDelete = pendingDeleteThreadId
+      ? [pendingDeleteThreadId]
+      : Array.from(new Set(
+          threads
+            .filter((thread) => selectedThreadIds.includes(getSentItemKey(thread)))
+            .map((thread) => thread.trackingId)
+        ));
     if (trackingIdsToDelete.length === 0) return;
     
     setLoading(true);
@@ -492,32 +501,33 @@ const SentTab: React.FC<SentTabProps> = ({
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {(Array.isArray(threads) ? threads : []).map((thread) => {
           const lastMessage = thread.messages[thread.messages.length - 1];
+          const sentItemKey = getSentItemKey(thread);
           // Check if any message in thread is unread
           const hasUnreadMessages = thread.messages.some(msg => !msg.isRead);
-          const isSelected = selectedThreadIds.includes(thread.trackingId);
+          const isSelected = selectedThreadIds.includes(sentItemKey);
           const attachmentCount = getThreadAttachmentCount(thread);
           const threadPinned = isThreadPinned(thread);
           return (
             <div
-              key={thread.trackingId}
-              className={`mail-item ${hasUnreadMessages ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''} ${isSelected ? 'selected' : ''}`}
+              key={sentItemKey}
+              className={`mail-item ${hasUnreadMessages ? 'unread' : ''} ${selectedThread === thread ? 'selected' : ''} ${isSelected ? 'selected' : ''}`}
               onClick={() => {
                 if (selectedThreadIds.length > 0) {
-                  toggleThreadSelection(thread.trackingId);
+                  toggleThreadSelection(sentItemKey);
                 } else {
                   handleThreadClick(thread);
                 }
               }}
-              onMouseEnter={() => setHoveredThreadId(thread.trackingId)}
+              onMouseEnter={() => setHoveredThreadId(sentItemKey)}
               onMouseLeave={() => setHoveredThreadId(null)}
               style={{ position: 'relative' }}
             >
-              {(hoveredThreadId === thread.trackingId || selectedThreadIds.length > 0) ? (
+              {(hoveredThreadId === sentItemKey || selectedThreadIds.length > 0) ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', marginLeft: 0 }}>
                   <input
                     type="checkbox"
                     checked={isSelected}
-                    onChange={() => toggleThreadSelection(thread.trackingId)}
+                    onChange={() => toggleThreadSelection(sentItemKey)}
                     onClick={(e) => e.stopPropagation()}
                     style={{
                       width: '18px',
