@@ -257,6 +257,20 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [showContactReplySection, setShowContactReplySection] = useState(false);
   const [isSendingContactReply, setIsSendingContactReply] = useState(false);
   const [contactReplyBlueprints, setContactReplyBlueprints] = useState<ContactReplyBlueprint[]>([]);
+  const sortedComposeBlueprints = useMemo(
+    () => [...contactReplyBlueprints].sort((a, b) =>
+      (a.templateName || "").localeCompare(b.templateName || "", undefined, { sensitivity: "base" })
+    ),
+    [contactReplyBlueprints]
+  );
+  const sortedComposeFromOptions = useMemo(
+    () => [...composeSmtpUsers].sort((a, b) => {
+      const getLabel = (option: ContactSmtpUser) =>
+        option.username || option.emailAddress || option.fromEmail || option.email || "";
+      return getLabel(a).localeCompare(getLabel(b), undefined, { sensitivity: "base" });
+    }),
+    [composeSmtpUsers]
+  );
   const [selectedContactReplyBlueprint, setSelectedContactReplyBlueprint] = useState<number | null>(null);
   const [isKraftingContactReply, setIsKraftingContactReply] = useState(false);
   const [isCopyContactReplyText, setIsCopyContactReplyText] = useState(false);
@@ -6804,8 +6818,8 @@ dispatch(closePanel());
     <ContactComposeEmailPopup
       isOpen={isComposePopupOpen}
       onClose={() => setIsComposePopupOpen(false)}
-      blueprints={contactReplyBlueprints}
-      fromOptions={composeSmtpUsers}
+      blueprints={sortedComposeBlueprints}
+      fromOptions={sortedComposeFromOptions}
       selectedFromId={selectedComposeSmtpUser}
       onFromChange={setSelectedComposeSmtpUser}
       toEmail={contact?.email || ""}
