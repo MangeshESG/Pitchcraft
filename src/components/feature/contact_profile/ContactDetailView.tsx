@@ -490,7 +490,7 @@ const menuItemStyle = {
   const [attachmentsHistory, setAttachmentsHistory] = useState<any[]>([]);
   const [linkedInMessages, setLinkedInMessages] = useState<any[]>([]);
   const [isLoadingLinkedIn, setIsLoadingLinkedIn] = useState(false);
-  const [expandedLinkedInId, setExpandedLinkedInId] = useState<string | null>(null);
+  const [expandedLinkedInIds, setExpandedLinkedInIds] = useState<string[]>([]);
 
 
 const NOTE_MAX_LENGTH = 10000;
@@ -1183,7 +1183,6 @@ const handleGenerateInsights = async () => {
       messageType: raw.messageType ?? raw.MessageType ?? "message",
       blueprintId: raw.blueprintId ?? raw.BlueprintId ?? null,
       body,
-      characterCount: raw.characterCount ?? raw.CharacterCount ?? body.length,
       isSent: raw.isSent ?? raw.IsSent ?? false,
       sentAt,
       markedFrom: raw.markedFrom ?? raw.MarkedFrom ?? null,
@@ -2500,11 +2499,25 @@ const handleGenerateInsights = async () => {
     return isConnectionNote ? "Connection note sent" : "LinkedIn message sent";
   };
 
+  const LINKEDIN_PREVIEW_LENGTH = 180;
+
+  const toggleLinkedInMessage = (itemKey: string) => {
+    setExpandedLinkedInIds((prev) =>
+      prev.includes(itemKey)
+        ? prev.filter((key) => key !== itemKey)
+        : [...prev, itemKey]
+    );
+  };
+
   const renderLinkedInTimelineItem = (message: any, index: number) => {
     const itemKey = String(message.msgUid || message.id || index);
-    const isExpanded = expandedLinkedInId === itemKey;
+    const isExpanded = expandedLinkedInIds.includes(itemKey);
     const body = message.body || "";
-    const snippet = body.length > 180 ? `${body.slice(0, 180)}…` : body;
+    const isTruncatable = body.length > LINKEDIN_PREVIEW_LENGTH;
+    const visibleBody =
+      isTruncatable && !isExpanded
+        ? `${body.slice(0, LINKEDIN_PREVIEW_LENGTH)}…`
+        : body;
 
     return (
       <div key={`linkedin-${itemKey}`} style={{ marginBottom: 24 }}>
@@ -2568,48 +2581,34 @@ const handleGenerateInsights = async () => {
                   color: "#666",
                   fontSize: 13,
                   whiteSpace: "pre-wrap",
+                  lineHeight: 1.6,
                 }}
               >
-                {snippet || "No message content"}
+                {visibleBody || "No message content"}
               </div>
-              <div style={{ color: "#6b7280", fontSize: 12, marginTop: 4 }}>
-                {message.characterCount} characters
-              </div>
+
+              {/* expands the message in place — no duplicate copy below */}
+              {isTruncatable && (
+                <button
+                  type="button"
+                  onClick={() => toggleLinkedInMessage(itemKey)}
+                  style={{
+                    marginTop: 6,
+                    padding: 0,
+                    border: "none",
+                    background: "transparent",
+                    color: "#3f9f42",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {isExpanded ? "Show less" : "Show more"}
+                </button>
+              )}
             </div>
           </div>
         </div>
-
-        {/* Full message toggle — OUTSIDE the flex row */}
-        {body && (
-          <div
-            className={`email-preview-toggle ${isExpanded ? "submenu-open" : ""}`}
-            onClick={() => setExpandedLinkedInId(isExpanded ? null : itemKey)}
-            style={{ marginTop: 15, cursor: "pointer" }}
-          >
-            <span>{isExpanded ? "Hide message" : "Show message"}</span>
-            <span className="submenu-arrow">
-              <FontAwesomeIcon icon={faAngleRight} />
-            </span>
-          </div>
-        )}
-
-        {isExpanded && (
-          <div
-            style={{
-              marginTop: 12,
-              background: "#fff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 12,
-              padding: 16,
-              fontSize: 14,
-              lineHeight: 1.6,
-              color: "#374151",
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {body}
-          </div>
-        )}
       </div>
     );
   };
