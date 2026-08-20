@@ -1170,8 +1170,10 @@ const handleGenerateInsights = async () => {
     }
   };
 
-  // 🔹 LinkedIn messages — api/linkedin-messages/by-contact returns the
-  //    contact's append-only LinkedIn history (drafts + messages marked sent).
+  // 🔹 LinkedIn messages — api/linkedin-messages/by-contact returns both
+  //    sides of the conversation: messages we sent and replies the contact
+  //    sent that were pasted in. sentOnly keeps unsent drafts out; inbound
+  //    rows are always sent, so replies still come through.
   const normalizeLinkedInMessage = (raw: any) => {
     const sentAt = raw.sentAt ?? raw.SentAt ?? null;
     const generatedAt = raw.generatedAt ?? raw.GeneratedAt ?? null;
@@ -1181,6 +1183,8 @@ const handleGenerateInsights = async () => {
       id: raw.id ?? raw.Id,
       msgUid: raw.msgUid ?? raw.MsgUid,
       messageType: raw.messageType ?? raw.MessageType ?? "message",
+      // outbound = we sent it, inbound = the contact replied and it was pasted in
+      direction: String(raw.direction ?? raw.Direction ?? "outbound").toLowerCase(),
       blueprintId: raw.blueprintId ?? raw.BlueprintId ?? null,
       body,
       isSent: raw.isSent ?? raw.IsSent ?? false,
@@ -2493,6 +2497,8 @@ const handleGenerateInsights = async () => {
   const formatTimeIST = formatTimeLocal;
 
   const linkedInMessageTitle = (message: any) => {
+    if (message.direction === "inbound") return "LinkedIn reply received";
+
     const isConnectionNote =
       String(message.messageType || "").toLowerCase() === "connection_note";
 
@@ -2512,6 +2518,9 @@ const handleGenerateInsights = async () => {
   const renderLinkedInTimelineItem = (message: any, index: number) => {
     const itemKey = String(message.msgUid || message.id || index);
     const isExpanded = expandedLinkedInIds.includes(itemKey);
+    const isInbound = message.direction === "inbound";
+    const contactName =
+      contact?.full_name || contact?.first_name || "this contact";
     const body = message.body || "";
     const isTruncatable = body.length > LINKEDIN_PREVIEW_LENGTH;
     const visibleBody =
@@ -2548,13 +2557,15 @@ const handleGenerateInsights = async () => {
 
           {/* Content */}
           <div style={{ flex: 1 }}>
-            {/* Source */}
-            <div style={{ fontSize: 13, marginBottom: 6 }}>
-              <b>Source:</b>{" "}
-              <span style={{ color: "#666" }}>
-                LinkedIn{message.markedFrom ? ` (${message.markedFrom})` : ""}
-              </span>
-            </div>
+            {/* Source — only for what we sent; a reply came from the contact */}
+            {!isInbound && (
+              <div style={{ fontSize: 13, marginBottom: 6 }}>
+                <b>Source:</b>{" "}
+                <span style={{ color: "#666" }}>
+                  LinkedIn{message.markedFrom ? ` (${message.markedFrom})` : ""}
+                </span>
+              </div>
+            )}
 
             <div
               style={{
@@ -2569,12 +2580,20 @@ const handleGenerateInsights = async () => {
             </div>
             <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
               {formatDateTimeIST(message.sentAt || message.generatedAt)}
+              {isInbound && ` from ${contactName}`}
             </div>
 
-            {/* Message preview */}
-            <div style={{ background: "#f9fafb", padding: 12, borderRadius: 8 }}>
+            {/* Message preview — a reply is tinted so the two sides read apart */}
+            <div
+              style={{
+                background: isInbound ? "#f0f7f0" : "#f9fafb",
+                borderLeft: isInbound ? "3px solid #3f9f42" : "none",
+                padding: 12,
+                borderRadius: 8,
+              }}
+            >
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>
-                Message
+                {isInbound ? "Reply" : "Message"}
               </div>
               <div
                 style={{
