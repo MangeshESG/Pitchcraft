@@ -91,6 +91,12 @@ interface DynamicContactsTableProps {
    * to reach the contact profile even if the name column isn't visible.
    */
   onOpenProfile?: (row: any) => void;
+  /** Optional fixed first data column, rendered immediately after checkboxes. */
+  leadingColumn?: {
+    header: string;
+    width?: string;
+    render: (row: any) => React.ReactNode;
+  };
 }
 
 type SortDirection = "asc" | "desc";
@@ -182,6 +188,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   bulkActions,
   onClearSelection,
   onOpenProfile,
+  leadingColumn,
 }) => {
   const [columns, setColumns]           = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
@@ -480,8 +487,17 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   // Show a dedicated profile-link column only when the "Full name" column is
   // hidden — otherwise the name itself is the link to the profile.
   const fullNameVisible = columns.some((c) => c.key === "full_name" && c.visible);
-  const showProfileCol = !!onOpenProfile && !fullNameVisible;
-  const totalColSpan = visibleColumns.length + (showProfileCol ? 1 : 0);
+  const showProfileCol = !!onOpenProfile && !fullNameVisible && !leadingColumn;
+  const totalColSpan = visibleColumns.length + (showProfileCol ? 1 : 0) + (leadingColumn ? 1 : 0);
+
+  const leadingHeaderCell = leadingColumn ? (
+    <th key="__leading__" style={{ width: leadingColumn.width || "64px" }}>
+      <span className="dt-th-label">{leadingColumn.header}</span>
+    </th>
+  ) : null;
+
+  const renderLeadingBodyCell = (item: any) =>
+    leadingColumn ? <td key="__leading__">{leadingColumn.render(item)}</td> : null;
 
   // Profile-link column cells. Rendered as the first data column (immediately
   // after the selection checkbox) so there is always a leading way to reach the
@@ -745,6 +761,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           <table className="dt-table">
             <thead>
               <tr>
+                {leadingColumn && !showCheckboxes && leadingHeaderCell}
                 {showProfileCol && !showCheckboxes && profileHeaderCell}
                 {visibleColumns.map((column) => {
                   const isSorted = sortConfig.key === column.key;
@@ -782,10 +799,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                       )}
                     </th>
                   );
-                  if (column.key === "checkbox" && showProfileCol) {
+                  if (column.key === "checkbox" && (leadingColumn || showProfileCol)) {
                     return (
                       <React.Fragment key={column.key}>
                         {headerCell}
+                        {leadingHeaderCell}
                         {profileHeaderCell}
                       </React.Fragment>
                     );
@@ -834,6 +852,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                   const isSelected = !!selectedItems?.has(id);
                   return (
                     <tr key={id || index} className={isSelected ? "is-selected" : ""}>
+                      {leadingColumn && !showCheckboxes && renderLeadingBodyCell(item)}
                       {showProfileCol && !showCheckboxes && renderProfileBodyCell(item)}
                       {visibleColumns.map((column) => {
                         const isNameCol = ["name", "full_name", "first_name"].includes(column.key);
@@ -848,10 +867,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                               : getFormattedValue(item, column, index)}
                           </td>
                         );
-                        if (column.key === "checkbox" && showProfileCol) {
+                        if (column.key === "checkbox" && (leadingColumn || showProfileCol)) {
                           return (
                             <React.Fragment key={column.key}>
                               {bodyCell}
+                              {renderLeadingBodyCell(item)}
                               {renderProfileBodyCell(item)}
                             </React.Fragment>
                           );
