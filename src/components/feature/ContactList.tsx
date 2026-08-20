@@ -180,6 +180,60 @@ const getDisplayName = (contact: Contact) => {
   return fullName || contact.email || "-";
 };
 
+const ContactProfileAvatar: React.FC<{
+  contact: Contact;
+  clientId: string | number;
+  onOpen: (contact: Contact) => void;
+}> = ({ contact, clientId, onOpen }) => {
+  const [imageUnavailable, setImageUnavailable] = useState(false);
+  const { firstName, lastName, fullName } = getContactNameParts(contact);
+  const initials =
+    `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() ||
+    fullName.slice(0, 2).toUpperCase() ||
+    contact.email?.slice(0, 2).toUpperCase() ||
+    "?";
+  const imageUrl = `${API_BASE_URL}/api/Attachment/profile-image/${contact.id}?clientId=${clientId}`;
+
+  return (
+    <button
+      type="button"
+      title={`Open ${getDisplayName(contact)} profile`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpen(contact);
+      }}
+      style={{
+        width: 38,
+        height: 38,
+        padding: 0,
+        borderRadius: "50%",
+        border: "1px solid #d7e8d8",
+        overflow: "hidden",
+        background: "#eef7ef",
+        color: "#2f8533",
+        fontSize: 12,
+        fontWeight: 700,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+      }}
+    >
+      {!imageUnavailable ? (
+        <img
+          src={imageUrl}
+          alt={`${getDisplayName(contact)} profile`}
+          loading="lazy"
+          onError={() => setImageUnavailable(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        initials
+      )}
+    </button>
+  );
+};
+
 const getContactValue = (contact: Contact, key: string): any => {
   if (key === "first_name" || key === "last_name" || key === "full_name") {
     const { firstName, lastName, fullName } = getContactNameParts(contact);
@@ -2179,6 +2233,18 @@ const filterFields: any = useMemo(() => {
                   pageSize={detailPageSize}
                   onPageChange={setDetailCurrentPage}
                   onOpenProfile={openContactProfile}
+                  leadingColumn={{
+                    header: "Image",
+                    width: "64px",
+                    render: (row: Contact) => (
+                      <ContactProfileAvatar
+                        key={`${row.id}-${effectiveUserId}`}
+                        contact={row}
+                        clientId={effectiveUserId}
+                        onOpen={openContactProfile}
+                      />
+                    ),
+                  }}
                   selectedItems={detailSelectedContacts}
                   onSelectItem={handleDetailSelectContact}
                   totalItems={detailTotalContacts}
@@ -3213,6 +3279,18 @@ const filterFields: any = useMemo(() => {
                   pageSize={detailPageSize}
                   onPageChange={setDetailCurrentPage}
                   onOpenProfile={openContactProfile}
+                  leadingColumn={{
+                    header: "Image",
+                    width: "64px",
+                    render: (row: Contact) => (
+                      <ContactProfileAvatar
+                        key={`${row.id}-${effectiveUserId}`}
+                        contact={row}
+                        clientId={effectiveUserId}
+                        onOpen={openContactProfile}
+                      />
+                    ),
+                  }}
                   selectedItems={detailSelectedContacts}
                   onSelectItem={handleDetailSelectContact}
                   totalItems={detailTotalContacts}

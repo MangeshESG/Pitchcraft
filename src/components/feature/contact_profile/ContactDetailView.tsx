@@ -41,7 +41,7 @@ import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
 import { Pin, PinOff, Linkedin } from 'lucide-react';
 
 import CommonSidePanel from '../../common/CommonSidePanel';
-import { defaultButtonStyle } from "../../../styles/buttonStyles";
+import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import ContactQA from "./ContactQA";
 import ContactComposeEmailPopup, { RecipientChipInput, mergeRecipients, parseRecipientInput } from "./ContactComposeEmailPopup";
 import ContactEmailsTab from "./ContactEmailsTab";
@@ -231,6 +231,8 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [showEmailDeleteModal, setShowEmailDeleteModal] = useState(false);
   const [pendingEmailDeleteMode, setPendingEmailDeleteMode] = useState<"soft" | "Permanent">("soft");
   const [isDeletingEmail, setIsDeletingEmail] = useState(false);
+  const [showContactDeleteConfirmation, setShowContactDeleteConfirmation] = useState(false);
+  const [isDeletingContact, setIsDeletingContact] = useState(false);
   const [pinningEmailId, setPinningEmailId] = useState<string | null>(null);
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -936,6 +938,38 @@ const handleGenerateInsights = async () => {
     appModal.showError(err?.message || "Failed to generate insights.");
   } finally {
     setIsGeneratingInsights(false);
+  }
+};
+
+const handleDeleteContact = async () => {
+  if (!contactId || isDeletingContact) return;
+
+  setIsDeletingContact(true);
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/Crm/delete-Datafile-contact?contactId=${contactId}`,
+      {
+        method: "POST",
+        headers: { accept: "*/*" },
+      }
+    );
+
+    if (!response.ok) throw new Error("Failed to delete contact");
+
+    setShowContactDeleteConfirmation(false);
+    const returnParams = new URLSearchParams({
+      tab: "DataCampaigns",
+      subtab: segmentId ? "Segment" : "List",
+      clientId: String(effectiveUserId),
+    });
+    if (dataFileId) returnParams.set("dataFileId", dataFileId);
+    if (segmentId) returnParams.set("segmentId", segmentId);
+    navigate(`/main?${returnParams.toString()}`, { replace: true });
+  } catch (deleteError) {
+    console.error("Failed to delete contact", deleteError);
+    appModal.showError("Failed to delete contact.");
+  } finally {
+    setIsDeletingContact(false);
   }
 };
 
@@ -5114,6 +5148,28 @@ dispatch(closePanel());
                       {isGeneratingInsights ? "Generating..." : "Generate insights"}
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowContactDeleteConfirmation(true)}
+                    disabled={isDeletingContact}
+                    title={isDeletingContact ? "Deleting..." : "Delete contact"}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      padding: 0,
+                      border: "none",
+                      borderRadius: 8,
+                      background: "transparent",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: isDeletingContact ? "not-allowed" : "pointer",
+                      opacity: isDeletingContact ? 0.6 : 1,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faTrashAlt} style={{ fontSize: 20, color: "#3f9f42" }} />
+                  </button>
                 </div>
               </div>
 
@@ -5205,6 +5261,9 @@ dispatch(closePanel());
                       onTogglePin={handleTogglePin}
                       onNotesHistoryUpdate={fetchNotesHistory}
                       onSavingLinkedInChange={setIsSavingLinkedIn}
+                      onProfileImageUploaded={() => {
+                        if (contactId) fetchEmailTimeline(Number(contactId));
+                      }}
                     />
                   )}
                 </>
@@ -7049,6 +7108,50 @@ dispatch(closePanel());
             >
               ✕
             </button>
+          </div>
+        </div>
+      )}
+      {showContactDeleteConfirmation && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[99999]"
+          onClick={() => {
+            if (!isDeletingContact) setShowContactDeleteConfirmation(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-xl p-6 w-[440px] max-w-[90vw] relative shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold mb-3">Delete contact</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this contact?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowContactDeleteConfirmation(false)}
+                disabled={isDeletingContact}
+                style={lessPriorityButtonStyle}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteContact()}
+                disabled={isDeletingContact}
+                style={{
+                  padding: "8px 16px",
+                  background: "var(--btn-danger-bg)",
+                  color: "var(--btn-danger-fg)",
+                  border: "1px solid var(--btn-danger-border)",
+                  borderRadius: 4,
+                  cursor: isDeletingContact ? "not-allowed" : "pointer",
+                  opacity: isDeletingContact ? 0.6 : 1,
+                }}
+              >
+                {isDeletingContact ? "Deleting..." : "Delete"}
+              </button>
+            </div>
           </div>
         </div>
       )}
