@@ -38,7 +38,7 @@ import Modal from "../../common/Modal";
 import { useCreditCheck } from "../../../hooks/useCreditCheck";
 
 import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
-import { Pin, PinOff } from 'lucide-react';
+import { Pin, PinOff, Linkedin } from 'lucide-react';
 
 import CommonSidePanel from '../../common/CommonSidePanel';
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
@@ -349,7 +349,7 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const popupRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [showSupportPopup, setShowSupportPopup] = useState(false);
-  const [historyFilter, setHistoryFilter] = useState<"all" | "notes" | "emails" | "attachments">("all");
+  const [historyFilter, setHistoryFilter] = useState<"all" | "notes" | "emails" | "attachments" | "linkedin">("all");
   const labelStyle: React.CSSProperties = {
     fontSize: "13px",
     fontWeight: 600,
@@ -490,6 +490,9 @@ const menuItemStyle = {
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [attachmentsHistory, setAttachmentsHistory] = useState<any[]>([]);
+  const [linkedInMessages, setLinkedInMessages] = useState<any[]>([]);
+  const [isLoadingLinkedIn, setIsLoadingLinkedIn] = useState(false);
+  const [expandedLinkedInIds, setExpandedLinkedInIds] = useState<string[]>([]);
 
 
 const NOTE_MAX_LENGTH = 10000;
@@ -1201,9 +1204,69 @@ const handleDeleteContact = async () => {
     }
   };
 
+  // 🔹 LinkedIn messages — api/linkedin-messages/by-contact returns the
+  //    contact's append-only LinkedIn history (drafts + messages marked sent).
+  const normalizeLinkedInMessage = (raw: any) => {
+    const sentAt = raw.sentAt ?? raw.SentAt ?? null;
+    const generatedAt = raw.generatedAt ?? raw.GeneratedAt ?? null;
+    const body = raw.body ?? raw.Body ?? "";
+
+    return {
+      id: raw.id ?? raw.Id,
+      msgUid: raw.msgUid ?? raw.MsgUid,
+      messageType: raw.messageType ?? raw.MessageType ?? "message",
+      blueprintId: raw.blueprintId ?? raw.BlueprintId ?? null,
+      body,
+      isSent: raw.isSent ?? raw.IsSent ?? false,
+      sentAt,
+      markedFrom: raw.markedFrom ?? raw.MarkedFrom ?? null,
+      generatedAt,
+      // sent messages always carry sentAt; generatedAt is only a fallback
+      activityAt: sentAt || generatedAt,
+    };
+  };
+
+  const fetchLinkedInMessages = async (targetContactId: number) => {
+    if (!targetContactId || !effectiveUserId) return;
+
+    setIsLoadingLinkedIn(true);
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/linkedin-messages/by-contact`,
+        {
+          params: {
+            clientId: Number(effectiveUserId),
+            contactId: targetContactId,
+            includeBody: true,
+            // the timeline is a record of what actually went out — drafts stay out of it
+            sentOnly: true,
+            take: 200,
+          },
+        }
+      );
+
+      const rows = response.data?.data ?? response.data?.Data ?? [];
+      const normalized = (Array.isArray(rows) ? rows : [])
+        .map(normalizeLinkedInMessage)
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.activityAt || 0).getTime() -
+            new Date(a.activityAt || 0).getTime()
+        );
+
+      setLinkedInMessages(normalized);
+    } catch (err) {
+      console.error("Failed to fetch LinkedIn messages", err);
+      setLinkedInMessages([]);
+    } finally {
+      setIsLoadingLinkedIn(false);
+    }
+  };
+
   useEffect(() => {
   if (contactId && effectiveUserId) {
     fetchEmailTimeline(Number(contactId));
+    fetchLinkedInMessages(Number(contactId));
   }
 }, [contactId, effectiveUserId]);
 
@@ -2462,6 +2525,127 @@ const handleDeleteContact = async () => {
   // For backwards compatibility, create aliases to the imported functions
   const formatDateTimeIST = formatDateTimeLocal;
   const formatTimeIST = formatTimeLocal;
+
+  const linkedInMessageTitle = (message: any) => {
+    const isConnectionNote =
+      String(message.messageType || "").toLowerCase() === "connection_note";
+
+    return isConnectionNote ? "Connection note sent" : "LinkedIn message sent";
+  };
+
+  const LINKEDIN_PREVIEW_LENGTH = 180;
+
+  const toggleLinkedInMessage = (itemKey: string) => {
+    setExpandedLinkedInIds((prev) =>
+      prev.includes(itemKey)
+        ? prev.filter((key) => key !== itemKey)
+        : [...prev, itemKey]
+    );
+  };
+
+  const renderLinkedInTimelineItem = (message: any, index: number) => {
+    const itemKey = String(message.msgUid || message.id || index);
+    const isExpanded = expandedLinkedInIds.includes(itemKey);
+    const body = message.body || "";
+    const isTruncatable = body.length > LINKEDIN_PREVIEW_LENGTH;
+    const visibleBody =
+      isTruncatable && !isExpanded
+        ? `${body.slice(0, LINKEDIN_PREVIEW_LENGTH)}…`
+        : body;
+
+    return (
+      <div key={`linkedin-${itemKey}`} style={{ marginBottom: 24 }}>
+        {/* Row: timeline dot + content */}
+        <div style={{ display: "flex", gap: 16, paddingBottom: 8 }}>
+          {/* Timeline dot */}
+          <div style={{ position: "relative" }}>
+            <div
+              style={{
+                width: 10,
+                height: 10,
+                background: "#3f9f42",
+                borderRadius: "50%",
+                marginTop: 6,
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                top: 16,
+                left: 4,
+                width: 2,
+                height: "100%",
+                background: "#e5e7eb",
+              }}
+            />
+          </div>
+
+          {/* Content */}
+          <div style={{ flex: 1 }}>
+            {/* Source */}
+            <div style={{ fontSize: 13, marginBottom: 6 }}>
+              <b>Source:</b>{" "}
+              <span style={{ color: "#666" }}>
+                LinkedIn{message.markedFrom ? ` (${message.markedFrom})` : ""}
+              </span>
+            </div>
+
+            <div
+              style={{
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <Linkedin size={16} color="#0a66c2" />
+              {linkedInMessageTitle(message)}
+            </div>
+            <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+              {formatDateTimeIST(message.sentAt || message.generatedAt)}
+            </div>
+
+            {/* Message preview */}
+            <div style={{ background: "#f9fafb", padding: 12, borderRadius: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>
+                Message
+              </div>
+              <div
+                style={{
+                  color: "#666",
+                  fontSize: 13,
+                  whiteSpace: "pre-wrap",
+                  lineHeight: 1.6,
+                }}
+              >
+                {visibleBody || "No message content"}
+              </div>
+
+              {/* expands the message in place — no duplicate copy below */}
+              {isTruncatable && (
+                <button
+                  type="button"
+                  onClick={() => toggleLinkedInMessage(itemKey)}
+                  style={{
+                    marginTop: 6,
+                    padding: 0,
+                    border: "none",
+                    background: "transparent",
+                    color: "#3f9f42",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {isExpanded ? "Show less" : "Show more"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
   const fetchContact = async () => {
     if (!contactId || !effectiveUserId) {
       console.error("[ContactDetail] Missing contactId or effectiveUserId", { contactId, effectiveUserId });
@@ -3066,9 +3250,18 @@ dispatch(closePanel());
       });
     });
 
+    // LinkedIn messages
+    linkedInMessages.forEach((message: any) => {
+      items.push({
+        type: "linkedin",
+        time: new Date(message.activityAt || 0).getTime(),
+        data: message,
+      });
+    });
+
     // newest → oldest
     return items.sort((a, b) => b.time - a.time);
-  }, [editingContact, notesHistory, attachmentsHistory, emailTimeline]);
+  }, [editingContact, notesHistory, attachmentsHistory, emailTimeline, linkedInMessages]);
 
   const extractEmailAddress = (emailString?: string): string => {
     if (!emailString) return "";
@@ -4980,6 +5173,7 @@ dispatch(closePanel());
                       { key: "notes", label: "Notes" },
                       { key: "attachments", label: "Attachments" },
                       { key: "emails", label: "Emails" },
+                      { key: "linkedin", label: "LinkedIn" },
                     ].map(item => (
                     <button
                       key={item.key}
@@ -4990,6 +5184,9 @@ dispatch(closePanel());
                         }
                         if (item.key === "emails" && emailTimeline.length === 0) {
                           fetchEmailTimeline(Number(contactId));
+                        }
+                        if (item.key === "linkedin" && linkedInMessages.length === 0) {
+                          fetchLinkedInMessages(Number(contactId));
                         }
                       }}
 
@@ -5065,7 +5262,7 @@ dispatch(closePanel());
                   }}
                 >
 
-                  {!isLoadingHistory && !editingContact?.contactCreatedAt && emailTimeline.length === 0 && (
+                  {!isLoadingHistory && !editingContact?.contactCreatedAt && emailTimeline.length === 0 && linkedInMessages.length === 0 && (
                     <p style={{ color: "#666" }}>No history found.</p>
                   )}
 
@@ -5222,6 +5419,11 @@ dispatch(closePanel());
                                 </div>
 
                               );
+                            }
+
+                            /* 🟢 LINKEDIN MESSAGE */
+                            if (item.type === "linkedin") {
+                              return renderLinkedInTimelineItem(item.data, index);
                             }
 
                             /* 🟢 NOTE (REUSE YOUR EXISTING JSX) */
@@ -5695,6 +5897,24 @@ dispatch(closePanel());
                           </div>
                         );}
                         )}
+                      {/* 🔹 LINKEDIN MESSAGES */}
+                      {historyFilter === "linkedin" && (
+                        <>
+                          {isLoadingLinkedIn && (
+                            <p style={{ color: "#666" }}>Loading LinkedIn messages...</p>
+                          )}
+
+                          {!isLoadingLinkedIn && linkedInMessages.length === 0 && (
+                            <p style={{ color: "#666" }}>No LinkedIn messages found.</p>
+                          )}
+
+                          {!isLoadingLinkedIn &&
+                            linkedInMessages.map((message: any, index: number) =>
+                              renderLinkedInTimelineItem(message, index)
+                            )}
+                        </>
+                      )}
+
                       {/* 🔹 ATTACHMENTS HISTORY */}
                       {(historyFilter === "attachments") && (
                         <>
