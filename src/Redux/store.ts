@@ -1,17 +1,21 @@
 import { configureStore } from "@reduxjs/toolkit";
-import authReducer from "../slices/authSLice";
+import authReducer, { AuthState } from "../slices/authSLice";
 import storage from "redux-persist/lib/storage"; // Defaults to localStorage
 import { persistReducer, persistStore } from "redux-persist";
+import type { PersistConfig } from "redux-persist";
 import clientSettingsReducer from "../slices/clientSettingsSlice";
 import clientReducer from "../slices/clientSlice"; // adjust path
 import panelReducer from "../slices/panelSlice";
 
-const persistConfig = {
+// Typed explicitly: without the AuthState generic, redux-persist's older
+// signature cannot infer the state from redux 5's Reducer type and `state.auth`
+// collapses to `PersistPartial`, hiding every auth field from RootState.
+const persistConfig: PersistConfig<AuthState> = {
   key: "auth",
   storage,
 };
 
-const persistedAuthReducer = persistReducer(persistConfig, authReducer);
+const persistedAuthReducer = persistReducer<AuthState>(persistConfig, authReducer);
 
 const store = configureStore({
   reducer: {
