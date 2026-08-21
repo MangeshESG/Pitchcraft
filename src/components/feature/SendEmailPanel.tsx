@@ -29,6 +29,7 @@ interface SendEmailPanelProps {
   combinedResponses: any[];
   isBulkSending: boolean;
   countdown: number | null;
+  bulkRemainingCount?: number | null;
   sendingEmail: boolean;
   emailMessage: string;
   currentIndex: number;
@@ -80,6 +81,7 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
   combinedResponses,
   isBulkSending,
   countdown,
+  bulkRemainingCount,
   sendingEmail,
   emailMessage,
   currentIndex,
@@ -133,17 +135,24 @@ setOverwriteDatabase,
     return total;
   }, [filteredResponses, combinedResponses, enableIndexRange, startIndex, endIndex]);
 
+  // While a bulk run is in progress the estimate counts down: only the emails
+  // still queued matter, and the gap currently being waited out is the live
+  // countdown rather than the average.
+  const isRunning = isBulkSending && bulkRemainingCount != null;
+  const pendingCount = isRunning ? bulkRemainingCount! : emailCount;
+
   // The delay sits *between* emails, so N emails have N-1 gaps. Each gap
   // averages the midpoint of the randomized min/max range.
   const estimatedTotalSeconds =
-    Math.max(0, emailCount - 1) * ((minDelay + maxDelay) / 2);
+    Math.max(0, pendingCount - 1) * ((minDelay + maxDelay) / 2) +
+    (isRunning ? countdown ?? 0 : 0);
 
   const formatDuration = (totalSeconds: number) => {
     const secs = Math.round(totalSeconds);
     const hours = Math.floor(secs / 3600);
     const minutes = Math.floor((secs % 3600) / 60);
     if (hours > 0) return `${hours}h ${minutes}m`;
-    if (minutes > 0) return `${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${secs % 60}s`;
     return `${secs}s`;
   };
 
@@ -598,7 +607,11 @@ setOverwriteDatabase,
                           Total
                         </label>
                         <div
-                          title={`The total estimated time to send ${emailCount} emails with the selected randomized delay`}
+                          title={
+                            isRunning
+                              ? `Estimated time left to send the remaining ${pendingCount} of ${emailCount} emails`
+                              : `The total estimated time to send ${emailCount} emails with the selected randomized delay`
+                          }
                           style={{
                             width: "100%",
                             padding: "6px 8px",

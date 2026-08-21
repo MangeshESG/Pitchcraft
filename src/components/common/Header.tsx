@@ -6,6 +6,9 @@ import { clearToken } from "../../slices/authSLice";
 import { useCreditRefresh } from "../../hooks/useCreditRefresh";
 import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
 
+const CHROME_EXTENSION_URL =
+  "https://chromewebstore.google.com/detail/pitchkraft/ikelaephojkjglbknldgiopbpdaklkbl";
+
 interface HeaderProps {
   connectTo: boolean;
   selectedClient?: string;
@@ -183,6 +186,34 @@ const logoutHandler = () => {
                     {credits !== null ? (typeof credits === 'object' && credits !== null ? credits.total : credits) : "Loading..."}
                   </span>
                 </span>
+
+                <a
+                  href={CHROME_EXTENSION_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Download the Pitchkraft LinkedIn extension from the Chrome Web Store"
+                  style={{
+                    ...lessPriorityButtonStyle,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "8px 14px",
+                    whiteSpace: "nowrap",
+                    textDecoration: "none",
+                    color: "#374151",
+                    transition: "all 0.18s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#f1f5f9";
+                    e.currentTarget.style.borderColor = "#cbd5e1";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#f8fafc";
+                    e.currentTarget.style.borderColor = "#e2e8f0";
+                  }}
+                >
+                  Download LinkedIn Extension
+                </a>
 
                 {/* UPGRADE BUTTON */}
                 <button

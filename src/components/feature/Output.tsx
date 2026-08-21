@@ -434,12 +434,6 @@ const Output: React.FC<OutputInterface> = ({
     setTab(innerText);
   };
 
-  const [tab2, setTab2] = useState("Output");
-  const tabHandler2 = (e: React.ChangeEvent<any>) => {
-    const { innerText } = e.target;
-    setTab2(innerText);
-  };
-
   const [emailLoading, setEmailLoading] = useState(false); // Loading state for fetching email data
 
   const getDisplayText = (value: any, fallback = "No information available.") => {
@@ -1733,6 +1727,16 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
   const [bulkSendIndex, setBulkSendIndex] = useState(currentIndex);
 
+  // Bounds of the run currently in progress, so the panel can show how much
+  // time is *left* rather than the time the whole run would have taken.
+  const [bulkStartIndex, setBulkStartIndex] = useState(0);
+  const [bulkMaxIndex, setBulkMaxIndex] = useState(0);
+
+  // Emails still to be processed (including the one being sent right now).
+  const bulkRemainingCount = isBulkSending
+    ? Math.max(0, bulkMaxIndex - bulkSendIndex + 1)
+    : null;
+
   const stopBulkRef = useRef(false);
 
   const getRandomDelayMs = (min: number, max: number) => {
@@ -1785,6 +1789,9 @@ const sleepWithCountdown = async (ms: number) => {
 
     let index = startIdx;
     const maxIndex = endIdx !== undefined ? Math.min(endIdx, combinedResponses.length - 1) : combinedResponses.length - 1;
+    setBulkStartIndex(startIdx);
+    setBulkMaxIndex(maxIndex);
+    setBulkSendIndex(startIdx);
     let sentCount = 0;
     let skippedCount = 0;
 
@@ -1980,7 +1987,7 @@ const sleepWithCountdown = async (ms: number) => {
       // Wait before processing next email
 
         // Wait ONLY if next email exists
-        if (index < combinedResponses.length - 1 && !stopBulkRef.current) {
+        if (index <= maxIndex && !stopBulkRef.current) {
           if (enableDelay) {
             const delayMs = getRandomDelayMs(minDelay, maxDelay);
             console.log(`⏳ Waiting ${delayMs / 1000}s before next email`);
@@ -2386,6 +2393,7 @@ const usageData = useMemo(() => {
           combinedResponses={combinedResponses}
           isBulkSending={isBulkSending}
           countdown={countdown}
+          bulkRemainingCount={bulkRemainingCount}
           sendingEmail={sendingEmail}
           emailMessage={emailMessage}
           currentIndex={currentIndex}
@@ -2537,9 +2545,9 @@ const usageData = useMemo(() => {
             )}
 
             {/* Pager navigation + tab bar */}
-            <div className="px-6 pt-3">
+            <div className="px-6 pt-5">
             {/* Wrapper for navigation + contact index */}
-            <div className="d-flex align-items-center gap gap-3">
+            <div className="d-flex align-items-center gap gap-3 mb-3">
               {/* Navigation buttons */}
               <div className="d-flex align-items-center gap-1">
                 <button
@@ -2664,47 +2672,10 @@ const usageData = useMemo(() => {
             {/* New Tab */}
             {tab === "New" && (
               <>
-                <div className="tabs secondary d-flex align-center flex-col-991 justify-between !mb-[4px]">
-                  <ul className="d-flex">
-                    <li>
-                      <button
-                        onClick={tabHandler2}
-                        className={`button ${tab2 === "Output" ? "active" : ""}`}
-                      >
-                        Output
-                      </button>
-                    </li>
-
-                    <li></li>
-                  </ul>
-                  {/* {!isDemoAccount && (
-                    <div
-                      className="flex items-center"
-                      style={{ marginRight: "890px" }}
-                    >
-                      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={followupEnabled || false}
-                          onChange={(e) => {
-                            setFollowupEnabled?.(e.target.checked);
-                          }}
-                          className="!mr-0"
-                        />
-                        <span style={{ fontSize: "14px", whiteSpace: "nowrap" }}>
-                          Include email trail
-                        </span>
-                      </label>
-                    </div>
-                  )} */}
-                </div>
-                {tab2 === "Output" && (
-                  <>
-
-                    <div className="form-group mb-0 mt-0">
+                <div className="form-group mb-0 mt-1">
                       <div className="d-flex justify-between w-full">
                         <div
-                          className="contact-info !text-[18px] self-start leading-[35px] inline-block break-words break-all text-[#111] px-[10px] py-[5px] bg-[#f5f6fa] rounded-[5px] mt-0 mb-[10px] mr-[5px] ml-0 border border-[#b3b3b3]"
+                          className="contact-info !text-[18px] self-start leading-[35px] inline-block break-words break-all text-[#111] px-[10px] py-[5px] bg-[#f5f6fa] rounded-[5px] mt-0 mb-[16px] mr-[5px] ml-0 border border-[#b3b3b3]"
                           style={{ color: "#111111" }}
                         >
                           {/* <strong style={{ whiteSpace: "pre" }}>Contact: </strong> */}
@@ -3303,9 +3274,6 @@ const usageData = useMemo(() => {
                         </form>
                       </div>
                     </Modal>
-                  </>
-
-                )}
                 {/* Add this after the Output tab and before the Stages tab */}
 
 
