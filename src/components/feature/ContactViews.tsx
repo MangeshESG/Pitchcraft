@@ -84,6 +84,41 @@ interface ContactViewsProps {
   onViewModeChange?: (mode: "list" | "detail") => void;
 }
 
+const ViewContactProfileAvatar: React.FC<{
+  contact: any;
+  clientId: string | number;
+  onOpen: (contact: any) => void;
+}> = ({ contact, clientId, onOpen }) => {
+  const [imageUnavailable, setImageUnavailable] = useState(false);
+  const firstName = String(contact.first_name || contact.firstName || "").trim();
+  const lastName = String(contact.last_name || contact.lastName || "").trim();
+  const displayName = `${firstName} ${lastName}`.trim() || contact.full_name || contact.fullName || contact.email || "Contact";
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || String(displayName).slice(0, 2).toUpperCase();
+  const imageUrl = `${API_BASE_URL}/api/Attachment/profile-image/${contact.id}?clientId=${clientId}`;
+
+  return (
+    <button
+      type="button"
+      title={`Open ${displayName} profile`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpen(contact);
+      }}
+      style={{ width: 34, height: 34, padding: 0, border: "1px solid #dfe7df", borderRadius: "50%", overflow: "hidden", background: "#eef8ef", color: "#3f9f42", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+    >
+      {!imageUnavailable ? (
+        <img
+          src={imageUrl}
+          alt={`${displayName} profile`}
+          loading="lazy"
+          onError={() => setImageUnavailable(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : initials || "?"}
+    </button>
+  );
+};
+
 interface FilterBuilderFieldOption {
   key: string;
   label: string;
@@ -2127,6 +2162,18 @@ const handleDeleteContacts = () => {
               pageSize={viewPageSize}
               onPageChange={setViewCurrentPage}
               onOpenProfile={openContactProfile}
+              leadingColumn={{
+                header: "Image",
+                width: "64px",
+                render: (row: any) => (
+                  <ViewContactProfileAvatar
+                    key={`${row.id}-${clientId}`}
+                    contact={row}
+                    clientId={clientId}
+                    onOpen={openContactProfile}
+                  />
+                ),
+              }}
               totalItems={viewContacts.length}
               autoGenerateColumns={true}
               selectedItems={selectedContacts}
