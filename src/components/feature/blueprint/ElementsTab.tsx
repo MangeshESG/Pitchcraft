@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import { defaultButtonStyle } from "../../../styles/buttonStyles";
+import { categoryLabel } from "./categoryLabels";
 
 export interface ElementsTabProps {
   groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
@@ -343,7 +344,7 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                 </div>
 
                 <span style={{ flex: 1, fontWeight: 700, fontSize: 12, color: "#166534", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                  {category}
+                  {categoryLabel(category)}
                 </span>
 
                 <span style={{

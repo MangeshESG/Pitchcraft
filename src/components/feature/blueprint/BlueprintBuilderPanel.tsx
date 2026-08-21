@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import ElementsTab from "./ElementsTab";
+import { categoryLabel } from "./categoryLabels";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import { Loader2 } from "lucide-react";
 import RichTextEditor from "../../common/RTEEditor";
@@ -739,7 +740,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                     />
                   ) : (
                     <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      {sidePanelElement.category}
+                      {categoryLabel(sidePanelElement.category)}
                     </div>
                   )}
                 </div>

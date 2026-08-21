@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { faAngleRight, faAngleLeft, faCircleRight, faCircleLeft } from "@fortawesome/free-solid-svg-icons";
 import BlueprintBuilderPanel from "./BlueprintBuilderPanel";
 import InstructionSetManager from "./InstructionSetManager";
+import { categoryLabel } from "./categoryLabels";
 import {
   Send,
   Loader2,
@@ -915,7 +916,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
           >
             <option value="">Edit elements</option>
             {Object.entries(groupedPlaceholders).map(([category, placeholders]) => (
-              <optgroup key={category} label={category}>
+              <optgroup key={category} label={categoryLabel(category)}>
                 {placeholders.map((p) => {
                   const value = placeholderValues?.[p.placeholderKey] || "";
                   return (

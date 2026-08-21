@@ -464,15 +464,15 @@ const InstructionSetManager: React.FC<InstructionSetManagerProps> = ({
                         className="definition-select"
                       >
                         <option value="call-to-action">CALL-TO-ACTION</option>
-                        <option value="core message focus">CORE MESSAGE FOCUS</option>
+                        <option value="core message focus">MAIN FOCUS</option>
                         <option value="dos and don'ts">DOS AND DON'TS</option>
                         <option value="extra assets">EXTRA ASSETS</option>
-                        <option value="extra visuals">EXTRA VISUALS</option>
+                        <option value="extra visuals">SIGNATURE</option>
                         <option value="greetings & farewells">GREETINGS & FAREWELLS</option>
-                        <option value="message writing style">MESSAGE WRITING STYLE</option>
+                        <option value="message writing style">WRITING PREFERENCES</option>
                         <option value="subject line">SUBJECT LINE</option>
                         <option value="your company">YOUR COMPANY</option>
-                        <option value="smart conditions">SMART CONDITIONS</option>
+                        <option value="smart conditions">PERSONALIZATION SOURCES</option>
                         <option value="images">IMAGES</option>
                       </select>
 
