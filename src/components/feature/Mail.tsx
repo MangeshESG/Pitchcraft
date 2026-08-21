@@ -30,13 +30,18 @@ type MailTabType = "Dashboard" | "Configuration" | "Schedule" | "Inbox";
 
 interface SmtpConfig {
   id?: number;
-  server: string;
-  port: number;
-  username: string;
-  password: string;
-  usessl: boolean;
+  server?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  usessl?: boolean;
   useSsl?: boolean;
-  fromEmail: string;
+  fromEmail?: string;
+  senderName?: string;
+  provider?: string;
+  isOAuth?: boolean;
+  fullInboxSync?: boolean;
+  createdAt?: string;
 }
 
 interface InboxCredential {
@@ -421,18 +426,42 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const fetchSmtp = async () => {
     setSmtpListLoading(true);
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/email/get-smtp?ClientId=${effectiveUserId}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            //...(token && { 'Authorization': `Bearer ${token}` })
-          },
-        }
-      );
+      const [smtpResult, accountResult] = await Promise.allSettled([
+        axios.get(`${API_BASE_URL}/api/email/get-smtp?ClientId=${effectiveUserId}`, {
+          headers: { "Content-Type": "application/json" },
+        }),
+        axios.get(`${API_BASE_URL}/api/Crm/email-accounts/${effectiveUserId}`, {
+          headers: { "Content-Type": "application/json" },
+        }),
+      ]);
 
-      setSmtpList(asArray<SmtpConfig>(response.data));
+      const smtpRows = asArray<SmtpConfig>(
+        smtpResult.status === "fulfilled" ? smtpResult.value.data : []
+      ).map((item) => ({
+        ...item,
+        provider: "SMTP",
+        isOAuth: false,
+      }));
+      const oauthRows = asArray<any>(
+        accountResult.status === "fulfilled" ? accountResult.value.data : []
+      )
+        .filter((item) => String(item.provider || item.Provider || "").toUpperCase() !== "SMTP")
+        .map((item) => {
+          const provider = item.provider || item.Provider || "OAuth";
+          const email = item.email || item.Email || "";
+          return {
+            id: item.id ?? item.Id,
+            fromEmail: email,
+            username: email,
+            senderName: item.senderName || item.SenderName || "",
+            provider,
+            isOAuth: true,
+            fullInboxSync: item.fullInboxSync ?? item.FullInboxSync ?? false,
+            createdAt: item.createdAt || item.CreatedAt,
+          } as SmtpConfig;
+        });
+
+      setSmtpList([...smtpRows, ...oauthRows]);
     } catch (error) {
       setSmtpList([]); // No records found or error
     } finally {
@@ -1114,6 +1143,7 @@ const actionIconStyle = {
         item.username,
         item.fromEmail,
         (item as any).senderName,
+        (item as any).provider,
         (item as any).securityType,
         inbox.emailAddress,
         inbox.host,

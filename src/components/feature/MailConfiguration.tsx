@@ -1,6 +1,6 @@
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
+import { faEdit, faEnvelope, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 import AddMailboxModal from "../common/AddMailboxModal";
 import OtherMailboxWizard from "../common/OtherMailboxWizard";
 import CommonSidePanel from "../common/CommonSidePanel";
@@ -106,9 +106,147 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
   smtpListLoading,
 }) => {
   const [mailboxFilter, setMailboxFilter] = React.useState<
-    "all" | "smtp" | "imap"
+    "all" | "smtp" | "imap" | "oauth"
   >("all");
   const [editIncludeImap, setEditIncludeImap] = React.useState(false);
+  const [oauthEditing, setOauthEditing] = React.useState<any | null>(null);
+  const [oauthSenderName, setOauthSenderName] = React.useState("");
+  const [oauthFullInboxSync, setOauthFullInboxSync] = React.useState(false);
+  const [isSavingOauth, setIsSavingOauth] = React.useState(false);
+  const [oauthDeleteTarget, setOauthDeleteTarget] = React.useState<any | null>(null);
+  const [isDeletingOauth, setIsDeletingOauth] = React.useState(false);
+  const [outgoingGroups, setOutgoingGroups] = React.useState<any[]>([]);
+  const [groupsLoading, setGroupsLoading] = React.useState(false);
+  const [showCreateGroup, setShowCreateGroup] = React.useState(false);
+  const [groupName, setGroupName] = React.useState("");
+  const [groupDescription, setGroupDescription] = React.useState("");
+  const [selectedGroupMailboxes, setSelectedGroupMailboxes] = React.useState<string[]>([]);
+  const [savingGroup, setSavingGroup] = React.useState(false);
+  const [editingGroupId, setEditingGroupId] = React.useState<number | null>(null);
+  const [groupDeleteTarget, setGroupDeleteTarget] = React.useState<any | null>(null);
+  const [deletingGroup, setDeletingGroup] = React.useState(false);
+  const [groupActionsAnchor, setGroupActionsAnchor] = React.useState<number | null>(null);
+  const [viewGroupMailboxes, setViewGroupMailboxes] = React.useState<any | null>(null);
+
+  const fetchOutgoingGroups = React.useCallback(async () => {
+    if (!effectiveUserId) return;
+    setGroupsLoading(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/OutgoingMailboxGroup/get?clientId=${effectiveUserId}`
+      );
+      if (!response.ok) throw new Error("Failed to load outgoing groups");
+      const result = await response.json();
+      setOutgoingGroups(Array.isArray(result) ? result : []);
+    } catch (error) {
+      console.error(error);
+      setOutgoingGroups([]);
+    } finally {
+      setGroupsLoading(false);
+    }
+  }, [effectiveUserId]);
+
+  React.useEffect(() => {
+    if (configTab === "groups") fetchOutgoingGroups();
+  }, [configTab, fetchOutgoingGroups]);
+
+  const mailboxGroupKey = (item: any) => `${getProvider(item)}:${item.id}`;
+  const mailboxLabel = (item: any) =>
+    item.fromEmail || item.emailAddress || item.username || item.senderName || `Mailbox ${item.id}`;
+  const groupMemberLabel = (member: any) => {
+    const mailbox = filteredMailboxes.find(
+      (item: any) => Number(item.id) === Number(member.outboxId) &&
+        getProvider(item).toLowerCase() === String(member.provider).toLowerCase()
+    );
+    return mailbox ? `${mailboxLabel(mailbox)} (${member.provider})` : `${member.provider} #${member.outboxId}`;
+  };
+
+  const resetGroupForm = () => {
+    setShowCreateGroup(false);
+    setGroupName("");
+    setGroupDescription("");
+    setSelectedGroupMailboxes([]);
+    setEditingGroupId(null);
+  };
+
+  const createOutgoingGroup = async () => {
+    if (!groupName.trim() || selectedGroupMailboxes.length === 0) return;
+    const isUpdating = Boolean(editingGroupId);
+    setSavingGroup(true);
+    try {
+      const members = filteredMailboxes
+        .filter((item: any) => selectedGroupMailboxes.includes(mailboxGroupKey(item)))
+        .map((item: any) => ({ outboxId: Number(item.id), provider: getProvider(item) }));
+      const response = await fetch(
+        `${API_BASE_URL}/api/OutgoingMailboxGroup/${editingGroupId ? "update" : "create"}`,
+        {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingGroupId || 0,
+          clientId: Number(effectiveUserId),
+          name: groupName.trim(),
+          description: groupDescription.trim() || null,
+          members,
+        }),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || result?.message || "Failed to create outgoing group");
+      }
+      resetGroupForm();
+      await fetchOutgoingGroups();
+      setToastMessage(`Outgoing group ${isUpdating ? "updated" : "created"} successfully`);
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+    } catch (error) {
+      console.error(error);
+      setToastMessage(error instanceof Error ? error.message : "Failed to create outgoing group");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 3000);
+    } finally {
+      setSavingGroup(false);
+    }
+  };
+
+  const editOutgoingGroup = (group: any) => {
+    setEditingGroupId(Number(group.id));
+    setGroupName(group.name || "");
+    setGroupDescription(group.description || "");
+    setSelectedGroupMailboxes((group.members || []).map(
+      (member: any) => `${member.provider}:${member.outboxId}`
+    ));
+    setShowCreateGroup(true);
+    setConfigTab("mailboxes");
+  };
+
+  const deleteOutgoingGroup = async () => {
+    if (!groupDeleteTarget) return;
+    setDeletingGroup(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/OutgoingMailboxGroup/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: groupDeleteTarget.id, clientId: Number(effectiveUserId) }),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || result?.message || "Failed to delete outgoing group");
+      }
+      setGroupDeleteTarget(null);
+      await fetchOutgoingGroups();
+      setToastMessage("Outgoing group deleted successfully");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+    } catch (error) {
+      console.error(error);
+      setToastMessage(error instanceof Error ? error.message : "Failed to delete outgoing group");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 3000);
+    } finally {
+      setDeletingGroup(false);
+    }
+  };
 
   React.useEffect(() => {
     if (showSMTPEditModal) {
@@ -136,10 +274,16 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
   };
 
   const getInbox = (item: any) => item?.inbox || null;
+  const getProvider = (item: any) => String(item?.provider || item?.Provider || "SMTP");
+  const isTrue = (value: any) => value === true || String(value).toLowerCase() === "true";
+  const isOAuthMailbox = (item: any) =>
+    Boolean(item?.isOAuth) || getProvider(item).toUpperCase() !== "SMTP";
   const hasOutgoing = (item: any) =>
-    Boolean(item?.server || item?.fromEmail || item?.username || item?.senderName);
-  const hasIncoming = (item: any) => Boolean(getInbox(item));
+    isOAuthMailbox(item) || Boolean(item?.server || item?.fromEmail || item?.username || item?.senderName);
+  const hasIncoming = (item: any) =>
+    isOAuthMailbox(item) ? isTrue(item?.fullInboxSync) : Boolean(getInbox(item));
   const getMailboxStatus = (item: any) => {
+    if (isOAuthMailbox(item)) return `${getProvider(item)} connected`;
     const outgoing = hasOutgoing(item);
     const incoming = hasIncoming(item);
 
@@ -152,15 +296,18 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
     { key: "all", label: "All mailboxes" },
     { key: "smtp", label: "SMTP only" },
     { key: "imap", label: "IMAP (incoming)" },
+    { key: "oauth", label: "Gmail / Outlook" },
   ];
   const mailboxCounts = {
     all: filteredMailboxes.length,
-    smtp: filteredMailboxes.filter((item: any) => hasOutgoing(item) && !hasIncoming(item)).length,
-    imap: filteredMailboxes.filter((item: any) => hasIncoming(item)).length,
+    smtp: filteredMailboxes.filter((item: any) => !isOAuthMailbox(item) && hasOutgoing(item) && !hasIncoming(item)).length,
+    imap: filteredMailboxes.filter((item: any) => hasIncoming(item) && !isOAuthMailbox(item)).length,
+    oauth: filteredMailboxes.filter((item: any) => isOAuthMailbox(item)).length,
   };
   const filteredMailboxRows = filteredMailboxes.filter((item: any) => {
-    if (mailboxFilter === "smtp") return hasOutgoing(item) && !hasIncoming(item);
-    if (mailboxFilter === "imap") return hasIncoming(item);
+    if (mailboxFilter === "smtp") return !isOAuthMailbox(item) && hasOutgoing(item) && !hasIncoming(item);
+    if (mailboxFilter === "imap") return hasIncoming(item) && !isOAuthMailbox(item);
+    if (mailboxFilter === "oauth") return isOAuthMailbox(item);
     return true;
   });
   const getMailboxDateValue = (item: any) =>
@@ -225,6 +372,70 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
       index % 6
     ];
 
+  const openOauthEdit = (item: any) => {
+    setOauthEditing(item);
+    setOauthSenderName(item.senderName || "");
+    setOauthFullInboxSync(Boolean(item.fullInboxSync));
+  };
+
+  const saveOauthConfiguration = async () => {
+    if (!oauthEditing || !oauthSenderName.trim()) return;
+    setIsSavingOauth(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/OAuth/update-configuration`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: oauthEditing.id,
+          clientId: Number(effectiveUserId),
+          senderName: oauthSenderName.trim(),
+          fullInboxSync: oauthFullInboxSync,
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to update OAuth configuration");
+      setOauthEditing(null);
+      await fetchSmtp();
+      setToastMessage("OAuth configuration updated successfully");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+    } catch (error) {
+      console.error(error);
+      setToastMessage("Failed to update OAuth configuration");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 3000);
+    } finally {
+      setIsSavingOauth(false);
+    }
+  };
+
+  const deleteOauthConfiguration = async () => {
+    if (!oauthDeleteTarget) return;
+    setIsDeletingOauth(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/OAuth/delete-configuration`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: oauthDeleteTarget.id,
+          clientId: Number(effectiveUserId),
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to delete OAuth configuration");
+      setOauthDeleteTarget(null);
+      await fetchSmtp();
+      setToastMessage("OAuth configuration deleted successfully");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+    } catch (error) {
+      console.error(error);
+      setToastMessage("Failed to delete OAuth configuration");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 3000);
+    } finally {
+      setIsDeletingOauth(false);
+    }
+  };
+
   // ── Local pagination for BCC + Domain tables (same control as Campaigns/Schedule) ──
   const [bccPageLocal, setBccPageLocal] = React.useState(1);
   const [bccPageSizeLocal, setBccPageSizeLocal] = React.useState<number | "All">(10);
@@ -281,6 +492,14 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
             >
               Domain authentication
             </button>
+
+            <button
+              onClick={() => setConfigTab("groups")}
+              className={configTab === "groups" ? "active-config-tab" : "config-tab"}
+              style={{ borderRadius: "12px" }}
+            >
+              Outgoing groups
+            </button>
           </div>
           <div className="data-campaigns-container">
             {/* Mailboxes Section */}
@@ -297,16 +516,62 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   </div>
 
                   {!isDemoAccount && (
-                    <button
-                      className="btn-default"
-                      onClick={() => {
-                        dispatch(openPanel("add-edit-mailbox-modal"));
-                      }}
-                    >
-                      + Add mailbox
-                    </button>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        className="btn-default"
+                        onClick={() => setShowCreateGroup(true)}
+                        disabled={showCreateGroup}
+                      >
+                        + Create group
+                      </button>
+                      <button
+                        className="btn-default"
+                        onClick={() => dispatch(openPanel("add-edit-mailbox-modal"))}
+                      >
+                        + Add mailbox
+                      </button>
+                    </div>
                   )}
                 </div>
+
+                {showCreateGroup && (
+                  <div style={{ padding: 16, marginBottom: 18, border: "1px solid #bbdfbd", borderRadius: 8, background: "#f7fcf7" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) minmax(280px, 2fr) auto", gap: 12, alignItems: "end" }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Group name</label>
+                        <input
+                          value={groupName}
+                          onChange={(event) => setGroupName(event.target.value)}
+                          placeholder="Enter group name"
+                          style={{ width: "100%", height: 38, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 6 }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Description</label>
+                        <input
+                          value={groupDescription}
+                          onChange={(event) => setGroupDescription(event.target.value)}
+                          placeholder="Enter description"
+                          style={{ width: "100%", height: 38, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 6 }}
+                        />
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button type="button" className="button secondary small" onClick={resetGroupForm}>Cancel</button>
+                        <button
+                          type="button"
+                          className="save-button button small"
+                          onClick={createOutgoingGroup}
+                          disabled={savingGroup || !groupName.trim() || selectedGroupMailboxes.length === 0}
+                        >
+                          {savingGroup ? "Saving..." : editingGroupId ? "Update group" : "Save group"}
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 10, color: "#4b5563", fontSize: 13 }}>
+                      Select mailboxes from the list below. {selectedGroupMailboxes.length} selected.
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
                   {mailboxFilterOptions.map((option) => {
@@ -374,9 +639,25 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   <table className="contacts-table" style={{ background: "#fff", margin: 0 }}>
                     <thead>
                       <tr style={{ background: "#f8fafc" }}>
+                        {showCreateGroup && (
+                          <th style={{ width: 48, textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              aria-label="Select all visible mailboxes"
+                              checked={displayedMailboxRows.length > 0 && displayedMailboxRows.every((item: any) => selectedGroupMailboxes.includes(mailboxGroupKey(item)))}
+                              onChange={(event) => {
+                                const visibleKeys = displayedMailboxRows.map(mailboxGroupKey);
+                                setSelectedGroupMailboxes((current) => event.target.checked
+                                  ? Array.from(new Set([...current, ...visibleKeys]))
+                                  : current.filter((key) => !visibleKeys.includes(key))
+                                );
+                              }}
+                            />
+                          </th>
+                        )}
                         <th onClick={() => toggleSort("emailAddress", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Email address{renderSortArrow("emailAddress", smtpSortKey, smtpSortDirection)}</th>
-                        <th onClick={() => toggleSort("server", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Outgoing (SMTP){renderSortArrow("server", smtpSortKey, smtpSortDirection)}</th>
-                        <th onClick={() => toggleSort("incoming", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Incoming (IMAP){renderSortArrow("incoming", smtpSortKey, smtpSortDirection)}</th>
+                        <th onClick={() => toggleSort("server", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Outgoing{renderSortArrow("server", smtpSortKey, smtpSortDirection)}</th>
+                        <th onClick={() => toggleSort("incoming", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Incoming{renderSortArrow("incoming", smtpSortKey, smtpSortDirection)}</th>
                         <th onClick={() => toggleSort("status", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Status{renderSortArrow("status", smtpSortKey, smtpSortDirection)}</th>
                         <th onClick={() => toggleSort("updatedAt", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Last updated{renderSortArrow("updatedAt", smtpSortKey, smtpSortDirection)}</th>
                         <th>Actions</th>
@@ -385,13 +666,19 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                     <tbody>
                       {displayedMailboxRows.length === 0 ? (
                         <tr>
-                          <td colSpan={6} style={{ textAlign: "center", padding: "28px 12px", color: "#6b7280" }}>
+                          <td colSpan={showCreateGroup ? 7 : 6} style={{ textAlign: "center", padding: "28px 12px", color: "#6b7280" }}>
                             No mailbox configurations found.
                           </td>
                         </tr>
                       ) : (
                         displayedMailboxRows.map((item: any, index: number) => {
                           const inbox = getInbox(item);
+                          const oauthMailbox = isOAuthMailbox(item);
+                          const provider = getProvider(item);
+                          const inboxSyncEnabled = oauthMailbox
+                            ? isTrue(item.fullInboxSync)
+                            : isTrue(inbox?.fullInboxSync ?? inbox?.FullInboxSync);
+                          const mailboxActionKey = `${oauthMailbox ? "oauth" : "smtp"}-${item.id}`;
                           const status = getMailboxStatus(item);
                           const emailAddress = item.fromEmail || item.username || inbox?.emailAddress || "-";
                           const displayName = item.senderName || item.username || "-";
@@ -401,10 +688,28 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                               ? { background: "#e8f5e8", color: "#2e7d32" }
                               : status === "SMTP only"
                                 ? { background: "#eaf3ff", color: "#1d7fe8" }
+                                : oauthMailbox
+                                  ? { background: "#f0f7ff", color: "#2563eb" }
                                 : { background: "#fdecec", color: "#dc2626" };
 
                           return (
-                            <tr key={item.id || index}>
+                            <tr key={mailboxActionKey || index}>
+                              {showCreateGroup && (
+                                <td style={{ textAlign: "center" }}>
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Select ${emailAddress}`}
+                                    checked={selectedGroupMailboxes.includes(mailboxGroupKey(item))}
+                                    onChange={(event) => {
+                                      const key = mailboxGroupKey(item);
+                                      setSelectedGroupMailboxes((current) => event.target.checked
+                                        ? [...current, key]
+                                        : current.filter((value) => value !== key)
+                                      );
+                                    }}
+                                  />
+                                </td>
+                              )}
                               <td>
                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                   <span
@@ -431,7 +736,15 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                                 </div>
                               </td>
                               <td>
-                                {hasOutgoing(item) ? (
+                                {oauthMailbox ? (
+                                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                                    <span style={{ color: "#3f9f42", fontWeight: 700, lineHeight: "18px" }}>{"\u2713"}</span>
+                                    <span>
+                                      <span style={{ display: "block", color: "#1f2937" }}>{provider}</span>
+                                      <span style={{ display: "block", color: "#6b7280", fontSize: 12, marginTop: 2 }}>OAuth</span>
+                                    </span>
+                                  </div>
+                                ) : hasOutgoing(item) ? (
                                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                                     <span style={{ color: "#3f9f42", fontWeight: 700, lineHeight: "18px" }}>{"\u2713"}</span>
                                     <span>
@@ -444,13 +757,31 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                                 )}
                               </td>
                               <td>
-                                {inbox ? (
+                                {oauthMailbox && inboxSyncEnabled ? (
+                                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                                    <span style={{ color: "#3f9f42", fontWeight: 700, lineHeight: "18px" }}>{"\u2713"}</span>
+                                    <span>
+                                      <span style={{ display: "block", color: "#1f2937" }}>{provider}</span>
+                                      <span style={{ display: "block", color: "#6b7280", fontSize: 12, marginTop: 2 }}>Connected</span>
+                                    </span>
+                                  </div>
+                                ) : oauthMailbox ? (
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#9ca3af" }}>
+                                    <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#9ca3af", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>-</span>
+                                    <span>Sync disabled</span>
+                                  </div>
+                                ) : inbox && inboxSyncEnabled ? (
                                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                                     <span style={{ color: "#3f9f42", fontWeight: 700, lineHeight: "18px" }}>{"\u2713"}</span>
                                     <span>
                                       <span style={{ display: "block", color: "#1f2937" }}>{inbox.host || "-"}:{inbox.port || "-"}</span>
                                       <span style={{ display: "block", color: "#6b7280", fontSize: 12, marginTop: 2 }}>{inbox.encryption || "-"}</span>
                                     </span>
+                                  </div>
+                                ) : inbox ? (
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#9ca3af" }}>
+                                    <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#9ca3af", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>-</span>
+                                    <span>Sync disabled</span>
                                   </div>
                                 ) : (
                                   <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#9ca3af" }}>
@@ -475,6 +806,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                               </td>
                               <td style={{ color: "#4b5563", whiteSpace: "nowrap" }}>{formatMailboxDate(item)}</td>
                               <td style={{ position: "relative" }}>
+                                <>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                   <button
                                     className="segment-actions-btn"
@@ -482,14 +814,14 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                                     style={{ border: "none", background: "transparent", cursor: "pointer", padding: "2px 8px", fontSize: 20, color: "#374151" }}
                                     onClick={() =>
                                       setMailboxActionsAnchor(
-                                        `smtp-${item.id}` === mailboxActionsAnchor ? null : `smtp-${item.id}`
+                                        mailboxActionKey === mailboxActionsAnchor ? null : mailboxActionKey
                                       )
                                     }
                                   >
                                     {"\u22EE"}
                                   </button>
                                 </div>
-                                {mailboxActionsAnchor === `smtp-${item.id}` && (
+                                {mailboxActionsAnchor === mailboxActionKey && (
                                   <div
                                     className="segment-actions-menu py-[10px]"
                                     style={{
@@ -507,7 +839,8 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                                     {!isDemoAccount && (
                                       <button
                                         onClick={() => {
-                                          handleEdit(item);
+                                          if (oauthMailbox) openOauthEdit(item);
+                                          else handleEdit(item);
                                           setMailboxActionsAnchor(null);
                                         }}
                                         style={menuBtnStyle}
@@ -522,7 +855,8 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                                     {!isDemoAccount && (
                                       <button
                                         onClick={() => {
-                                          handleDelete(item.id);
+                                          if (oauthMailbox) setOauthDeleteTarget(item);
+                                          else handleDelete(item.id);
                                           setMailboxActionsAnchor(null);
                                         }}
                                         style={{ ...menuBtnStyle }}
@@ -536,6 +870,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                                     )}
                                   </div>
                                 )}
+                                </>
                               </td>
                             </tr>
                           );
@@ -565,6 +900,93 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                     onCancel={resetSmtpEditForm}
                   />
                 </CommonSidePanel>
+                <CommonSidePanel
+                  isOpen={Boolean(oauthEditing)}
+                  onClose={() => !isSavingOauth && setOauthEditing(null)}
+                  title={`Edit ${oauthEditing ? getProvider(oauthEditing) : "OAuth"} configuration`}
+                  footerContent={
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setOauthEditing(null)}
+                        disabled={isSavingOauth}
+                        style={lessPriorityButtonStyle}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void saveOauthConfiguration()}
+                        disabled={isSavingOauth || !oauthSenderName.trim()}
+                        className="px-5 py-2 rounded-md bg-[#3f9f42] text-white disabled:opacity-60"
+                      >
+                        {isSavingOauth ? "Saving..." : "Save"}
+                      </button>
+                    </>
+                  }
+                >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Email address</label>
+                      <input
+                        value={oauthEditing?.fromEmail || ""}
+                        disabled
+                        style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, background: "#f3f4f6" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Sender name</label>
+                      <input
+                        value={oauthSenderName}
+                        onChange={(event) => setOauthSenderName(event.target.value)}
+                        style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6 }}
+                        placeholder="Enter sender name"
+                      />
+                    </div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 14 }}>
+                      <input
+                        type="checkbox"
+                        checked={oauthFullInboxSync}
+                        onChange={(event) => setOauthFullInboxSync(event.target.checked)}
+                      />
+                      Full inbox sync
+                    </label>
+                  </div>
+                </CommonSidePanel>
+                {oauthDeleteTarget && (
+                  <div
+                    className="fixed inset-0 bg-black/40 flex items-center justify-center z-[99999]"
+                    onClick={() => !isDeletingOauth && setOauthDeleteTarget(null)}
+                  >
+                    <div
+                      className="bg-white rounded-xl p-6 w-[440px] max-w-[90vw] shadow-2xl"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <h3 className="text-lg font-semibold mb-3">Delete {getProvider(oauthDeleteTarget)} configuration</h3>
+                      <p className="text-sm text-gray-600 mb-6">
+                        Are you sure you want to delete {oauthDeleteTarget.fromEmail}?
+                      </p>
+                      <div className="flex justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setOauthDeleteTarget(null)}
+                          disabled={isDeletingOauth}
+                          style={lessPriorityButtonStyle}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteOauthConfiguration()}
+                          disabled={isDeletingOauth}
+                          className="px-5 py-2 rounded-md bg-red-600 text-white disabled:opacity-60"
+                        >
+                          {isDeletingOauth ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {/* Inbox Edit Modal */}
                 <CommonSidePanel
                   isOpen={showIMAPEditModal}
@@ -755,6 +1177,160 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                     </div>
                   </form>
                 </CommonSidePanel>
+              </div>
+            )}
+
+            {configTab === "groups" && (
+              <div className="section-wrapper">
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
+                  <div>
+                    <h2 style={{ color: "#111827", textAlign: "left", fontSize: 22, margin: "0 0 6px", fontWeight: 700 }}>
+                      Outgoing groups
+                    </h2>
+                    <p style={{ margin: 0, color: "#4b5563", fontSize: 14 }}>
+                      Group SMTP, Gmail and Outlook mailboxes for outgoing mail.
+                    </p>
+                  </div>
+                </div>
+
+                {groupsLoading ? (
+                  <div style={{ padding: 24, color: "#6b7280" }}>Loading groups...</div>
+                ) : outgoingGroups.length === 0 ? (
+                  <div style={{ padding: 32, border: "1px dashed #d1d5db", borderRadius: 10, textAlign: "center", color: "#6b7280" }}>
+                    No outgoing groups created yet.
+                  </div>
+                ) : (
+                  <div style={{ overflow: "visible", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff" }}>
+                    <table className="contacts-table" style={{ background: "#fff", margin: 0 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          <th>Group name</th>
+                          <th>Description</th>
+                          <th>Mailboxes</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {outgoingGroups.map((group: any) => (
+                          <tr key={group.id}>
+                            <td style={{ fontWeight: 600 }}>{group.name}</td>
+                            <td style={{ color: "#6b7280" }}>{group.description || "-"}</td>
+                            <td>
+                              <button
+                                type="button"
+                                onClick={() => setViewGroupMailboxes(group)}
+                                title="View group mailboxes"
+                                style={{ border: "none", background: "transparent", color: "#3f9f42", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 6px" }}
+                              >
+                                <FontAwesomeIcon icon={faEnvelope} style={{ fontSize: 19 }} />
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>{(group.members || []).length}</span>
+                              </button>
+                            </td>
+                            <td>
+                              <div style={{ position: "relative", display: "inline-block" }}>
+                              <button
+                                className="segment-actions-btn"
+                                type="button"
+                                onClick={() => setGroupActionsAnchor(groupActionsAnchor === group.id ? null : group.id)}
+                                style={{ border: "none", background: "transparent", cursor: "pointer", padding: "2px 8px", fontSize: 20, color: "#374151" }}
+                              >
+                                {"\u22EE"}
+                              </button>
+                              {groupActionsAnchor === group.id && (
+                                <div
+                                  className="segment-actions-menu py-[10px]"
+                                  style={{ position: "absolute", left: 24, top: 4, background: "#fff", border: "1px solid #eee", borderRadius: 6, boxShadow: "0 2px 16px rgba(0,0,0,0.12)", zIndex: 1000, minWidth: 160 }}
+                                >
+                                  <button
+                                    type="button"
+                                    style={menuBtnStyle}
+                                    className="flex gap-2 items-center"
+                                    onClick={() => {
+                                      setGroupActionsAnchor(null);
+                                      editOutgoingGroup(group);
+                                    }}
+                                  >
+                                    <span style={actionIconStyle}><FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", fontSize: 20 }} /></span>
+                                    <span className="font-[600]">Edit</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    style={menuBtnStyle}
+                                    className="flex gap-2 items-center"
+                                    onClick={() => {
+                                      setGroupActionsAnchor(null);
+                                      setGroupDeleteTarget(group);
+                                    }}
+                                  >
+                                    <span style={actionIconStyle}><FontAwesomeIcon icon={faTrashAlt} style={{ color: "#3f9f42", fontSize: 20 }} /></span>
+                                    <span className="font-[600]">Delete</span>
+                                  </button>
+                                </div>
+                              )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {groupDeleteTarget && (
+                  <div
+                    className="fixed inset-0 bg-black/40 flex items-center justify-center z-[99999]"
+                    onClick={() => !deletingGroup && setGroupDeleteTarget(null)}
+                  >
+                    <div className="bg-white rounded-xl p-6 w-[440px] max-w-[90vw] shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                      <h3 className="text-lg font-semibold mb-3">Delete outgoing group</h3>
+                      <p className="text-sm text-gray-600 mb-6">
+                        Are you sure you want to delete {groupDeleteTarget.name}?
+                      </p>
+                      <div className="flex justify-end gap-3">
+                        <button type="button" style={lessPriorityButtonStyle} disabled={deletingGroup} onClick={() => setGroupDeleteTarget(null)}>
+                          Cancel
+                        </button>
+                        <button type="button" className="px-5 py-2 rounded-md bg-red-600 text-white disabled:opacity-60" disabled={deletingGroup} onClick={deleteOutgoingGroup}>
+                          {deletingGroup ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {viewGroupMailboxes && (
+                  <div
+                    className="fixed inset-0 bg-black/40 flex items-center justify-center z-[99999]"
+                    onClick={() => setViewGroupMailboxes(null)}
+                  >
+                    <div
+                      className="bg-white rounded-xl p-6 w-[500px] max-w-[90vw] shadow-2xl"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div style={{ marginBottom: 18 }}>
+                        <div>
+                          <h3 className="text-lg font-semibold" style={{ margin: 0 }}>{viewGroupMailboxes.name}</h3>
+                          <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>Group mailboxes</p>
+                        </div>
+                      </div>
+                      <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", maxHeight: 360, overflowY: "auto" }}>
+                        {(viewGroupMailboxes.members || []).map((member: any) => (
+                          <div
+                            key={`${member.provider}:${member.outboxId}`}
+                            style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderBottom: "1px solid #eef0f3" }}
+                          >
+                            <span style={{ width: 34, height: 34, borderRadius: "50%", background: "#eef8ef", color: "#3f9f42", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <FontAwesomeIcon icon={faEnvelope} />
+                            </span>
+                            <span style={{ flex: 1, color: "#1f2937", fontWeight: 600 }}>{groupMemberLabel(member).replace(` (${member.provider})`, "")}</span>
+                            <span style={{ color: "#6b7280", fontSize: 12 }}>{member.provider}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                        <button type="button" style={lessPriorityButtonStyle} onClick={() => setViewGroupMailboxes(null)}>Close</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
