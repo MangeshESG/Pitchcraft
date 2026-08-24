@@ -3,6 +3,10 @@ import { useDispatch, useSelector } from "react-redux";
 import API_BASE_URL from "../../config";
 import { RootState } from "../../Redux/store";
 import {
+  applySessionAndReload,
+  impersonateClient,
+} from "../../utils/impersonation";
+import {
   saveEmail,
   saveFirstName,
   saveLastName,
@@ -55,16 +59,33 @@ const EMPTY_PASSWORD: PasswordForm = {
   confirmPassword: "",
 };
 
+interface ProfileProps {
+  /** Client picked in the header dropdown; empty when none is selected. */
+  selectedClient?: string;
+}
+
 type ProfileTab = "Information" | "Password";
 type Banner = { type: "success" | "error"; text: string } | null;
 
 const required = <span className="text-[#ef4444]"> *</span>;
 
-const Profile: React.FC = () => {
+const Profile: React.FC<ProfileProps> = ({ selectedClient = "" }) => {
   const dispatch = useDispatch();
-  // The profile always belongs to the logged in account — never the client an
-  // admin has selected in the header dropdown.
-  const userId = useSelector((state: RootState) => state.auth.userId);
+  const ownUserId = useSelector((state: RootState) => state.auth.userId);
+
+  // An admin working inside a client (header dropdown) edits that client's
+  // profile; everyone else always edits their own. The role is re-checked here
+  // rather than trusted from the dropdown, so a stale selection left in storage
+  // can't point a normal user at someone else's account.
+  const isAdmin =
+    (sessionStorage.getItem("isAdmin") ?? localStorage.getItem("isAdmin")) ===
+    "true";
+  const otherClientId =
+    isAdmin && selectedClient && selectedClient !== String(ownUserId ?? "")
+      ? selectedClient
+      : "";
+  const isViewingOtherClient = otherClientId !== "";
+  const userId = otherClientId || ownUserId;
 
   const [activeTab, setActiveTab] = useState<ProfileTab>("Information");
   const [form, setForm] = useState<ProfileForm>(EMPTY_PROFILE);
@@ -74,6 +95,8 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [confirmingSignIn, setConfirmingSignIn] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const [profileBanner, setProfileBanner] = useState<Banner>(null);
   const [passwordBanner, setPasswordBanner] = useState<Banner>(null);
   const [memberSince, setMemberSince] = useState<string>("");
@@ -122,6 +145,16 @@ const Profile: React.FC = () => {
       cancelled = true;
     };
   }, [userId]);
+
+  // Passwords are only ever changed for your own login, so that tab has nothing
+  // to show while an admin is inside a client's profile.
+  useEffect(() => {
+    setProfileBanner(null);
+    setPasswordBanner(null);
+    setPasswordForm(EMPTY_PASSWORD);
+    setConfirmingSignIn(false);
+    if (isViewingOtherClient) setActiveTab("Information");
+  }, [isViewingOtherClient, userId]);
 
   const updateField = (field: keyof ProfileForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -173,11 +206,15 @@ const Profile: React.FC = () => {
       }
 
       setSavedForm(form);
-      // Keep the header (and anything else reading auth state) in sync.
-      dispatch(saveFirstName(form.firstName));
-      dispatch(saveLastName(form.lastName));
-      dispatch(saveEmail(form.email));
-      dispatch(saveUserName(form.username));
+      // Keep the header (and anything else reading auth state) in sync — but
+      // only for your own profile, or the header would start showing the
+      // client's name as the signed-in user.
+      if (!isViewingOtherClient) {
+        dispatch(saveFirstName(form.firstName));
+        dispatch(saveLastName(form.lastName));
+        dispatch(saveEmail(form.email));
+        dispatch(saveUserName(form.username));
+      }
 
       setProfileBanner({
         type: "success",
@@ -191,7 +228,9 @@ const Profile: React.FC = () => {
   };
 
   const changePassword = async () => {
-    if (!userId) return;
+    // Never the selected client — an admin cannot change someone else's
+    // password here (the API requires their current one).
+    if (!ownUserId) return;
 
     const { currentPassword, newPassword, confirmPassword } = passwordForm;
 
@@ -223,7 +262,7 @@ const Profile: React.FC = () => {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/login/profile/${userId}/change-password`,
+        `${API_BASE_URL}/api/login/profile/${ownUserId}/change-password`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -252,6 +291,35 @@ const Profile: React.FC = () => {
     }
   };
 
+  // Whoever the loaded profile belongs to, for the header and the notice.
+  const clientLabel =
+    [savedForm.firstName, savedForm.lastName].filter(Boolean).join(" ") ||
+    savedForm.username ||
+    savedForm.email ||
+    "this client";
+
+  const signInAsClient = async () => {
+    if (!isViewingOtherClient) return;
+
+    setSigningIn(true);
+    setProfileBanner(null);
+
+    try {
+      const session = await impersonateClient(Number(otherClientId));
+
+      // One-way by design: the new session replaces the admin one outright, so
+      // nothing about it looks different from the client signing in themselves.
+      await applySessionAndReload(session);
+    } catch (error: any) {
+      setProfileBanner({
+        type: "error",
+        text: error?.message || "Could not sign in as this client.",
+      });
+      setSigningIn(false);
+      setConfirmingSignIn(false);
+    }
+  };
+
   const renderBanner = (banner: Banner) =>
     banner ? (
       <div className={bannerClass(banner.type)}>{banner.text}</div>
@@ -263,7 +331,9 @@ const Profile: React.FC = () => {
       <div className={pageHeaderClass}>
         <h1 className={pageTitleClass}>Profile</h1>
         <p className={pageSubClass}>
-          Manage your personal details, company information and password.
+          {isViewingOtherClient
+            ? `Personal and company details for ${clientLabel}, the client selected in the header.`
+            : "Manage your personal details, company information and password."}
           {memberSince ? ` Member since ${memberSince}.` : ""}
         </p>
 
@@ -274,12 +344,14 @@ const Profile: React.FC = () => {
           >
             Information
           </button>
-          <button
-            onClick={() => setActiveTab("Password")}
-            className={tabClass(activeTab === "Password")}
-          >
-            Password
-          </button>
+          {!isViewingOtherClient && (
+            <button
+              onClick={() => setActiveTab("Password")}
+              className={tabClass(activeTab === "Password")}
+            >
+              Password
+            </button>
+          )}
         </nav>
       </div>
 
@@ -290,6 +362,13 @@ const Profile: React.FC = () => {
           </p>
         ) : activeTab === "Information" ? (
           <div className="max-w-4xl">
+            {isViewingOtherClient && (
+              <div className="mb-6 rounded-lg border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-[#92400e]">
+                You are editing <strong>{clientLabel}</strong>'s account. Saving
+                changes their sign-in email and username. Clear the client in the
+                header dropdown to get back to your own profile.
+              </div>
+            )}
             {renderBanner(profileBanner)}
 
             {/* Personal information */}
@@ -387,6 +466,56 @@ const Profile: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {isViewingOtherClient && (
+              <div className={`${sectionClass} mt-8`}>
+                <div className={cardClass}>
+                  <div className="text-sm font-semibold text-[#0b1220]">
+                    Sign in as {clientLabel}
+                  </div>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[#6b7280]">
+                    Switches this browser to {clientLabel}'s account so you can
+                    work in it exactly as they would — the session looks and
+                    behaves like their own, with no admin access and no way back
+                    from inside it. Sign out and sign in again to return to your
+                    admin account. Their password is not changed, so they are
+                    never locked out.
+                  </p>
+
+                  {confirmingSignIn ? (
+                    <div className="mt-4 flex items-center gap-3">
+                      <button
+                        onClick={signInAsClient}
+                        disabled={signingIn}
+                        className={primaryButtonClass}
+                      >
+                        {signingIn
+                          ? "Switching..."
+                          : `Yes, sign in as ${clientLabel}`}
+                      </button>
+                      <button
+                        onClick={() => setConfirmingSignIn(false)}
+                        disabled={signingIn}
+                        className={secondaryButtonClass}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setProfileBanner(null);
+                        setConfirmingSignIn(true);
+                      }}
+                      disabled={loading || saving}
+                      className={`${secondaryButtonClass} mt-4`}
+                    >
+                      Sign in as this client
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="max-w-4xl">

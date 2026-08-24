@@ -4203,7 +4203,7 @@ try {
             )}
             {shouldRenderTab("Profile") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Profile")}>
-                <Profile />
+                <Profile selectedClient={selectedClient} />
               </div>
             )}
             {shouldRenderTab("MyPlan") && (
