@@ -13,20 +13,16 @@ import {
   hintClass,
   inputClass,
   labelClass,
-  pageBodyClass,
-  pageClass,
-  pageHeaderClass,
-  pageSubClass,
-  pageTitleClass,
   primaryButtonClass,
   secondaryButtonClass,
   sectionClass,
 } from "../common/settingsStyles";
 
 /**
- * Admin-only page: one model picker per AI purpose. Every API that calls a
- * model reads its model from here, so these selects are the only place a model
- * is chosen in the product.
+ * One model picker per AI purpose — the "AI models" tab of the admin page.
+ * Every API that calls a model reads its model from here, so these selects are
+ * the only place a model is chosen in the product. Rendered inside the page
+ * chrome owned by `AdminSettings`, so it starts at the body.
  */
 const AiModelSettings: React.FC = () => {
   const [settings, setSettings] = useState<AiModelSetting[]>([]);
@@ -140,115 +136,102 @@ const AiModelSettings: React.FC = () => {
   };
 
   return (
-    <div className={pageClass}>
-      <div className={pageHeaderClass}>
-        <h1 className={pageTitleClass}>AI models</h1>
-        <p className={pageSubClass}>
-          Choose the model behind each part of the product. These settings apply
-          to every client and take effect on the next generation.
-        </p>
-        <div className="h-5" />
-      </div>
+    <div className="max-w-4xl">
+      {banner && <div className={bannerClass(banner.type)}>{banner.text}</div>}
 
-      <div className={pageBodyClass}>
-        <div className="max-w-4xl">
-          {banner && <div className={bannerClass(banner.type)}>{banner.text}</div>}
-
-          {isLoading ? (
-            <div className={cardClass}>
-              <p className="text-sm text-[#6b7280]">Loading AI model settings…</p>
-            </div>
-          ) : (
-            <>
-              <div className={`${sectionClass} mb-8`}>
-                <div className={cardClass}>
-                  {settings.map((setting, index) => {
-                    const selected = draft[setting.purposeKey] ?? setting.modelName;
-                    const isUnknownModel = !modelOptions.some(
-                      (option) => option.id === selected,
-                    );
-
-                    return (
-                      <div
-                        key={setting.purposeKey}
-                        className={
-                          index === settings.length - 1
-                            ? ""
-                            : "mb-6 border-b border-[#f1f2f4] pb-6"
-                        }
-                      >
-                        <label
-                          className={labelClass}
-                          htmlFor={`ai-model-${setting.purposeKey}`}
-                        >
-                          {setting.label}
-                        </label>
-                        <select
-                          id={`ai-model-${setting.purposeKey}`}
-                          className={inputClass}
-                          value={selected}
-                          disabled={!setting.supportedByApi}
-                          onChange={(event) =>
-                            setDraft((previous) => ({
-                              ...previous,
-                              [setting.purposeKey]: event.target.value,
-                            }))
-                          }
-                        >
-                          {/* A model configured on the server but not in the
-                              local list still has to be selectable. */}
-                          {isUnknownModel && (
-                            <option value={selected}>
-                              {getModelLabel(selected)}
-                            </option>
-                          )}
-                          {modelOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.name}
-                            </option>
-                          ))}
-                        </select>
-                        <p className={hintClass}>
-                          {setting.description} Default:{" "}
-                          <strong>{getModelLabel(setting.defaultModel)}</strong>.
-                          {!setting.supportedByApi && (
-                            <>
-                              {" "}
-                              <span className="text-[#b45309]">
-                                This API does not serve this purpose yet, so it
-                                runs on its default and cannot be changed here.
-                              </span>
-                            </>
-                          )}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className={`${sectionClass} flex items-center gap-3`}>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={isSaving || !hasChanges}
-                  className={primaryButtonClass}
-                >
-                  {isSaving ? "Saving..." : "Save changes"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetToDefaults}
-                  disabled={isSaving}
-                  className={secondaryButtonClass}
-                >
-                  Reset to defaults
-                </button>
-              </div>
-            </>
-          )}
+      {isLoading ? (
+        <div className={cardClass}>
+          <p className="text-sm text-[#6b7280]">Loading AI model settings…</p>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className={`${sectionClass} mb-8`}>
+            <div className={cardClass}>
+              {settings.map((setting, index) => {
+                const selected = draft[setting.purposeKey] ?? setting.modelName;
+                const isUnknownModel = !modelOptions.some(
+                  (option) => option.id === selected,
+                );
+
+                return (
+                  <div
+                    key={setting.purposeKey}
+                    className={
+                      index === settings.length - 1
+                        ? ""
+                        : "mb-6 border-b border-[#f1f2f4] pb-6"
+                    }
+                  >
+                    <label
+                      className={labelClass}
+                      htmlFor={`ai-model-${setting.purposeKey}`}
+                    >
+                      {setting.label}
+                    </label>
+                    <select
+                      id={`ai-model-${setting.purposeKey}`}
+                      className={inputClass}
+                      value={selected}
+                      disabled={!setting.supportedByApi}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          [setting.purposeKey]: event.target.value,
+                        }))
+                      }
+                    >
+                      {/* A model configured on the server but not in the
+                          local list still has to be selectable. */}
+                      {isUnknownModel && (
+                        <option value={selected}>
+                          {getModelLabel(selected)}
+                        </option>
+                      )}
+                      {modelOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className={hintClass}>
+                      {setting.description} Default:{" "}
+                      <strong>{getModelLabel(setting.defaultModel)}</strong>.
+                      {!setting.supportedByApi && (
+                        <>
+                          {" "}
+                          <span className="text-[#b45309]">
+                            This API does not serve this purpose yet, so it
+                            runs on its default and cannot be changed here.
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className={`${sectionClass} flex items-center gap-3`}>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving || !hasChanges}
+              className={primaryButtonClass}
+            >
+              {isSaving ? "Saving..." : "Save changes"}
+            </button>
+            <button
+              type="button"
+              onClick={handleResetToDefaults}
+              disabled={isSaving}
+              className={secondaryButtonClass}
+            >
+              Reset to defaults
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

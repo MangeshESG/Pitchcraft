@@ -44,8 +44,7 @@ import EmailCampaignBuilder from "./feature/blueprint/EmailCampaignBuilder";
 import DeepSeekSearchGenerator from "./feature/blueprint/DeepSeekSearchGenerator";
 import Settings from "./feature/Settings";
 import Profile from "./feature/Profile";
-import InstructionSetPage from "./feature/blueprint/InstructionSetPage";
-import AiModelSettings from "./feature/AiModelSettings";
+import AdminSettings from "./feature/AdminSettings";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
@@ -3858,43 +3857,25 @@ try {
                               General
                             </button>
                           </li>
+                          {/* Instruction set, AI models and Security are tabs
+                              inside this one admin page. */}
                           {userRole === "ADMIN" && (
                             <li
                               className={
                                 tab === "Settings" &&
-                                settingsSubTab === "InstructionSet"
+                                settingsSubTab === "Admin"
                                   ? "active"
                                   : ""
                               }
                             >
                               <button
                                 onClick={() => {
-                                  setSettingsSubTab("InstructionSet");
+                                  setSettingsSubTab("Admin");
                                   setTab("Settings");
                                 }}
                                 className="submenu-button"
                               >
-                                Instruction set
-                              </button>
-                            </li>
-                          )}
-                          {userRole === "ADMIN" && (
-                            <li
-                              className={
-                                tab === "Settings" &&
-                                settingsSubTab === "AiModels"
-                                  ? "active"
-                                  : ""
-                              }
-                            >
-                              <button
-                                onClick={() => {
-                                  setSettingsSubTab("AiModels");
-                                  setTab("Settings");
-                                }}
-                                className="submenu-button"
-                              >
-                                AI models
+                                Admin
                               </button>
                             </li>
                           )}
@@ -4213,10 +4194,8 @@ try {
             )}
             {shouldRenderTab("Settings") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Settings")}>
-                {settingsSubTab === "InstructionSet" && userRole === "ADMIN" ? (
-                  <InstructionSetPage selectedClient={(effectiveUserId ?? "").toString()} />
-                ) : settingsSubTab === "AiModels" && userRole === "ADMIN" ? (
-                  <AiModelSettings />
+                {settingsSubTab === "Admin" && userRole === "ADMIN" ? (
+                  <AdminSettings selectedClient={(effectiveUserId ?? "").toString()} />
                 ) : (
                   <Settings selectedClient={(effectiveUserId ?? "").toString()} />
                 )}
