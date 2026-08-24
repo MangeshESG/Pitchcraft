@@ -15,6 +15,7 @@ interface SendEmailPanelProps {
   bccSelectMode: string;
   setBccSelectMode: (mode: string) => void;
   smtpUsers: any[];
+  outgoingGroups?: any[];
   selectedSmtpUser: string;
   setSelectedSmtpUser: (id: string) => void;
   minDelay: number;
@@ -67,6 +68,7 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
   bccSelectMode,
   setBccSelectMode,
   smtpUsers,
+  outgoingGroups = [],
   selectedSmtpUser,
   setSelectedSmtpUser,
   minDelay,
@@ -482,14 +484,27 @@ setOverwriteDatabase,
                       style={{ width: "100%", padding: "8px", fontSize: 14 }}
                     >
                       <option value="">Sender</option>
-                      {smtpUsers
-                        .filter(user => user && user.email)
-                        .sort((a, b) => a.email.localeCompare(b.email, undefined, { sensitivity: 'base' }))
-                        .map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.email}
-                        </option>
-                      ))}
+                      <optgroup label="Mailboxes">
+                        {smtpUsers
+                          .filter(user => user && user.email)
+                          .sort((a, b) => a.email.localeCompare(b.email, undefined, { sensitivity: 'base' }))
+                          .map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.email}
+                          </option>
+                        ))}
+                      </optgroup>
+                      {outgoingGroups.length > 0 && (
+                        <optgroup label="Outgoing groups">
+                          {[...outgoingGroups]
+                            .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" }))
+                            .map((group) => (
+                              <option key={`group-${group.id}`} value={`group:${group.id}`}>
+                                {group.name} ({(group.members || []).length} mailboxes)
+                              </option>
+                            ))}
+                        </optgroup>
+                      )}
                     </select>
                   </div>
 
