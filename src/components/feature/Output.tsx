@@ -1217,6 +1217,12 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     smtpType?: string;
   }
 
+  interface OutgoingGroup {
+    id: number;
+    name: string;
+    members: Array<{ outboxId: number; provider: string }>;
+  }
+
   // Inside your Output component, add these state variables:
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailFormData, setEmailFormData] = useState({
@@ -1228,6 +1234,7 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
   const [smtpUsers, setSmtpUsers] = useState<SmtpUser[]>([]);
+  const [outgoingGroups, setOutgoingGroups] = useState<OutgoingGroup[]>([]);
 
   // Get token and userId (add if not already present)
   const token = sessionStorage.getItem("token");
@@ -1339,17 +1346,18 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
   useEffect(() => {
     const fetchSmtpUsers = async () => {
       try {
-        const response = await axios.get(
-          `${API_BASE_URL}/api/email/get-Outboxs?clientId=${effectiveUserId}`,
-          {
+        const [outboxResponse, groupResponse] = await Promise.all([
+          axios.get(`${API_BASE_URL}/api/email/get-Outboxs?clientId=${effectiveUserId}`, {
             headers: {
               ...(token && { Authorization: `Bearer ${token}` }),
             },
-          },
-        );
-        setSmtpUsers(response.data?.data || []);
+          }),
+          axios.get(`${API_BASE_URL}/api/OutgoingMailboxGroup/get?clientId=${effectiveUserId}`),
+        ]);
+        setSmtpUsers(outboxResponse.data?.data || []);
+        setOutgoingGroups(Array.isArray(groupResponse.data) ? groupResponse.data : []);
       } catch (error) {
-        console.error("Failed to fetch SMTP users:", error);
+        console.error("Failed to fetch senders or outgoing groups:", error);
       }
     };
 
@@ -1357,6 +1365,22 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
       fetchSmtpUsers();
     }
   }, [effectiveUserId, token]);
+
+  const resolveSelectedOutbox = (rotationIndex = 0) => {
+    if (selectedSmtpUser.startsWith("group:")) {
+      const groupId = Number(selectedSmtpUser.replace("group:", ""));
+      const group = outgoingGroups.find((item) => item.id === groupId);
+      const members = group?.members || [];
+      const member = members.length > 0 ? members[rotationIndex % members.length] : null;
+      return member ? { outboxId: member.outboxId, type: member.provider } : null;
+    }
+
+    const senderId = Number(selectedSmtpUser);
+    const sender = smtpUsers.find((item) => item.id === senderId);
+    return senderId
+      ? { outboxId: senderId, type: sender?.type || sender?.smtpType || "" }
+      : null;
+  };
 
   // Prepend a timestamped, colored line to the shared output log (the same
   // "small part" banner used for email generation) so email-send progress and
@@ -1417,15 +1441,17 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
       console.log("Sending email to:", currentContact?.name);
 
       // In handleSendEmail function, replace the requestBody with:
-      const selectedSmtp = smtpUsers.find(u => u.id === parseInt(selectedSmtpUser || "0"));
+      // A single send always starts with the first mailbox in a selected group.
+      // Individual mailbox selections continue through the existing path.
+      const selectedOutbox = resolveSelectedOutbox(0);
       const requestBody = {
         clientId: parseInt(effectiveUserId || "0"),
         contactid: currentContact.id,
         campaignid: selectedCampaign ? parseInt(selectedCampaign) : null,
         isFollowUp: followupEnabled || false,
         BccEmail: parseBccEmailList(emailFormData.BccEmail || ""),
-        OutboxId: parseInt(selectedSmtpUser || "0"),
-        Type: selectedSmtp?.type || selectedSmtp?.smtpType || "",
+        OutboxId: selectedOutbox?.outboxId || 0,
+        Type: selectedOutbox?.type || "",
         SegmentId: currentContact.segmentId &&
           currentContact.segmentId !== "null" &&
           currentContact.segmentId !== "" &&
@@ -1828,6 +1854,10 @@ const sleepWithCountdown = async (ms: number) => {
     setBulkSendIndex(startIdx);
     let sentCount = 0;
     let skippedCount = 0;
+    // Counts only contacts that actually reach the send API. Contacts removed
+    // by filters, follow-up rules, index range, or missing IDs do not consume a
+    // mailbox turn in an outgoing group.
+    let eligibleSendIndex = 0;
 
     while (index <= maxIndex && !stopBulkRef.current) {
       // Update current index to show the contact being processed
@@ -1878,15 +1908,16 @@ const sleepWithCountdown = async (ms: number) => {
         }
 
         // In sendEmailsInBulk function, replace the requestBody with:
-        const selectedSmtp = smtpUsers.find(u => u.id === parseInt(selectedSmtpUser || "0"));
+        const selectedOutbox = resolveSelectedOutbox(eligibleSendIndex);
+        eligibleSendIndex++;
         const requestBody = {
           clientId: parseInt(effectiveUserId || "0"),
           contactid: contact.id,
           campaignid: selectedCampaign ? parseInt(selectedCampaign) : null,
           isFollowUp: followupEnabled || false,
           BccEmail: parseBccEmailList(emailFormData.BccEmail || ""),
-          OutboxId: parseInt(selectedSmtpUser || "0"),
-          Type: selectedSmtp?.type || selectedSmtp?.smtpType || "",
+          OutboxId: selectedOutbox?.outboxId || 0,
+          Type: selectedOutbox?.type || "",
           SegmentId: contact.segmentId &&
             contact.segmentId !== "null" &&
             contact.segmentId !== "" &&
@@ -2413,6 +2444,7 @@ const usageData = useMemo(() => {
           bccSelectMode={bccSelectMode}
           setBccSelectMode={setBccSelectMode}
           smtpUsers={smtpUsers}
+          outgoingGroups={outgoingGroups}
           selectedSmtpUser={selectedSmtpUser}
           setSelectedSmtpUser={setSelectedSmtpUser}
           minDelay={minDelay}
