@@ -1,0 +1,115 @@
+import API_BASE_URL from "../config";
+
+/**
+ * Admin-editable AI instructions. The prompts used to be constants in the API
+ * (Model/FindEmailPrompt.cs and friends); they now live only in
+ * app_prompt_settings and are served by `/api/prompt-settings`, so an admin can
+ * change one from Settings > Admin > Prompts without a deploy. There is no
+ * compiled-in copy behind them: a prompt nobody has saved is simply empty, and
+ * the feature it drives is off until someone writes one.
+ */
+export type PromptKey = "find_email";
+
+export interface PromptSetting {
+  promptKey: PromptKey;
+  label: string;
+  description: string;
+  /** The stored text the API sends to the model. Empty when nothing is saved. */
+  promptText: string;
+  /** False while the prompt is empty, i.e. the feature behind it is off. */
+  isConfigured: boolean;
+  /** Placeholders the text may use, e.g. `{full_name}`. */
+  placeholders: string[];
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+// Order the admin page renders the prompts in.
+export const PROMPT_KEY_ORDER: PromptKey[] = ["find_email"];
+
+const isPromptKey = (value: string): value is PromptKey =>
+  PROMPT_KEY_ORDER.includes(value as PromptKey);
+
+const normalizePrompt = (raw: any): PromptSetting | null => {
+  const promptKey = String(raw?.promptKey ?? raw?.PromptKey ?? "");
+  if (!isPromptKey(promptKey)) return null;
+
+  const promptText = String(raw?.promptText ?? raw?.PromptText ?? "");
+
+  return {
+    promptKey,
+    label: raw?.label || raw?.Label || promptKey,
+    description: raw?.description || raw?.Description || "",
+    promptText,
+    // The API sends this, but derive it too so the flag stays right whatever
+    // casing or build answers.
+    isConfigured:
+      raw?.isConfigured ?? raw?.IsConfigured ?? promptText.trim().length > 0,
+    placeholders: raw?.placeholders || raw?.Placeholders || [],
+    updatedAt: raw?.updatedAt ?? raw?.UpdatedAt ?? null,
+    updatedBy: raw?.updatedBy ?? raw?.UpdatedBy ?? null,
+  };
+};
+
+export const fetchPromptSettings = async (): Promise<PromptSetting[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/prompt-settings`, {
+    headers: { accept: "application/json" },
+  });
+
+  const json = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      json?.message || json?.Message || "Failed to load prompt settings.",
+    );
+  }
+
+  const rawPrompts: any[] = json?.prompts || json?.Prompts || [];
+  const prompts = rawPrompts
+    .map(normalizePrompt)
+    .filter((prompt): prompt is PromptSetting => prompt !== null);
+
+  // Keep the page order stable regardless of what the API returns.
+  prompts.sort(
+    (left, right) =>
+      PROMPT_KEY_ORDER.indexOf(left.promptKey) -
+      PROMPT_KEY_ORDER.indexOf(right.promptKey),
+  );
+
+  return prompts;
+};
+
+/** Saves one or more prompts. A blank text clears that prompt. */
+export const savePromptSettings = async (
+  prompts: Record<string, string>,
+  updatedBy?: string,
+): Promise<PromptSetting[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/prompt-settings`, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ prompts, updatedBy }),
+  });
+
+  const json = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      json?.message || json?.Message || "Failed to save prompt settings.",
+    );
+  }
+
+  const rawPrompts: any[] = json?.prompts || json?.Prompts || [];
+
+  return rawPrompts
+    .map(normalizePrompt)
+    .filter((prompt): prompt is PromptSetting => prompt !== null);
+};
+
+/** Placeholders the editor should warn about when they go missing. */
+export const findMissingPlaceholders = (
+  promptText: string,
+  placeholders: string[],
+) => placeholders.filter((placeholder) => !promptText.includes(placeholder));
