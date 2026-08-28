@@ -654,11 +654,20 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
   const [trustThisDevice, setTrustThisDevice] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
-  const { timeLeft, isExpired, startTimer, formatTime } = useOtpTimer();
+  const [resendCooldown, setResendCooldown] = useState(30);
+  const { isExpired, startTimer, formatTime } = useOtpTimer();
 
   React.useEffect(() => {
     startTimer();
   }, []);
+
+  React.useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendCooldown((current) => Math.max(0, current - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
 
   const registerEmail = localStorage.getItem("registerEmail");
   const registerUsername = localStorage.getItem("registerUsername");
@@ -908,6 +917,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
   };
 
   const handleResendOtp = async () => {
+    if (isResending || resendCooldown > 0) return;
     setIsResending(true);
     setError("");
     setMsg("");
@@ -943,6 +953,8 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         if (response.ok && (data.success || data.message?.toLowerCase().includes("otp"))) {
           setMsg("OTP resent successfully!");
           startTimer();
+          setResendCooldown(30);
+          setOtp("");
           setTimeout(() => setMsg(""), 3000);
         } else {
           setError("Failed to resend OTP. Please try again.");
@@ -968,6 +980,8 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         if (response.ok) {
           setMsg("OTP resent successfully!");
           startTimer();
+          setResendCooldown(30);
+          setOtp("");
           setTimeout(() => setMsg(""), 3000);
         } else {
           setError("Failed to resend OTP. Please try again.");
@@ -983,6 +997,8 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         if (response.ok) {
           setMsg("OTP resent successfully!");
           startTimer();
+          setResendCooldown(30);
+          setOtp("");
           setTimeout(() => setMsg(""), 3000);
         } else {
           setError("Failed to resend OTP. Please try again.");
@@ -1056,27 +1072,43 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         )}
 
         <button 
-          type={isExpired ? "button" : "submit"} 
+          type="submit"
           className="login-button" 
-          disabled={isLoading || isResending}
-          onClick={isExpired ? handleResendOtp : undefined}
+          disabled={isLoading || isResending || isExpired}
         >
           {isLoading ? (
             <>
               <div className="spinner"></div>
               Verifying...
             </>
-          ) : isResending ? (
-            <>
-              <div className="spinner"></div>
-              Resending...
-            </>
-          ) : isExpired ? (
-            "Resend OTP"
           ) : (
             "Verify OTP"
           )}
         </button>
+
+        <div style={{ marginTop: 12, textAlign: "center", fontSize: 14 }}>
+          <span style={{ color: "#666" }}>Didn't receive the code? </span>
+          <button
+            type="button"
+            onClick={handleResendOtp}
+            disabled={isResending || resendCooldown > 0}
+            style={{
+              padding: 0,
+              border: "none",
+              background: "transparent",
+              color: isResending || resendCooldown > 0 ? "#8a8a8a" : "#3f9f42",
+              fontWeight: 600,
+              cursor: isResending || resendCooldown > 0 ? "not-allowed" : "pointer",
+              textDecoration: resendCooldown === 0 && !isResending ? "underline" : "none",
+            }}
+          >
+            {isResending
+              ? "Resending..."
+              : resendCooldown > 0
+                ? `Resend code in ${resendCooldown}s`
+                : "Resend code"}
+          </button>
+        </div>
       </form>
       
       <div style={{ 

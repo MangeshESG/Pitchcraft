@@ -4313,7 +4313,7 @@ const filterFields: any = useMemo(() => {
       />
       <BulkUpdatePanel
         //isOpen={showBulkUpdatePanel}
-        isOpen={showBulkUpdatePanelModal}
+        isOpen={showBulkUpdatePanelModal && activeSubTab !== "View"}
         onClose={() => 
           //setShowBulkUpdatePanel(false)
           dispatch(closePanel())

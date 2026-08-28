@@ -591,6 +591,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "eventType", label: "Event type", visible: true },
     { key: "timestamp", label: "Timestamp", visible: true },
     { key: "sentAt", label: "Sent At", visible: true },
+    { key: "eventsTimer", label: "Events timer", visible: true },
     { key: "hasOpened", label: "Opened", visible: true },
     { key: "botOpened", label: "Bot Opened", visible: true },
     { key: "hasClicked", label: "Clicked", visible: true },
@@ -2039,6 +2040,27 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     return formatUserDateTime(input, input ? "Invalid date" : "");
   };
 
+  const formatEventsTimer = (sentAt?: string, eventAt?: string): string => {
+    if (!sentAt || !eventAt) return "-";
+
+    const sentTime = new Date(sentAt).getTime();
+    const eventTime = new Date(eventAt).getTime();
+    if (!Number.isFinite(sentTime) || !Number.isFinite(eventTime) || eventTime < sentTime) {
+      return "-";
+    }
+
+    const totalSeconds = Math.floor((eventTime - sentTime) / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  };
+
   // Transform event data for table
   // Transform event data for table
   const transformEventDataForTable = (
@@ -2257,6 +2279,9 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   const getEmailContactValue = (contact: EmailContact, key: string): any => {
     if (key === "timestamp" || key === "sentAt") {
       return formatMailTimestamp((contact as any)[key]);
+    }
+    if (key === "eventsTimer") {
+      return formatEventsTimer(contact.sentAt, contact.timestamp);
     }
     if (key === "hasOpened" || key === "hasClicked") {
       return contact[key] ? "✓" : "-";
@@ -3508,6 +3533,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               // Date formatting
               timestamp: (value: any) => formatMailTimestamp(value),
               sentAt: (value: any) => formatMailTimestamp(value),
+              eventsTimer: (_value: any, item: any) =>
+                formatEventsTimer(item?.sentAt, item?.timestamp),
               bounceDate: (value: any) => formatMailTimestamp(value),
 
               // Status formatting
