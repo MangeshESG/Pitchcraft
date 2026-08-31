@@ -600,9 +600,19 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
             </label>
             <style>
               {`
+                .signature-editor .rich-text-editor {
+                  height: 200px;
+                  min-height: 100px;
+                  overflow: auto;
+                  resize: vertical;
+                }
+
                 .signature-editor .rich-text-editor > div {
-                  min-height: 100px !important;
-                  max-height: 200px !important;
+                  height: 100% !important;
+                  min-height: 100% !important;
+                  max-height: none !important;
+                  overflow: auto !important;
+                  resize: none !important;
                 }
               `}
             </style>
