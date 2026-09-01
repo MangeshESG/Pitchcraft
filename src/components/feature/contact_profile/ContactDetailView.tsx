@@ -45,6 +45,7 @@ import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/but
 import ContactQA from "./ContactQA";
 import ContactComposeEmailPopup, { RecipientChipInput, mergeRecipients, parseRecipientInput } from "./ContactComposeEmailPopup";
 import ContactEmailsTab from "./ContactEmailsTab";
+import ContactVerificationTab from "../validation/ContactVerificationTab";
 import { pinEmail } from "../inbox/inboxPin";
 import EmailIframe from "../inbox/EmailIframe";
 import { repairAndParseJsonObject } from "../../../utils/jsonRepair";
@@ -220,7 +221,7 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
       searchParams.get("dataField");
     const segmentId = searchParams.get("segmentId");
 
-  const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists" | "qa" | "emails" | "insights">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists" | "qa" | "emails" | "insights" | "verification">("profile");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
@@ -4923,7 +4924,7 @@ dispatch(closePanel());
                 {/* LEFT: PROFILE / HISTORY */}
                 <div style={{ display: "flex", gap: 24 }}>
                   {/* "insights" tab hidden — research is shown in the right panel. To restore, add "insights" back to the array below. */}
-                  {["profile", "history", "lists", "qa", "emails" /*, "insights" */].map((tab) => (
+                  {["profile", "history", "lists", "qa", "emails", "verification" /*, "insights" */].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => {
@@ -4971,7 +4972,9 @@ dispatch(closePanel());
                               ? "Q&A"
                               : tab === "emails"
                                 ? "Emails"
-                                : "Insights"}
+                                : tab === "verification"
+                                  ? "Verification"
+                                  : "Insights"}
 
                     </button>
                   ))}
@@ -6553,6 +6556,18 @@ dispatch(closePanel());
                   renderMailReader={renderContactMailReader}
                   onRefresh={refreshContactEmailGrid}
                   isRefreshing={isRefreshingContactEmails}
+                />
+              )}
+
+              {activeTab === "verification" && contactId && (
+                <ContactVerificationTab
+                  clientId={effectiveUserId ?? ""}
+                  contactId={Number(contactId)}
+                  onShowMessage={(message, type) =>
+                    type === "success"
+                      ? appModal.showSuccess(message)
+                      : appModal.showError(message)
+                  }
                 />
               )}
 

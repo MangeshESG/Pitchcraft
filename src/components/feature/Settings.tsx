@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import Tracking from "./Tracking";
 import EmailSignature from "./EmailSignature";
 import DateTimeSettings from "./DateTimeSettings";
+import ContactFitBriefsPanel from "./validation/ContactFitBriefsPanel";
+import ValidationJobLog from "./validation/ValidationJobLog";
 import {
   pageBodyClass,
   pageClass,
@@ -15,12 +17,13 @@ interface SettingsProps {
   selectedClient: string;
 }
 
-type SettingsTab = "Tracking" | "DateTime" | "EmailSignature";
+type SettingsTab = "Tracking" | "DateTime" | "EmailSignature" | "Verification";
 
 const TABS: { key: SettingsTab; label: string }[] = [
   { key: "Tracking", label: "Tracking" },
   { key: "DateTime", label: "Date and time" },
   { key: "EmailSignature", label: "Email signatures" },
+  { key: "Verification", label: "Verification" },
 ];
 
 const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
@@ -32,8 +35,9 @@ const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
       <div className={pageHeaderClass}>
         <h1 className={pageTitleClass}>General</h1>
         <p className={pageSubClass}>
-          Manage tracking, date and time, and email signature settings for this
-          client.
+          {settingsSubTab === "Verification"
+            ? "Targeting briefs for the Contact fit check, and what every validation run has cost."
+            : "Manage tracking, date and time, and email signature settings for this client."}
         </p>
 
         <nav className="mt-5 flex gap-8" aria-label="General settings tabs">
@@ -58,6 +62,14 @@ const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
         )}
         {settingsSubTab === "EmailSignature" && (
           <EmailSignature selectedClient={selectedClient} />
+        )}
+        {settingsSubTab === "Verification" && (
+          <>
+            <ContactFitBriefsPanel selectedClient={selectedClient} />
+            <div className="mt-8">
+              <ValidationJobLog selectedClient={selectedClient} />
+            </div>
+          </>
         )}
       </div>
     </div>

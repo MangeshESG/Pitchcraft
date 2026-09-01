@@ -55,6 +55,13 @@ import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/fre
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import useColumnPreferences from "../../hooks/useColumnPreferences";
+import ValidationRunPanel from "./validation/ValidationRunPanel";
+import {
+  VALIDATION_COLUMN_LABELS,
+  VALIDATION_DEFAULT_VISIBLE_COLUMNS,
+  VALIDATION_EXCLUDED_FIELDS,
+  VALIDATION_FORMATTERS,
+} from "./validation/validationColumns";
 
 /**
  * Columns shown to a client who has never arranged their own layout, and what
@@ -71,7 +78,42 @@ const DEFAULT_VISIBLE_COLUMNS = [
   'country_or_address',
   'hasLinkedInInfo',
   'hasNotes',
+  ...VALIDATION_DEFAULT_VISIBLE_COLUMNS,
 ];
+
+/** Matches the other icon buttons in the bulk-action bar. */
+const validateButtonStyle: React.CSSProperties = {
+  background: "none",
+  color: "#3f9f42",
+  border: "none",
+  borderRadius: "12px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "40px",
+  height: "40px",
+  padding: "0",
+  cursor: "pointer",
+};
+
+/** Shield-with-a-tick — the Audience Assurance action. */
+const ValidateShieldIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+    <path
+      d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.9 7.5 10 4.3-1.1 7.5-5.4 7.5-10v-6L12 2.5Z"
+      stroke="#3f9f42"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+    />
+    <path
+      d="m8.75 11.75 2.3 2.3 4.2-4.6"
+      stroke="#3f9f42"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 const menuBtnStyle = {
   width: "100%",
@@ -295,6 +337,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   const showBulkUpdatePanelModal =
   activePanel === "bulk-update-panel-modal";
+
+  const showValidateContactsPanel =
+  activePanel === "validate-contacts-panel";
 
   const showAddContactCommonModal =
   activePanel === "add-contact-modal";
@@ -1978,7 +2023,20 @@ const formatTimeIST = formatUserTime;
     notes: "Notes",
     hasLinkedInInfo: "LinkedIn information",
     hasNotes: "Notes",
+    ...VALIDATION_COLUMN_LABELS,
   };
+
+  /** The contacts a bulk action applies to, in whichever grid is on screen. */
+  const activeSelectedContactIds = useMemo(
+    () =>
+      (viewMode === "detail" || segmentViewMode === "detail"
+        ? Array.from(detailSelectedContacts)
+        : Array.from(selectedContacts)
+      )
+        .map(Number)
+        .filter((id) => !isNaN(id) && id > 0),
+    [viewMode, segmentViewMode, detailSelectedContacts, selectedContacts]
+  );
   const segmentFilteredContacts = useMemo(() => {
     let filtered = segmentContacts.filter((contact) => {
       const searchLower = segmentSearchQuery.toLowerCase()
@@ -2256,12 +2314,14 @@ const filterFields: any = useMemo(() => {
                     "dataFileId",
                     "data_file",
                     "customFields",
+                    ...VALIDATION_EXCLUDED_FIELDS,
                   ]} // Hide large/unwanted fields
                   onColumnsChange={saveColumnLayout}
                   onResetColumns={resetColumnLayout}
                   persistedColumnLayout={columnLayout}
                   defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
+                    ...VALIDATION_FORMATTERS,
                     first_name: (value: any, row: any) => {
                       const { firstName, fullName } = getContactNameParts(row as Contact);
                       return firstName || fullName || "-";
@@ -2672,6 +2732,14 @@ const filterFields: any = useMemo(() => {
                                 icon={faEdit}
                                 style={{ fontSize: 20, color: "#3f9f42" }}
                               />
+                            </button>
+                            <button
+                              className="button secondary"
+                              onClick={() => dispatch(openPanel("validate-contacts-panel"))}
+                              style={validateButtonStyle}
+                              title="Validate contacts"
+                            >
+                              <ValidateShieldIcon />
                             </button>
                           </div>
                         </div>
@@ -3302,12 +3370,14 @@ const filterFields: any = useMemo(() => {
                     "dataFileId",
                     "data_file",
                     "customFields",
+                    ...VALIDATION_EXCLUDED_FIELDS,
                   ]}
                   onColumnsChange={saveColumnLayout}
                   onResetColumns={resetColumnLayout}
                   persistedColumnLayout={columnLayout}
                   defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
+                    ...VALIDATION_FORMATTERS,
                     first_name: (value: any, row: any) => {
                       const { firstName, fullName } = getContactNameParts(row as Contact);
                       return firstName || fullName || "-";
@@ -3702,6 +3772,14 @@ const filterFields: any = useMemo(() => {
                               icon={faEdit}
                               style={{ fontSize: 20, color: "#3f9f42" }}
                             />
+                          </button>
+                          <button
+                            className="button secondary"
+                            onClick={() => dispatch(openPanel("validate-contacts-panel"))}
+                            style={validateButtonStyle}
+                            title="Validate contacts"
+                          >
+                            <ValidateShieldIcon />
                           </button>
                         </div>
                       </div>
@@ -4310,6 +4388,28 @@ const filterFields: any = useMemo(() => {
         onClose={hideToast}
         duration={3}
         position="bottom-center"
+      />
+      <ValidationRunPanel
+        isOpen={showValidateContactsPanel}
+        onClose={() => dispatch(closePanel())}
+        clientId={effectiveUserId ?? ""}
+        contactIds={activeSelectedContactIds}
+        onCompleted={() => {
+          // Pull the new scores into whichever grid is on screen. The
+          // selection is deliberately kept: a user who has just validated
+          // fifty contacts often wants to run a second check over the same
+          // fifty.
+          if (viewMode === "detail" && selectedDataFileForView) {
+            fetchDetailContacts("list", selectedDataFileForView);
+          } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+            fetchDetailContacts("segment", selectedSegmentForView);
+          } else if (selectedDataFile) {
+            fetchContacts();
+          }
+        }}
+        onShowMessage={(message, type) =>
+          showContactMessage(message, type === "error" ? "error" : type === "info" ? "info" : "success")
+        }
       />
       <BulkUpdatePanel
         //isOpen={showBulkUpdatePanel}

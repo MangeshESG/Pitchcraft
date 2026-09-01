@@ -40,6 +40,11 @@ import { useDispatch, useSelector } from "react-redux";
 import { ContactsToolbar, ContactsListsRows } from "./ContactList.new";
 import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";
+import {
+  VALIDATION_COLUMN_LABELS,
+  VALIDATION_EXCLUDED_FIELDS,
+  VALIDATION_FORMATTERS,
+} from "./validation/validationColumns";
 import { useToast } from "../../hooks/useToast";
 
 
@@ -676,6 +681,7 @@ const handleDeleteContacts = () => {
   const viewColumnNameMap = useMemo(
     () => ({
       ...(columnNameMap || {}),
+      ...VALIDATION_COLUMN_LABELS,
       hasOpened: "Opened",
       hasClicked: "Clicked",
     }),
@@ -2184,6 +2190,7 @@ const handleDeleteContacts = () => {
                 "dataFileId",
                 "data_file",
                 "customFields",
+                ...VALIDATION_EXCLUDED_FIELDS,
               ]}
               onColumnsChange={onColumnsChange}
               onResetColumns={onResetColumns}
@@ -2191,6 +2198,7 @@ const handleDeleteContacts = () => {
               persistedColumnLayout={persistedColumnLayout}
               defaultVisibleColumns={defaultVisibleColumns}
               customFormatters={{
+                ...VALIDATION_FORMATTERS,
                 first_name: (value: any, row: any) => {
                   const { firstName, fullName } = getContactNameParts(row);
                   return firstName || fullName || "-";

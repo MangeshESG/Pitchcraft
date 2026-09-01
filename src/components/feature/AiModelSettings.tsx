@@ -19,6 +19,36 @@ import {
 } from "../common/settingsStyles";
 
 /**
+ * The purposes, grouped for the page.
+ *
+ * A flat list of nine pickers is a long scroll in which nothing is findable,
+ * and the set only grows. Grouping by what the model is actually being asked
+ * to do — write, research, or judge a contact — means an admin changing the
+ * validation models never scrolls past the email ones.
+ *
+ * Any purpose the API adds that this list doesn't mention still renders, under
+ * "Other", so a new key is never invisible just because this wasn't updated.
+ */
+const PURPOSE_GROUPS: { title: string; blurb: string; keys: string[] }[] = [
+  {
+    title: "Writing",
+    blurb: "The models that produce text a contact will read.",
+    keys: ["email_generation", "blueprint_generation"],
+  },
+  {
+    title: "Research",
+    blurb: "The models that reach the live web to find things out.",
+    keys: ["web_search", "find_email", "profile_summary", "contact_qa"],
+  },
+  {
+    title: "Audience Assurance",
+    blurb:
+      "The validation checks. Contact fit and Live contact use web search, which is what a run actually costs; Data integrity never searches, so the cheapest capable model belongs there.",
+    keys: ["contact_fit", "data_integrity", "live_contact"],
+  },
+];
+
+/**
  * One model picker per AI purpose — the "AI models" tab of the admin page.
  * Every API that calls a model reads its model from here, so these selects are
  * the only place a model is chosen in the product. Rendered inside the page
@@ -75,6 +105,37 @@ const AiModelSettings: React.FC = () => {
     () => buildModelOptions(availableModels),
     [availableModels],
   );
+
+  /**
+   * The settings arranged into the groups above. Anything the API returns
+   * that no group claims is collected into a trailing "Other" group, so a
+   * purpose added on the server is always reachable here even before this
+   * file knows where it belongs.
+   */
+  const groupedSettings = useMemo(() => {
+    const byKey = new Map(settings.map((setting) => [setting.purposeKey, setting]));
+
+    const groups = PURPOSE_GROUPS.map((group) => ({
+      title: group.title,
+      blurb: group.blurb,
+      settings: group.keys
+        .map((key) => byKey.get(key))
+        .filter((setting): setting is AiModelSetting => !!setting),
+    })).filter((group) => group.settings.length > 0);
+
+    const claimed = new Set(PURPOSE_GROUPS.flatMap((group) => group.keys));
+    const rest = settings.filter((setting) => !claimed.has(setting.purposeKey));
+
+    if (rest.length > 0) {
+      groups.push({
+        title: "Other",
+        blurb: "Purposes this page has not been told how to group yet.",
+        settings: rest,
+      });
+    }
+
+    return groups;
+  }, [settings]);
 
   const hasChanges = useMemo(
     () =>
@@ -145,72 +206,76 @@ const AiModelSettings: React.FC = () => {
         </div>
       ) : (
         <>
-          <div className={`${sectionClass} mb-8`}>
-            <div className={cardClass}>
-              {settings.map((setting, index) => {
-                const selected = draft[setting.purposeKey] ?? setting.modelName;
-                const isUnknownModel = !modelOptions.some(
-                  (option) => option.id === selected,
-                );
+          {groupedSettings.map((group) => (
+            <div key={group.title} className={`${sectionClass} mb-6`}>
+              <div className={cardClass}>
+                <h2 className="text-[15px] font-semibold text-[#0b1220]">
+                  {group.title}
+                </h2>
+                <p className={hintClass}>{group.blurb}</p>
 
-                return (
-                  <div
-                    key={setting.purposeKey}
-                    className={
-                      index === settings.length - 1
-                        ? ""
-                        : "mb-6 border-b border-[#f1f2f4] pb-6"
-                    }
-                  >
-                    <label
-                      className={labelClass}
-                      htmlFor={`ai-model-${setting.purposeKey}`}
-                    >
-                      {setting.label}
-                    </label>
-                    <select
-                      id={`ai-model-${setting.purposeKey}`}
-                      className={inputClass}
-                      value={selected}
-                      disabled={!setting.supportedByApi}
-                      onChange={(event) =>
-                        setDraft((previous) => ({
-                          ...previous,
-                          [setting.purposeKey]: event.target.value,
-                        }))
-                      }
-                    >
-                      {/* A model configured on the server but not in the
-                          local list still has to be selectable. */}
-                      {isUnknownModel && (
-                        <option value={selected}>
-                          {getModelLabel(selected)}
-                        </option>
-                      )}
-                      {modelOptions.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className={hintClass}>
-                      {setting.description} Default:{" "}
-                      <strong>{getModelLabel(setting.defaultModel)}</strong>.
-                      {!setting.supportedByApi && (
-                        <>
-                          {" "}
-                          <span className="text-[#b45309]">
-                            This API does not serve this purpose yet, so it
-                            runs on its default and cannot be changed here.
-                          </span>
-                        </>
-                      )}
-                    </p>
-                  </div>
-                );
-              })}
+                {/* Two per row: nine settings in one column is a scroll in
+                    which nothing can be found at a glance. */}
+                <div className="mt-5 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                  {group.settings.map((setting) => {
+                    const selected = draft[setting.purposeKey] ?? setting.modelName;
+                    const isUnknownModel = !modelOptions.some(
+                      (option) => option.id === selected,
+                    );
+
+                    return (
+                      <div key={setting.purposeKey}>
+                        <label
+                          className={labelClass}
+                          htmlFor={`ai-model-${setting.purposeKey}`}
+                        >
+                          {setting.label}
+                        </label>
+                        <select
+                          id={`ai-model-${setting.purposeKey}`}
+                          className={inputClass}
+                          value={selected}
+                          disabled={!setting.supportedByApi}
+                          onChange={(event) =>
+                            setDraft((previous) => ({
+                              ...previous,
+                              [setting.purposeKey]: event.target.value,
+                            }))
+                          }
+                        >
+                          {/* A model configured on the server but not in the
+                              local list still has to be selectable. */}
+                          {isUnknownModel && (
+                            <option value={selected}>
+                              {getModelLabel(selected)}
+                            </option>
+                          )}
+                          {modelOptions.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.name}
+                            </option>
+                          ))}
+                        </select>
+                        <p className={hintClass}>
+                          {setting.description} Default:{" "}
+                          <strong>{getModelLabel(setting.defaultModel)}</strong>.
+                          {!setting.supportedByApi && (
+                            <>
+                              {" "}
+                              <span className="text-[#b45309]">
+                                This API does not serve this purpose yet, so it
+                                runs on its default and cannot be changed here.
+                              </span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
+          ))}
 
           <div className={`${sectionClass} flex items-center gap-3`}>
             <button
