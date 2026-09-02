@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPlayCircle,
   faCheck,
+  faCircleQuestion,
 } from "@fortawesome/free-solid-svg-icons";
 import ToastMessage from "../common/ToastMessage";
 import { useToast } from "../../hooks/useToast";
@@ -133,7 +134,7 @@ const buildSteps = (
       ctaPath: "/main?tab=TestTemplate",
       illustration: CreateATemplete,
       videoSrc: "https://www.youtube.com/embed/eVNMhPXB3eU",
-      tipsUrl: "https://www.pitchkraft.ai/blueprints/",
+      tipsUrl: "https://www.pitchkraft.ai/blueprints",
     },
     {
       id: "campaign",
@@ -245,6 +246,22 @@ const StepRow: React.FC<{
 const toYouTubeWatchUrl = (embedUrl: string): string =>
   embedUrl.replace("/embed/", "/watch?v=");
 
+const HelpAndTipsLink: React.FC<{ href: string }> = ({ href }) => (
+  <a
+    href={href}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-[14px] text-gray-500 hover:text-[#3f9f42] flex items-center gap-1.5 whitespace-nowrap"
+  >
+    <FontAwesomeIcon
+      icon={faCircleQuestion}
+      className="text-[17px]"
+      style={{ color: BRAND }}
+    />
+    Help and tips
+  </a>
+);
+
 const StepDetail: React.FC<{
   step: OnboardingStep;
 }> = ({ step }) => {
@@ -280,17 +297,6 @@ const StepDetail: React.FC<{
           >
             {step.cta}
           </button>
-          {step.tipsUrl && (
-            <a
-              href={step.tipsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[15px] font-semibold hover:underline"
-              style={{ color: BRAND }}
-            >
-              Tips
-            </a>
-          )}
           {step.videoSrc && (
             <a
               href={toYouTubeWatchUrl(step.videoSrc)}
@@ -306,6 +312,7 @@ const StepDetail: React.FC<{
               Watch intro
             </a>
           )}
+          {step.tipsUrl && <HelpAndTipsLink href={step.tipsUrl} />}
         </div>
       </div>
 
@@ -339,21 +346,24 @@ const OnboardingView: React.FC<{
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-7 shadow-[0_1px_3px_rgba(16,24,40,0.06)]">
-      <div>
-        <h1 className="text-[32px] font-bold text-gray-900 tracking-tight">
-          Welcome to PitchKraft{firstName !== "there" ? `, ${firstName}` : ""}!
-        </h1>
-        <p className="text-[16px] text-gray-600 mt-1.5">
-          {pct === 0
-            ? "You're on your way to running your first successful campaign."
-            : `You're ${pct}% closer to running your first successful campaign.`}
-        </p>
-        <div className="flex items-center gap-3 mt-5">
-          <span className="text-[15px] font-medium text-gray-600 whitespace-nowrap tabular-nums">
-            {completed} of {required.length} complete
-          </span>
-          <ProgressBar pct={pct} />
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-[32px] font-bold text-gray-900 tracking-tight">
+            Welcome to PitchKraft{firstName !== "there" ? `, ${firstName}` : ""}!
+          </h1>
+          <p className="text-[16px] text-gray-600 mt-1.5">
+            {pct === 0
+              ? "You're on your way to running your first successful campaign."
+              : `You're ${pct}% closer to running your first successful campaign.`}
+          </p>
+          <div className="flex items-center gap-3 mt-5">
+            <span className="text-[15px] font-medium text-gray-600 whitespace-nowrap tabular-nums">
+              {completed} of {required.length} complete
+            </span>
+            <ProgressBar pct={pct} />
+          </div>
         </div>
+        <HelpAndTipsLink href="https://www.pitchkraft.ai/getting-started/" />
       </div>
 
       <div className="grid grid-cols-12 gap-6 mt-7">
@@ -805,6 +815,7 @@ const PostOnboardingView: React.FC<{
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <HelpAndTipsLink href="https://www.pitchkraft.ai/getting-started/" />
           <button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -860,6 +871,7 @@ const PostOnboardingView: React.FC<{
               <span className="w-2.5 h-2.5 rounded-sm" style={{ background: BRAND }} />{" "}
               Sent
             </span>
+            <HelpAndTipsLink href="https://www.pitchkraft.ai/mail" />
           </div>
         </div>
         <div className="mt-3 h-[220px]">
@@ -878,6 +890,7 @@ const PostOnboardingView: React.FC<{
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <HelpAndTipsLink href="https://www.pitchkraft.ai/contacts" />
               {contactsLoading && (
                 <div className="flex items-center gap-2 text-[12px] font-medium text-gray-500" aria-live="polite">
                   <div className="w-5 h-5 rounded-full border-2 border-[#e8f5e9] border-t-[#3f9f42] animate-spin" />

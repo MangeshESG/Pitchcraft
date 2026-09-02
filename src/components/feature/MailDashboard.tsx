@@ -10,7 +10,7 @@ import BulkUpdatePanel from "./BulkUpdatePanel";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
-import { faPlus, faDownload } from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faDownload, faLocationDot } from "@fortawesome/free-solid-svg-icons";
 import mailDashboardNewUserImage from "../../assets/images/mail_dashboard_new_user.png";
 
 import {
@@ -587,7 +587,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "email", label: "Email address", visible: true },
     { key: "company", label: "Company", visible: true },
     { key: "jobTitle", label: "Job title", visible: true },
-    { key: "location", label: "Location", visible: true },
+    { key: "location", label: "Contact location", visible: true },
     { key: "eventType", label: "Event type", visible: true },
     { key: "timestamp", label: "Timestamp", visible: true },
     { key: "sentAt", label: "Sent At", visible: true },
@@ -600,6 +600,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "linkedin_URL", label: "LinkedIn", visible: false },
     { key: "website", label: "Website", visible: false },
     { key: "ipAddress", label: "IP Address", visible: true },
+    { key: "ipLocation", label: "Location", visible: true, width: "90px" },
   ]);
 
   const [emailLogsColumns, setEmailLogsColumns] = useState([
@@ -2087,6 +2088,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         botClicked: (item as any).isBot && item.eventType === "Click",
         botOpened: (item as any).isBot && item.eventType === "Open",
         ipAddress: (item as any).ipAddress || "-",
+        ipLocation: (item as any).ipAddress || "-",
       }));
 
     // Calculate hasOpened and hasClicked for each unique email
@@ -3533,8 +3535,21 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               // Date formatting
               timestamp: (value: any) => formatMailTimestamp(value),
               sentAt: (value: any) => formatMailTimestamp(value),
-              eventsTimer: (_value: any, item: any) =>
-                formatEventsTimer(item?.sentAt, item?.timestamp),
+              eventsTimer: (_value: any, item: any) => {
+                const timerText = formatEventsTimer(item?.sentAt, item?.timestamp);
+                const sentTime = new Date(item?.sentAt).getTime();
+                const eventTime = new Date(item?.timestamp).getTime();
+                const isAtLeastTwoMinutes =
+                  Number.isFinite(sentTime) &&
+                  Number.isFinite(eventTime) &&
+                  eventTime - sentTime >= 2 * 60 * 1000;
+
+                return isAtLeastTwoMinutes ? (
+                  <span style={{ color: "#3f9f42", fontWeight: 500 }}>
+                    {timerText}
+                  </span>
+                ) : timerText;
+              },
               bounceDate: (value: any) => formatMailTimestamp(value),
 
               // Status formatting
@@ -3770,6 +3785,29 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                   </a>
                 );
               },
+              ipLocation: (value: any, item: any) => {
+                const ipAddress = item?.ipAddress || value;
+                if (!ipAddress || ipAddress === "-") return "-";
+
+                return (
+                  <a
+                    href={`https://whatismyipaddress.com/ip/${encodeURIComponent(ipAddress)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`View location for ${ipAddress}`}
+                    aria-label={`View location for IP address ${ipAddress}`}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#3f9f42",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <FontAwesomeIcon icon={faLocationDot} />
+                  </a>
+                );
+              },
 
               // Email formatting
               email: (value: any) => {
@@ -3831,7 +3869,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                   "country_or_address",
                   "email_subject",
                 ]
-                : ["first_name", "last_name", "full_name", "email", "company", "jobTitle", "location", "ipAddress"]
+                : ["first_name", "last_name", "full_name", "email", "company", "jobTitle", "location", "ipAddress", "ipLocation"]
             }
             primaryKey="id"
             viewMode="table"
