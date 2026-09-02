@@ -197,7 +197,10 @@ const AiModelSettings: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl">
+    // Full width, but with a third column at wide sizes rather than three
+    // stretched ones: a select that spans half a monitor puts its label a long
+    // way from its value. More columns uses the space; wider controls waste it.
+    <div className="w-full">
       {banner && <div className={bannerClass(banner.type)}>{banner.text}</div>}
 
       {isLoading ? (
@@ -216,7 +219,7 @@ const AiModelSettings: React.FC = () => {
 
                 {/* Two per row: nine settings in one column is a scroll in
                     which nothing can be found at a glance. */}
-                <div className="mt-5 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                <div className="mt-5 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
                   {group.settings.map((setting) => {
                     const selected = draft[setting.purposeKey] ?? setting.modelName;
                     const isUnknownModel = !modelOptions.some(

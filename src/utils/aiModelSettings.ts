@@ -15,7 +15,13 @@ export type AiModelPurposeKey =
   | "profile_summary";
 
 export interface AiModelSetting {
-  purposeKey: AiModelPurposeKey;
+  /**
+   * Whatever key the API returned. Deliberately a plain string, not a union
+   * of the keys this build happens to know: the backend registry is the
+   * source of truth for which purposes exist, and a frontend allowlist here
+   * silently hid every purpose added since this file was last edited.
+   */
+  purposeKey: string;
   label: string;
   description: string;
   modelName: string;
@@ -92,20 +98,29 @@ const FALLBACK_SETTINGS: Record<
 const isPurposeKey = (value: string): value is AiModelPurposeKey =>
   AI_MODEL_PURPOSE_ORDER.includes(value as AiModelPurposeKey);
 
+/**
+ * One setting from the API. Any purpose with a key is kept, known to this
+ * build or not — the API already sends a label, a description and a default
+ * for everything it serves, so an unrecognised purpose renders perfectly well
+ * from its own metadata. The local table is only a fallback for the fields an
+ * older API might omit.
+ */
 const normalizeSetting = (raw: any): AiModelSetting | null => {
-  const purposeKey = String(raw?.purposeKey ?? raw?.PurposeKey ?? "");
-  if (!isPurposeKey(purposeKey)) return null;
+  const purposeKey = String(raw?.purposeKey ?? raw?.PurposeKey ?? "").trim();
+  if (!purposeKey) return null;
 
-  const fallback = FALLBACK_SETTINGS[purposeKey];
+  const fallback = isPurposeKey(purposeKey)
+    ? FALLBACK_SETTINGS[purposeKey]
+    : undefined;
 
   return {
     purposeKey,
-    label: raw?.label || raw?.Label || fallback.label,
-    description: raw?.description || raw?.Description || fallback.description,
+    label: raw?.label || raw?.Label || fallback?.label || purposeKey,
+    description: raw?.description || raw?.Description || fallback?.description || "",
     modelName:
-      raw?.modelName || raw?.ModelName || fallback.defaultModel,
+      raw?.modelName || raw?.ModelName || fallback?.defaultModel || "",
     defaultModel:
-      raw?.defaultModel || raw?.DefaultModel || fallback.defaultModel,
+      raw?.defaultModel || raw?.DefaultModel || fallback?.defaultModel || "",
     supportedByApi: true,
   };
 };
@@ -151,12 +166,15 @@ export const fetchAiModelSettings =
       }),
     );
 
-    // Keep the page order stable regardless of what the API returns.
-    settings.sort(
-      (left, right) =>
-        AI_MODEL_PURPOSE_ORDER.indexOf(left.purposeKey) -
-        AI_MODEL_PURPOSE_ORDER.indexOf(right.purposeKey),
-    );
+    // Keep the page order stable regardless of what the API returns. A key
+    // this build does not list sorts after the ones it does — indexOf gives
+    // -1 for those, which would otherwise float them to the top.
+    const rank = (purposeKey: string) => {
+      const index = AI_MODEL_PURPOSE_ORDER.indexOf(purposeKey as AiModelPurposeKey);
+      return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+    };
+
+    settings.sort((left, right) => rank(left.purposeKey) - rank(right.purposeKey));
 
     return {
       settings: settings.length > 0 ? settings : buildFallbackSettings(),

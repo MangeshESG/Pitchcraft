@@ -8,7 +8,13 @@ import API_BASE_URL from "../config";
  * compiled-in copy behind them: a prompt nobody has saved is simply empty, and
  * the feature it drives is off until someone writes one.
  */
-export type PromptKey = "find_email";
+/**
+ * A prompt key as served by the API. Deliberately a plain string rather than a
+ * union of the keys this build knows: PromptKeys.cs on the server is the
+ * source of truth, and an allowlist here silently hid every prompt added
+ * since this file was last edited.
+ */
+export type PromptKey = string;
 
 export interface PromptSetting {
   promptKey: PromptKey;
@@ -24,15 +30,24 @@ export interface PromptSetting {
   updatedBy: string | null;
 }
 
-// Order the admin page renders the prompts in.
+// Order the admin page renders the prompts in. Anything the API returns that
+// isn't listed here still renders, after these.
 export const PROMPT_KEY_ORDER: PromptKey[] = ["find_email"];
 
-const isPromptKey = (value: string): value is PromptKey =>
-  PROMPT_KEY_ORDER.includes(value as PromptKey);
+/** Unlisted keys sort last — indexOf gives -1, which would float them first. */
+const rankPrompt = (promptKey: string) => {
+  const index = PROMPT_KEY_ORDER.indexOf(promptKey);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+};
 
+/**
+ * Every prompt the API returns is kept. It already sends a label, a
+ * description and the placeholder list for each, so a prompt this build has
+ * never heard of still renders and edits correctly.
+ */
 const normalizePrompt = (raw: any): PromptSetting | null => {
-  const promptKey = String(raw?.promptKey ?? raw?.PromptKey ?? "");
-  if (!isPromptKey(promptKey)) return null;
+  const promptKey = String(raw?.promptKey ?? raw?.PromptKey ?? "").trim();
+  if (!promptKey) return null;
 
   const promptText = String(raw?.promptText ?? raw?.PromptText ?? "");
 
@@ -72,8 +87,7 @@ export const fetchPromptSettings = async (): Promise<PromptSetting[]> => {
   // Keep the page order stable regardless of what the API returns.
   prompts.sort(
     (left, right) =>
-      PROMPT_KEY_ORDER.indexOf(left.promptKey) -
-      PROMPT_KEY_ORDER.indexOf(right.promptKey),
+      rankPrompt(left.promptKey) - rankPrompt(right.promptKey),
   );
 
   return prompts;

@@ -10,6 +10,7 @@ import {
   bannerClass,
   cardClass,
   hintClass,
+  inputClass,
   labelClass,
   primaryButtonClass,
   secondaryButtonClass,
@@ -54,6 +55,13 @@ const PromptSettings: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
+  /**
+   * Which prompt is being edited. These instructions run to thousands of
+   * characters each, so showing them all stacked meant the second one started
+   * a full screen below the first and the rest were invisible. One at a time,
+   * chosen here.
+   */
+  const [selectedKey, setSelectedKey] = useState<string>("");
 
   // Kept so a placeholder chip can drop its token at the caret.
   const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
@@ -64,6 +72,13 @@ const PromptSettings: React.FC = () => {
       Object.fromEntries(
         loaded.map((prompt) => [prompt.promptKey, prompt.promptText]),
       ),
+    );
+    // Keep whatever the user was editing across a reload; only fall back to
+    // the first prompt when the current choice no longer exists.
+    setSelectedKey((current) =>
+      loaded.some((prompt) => prompt.promptKey === current)
+        ? current
+        : loaded[0]?.promptKey ?? "",
     );
   }, []);
 
@@ -181,7 +196,11 @@ const PromptSettings: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl">
+    // Full width: a prompt is a long document, and wrapping thousands of
+    // characters into a narrow column made the instruction harder to read and
+    // left half the page empty. The picker keeps the page to one prompt at a
+    // time, so the width goes to the text that matters.
+    <div className="w-full">
       {banner && <div className={bannerClass(banner.type)}>{banner.text}</div>}
 
       {isLoading ? (
@@ -196,7 +215,43 @@ const PromptSettings: React.FC = () => {
         </div>
       ) : (
         <>
-          {prompts.map((prompt) => {
+          {/* Which prompt to edit. Unsaved edits to the others survive
+              switching — the draft is keyed by prompt, and Save sends every
+              changed one, not just the visible one. */}
+          <div className={`${sectionClass} mb-6`}>
+            <label className={labelClass} htmlFor="prompt-picker">
+              Prompt
+            </label>
+            <select
+              id="prompt-picker"
+              className={inputClass}
+              value={selectedKey}
+              onChange={(event) => setSelectedKey(event.target.value)}
+            >
+              {prompts.map((prompt) => {
+                const isDirty =
+                  (draft[prompt.promptKey] ?? "") !== prompt.promptText;
+
+                return (
+                  <option key={prompt.promptKey} value={prompt.promptKey}>
+                    {prompt.label}
+                    {isDirty ? " • unsaved" : prompt.isConfigured ? "" : " • not set"}
+                  </option>
+                );
+              })}
+            </select>
+            {changedKeys.length > 0 && (
+              <p className={hintClass}>
+                {changedKeys.length} prompt
+                {changedKeys.length === 1 ? "" : "s"} edited but not yet saved.
+                Save sends all of them.
+              </p>
+            )}
+          </div>
+
+          {prompts
+            .filter((prompt) => prompt.promptKey === selectedKey)
+            .map((prompt) => {
             const text = draft[prompt.promptKey] ?? "";
             const missing = findMissingPlaceholders(text, prompt.placeholders);
             const isDirty = text !== prompt.promptText;
