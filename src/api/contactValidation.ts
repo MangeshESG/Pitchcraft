@@ -7,6 +7,18 @@ import API_BASE_URL from "../config";
 
 const BASE = `${API_BASE_URL}/api/ContactValidation`;
 
+/**
+ * Reads a timestamp the API sent as UTC without saying so.
+ *
+ * These columns are datetime2, which carries no offset, so a UTC value
+ * serialises as "2026-09-02T19:24:00" and `new Date` would read it as local
+ * time - showing a run five and a half hours out in India and eight hours out
+ * in California. Stamping the Z back on is what keeps the run log honest about
+ * when something actually happened.
+ */
+export const parseApiDate = (value: string): Date =>
+  new Date(/(?:Z|[+-]\d{2}:?\d{2})$/.test(value) ? value : `${value}Z`);
+
 // ---------------------------------------------------------------- types
 
 export type ValidationCheckType =

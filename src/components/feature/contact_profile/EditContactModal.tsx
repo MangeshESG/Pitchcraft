@@ -1073,11 +1073,22 @@ case "boolean":
 
 
 
+  // Something has to identify the person, but it does not have to be an email.
+  const hasIdentity = Boolean(
+    formData.email?.trim() ||
+    formData.fullName?.trim() ||
+    formData.firstName?.trim() ||
+    formData.lastName?.trim() ||
+    formData.linkedInUrl?.trim()
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.email.trim()) {
-      onShowMessage('Email is required', 'error');
+    // Clearing the address is allowed: it can be rediscovered by Audience
+    // Assurance, and a contact is still identified by its name or profile.
+    if (!hasIdentity) {
+      onShowMessage('Keep an email, a name or a LinkedIn URL on this contact', 'error');
       return;
     }
 
@@ -2422,10 +2433,10 @@ case "boolean":
                   type='submit'
                   style={{
                     ...defaultButtonStyle,
-                    cursor: isSubmitting || !formData.email?.trim() ? 'not-allowed' : 'pointer',
-                    opacity: isSubmitting || !formData.email?.trim() ? 0.5 : 1,
+                    cursor: isSubmitting || !hasIdentity ? 'not-allowed' : 'pointer',
+                    opacity: isSubmitting || !hasIdentity ? 0.5 : 1,
                   }}
-                  disabled={isSubmitting || !formData.email?.trim()}
+                  disabled={isSubmitting || !hasIdentity}
                   onClick={handleSubmit}
                 >
                   {isSubmitting ? "Saving..." : "Save"}
@@ -3885,14 +3896,14 @@ case "boolean":
 
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Email <span style={{ color: 'red' }}>*</span>
+                Email
               </label>
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                required
+                placeholder="Optional - can be discovered later"
                 style={{
                   width: '100%',
                   padding: '8px 12px',
@@ -4147,11 +4158,11 @@ case "boolean":
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !formData.email.trim()}
+              disabled={isSubmitting || !hasIdentity}
               style={{
                 ...defaultButtonStyle,
-                cursor: isSubmitting || !formData.email.trim() ? 'not-allowed' : 'pointer',
-                opacity: isSubmitting || !formData.email.trim() ? 0.5 : 1,
+                cursor: isSubmitting || !hasIdentity ? 'not-allowed' : 'pointer',
+                opacity: isSubmitting || !hasIdentity ? 0.5 : 1,
               }}
             >
               {isSubmitting ? 'Updating...' : 'Update contact'}

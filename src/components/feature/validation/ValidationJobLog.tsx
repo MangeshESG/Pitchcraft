@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ValidationJob, fetchJobs } from "../../../api/contactValidation";
+import { ValidationJob, fetchJobs, parseApiDate } from "../../../api/contactValidation";
 import { bannerClass, cardClass, hintClass } from "../../common/settingsStyles";
 
 interface ValidationJobLogProps {
@@ -22,7 +22,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const formatDate = (value: string) =>
-  new Date(value).toLocaleString(undefined, {
+  parseApiDate(value).toLocaleString(undefined, {
     day: "numeric",
     month: "short",
     hour: "2-digit",

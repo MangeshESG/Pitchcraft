@@ -127,11 +127,22 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
     }));
   };
 
+  // Something has to identify the person, but it does not have to be an email.
+  const hasIdentity = Boolean(
+    formData.email.trim() ||
+    formData.fullName.trim() ||
+    formData.firstName.trim() ||
+    formData.lastName.trim() ||
+    formData.linkedInUrl.trim()
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.email.trim()) {
-      onShowMessage('Email is required', 'error');
+    // The address is optional: a contact can be added from a name or a
+    // LinkedIn profile and have its address discovered by Audience Assurance.
+    if (!hasIdentity) {
+      onShowMessage('Add an email, a name or a LinkedIn URL', 'error');
       return;
     }
 
@@ -427,11 +438,11 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting || !formData.email.trim() || !selectedDataFileId}
+            disabled={isSubmitting || !hasIdentity || !selectedDataFileId}
             style={{
               ...defaultButtonStyle,
-              cursor: (isSubmitting || !formData.email.trim() || !selectedDataFileId) ? 'not-allowed' : 'pointer',
-              opacity: (isSubmitting || !formData.email.trim() || !selectedDataFileId) ? 0.5 : 1
+              cursor: (isSubmitting || !hasIdentity || !selectedDataFileId) ? 'not-allowed' : 'pointer',
+              opacity: (isSubmitting || !hasIdentity || !selectedDataFileId) ? 0.5 : 1
             }}
           >
             {isSubmitting ? 'Adding...' : 'Add contact'}
@@ -499,14 +510,14 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Email <span style={{ color: 'red' }}>*</span>
+                Email
               </label>
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                required
+                placeholder="Optional - can be discovered later"
                 style={{
                   width: '100%',
                   padding: '8px 12px',

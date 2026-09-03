@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ValidationSource } from "../../../api/contactValidation";
+import { parseApiDate, type ValidationSource } from "../../../api/contactValidation";
 
 /**
  * The confidence bands the checks are scored against.
@@ -222,7 +222,7 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
               </span>
               {checkedAt && (
                 <span style={{ fontSize: 11.5, color: "#6b7280" }}>
-                  {new Date(checkedAt).toLocaleDateString(undefined, {
+                  {parseApiDate(checkedAt).toLocaleDateString(undefined, {
                     day: "numeric",
                     month: "short",
                     year: "numeric",

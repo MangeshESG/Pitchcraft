@@ -150,7 +150,7 @@ const REQUIRED_FIELDS = [
   { key: "first_name", label: "First name", required: false },
   { key: "last_name", label: "Last name", required: false },
   { key: "full_name", label: "Full name", required: false },
-  { key: "email", label: "Email address", required: true },
+  { key: "email", label: "Email address", required: false },
   { key: "job_title", label: "Job title", required: false },
   { key: "company", label: "Company name", required: false },
   { key: "location", label: "Company location", required: false },
@@ -535,15 +535,19 @@ useEffect(() => {
         mappedRow.full_name = combinedName;
       }
 
-      // Validate required fields
+      // A row without an address is imported: Audience Assurance can discover
+      // one from a LinkedIn profile or a company domain. Only a row with
+      // nothing to identify the person by is rejected.
       if (!mappedRow.email) {
-        detailedErrors.push({
-          row: rowIndex + 2,
-          field: 'email',
-          value: mappedRow.email || '',
-          message: 'Missing required field: Email address'
-        });
-        isValid = false;
+        if (!combinedName && !mappedRow.linkedin) {
+          detailedErrors.push({
+            row: rowIndex + 2,
+            field: 'email',
+            value: '',
+            message: 'The row has no email, name or LinkedIn URL'
+          });
+          isValid = false;
+        }
       } else if (!isValidEmail(mappedRow.email)) {
         detailedErrors.push({
           row: rowIndex + 2,
@@ -589,7 +593,7 @@ useEffect(() => {
     }
 
     const contactsToUpload = validatedData.filter(
-      (contact: any) => contact.email && isValidEmail(contact.email)
+      (contact: any) => !contact.email || isValidEmail(contact.email)
     );
 
     if (contactsToUpload.length === 0) {
@@ -781,10 +785,17 @@ useEffect(() => {
       .replace(/^\w/, (c) => c.toUpperCase());
   };
 
+  // An Email column is no longer required to continue: Audience Assurance can
+  // discover addresses from a LinkedIn profile or a company domain. What the
+  // import cannot do without is some way to tell the people apart, so one of
+  // these four has to be mapped.
+  const mappedFields = Object.values(columnMappings);
+
   const canContinueMapping =
-    Object.values(columnMappings).includes("email") &&
-    (Object.values(columnMappings).includes("first_name") ||
-      Object.values(columnMappings).includes("full_name"));
+    mappedFields.includes("email") ||
+    mappedFields.includes("first_name") ||
+    mappedFields.includes("full_name") ||
+    mappedFields.includes("linkedin");
 
   return (
     <div className="w-full" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -1097,8 +1108,9 @@ useEffect(() => {
                       Required:{" "}
                     </span>
                     <span style={{ color: TEXT_MUTED }}>
-                      map an <b>Email address</b> and a <b>Full name</b> (or <b>First name</b>{" "}
-                      and <b>Surname</b>) to continue.
+                      map at least one of <b>Email address</b>, <b>Full name</b>,{" "}
+                      <b>First name</b> or <b>LinkedIn URL</b> to continue. Contacts
+                      with no address can have one discovered later.
                     </span>
                   </div>
                 </div>
@@ -1194,7 +1206,8 @@ useEffect(() => {
                     </thead>
                     <tbody>
                       {previewData.map((r, i) => {
-                        const ok = !!r.email && isValidEmail(r.email);
+                        // A blank address is fine now; only a malformed one is not.
+                        const ok = !r.email || isValidEmail(r.email);
                         return (
                           <tr
                             key={i}
@@ -1261,8 +1274,9 @@ useEffect(() => {
                   >
                     <span className="flex items-center gap-2">
                       <FI.info className="w-4 h-4" /> {validationErrors.length} row
-                      {validationErrors.length > 1 ? "s" : ""} with invalid or missing
-                      emails will be skipped during import.
+                      {validationErrors.length > 1 ? "s" : ""} will be skipped: the
+                      address is malformed, or there is no name, email or LinkedIn URL
+                      to identify the person by.
                     </span>
                     <button
                       onClick={() => setShowValidationModal(true)}
