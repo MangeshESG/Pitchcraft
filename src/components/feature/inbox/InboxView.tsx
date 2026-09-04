@@ -407,12 +407,16 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     };
   }, [showReplySection, showForwardSection, replyTrailTrackingId, token]);
 
-  // Auto-open contact panel when a thread is selected
+  // Keep the desktop three-pane behaviour, but start mobile email reading with
+  // the contact panel closed. Mobile users can still open it from Contact.
   useEffect(() => {
-    const hasThread = !!(selectedThread || selectedSentThread || selectedUnassignedThread || selectedAllMessagesThread);
-    if (hasThread) setContactPanelOpen(true);
-    else setContactPanelOpen(false);
-  }, [selectedThread, selectedSentThread, selectedUnassignedThread, selectedAllMessagesThread]);
+    if (!replyTrailTrackingId) {
+      setContactPanelOpen(false);
+      return;
+    }
+
+    setContactPanelOpen(window.innerWidth > 768);
+  }, [replyTrailTrackingId]);
 
   const refreshInboxDropdownCounts = useCallback(async () => {
     if (!effectiveUserId || !isVisible) return;
@@ -1804,6 +1808,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     <>
       {!showReplyCc && (
         <button
+          className="reply-recipient-toggle"
           type="button"
           onClick={() => setShowReplyCc(true)}
           style={recipientToggleButtonStyle}
@@ -1813,6 +1818,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       )}
       {!showReplyBcc && (
         <button
+          className="reply-recipient-toggle"
           type="button"
           onClick={() => setShowReplyBcc(true)}
           style={recipientToggleButtonStyle}
@@ -1821,6 +1827,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         </button>
       )}
       <label
+        className="reply-attachment-toggle"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -1855,7 +1862,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const renderReplyRecipientFields = (toEmail?: string) => (
     <>
       {toEmail && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <div className="reply-recipient-primary-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
           <RecipientChipInput
             readOnly
             prefixLabel="To"
@@ -1866,6 +1873,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             placeholder=""
             containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
           />
+          {renderReplyRecipientToggles()}
         </div>
       )}
       {showReplyCc && (
@@ -2333,6 +2341,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   const hasActiveThread = !!(selectedThread || selectedSentThread || selectedUnassignedThread || selectedAllMessagesThread);
 
+  const handleMobileBackToList = () => {
+    setSelectedThread(null);
+    setSelectedSentThread(null);
+    setSelectedUnassignedThread(null);
+    setSelectedAllMessagesThread(null);
+    setShowReplySection(false);
+    setShowForwardSection(false);
+  };
+
   if (!isVisible) {
     return null;
   }
@@ -2390,7 +2407,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
       {/* Email Content */}
       <div
-        className="inbox-content inbox-grid"
+        className={`inbox-content inbox-grid${hasActiveThread ? ' has-active-thread' : ''}${contactPanelOpen ? ' contact-panel-open' : ''}`}
         style={{
           opacity: loading ? 0.5 : 1,
           gridTemplateColumns: `${hasActiveThread ? '340px' : '372px'} 1fr ${contactPanelOpen && hasActiveThread ? '332px' : '0px'}`
@@ -2874,6 +2891,17 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             {/* Unified header: shown whenever a thread is active */}
             {hasActiveThread && (
               <div className="read-head">
+                <button
+                  type="button"
+                  className="mobile-inbox-back"
+                  onClick={handleMobileBackToList}
+                  aria-label="Back to email list"
+                  title="Back to email list"
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                  </svg>
+                </button>
                 <h1 className="read-subject">{getActiveThread()!.subject}</h1>
                 <div className="read-head-actions">
                   <div style={{ position: 'relative' }}>
@@ -3216,7 +3244,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write reply</label>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {renderReplyRecipientToggles()}
                     <select
                       value={selectedBlueprint || ''}
                       onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
@@ -3846,7 +3873,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write reply</label>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {renderReplyRecipientToggles()}
                       <select
                         value={selectedBlueprint || ''}
                         onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
@@ -4385,7 +4411,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write reply</label>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {renderReplyRecipientToggles()}
                       <select
                         value={selectedBlueprint || ''}
                         onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}

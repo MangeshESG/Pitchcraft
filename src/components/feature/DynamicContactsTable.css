@@ -58,6 +58,9 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .dt-detail-actions { flex-shrink: 0; display: flex; gap: 8px; }
+.dt-detail-actions--mobile { display: none; }
+.dt-custom-header-row,
+.dt-custom-header-content { display: contents; }
 /* Back button in detail header */
 .dt-detail-header .dt-btn-secondary {
   flex-shrink: 0;
@@ -493,7 +496,67 @@
 }
 
 @media (max-width: 640px) {
-  .dt-toolbar__right { flex-wrap: wrap; }
+  .dt-detail-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px;
+  }
+  .dt-detail-header__info {
+    flex: 1 1 180px;
+    width: auto;
+  }
+  .dt-detail-header__top {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .dt-detail-title,
+  .dt-detail-desc {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+  .dt-detail-actions {
+    flex: 0 0 100%;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .dt-detail-actions--desktop { display: none; }
+  .dt-custom-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .dt-custom-header-content {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .dt-detail-actions--mobile {
+    display: flex;
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0 0 12px;
+  }
+  .dt-custom-header-row:has(.fb-card) {
+    display: block;
+  }
+  .dt-custom-header-row:has(.fb-card) .dt-custom-header-content {
+    width: 100%;
+  }
+  .dt-custom-header-row:has(.fb-card) .dt-detail-actions--mobile {
+    display: none;
+  }
+  .dt-detail-actions .dt-btn-default {
+    position: static;
+    max-width: 100%;
+  }
+  .dt-toolbar__right {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
   .dt-density { display: none; }
   .dt-table td { padding: 10px 12px; }
   .dt-bulkbar { left: 12px; right: 12px; transform: none; bottom: 12px; }

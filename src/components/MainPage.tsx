@@ -3383,7 +3383,9 @@ try {
 
   const [selectedDataFileId, setSelectedDataFileId] = useState("");
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth > 640,
+  );
 
   const clearUsage = () => {
     setOutputForm((prevOutputForm: any) => ({
@@ -3409,9 +3411,18 @@ try {
   e: React.MouseEvent<HTMLDivElement>
   ) => {
     const target = e.target as HTMLElement;
+    const clickedMenuButton = target.closest(
+      ".side-menu-button, .submenu-button",
+    );
 
-    if (target.closest(".side-menu-button, .submenu-button")) {
+    if (clickedMenuButton) {
       dispatch(closePanel());
+      const opensSubmenu =
+        clickedMenuButton.classList.contains("side-menu-button") &&
+        Boolean(clickedMenuButton.closest("li.has-submenu"));
+      if (window.innerWidth <= 640 && !opensSubmenu) {
+        setIsSidebarOpen(false);
+      }
     }
   };
 
@@ -3423,7 +3434,7 @@ try {
       {/* Sidebar */}
       {isSidebarOpen && (
         <aside
-          className={`bg-white border-r shadow-sm flex flex-col transition-all duration-300 h-full`}
+          className="main-page-sidebar bg-white border-r shadow-sm flex flex-col transition-all duration-300 h-full"
         >
           <div className="p-2 text-xl font-bold border-b">
             <div className="flex justify-between items-start">
@@ -3606,7 +3617,7 @@ try {
                       )}
                     </li>
 
-                    <li className={tab === "TestTemplate" ? "active" : ""}>
+                    <li className={`mobile-menu-hidden ${tab === "TestTemplate" ? "active" : ""}`}>
                       <button
                         onClick={() => {
                           setBlueprintSubTab("List");
@@ -3636,7 +3647,7 @@ try {
                       </button>
                     </li>
 
-                    <li className={tab === "Campaigns" ? "active" : ""}>
+                    <li className={`mobile-menu-hidden ${tab === "Campaigns" ? "active" : ""}`}>
                       <button
                         onClick={() => {
                           setTab("Campaigns");
@@ -3657,7 +3668,7 @@ try {
                         <span className="menu-text">Campaigns</span>
                       </button>
                     </li>
-                    <li className={tab === "Output" ? "active" : ""}>
+                    <li className={`mobile-menu-hidden ${tab === "Output" ? "active" : ""}`}>
                       <button
                         onClick={() => {
                           setTab("Output");
@@ -3940,9 +3951,9 @@ try {
       )}
 
       {/* Content Area */}
-      <div className="flex flex-col flex-1 h-full w-[calc(100%-270px)]">
+      <div className="flex flex-col flex-1 min-w-0 h-full w-[calc(100%-270px)] max-sm:w-full">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b p-2 px-4 flex justify-between items-center min-h-[77px]">
+        <header className="main-page-header bg-white shadow-sm border-b p-2 px-4 flex justify-between items-center min-h-[77px]">
           {!isSidebarOpen && (
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}

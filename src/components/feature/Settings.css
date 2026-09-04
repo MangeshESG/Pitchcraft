@@ -1,0 +1,151 @@
+/* Mobile-only layout for General settings. Desktop styles stay unchanged. */
+@media (max-width: 640px) {
+  .settings-page {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .settings-page-header {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-top: 20px !important;
+  }
+
+  .settings-page-header h1 {
+    font-size: 24px;
+  }
+
+  .settings-page-header p {
+    max-width: 100%;
+    line-height: 1.5;
+  }
+
+  .settings-tabs {
+    width: 100%;
+    min-width: 0;
+    gap: 20px !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .settings-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-tabs > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .settings-page-body {
+    width: 100%;
+    min-width: 0;
+    padding: 16px !important;
+  }
+
+  .email-signature-container {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .signature-list-header {
+    align-items: flex-start;
+    gap: 12px !important;
+  }
+
+  .signature-list-header p {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .signature-list-header button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .signature-table-wrap {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .signature-table,
+  .signature-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .signature-table thead {
+    display: none;
+  }
+
+  .signature-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    margin-bottom: 12px;
+    overflow: visible;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .signature-table tbody td {
+    display: flex;
+    min-width: 0;
+    padding: 12px !important;
+    white-space: normal !important;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    border: 0;
+  }
+
+  .signature-table tbody td::before {
+    color: #9ca3af;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .signature-table tbody td:nth-child(1)::before { content: "Signature"; }
+  .signature-table tbody td:nth-child(2)::before { content: "Provider"; }
+  .signature-table tbody td:nth-child(3)::before { content: "Default"; }
+  .signature-table tbody td:nth-child(4)::before { content: "Created"; }
+  .signature-table tbody td:nth-child(5)::before { content: "Preview"; }
+  .signature-table tbody td:nth-child(6)::before { content: "Actions"; }
+
+  .signature-table tbody td:nth-child(5) {
+    grid-column: 1 / -1;
+    border-top: 1px solid #f1f2f4;
+  }
+
+  .signature-table tbody td:nth-child(5) > div {
+    width: 100%;
+    max-width: 100% !important;
+    overflow-wrap: anywhere;
+  }
+
+  .signature-table tbody td:nth-child(6) {
+    position: absolute !important;
+    top: 8px;
+    right: 6px;
+    padding: 0 !important;
+  }
+
+  .signature-table tbody tr {
+    position: relative;
+  }
+
+  .signature-table tbody td:nth-child(1) {
+    padding-right: 42px !important;
+  }
+
+  .signature-table tbody td:nth-child(6)::before {
+    display: none;
+  }
+}

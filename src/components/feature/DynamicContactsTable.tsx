@@ -679,7 +679,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
               <p className="dt-detail-desc">{detailDescription}</p>
             )}
           </div>
-          <div className="dt-detail-actions">
+          <div className="dt-detail-actions dt-detail-actions--desktop">
             {onAddItem && (
               <button className="dt-btn-default" onClick={onAddItem}>
                 <svg viewBox="0 0 24 24" width="14" height="14">
@@ -692,7 +692,19 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         </div>
       )}
 
-      {customHeader}
+      <div className="dt-custom-header-row">
+        <div className="dt-custom-header-content">{customHeader}</div>
+        {viewMode === "detail" && onAddItem && (
+          <div className="dt-detail-actions dt-detail-actions--mobile">
+            <button className="dt-btn-default" onClick={onAddItem}>
+              <svg viewBox="0 0 24 24" width="14" height="14">
+                <path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M12 5v14M5 12h14"/>
+              </svg>
+              Add contact
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Toolbar */}
       {!hideSearch && (

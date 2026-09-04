@@ -267,22 +267,22 @@ const StepDetail: React.FC<{
 }> = ({ step }) => {
   const navigate = useNavigate();
   return (
-    <div className="h-full rounded-2xl border border-gray-200 bg-white p-7 flex items-center gap-6 relative overflow-hidden">
+    <div className="h-full rounded-2xl border border-gray-200 bg-white p-7 flex items-center gap-6 relative overflow-hidden max-lg:flex-col max-lg:items-stretch max-sm:p-4 max-sm:gap-5">
       <div aria-hidden className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-[#f1f8f2]" />
       <div aria-hidden className="absolute bottom-6 right-12 w-3 h-3 rounded-full bg-[#52b056]/30" />
       <div aria-hidden className="absolute top-12 left-6 w-2 h-2 rounded-full bg-[#52b056]/30" />
 
       <div className="flex-1 min-w-0 relative z-10">
-        <div className="text-[26px] font-bold text-gray-900 leading-tight">
+        <div className="text-[26px] font-bold text-gray-900 leading-tight max-sm:text-xl">
           {step.title}
         </div>
         <div className="text-[14px] font-medium text-gray-500 mt-1">
           {step.time}
         </div>
-        <p className="text-[16px] text-gray-600 mt-3 leading-relaxed max-w-[46ch]">
+        <p className="text-[16px] text-gray-600 mt-3 leading-relaxed max-w-[46ch] max-sm:text-sm">
           {step.body}
         </p>
-        <div className="flex items-center gap-4 mt-6">
+        <div className="flex items-center gap-4 mt-6 max-sm:flex-wrap max-sm:gap-y-3">
           <button
             type="button"
             onClick={() => step.ctaPath && navigate(step.ctaPath)}
@@ -317,8 +317,8 @@ const StepDetail: React.FC<{
       </div>
 
       {step.illustration && (
-        <div className="w-[340px] shrink-0 relative z-10 flex items-center justify-center">
-          <div className="w-[320px] h-[260px] rounded-2xl bg-[#f1f8f2] overflow-hidden flex items-center justify-center">
+        <div className="w-[340px] shrink-0 relative z-10 flex items-center justify-center max-lg:w-full">
+          <div className="w-[320px] h-[260px] rounded-2xl bg-[#f1f8f2] overflow-hidden flex items-center justify-center max-lg:w-full max-lg:max-w-[420px] max-lg:h-auto max-lg:aspect-[16/10]">
             <img
               src={step.illustration}
               alt={step.title}
@@ -345,10 +345,10 @@ const OnboardingView: React.FC<{
   const pct = required.length ? Math.round((completed / required.length) * 100) : 0;
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-7 shadow-[0_1px_3px_rgba(16,24,40,0.06)]">
+    <div className="rounded-2xl border border-gray-200 bg-white p-7 shadow-[0_1px_3px_rgba(16,24,40,0.06)] max-sm:p-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[32px] font-bold text-gray-900 tracking-tight">
+          <h1 className="text-[32px] font-bold text-gray-900 tracking-tight max-sm:text-2xl max-sm:leading-tight max-sm:break-words">
             Welcome to PitchKraft{firstName !== "there" ? `, ${firstName}` : ""}!
           </h1>
           <p className="text-[16px] text-gray-600 mt-1.5">
@@ -356,7 +356,7 @@ const OnboardingView: React.FC<{
               ? "You're on your way to running your first successful campaign."
               : `You're ${pct}% closer to running your first successful campaign.`}
           </p>
-          <div className="flex items-center gap-3 mt-5">
+          <div className="flex items-center gap-3 mt-5 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
             <span className="text-[15px] font-medium text-gray-600 whitespace-nowrap tabular-nums">
               {completed} of {required.length} complete
             </span>
@@ -366,7 +366,7 @@ const OnboardingView: React.FC<{
         <HelpAndTipsLink href="https://www.pitchkraft.ai/getting-started/" />
       </div>
 
-      <div className="grid grid-cols-12 gap-6 mt-7">
+      <div className="grid grid-cols-12 gap-6 mt-7 max-sm:gap-4 max-sm:mt-6">
         <div className="col-span-12 lg:col-span-5 flex flex-col gap-2.5">
           {steps.map((s) => (
             <StepRow
@@ -409,7 +409,7 @@ const Sparkline: React.FC<{
   const fill = `${path} L ${w} ${h} L 0 ${h} Z`;
   const last = pts[pts.length - 1];
   return (
-    <svg width={w} height={h} className="overflow-visible">
+    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="overflow-visible max-sm:w-full max-sm:max-w-[120px] max-sm:min-w-0">
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.22" />
@@ -448,7 +448,7 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, onClick }
           : undefined
       }
       title={clickable ? `View ${label.toLowerCase()}` : undefined}
-      className={`rounded-2xl border border-gray-200 bg-white p-5 transition hover:shadow-md ${
+      className={`rounded-2xl border border-gray-200 bg-white p-5 transition hover:shadow-md max-sm:min-w-0 max-sm:p-4 ${
         clickable
           ? "cursor-pointer hover:border-[#3f9f42] focus:outline-none focus:ring-2 focus:ring-[#3f9f42]/40"
           : ""
@@ -457,8 +457,8 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, onClick }
       <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">
         {label}
       </div>
-      <div className="mt-1.5 flex items-end justify-between gap-3">
-        <div className="text-[30px] font-bold text-gray-900 leading-none tabular-nums tracking-tight">
+      <div className="mt-1.5 flex items-end justify-between gap-3 max-sm:gap-2 max-sm:overflow-hidden">
+        <div className="text-[30px] font-bold text-gray-900 leading-none tabular-nums tracking-tight max-sm:shrink-0 max-sm:text-2xl">
           {value}
         </div>
         <Sparkline data={series} color={color} />
@@ -803,18 +803,18 @@ const PostOnboardingView: React.FC<{
   ];
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 max-sm:gap-4 max-sm:min-w-0">
       {/* Greeting */}
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-[26px] font-bold text-gray-900 tracking-tight">
+      <div className="flex items-end justify-between gap-4 flex-wrap max-sm:flex-col max-sm:items-stretch">
+        <div className="max-sm:min-w-0">
+          <h1 className="text-[26px] font-bold text-gray-900 tracking-tight max-sm:text-xl max-sm:leading-tight max-sm:break-words">
             {greeting}{firstName !== "there" ? `, ${firstName}` : ""}
           </h1>
           <p className="text-[14px] text-gray-600 mt-1">
             Here's how PitchKraft is  performing.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 max-sm:flex-wrap">
           <HelpAndTipsLink href="https://www.pitchkraft.ai/getting-started/" />
           <button
             onClick={handleRefresh}
@@ -838,7 +838,7 @@ const PostOnboardingView: React.FC<{
           <select
             value={dateRange}
             onChange={(e) => { setDateRange(e.target.value as DateRange); setContactPage(1); }}
-            className="h-9 px-3 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-600 bg-white hover:bg-gray-50 cursor-pointer focus:outline-none focus:border-[#3f9f42]"
+            className="h-9 px-3 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-600 bg-white hover:bg-gray-50 cursor-pointer focus:outline-none focus:border-[#3f9f42] max-sm:min-w-0 max-sm:max-w-full"
           >
             {(Object.keys(DATE_RANGE_LABELS) as DateRange[]).map((k) => (
               <option key={k} value={k}>{DATE_RANGE_LABELS[k]}</option>
@@ -855,15 +855,15 @@ const PostOnboardingView: React.FC<{
       </div>
 
       {/* Chart */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5">
-        <div className="flex items-center justify-between">
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 max-sm:p-4 max-sm:min-w-0">
+        <div className="flex items-center justify-between max-sm:flex-col max-sm:items-stretch max-sm:gap-3">
           <div>
             <div className="text-[15px] font-semibold text-gray-900">
               Emails krafted vs sent
             </div>
             <div className="text-[12px] text-gray-500 mt-0.5">{DATE_RANGE_LABELS[dateRange]}</div>
           </div>
-          <div className="flex items-center gap-4 text-[12px] text-gray-600">
+          <div className="flex items-center gap-4 text-[12px] text-gray-600 max-sm:flex-wrap max-sm:gap-y-2">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-[#3b82f6]" /> Krafted
             </span>
@@ -874,14 +874,14 @@ const PostOnboardingView: React.FC<{
             <HelpAndTipsLink href="https://www.pitchkraft.ai/mail" />
           </div>
         </div>
-        <div className="mt-3 h-[220px]">
+        <div className="mt-3 h-[220px] max-sm:h-[200px] max-sm:min-w-0">
           <DualLineAreaChart data={chartData} />
         </div>
       </div>
 
       {/* All Contacts */}
       {(contacts.length > 0 || contactTotal > 0 || contactsLoading || contactSearch.trim()) && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-5">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 max-sm:p-4 max-sm:min-w-0">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <div className="text-[15px] font-semibold text-gray-900">All contacts</div>
@@ -889,7 +889,7 @@ const PostOnboardingView: React.FC<{
                 Page {contactPage}
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 max-sm:w-full max-sm:flex-wrap">
               <HelpAndTipsLink href="https://www.pitchkraft.ai/contacts" />
               {contactsLoading && (
                 <div className="flex items-center gap-2 text-[12px] font-medium text-gray-500" aria-live="polite">
@@ -902,13 +902,13 @@ const PostOnboardingView: React.FC<{
                 placeholder="Search name, email or company…"
                 value={contactSearch}
                 onChange={(e) => { setContactSearch(e.target.value); setContactPage(1); }}
-                className="h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#3f9f42] w-72"
+                className="h-9 px-3 rounded-lg border border-gray-200 text-[13px] text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#3f9f42] w-72 max-sm:min-w-0 max-sm:w-full"
               />
             </div>
           </div>
 
-          <div className="relative mt-4 min-h-[160px] overflow-hidden rounded-xl border border-gray-100">
-            <table className="w-full text-[13px]">
+          <div className="relative mt-4 min-h-[160px] overflow-hidden max-lg:overflow-x-auto rounded-xl border border-gray-100">
+            <table className="w-full min-w-[820px] text-[13px]">
               <thead>
                 <tr className="text-left text-gray-400 text-[11px] uppercase tracking-wider border-b border-gray-100">
                   <th className="font-medium pb-2">Name</th>
@@ -956,7 +956,7 @@ const PostOnboardingView: React.FC<{
           {(() => {
             if (contactPage === 1 && !hasNextContactPage) return null;
             return (
-              <div className="flex items-center justify-end gap-2 mt-4 text-[12px] text-gray-500">
+              <div className="flex items-center justify-end gap-2 mt-4 text-[12px] text-gray-500 max-sm:justify-center">
                 <button
                   type="button"
                   disabled={contactPage === 1 || contactsLoading}
@@ -1099,11 +1099,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="w-full min-h-full bg-gray-50">
       {derivedComplete ? (
-        <div className="p-6">
+        <div className="p-6 max-sm:p-3">
           <PostOnboardingView firstName={name} kpis={kpis ?? {}} clientId={clientId} />
         </div>
       ) : (
-        <div className="p-6">
+        <div className="p-6 max-sm:p-3">
           <OnboardingView firstName={name} stepStatus={stepStatus} />
         </div>
       )}

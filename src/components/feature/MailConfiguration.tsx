@@ -459,7 +459,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
       : domainRows.slice((domainPage - 1) * domainPageSize, domainPage * domainPageSize);
 
   return (
-        <div style={{ padding: "24px 28px" }}>
+        <div className="mail-config-root" style={{ padding: "24px 28px" }}>
           {!hasMailboxConfig && !smtpListLoading ? (
             <MailConfigurationEmptyState
               onAddMailbox={() => dispatch(openPanel("add-edit-mailbox-modal"))}
@@ -505,7 +505,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
             {/* Mailboxes Section */}
             {configTab === "mailboxes" && (
               <div className="section-wrapper">
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
+                <div className="mail-config-section-head" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
                   <div>
                     <h2 style={{ color: "#111827", textAlign: "left", fontSize: 22, margin: "0 0 6px", fontWeight: 700 }}>
                       Mailboxes
@@ -516,7 +516,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   </div>
 
                   {!isDemoAccount && (
-                    <div style={{ display: "flex", gap: 10 }}>
+                    <div className="mail-config-section-actions" style={{ display: "flex", gap: 10 }}>
                       <button
                         className="btn-default"
                         onClick={() => setShowCreateGroup(true)}
@@ -573,7 +573,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   </div>
                 )}
 
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
+                <div className="mail-config-filters" style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
                   {mailboxFilterOptions.map((option) => {
                     const optionKey = option.key as keyof typeof mailboxCounts;
                     const isActive = mailboxFilter === option.key;
@@ -609,7 +609,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   })}
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+                <div className="mail-config-list-toolbar" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
                   <input
                     type="text"
                     className="search-input"

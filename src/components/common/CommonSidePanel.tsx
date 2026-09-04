@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import './CommonSidePanel.css';
 
 interface CommonSidePanelProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
 
   return createPortal(
     <div
+      className="common-side-panel"
       style={{
         position: "fixed",
         top: 0,
@@ -57,6 +59,7 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
     >
       {/* HEADER */}
       <div
+        className='common-side-panel-header border-[#cccccc] border-b'
         style={{
           background: "#E4F5E5",
           padding: "16px 20px",
@@ -66,7 +69,6 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
           gap: "16px",
           flexShrink: 0,
         }}
-        className='border-[#cccccc] border-b'
       >
         <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
           {title}
@@ -87,13 +89,14 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
       </div>
 
       {/* BODY */}
-      <div style={{ padding: 20, flex: "1 1 auto", minHeight: 0, overflowY: "auto" }}>
+      <div className="common-side-panel-body" style={{ padding: 20, flex: "1 1 auto", minHeight: 0, overflowY: "auto" }}>
         {children}
       </div>
 
       {/* FOOTER */}
       {footerContent && (
         <div
+          className="common-side-panel-footer"
           style={{
             padding: "16px 20px 50px",
             display: "flex",

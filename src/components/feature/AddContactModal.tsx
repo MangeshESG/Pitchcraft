@@ -256,7 +256,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
       title="Add new contact"
       width={550}
       headerContent={
-        <div style={{ position: 'relative' }}>
+        <div className="add-contact-file-picker" style={{ position: 'relative' }}>
           <button
             onClick={() => setShowDataFileDropdown(!showDataFileDropdown)}
             style={{
@@ -439,7 +439,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         </>
       }
     >
-      <form onSubmit={handleSubmit}>
+      <form className="add-contact-form" onSubmit={handleSubmit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
