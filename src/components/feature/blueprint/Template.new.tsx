@@ -28,6 +28,8 @@ import { BpBanner } from "./BpBanner";
 interface CampaignTemplate {
   id: number;
   templateName: string;
+  // Name of the base template definition the blueprint was created from.
+  templateDefinitionName?: string;
   createdAt: string;
   selectedModel: string;
   [key: string]: any;
@@ -166,6 +168,9 @@ interface ListProps {
   onPageChange: (p: number) => void;
   onPageSizeChange: (n: number | "All") => void;
   onCreateClick: () => void;
+  categories: { name: string; count: number }[];
+  activeCategory: string | null;
+  onCategoryChange: (category: string | null) => void;
   onRowClick: Handler;
   templateActionsAnchor: string | null;
   setTemplateActionsAnchor: (v: string | null) => void;
@@ -203,6 +208,35 @@ export const BlueprintsList: React.FC<ListProps> = (p) => {
       </div>
 
       <div className="bp-list-body">
+        {p.categories.length > 0 && (
+          <div className="bp-catbar" role="group" aria-label="Filter by category">
+            <button
+              type="button"
+              className={`bp-catchip${p.activeCategory === null ? " is-active" : ""}`}
+              onClick={() => p.onCategoryChange(null)}
+            >
+              All
+              <span className="bp-catchip__count">
+                {p.categories.reduce((sum, c) => sum + c.count, 0)}
+              </span>
+            </button>
+            {p.categories.map((c) => (
+              <button
+                key={c.name}
+                type="button"
+                title={c.name}
+                className={`bp-catchip${p.activeCategory === c.name ? " is-active" : ""}`}
+                onClick={() =>
+                  p.onCategoryChange(p.activeCategory === c.name ? null : c.name)
+                }
+              >
+                <span className="bp-catchip__label">{c.name}</span>
+                <span className="bp-catchip__count">{c.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="bp-toolbar">
           <div className="bp-toolbar__left">
             <div className="bp-search">
@@ -254,6 +288,13 @@ export const BlueprintsList: React.FC<ListProps> = (p) => {
                 className={p.sortKey === "templateName" ? "active" : ""}
               />
             </div>
+            <div className="bp-th" onClick={() => p.onSort("templateDefinitionName")}>
+              Category{" "}
+              <FontAwesomeIcon
+                icon={sortIcon(p.sortKey === "templateDefinitionName", p.sortDirection)}
+                className={p.sortKey === "templateDefinitionName" ? "active" : ""}
+              />
+            </div>
             <div className="bp-th" onClick={() => p.onSort("id")}>
               ID{" "}
               <FontAwesomeIcon
@@ -274,7 +315,11 @@ export const BlueprintsList: React.FC<ListProps> = (p) => {
           {p.isLoading ? (
             <div className="bp-rows__msg">Loading...</div>
           ) : p.templates.length === 0 ? (
-            <div className="bp-rows__msg">No campaign blueprint found.</div>
+            <div className="bp-rows__msg">
+              {p.activeCategory
+                ? `No blueprints in "${p.activeCategory}".`
+                : "No campaign blueprint found."}
+            </div>
           ) : (
             p.templates.map((t) => (
               <div key={t.id} className="bp-row">
@@ -307,6 +352,15 @@ export const BlueprintsList: React.FC<ListProps> = (p) => {
                       />
                     )}
                   </Tooltip>
+                </div>
+                <div className="bp-row__category">
+                  {t.templateDefinitionName ? (
+                    <span className="bp-category-pill" title={t.templateDefinitionName}>
+                      {t.templateDefinitionName}
+                    </span>
+                  ) : (
+                    <span className="bp-category-pill is-empty">—</span>
+                  )}
                 </div>
                 <div className="bp-row__id">#{t.id}</div>
                 <div className="bp-row__date">{p.formatDate(t.createdAt)}</div>

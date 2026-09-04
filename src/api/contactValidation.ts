@@ -1,11 +1,19 @@
-import API_BASE_URL from "../config";
 
 /**
  * Audience Assurance: the saved targeting briefs, the validation runs and
  * their results. Backed by `api/ContactValidation`.
  */
 
-const BASE = `${API_BASE_URL}/api/ContactValidation`;
+/**
+ * Validation always talks to the deployed API, never to whatever
+ * `API_BASE_URL` points at locally: contact fit, data integrity, live contact
+ * and email discovery all run server-side against the live host, the same one
+ * MainPage generates email from.
+ */
+const VALIDATION_API_BASE_URL = "https://playground.esuk.co.uk";
+//const VALIDATION_API_BASE_URL = "https://localhost:7216";
+
+const BASE = `${VALIDATION_API_BASE_URL}/api/ContactValidation`;
 
 /**
  * Reads a timestamp the API sent as UTC without saying so.

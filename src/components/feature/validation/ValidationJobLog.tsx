@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ValidationJob, fetchJobs, parseApiDate } from "../../../api/contactValidation";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { bannerClass, cardClass, hintClass } from "../../common/settingsStyles";
 
 interface ValidationJobLogProps {
@@ -164,6 +164,11 @@ const ValidationJobLog: React.FC<ValidationJobLogProps> = ({ selectedClient }) =
                     >
                       {job.status}
                     </span>
+                    {job.errorMessage && (
+                      <div className="mt-1 max-w-[280px] text-[11px] leading-snug text-[#b91c1c]">
+                        {job.errorMessage}
+                      </div>
+                    )}
                   </td>
                   <td className="py-2.5 pr-3 text-right text-[#0b1220]">
                     {job.processedCount}

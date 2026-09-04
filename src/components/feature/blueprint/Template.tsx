@@ -73,6 +73,8 @@ interface CampaignTemplate {
   id: number;
   clientId: string;
   templateName: string;
+  // Name of the base template definition this blueprint was created from.
+  templateDefinitionName?: string;
   aiInstructions: string;
   placeholderListInfo: string;
   masterBlueprintUnpopulated: string;
@@ -313,6 +315,8 @@ const Template: React.FC<TemplateProps> = ({
   const [exampleCache, setExampleCache] = useState<
     Record<number, string | undefined>
   >({});
+  // Category filter — the base template ("category") a blueprint was created from.
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
    // ✅ NEW: Sorting state for templates table
   const [listSortKey, setListSortKey] = useState<string>("templateName");
   const [listSortDirection, setListSortDirection] = useState<"asc" | "desc">("asc");
@@ -695,11 +699,41 @@ const Template: React.FC<TemplateProps> = ({
     }
   };
 
+  // Distinct categories (base template names) with their blueprint counts.
+  const categoryOptions = React.useMemo(() => {
+    const counts = new Map<string, number>();
+
+    campaignTemplates.forEach((template) => {
+      const name = (template.templateDefinitionName || "").trim();
+      if (!name) return;
+      counts.set(name, (counts.get(name) || 0) + 1);
+    });
+
+    return Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [campaignTemplates]);
+
+  // Drop the filter if the selected category no longer exists (e.g. after a delete).
+  useEffect(() => {
+    if (categoryFilter && !categoryOptions.some((c) => c.name === categoryFilter)) {
+      setCategoryFilter(null);
+    }
+  }, [categoryFilter, categoryOptions]);
+
   // Filter templates
   const filteredCampaignTemplates = campaignTemplates.filter((template) => {
+    if (
+      categoryFilter &&
+      (template.templateDefinitionName || "").trim() !== categoryFilter
+    ) {
+      return false;
+    }
+
     const searchLower = searchQuery.toLowerCase();
     return (
       template.templateName.toLowerCase().includes(searchLower) ||
+      (template.templateDefinitionName || "").toLowerCase().includes(searchLower) ||
       template.id.toString().includes(searchLower)
     );
   })// ✅ NEW: Sort filtered templates
@@ -707,6 +741,13 @@ const Template: React.FC<TemplateProps> = ({
       switch (listSortKey) {
         case "templateName":
           return compareStrings(a.templateName, b.templateName, listSortDirection);
+
+        case "templateDefinitionName":
+          return compareStrings(
+            a.templateDefinitionName,
+            b.templateDefinitionName,
+            listSortDirection,
+          );
 
         case "id":
           const idCompare = a.id - b.id;
@@ -1129,6 +1170,12 @@ const Template: React.FC<TemplateProps> = ({
               onPageChange={setCurrentPage}
               onPageSizeChange={setPageSize}
               onCreateClick={handleCreateCampaignClick}
+              categories={categoryOptions}
+              activeCategory={categoryFilter}
+              onCategoryChange={(category) => {
+                setCategoryFilter(category);
+                setCurrentPage(1);
+              }}
               onRowClick={handleRowOpen}
               templateActionsAnchor={templateActionsAnchor}
               setTemplateActionsAnchor={setTemplateActionsAnchor}
