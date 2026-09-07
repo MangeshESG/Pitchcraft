@@ -60,6 +60,7 @@ import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_DEFAULT_VISIBLE_COLUMNS,
   VALIDATION_EXCLUDED_FIELDS,
+  VALIDATION_FILTER_FIELDS,
   VALIDATION_FORMATTERS,
 } from "./validation/validationColumns";
 
@@ -2120,6 +2121,9 @@ const baseFields: any[] = [
     type: "date",
     contextType: "campaign",
   },
+  // The Audience Assurance scores, so a list — or a saved view — can be built
+  // from how a contact scored rather than only from what it says.
+  ...VALIDATION_FILTER_FIELDS,
 ];
 const normalizeFilterFieldType = (fieldType?: string) => {
   switch ((fieldType || "").toLowerCase()) {

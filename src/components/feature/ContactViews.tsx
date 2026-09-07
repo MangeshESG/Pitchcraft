@@ -44,6 +44,7 @@ import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
   VALIDATION_FORMATTERS,
+  getValidationFieldValue,
 } from "./validation/validationColumns";
 import { useToast } from "../../hooks/useToast";
 
@@ -286,6 +287,11 @@ const getRowValue = (row: Record<string, any>, fieldKey: string) => {
 
   if (directValue !== undefined) {
     return directValue;
+  }
+
+  const validationValue = getValidationFieldValue(row, fieldKey);
+  if (validationValue !== undefined) {
+    return validationValue;
   }
 
   if (!fieldKey.startsWith("custom_")) {

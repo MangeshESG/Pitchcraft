@@ -16,6 +16,10 @@ import {
   hasRequiredConditionContext,
 } from "../../utils/trackingFilterUtils";
 import type { CampaignOption } from "../../utils/trackingFilterUtils";
+import {
+  VALIDATION_FILTER_FIELD_KEYS,
+  getValidationFieldValue,
+} from "../feature/validation/validationColumns";
 
 interface FieldOption {
   key: string;
@@ -57,7 +61,7 @@ export interface ViewEditorConfig {
   onCreateNew?: (payload: ViewEditorPayload) => void;
 }
 
-type FieldCategoryKey = "system" | "custom" | "email";
+type FieldCategoryKey = "system" | "custom" | "email" | "validation";
 
 interface FieldCategory {
   key: FieldCategoryKey;
@@ -148,6 +152,12 @@ const getFieldCategory = (field: FieldOption): FieldCategoryKey => {
     return "custom";
   }
 
+  // Checked before the email heuristic below, which would otherwise pull
+  // "Email validity" out of its own group and into Email.
+  if (VALIDATION_FILTER_FIELD_KEYS.has(field.key)) {
+    return "validation";
+  }
+
   const normalizedKey = field.key.toLowerCase();
   const normalizedLabel = field.label.toLowerCase();
 
@@ -172,6 +182,7 @@ const getFieldCategories = (sortedFields: FieldOption[]): FieldCategory[] => {
     { key: "system", label: "System Fields", fields: [] },
     { key: "custom", label: "Custom Fields", fields: [] },
     { key: "email", label: "Email", fields: [] },
+    { key: "validation", label: "Audience Assurance", fields: [] },
   ];
 
   sortedFields.forEach((field) => {
@@ -279,6 +290,11 @@ const getRowValue = <T extends Record<string, any>>(row: T, fieldKey: string) =>
 
   if (directValue !== undefined) {
     return directValue;
+  }
+
+  const validationValue = getValidationFieldValue(row, fieldKey);
+  if (validationValue !== undefined) {
+    return validationValue;
   }
 
   if (!fieldKey.startsWith("custom_")) {

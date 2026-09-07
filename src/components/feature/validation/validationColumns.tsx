@@ -256,3 +256,53 @@ export const VALIDATION_FORMATTERS: Record<
 
   isVerified: verifiedCell,
 };
+
+/**
+ * The Audience Assurance fields a filter — and so a saved view — can be built
+ * from.
+ *
+ * The scores are the reason the checks exist: "everyone whose email validity
+ * is under 50" is the question a user actually wants to turn into a list, and
+ * a filter field is the only way to ask it. They live here with the columns
+ * because the list, segment and view grids each build their own filter field
+ * set, and one definition is what stops the four checks being named three
+ * different things.
+ *
+ * Scores are plain numbers rather than a banded dropdown so the comparison
+ * operators (`>=`, `<`) stay available — the six confidence bands exist to
+ * spread the scores out, and collapsing them back into a picker would throw
+ * away the precision the scoring instruction works for.
+ */
+export const VALIDATION_FILTER_FIELDS: {
+  key: string;
+  label: string;
+  type: "number" | "boolean" | "date";
+}[] = [
+  { key: "contactFitConfidence", label: VALIDATION_COLUMN_LABELS.contactFitConfidence, type: "number" },
+  { key: "dataIntegrityConfidence", label: VALIDATION_COLUMN_LABELS.dataIntegrityConfidence, type: "number" },
+  { key: "liveContactConfidence", label: VALIDATION_COLUMN_LABELS.liveContactConfidence, type: "number" },
+  { key: "emailValidityConfidence", label: VALIDATION_COLUMN_LABELS.emailValidityConfidence, type: "number" },
+  { key: "isVerified", label: VALIDATION_COLUMN_LABELS.isVerified, type: "boolean" },
+  { key: "lastChecked", label: VALIDATION_COLUMN_LABELS.lastChecked, type: "date" },
+];
+
+/** Field keys the filter picker groups under Audience Assurance. */
+export const VALIDATION_FILTER_FIELD_KEYS = new Set(
+  VALIDATION_FILTER_FIELDS.map((field) => field.key)
+);
+
+/**
+ * A validation score off a contact row.
+ *
+ * The API returns the scores nested under `validation` — the grid flattens
+ * that one level for display, but a filter reads the row as it arrived, so it
+ * has to look inside itself.
+ */
+export const getValidationFieldValue = (row: any, fieldKey: string) => {
+  if (!VALIDATION_FILTER_FIELD_KEYS.has(fieldKey)) return undefined;
+
+  const validation = row?.validation;
+  return validation && typeof validation === "object"
+    ? validation[fieldKey]
+    : undefined;
+};
