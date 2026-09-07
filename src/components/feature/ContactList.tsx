@@ -3337,6 +3337,7 @@ const filterFields: any = useMemo(() => {
                 // Detail view for segments
                 <div style={{ padding: "20px 32px 24px" }}>
                 <DynamicContactsTable
+                  columnNameMap={columnNameMap}
                   data={detailContacts}
                   isLoading={isLoadingDetail}
                   search={detailSearchQuery}

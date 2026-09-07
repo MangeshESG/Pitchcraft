@@ -587,20 +587,29 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   };
 
   // ---------- Select all ----------
+  const pageIds    = displayData.map((i) => i[primaryKey]?.toString()).filter(Boolean) as string[];
+  const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedItems?.has(id));
+  const someSelected = pageIds.some((id) => selectedItems?.has(id));
+
+  /**
+   * Ticks or clears the rows on the page in front of the user, and nothing
+   * else.
+   *
+   * Selection carries across pages, so paging through and ticking each page
+   * builds a selection up rather than replacing it, and a few rows picked on
+   * page 1 survive a trip to page 2. Reaching every row in one click is what
+   * the "All" page size is for — that way what the header checkbox covers is
+   * always exactly what is on screen, rather than silently including rows the
+   * user has never seen.
+   */
   const handleSelectAll = (checked: boolean) => {
     if (!onSelectItem) return;
-    filteredData.forEach((item) => {
-      const id = item[primaryKey]?.toString();
-      if (!id) return;
+    pageIds.forEach((id) => {
       const has = selectedItems?.has(id);
       if (checked && !has) onSelectItem(id);
       else if (!checked && has) onSelectItem(id);
     });
   };
-
-  const pageIds    = displayData.map((i) => i[primaryKey]?.toString()).filter(Boolean) as string[];
-  const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedItems?.has(id));
-  const someSelected = pageIds.some((id) => selectedItems?.has(id));
 
   // ---------- Floating bulk bar ----------
   const renderBulkBar = () => {

@@ -37,11 +37,12 @@ export const VALIDATION_COLUMN_LABELS: Record<string, string> = {
 /**
  * Validation fields that travel on the row but never become columns.
  *
- * All four scores live in the single "Checks" cell, which reads them straight
- * off the row — so the per-check fields still have to be sent, they just must
- * not each claim a column as well. Four score columns plus four comment
- * columns is eight column-widths for one idea, and it pushed the name and
- * company off screen.
+ * The four scores each get their own column so a list can be sorted by one
+ * check at a time — sorting is per column, so a single combined cell can only
+ * ever be sorted by how many checks ran, not by any one verdict. What stays
+ * excluded is the second copy of each score: the comment and the per-check
+ * date, which the score cell already shows on hover. Twelve columns for four
+ * checks would push the name and company off screen for nothing.
  *
  * Excluding them here also means a client whose saved layout still lists the
  * old columns simply stops seeing them, rather than having to reset their
@@ -49,34 +50,35 @@ export const VALIDATION_COLUMN_LABELS: Record<string, string> = {
  */
 export const VALIDATION_EXCLUDED_FIELDS = [
   "validationSources",
-  "contactFitConfidence",
   "contactFitComments",
   "contactFitCheckedAt",
-  "dataIntegrityConfidence",
   "dataIntegrityComments",
   "dataIntegrityCheckedAt",
-  "liveContactConfidence",
   "liveContactComments",
   "liveContactCheckedAt",
-  "emailValidityConfidence",
   "emailValidityComments",
   "emailCheckedAt",
   "verifiedAt",
 ];
 
 /**
- * What a list shows by default: the four scores in one cell, when they were
- * last run, and the manual override.
+ * What a list shows by default: the four scores in one cell, then each score
+ * on its own, when they were last run, and the manual override.
  *
- * The per-check confidence, comment and date columns all still exist and can
- * be switched on from the column panel — useful for sorting by one score or
- * exporting the comments — they are just not worth a column each by default.
+ * The combined "Checks" cell stays because it reads across in a glance, but a
+ * column is the unit the table sorts and filters by, so each check also needs
+ * one of its own — otherwise "show me the contacts whose email is weakest" has
+ * no way to be asked. Any of them can be switched off from the column panel.
  *
  * The table drops any column no row has a value for, so none of this appears
  * until a check has actually been run.
  */
 export const VALIDATION_DEFAULT_VISIBLE_COLUMNS = [
   "checks",
+  "contactFitConfidence",
+  "dataIntegrityConfidence",
+  "liveContactConfidence",
+  "emailValidityConfidence",
   "lastChecked",
   "isVerified",
 ];
@@ -178,11 +180,11 @@ const CHECKS: {
 ];
 
 /**
- * All four scores in one cell.
+ * All four scores in one cell — the summary next to the four per-check columns.
  *
- * Four separate columns cost four column-widths for what is really one idea —
- * "how healthy is this contact?" — and pushed the name and company off screen.
- * One cell of short chips reads across in a glance, and hovering any chip
+ * It answers "how healthy is this contact?" in one column-width, which the
+ * four score columns cannot do without reading across four headers. Sorting
+ * belongs to those columns; this one is for the glance, and hovering any chip
  * gives the reasoning behind that specific score.
  *
  * Only checks that have actually run get a chip: a placeholder for every
