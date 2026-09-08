@@ -2237,12 +2237,12 @@ case "boolean":
   ) : null;
 
   const content = (
-    <div className={`${asPage ? "w-full" : "w-[90%] max-w-6xl"} ${!asPage && "shadow-xl rounded-lg"}`}>
+    <div className={`contact-profile-editor ${asPage ? "w-full" : "w-[90%] max-w-6xl"} ${!asPage && "shadow-xl rounded-lg"}`}>
       {/* Flex container for left & right */}
-      <div className="flex flex-row gap-8">
+      <div className="contact-profile-editor__columns flex flex-row gap-8">
 
         {/* LEFT SIDE (Edit Contact) */}
-        <div className="w-1/2 bg-white rounded-lg p-6  shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
+        <div className="contact-profile-editor__main w-1/2 bg-white rounded-lg p-6  shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
           {/* Header */}
           <div className="mb-3 flex justify-between">
             <div className="flex flex-row-reverse items-center gap-3">
@@ -2849,7 +2849,7 @@ case "boolean":
         </div>
 
         {/* RIGHT SIDE (Email Campaigns, Pinned Notes, LinkedIn Summary) */}
-        <div className="w-1/2 flex flex-col gap-6">
+        <div className="contact-profile-editor__aside w-1/2 flex flex-col gap-6">
           {/* Email Campaigns */}
           <div className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
             <div className="mb-4 flex items-center gap-2">
@@ -2858,7 +2858,7 @@ case "boolean":
               </span>
               <h3 className="text-lg font-semibold text-foreground">Email campaign</h3>
             </div>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="contact-profile-stats grid grid-cols-4 gap-4">
               <Stat label="Sent" value={emailStats.sent} color="#1b5e20" bgClass='bg-green-50' />
 
               <Stat
@@ -3445,6 +3445,7 @@ case "boolean":
         {/* SUCCESS TOAST */}
        {showSuccessToast && (
   <div
+    className="contact-responsive-toast"
     style={{
       position: "fixed",
       bottom: 24,
@@ -3661,6 +3662,7 @@ case "boolean":
  {/* ERROR TOAST */}
 {showErrorToast && (
   <div
+    className="contact-responsive-toast"
     style={{
       position: "fixed",
       bottom: 24,

@@ -57,6 +57,8 @@ interface DynamicContactsTableProps {
   onBack?: () => void;
   backLabel?: string;
   onAddItem?: () => void;
+  onRefresh?: () => void | Promise<void>;
+  isRefreshing?: boolean;
   hideSearch?: boolean;
   customHeader?: React.ReactNode;
   /** Fires with the full column list in display order — position is the sequence. */
@@ -148,6 +150,30 @@ const paletteFor = (id: any): [string, string] => {
   return AVATAR_PALETTE[Math.abs(n) % AVATAR_PALETTE.length];
 };
 
+const GridRefreshButton: React.FC<{
+  onClick: () => void | Promise<void>;
+  loading: boolean;
+}> = ({ onClick, loading }) => (
+  <button
+    type="button"
+    onClick={() => void onClick()}
+    disabled={loading}
+    className="h-9 w-9 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+    title="Refresh grid"
+    aria-label="Refresh grid"
+  >
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="#3f9f42"
+      className={loading ? "animate-spin" : ""}
+    >
+      <path d="M8 1.5A6.5 6.5 0 001.5 8a.75.75 0 01-1.5 0A8 8 0 0113.5 2.19V1.25a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zm7.25 5.75a.75.75 0 01.75.75A8 8 0 012.5 13.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
+    </svg>
+  </button>
+);
+
 // ---------- Component ----------
 const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   data,
@@ -177,6 +203,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   onBack,
   backLabel = "Back",
   onAddItem,
+  onRefresh,
+  isRefreshing = false,
   hideSearch = false,
   customHeader,
   onColumnsChange,
@@ -680,6 +708,9 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             )}
           </div>
           <div className="dt-detail-actions dt-detail-actions--desktop">
+            {onRefresh && (
+              <GridRefreshButton onClick={onRefresh} loading={isRefreshing} />
+            )}
             {onAddItem && (
               <button className="dt-btn-default" onClick={onAddItem}>
                 <svg viewBox="0 0 24 24" width="14" height="14">
@@ -694,14 +725,19 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
       <div className="dt-custom-header-row">
         <div className="dt-custom-header-content">{customHeader}</div>
-        {viewMode === "detail" && onAddItem && (
+        {viewMode === "detail" && (onRefresh || onAddItem) && (
           <div className="dt-detail-actions dt-detail-actions--mobile">
-            <button className="dt-btn-default" onClick={onAddItem}>
-              <svg viewBox="0 0 24 24" width="14" height="14">
-                <path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M12 5v14M5 12h14"/>
-              </svg>
-              Add contact
-            </button>
+            {onRefresh && (
+              <GridRefreshButton onClick={onRefresh} loading={isRefreshing} />
+            )}
+            {onAddItem && (
+              <button className="dt-btn-default" onClick={onAddItem}>
+                <svg viewBox="0 0 24 24" width="14" height="14">
+                  <path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M12 5v14M5 12h14"/>
+                </svg>
+                Add contact
+              </button>
+            )}
           </div>
         )}
       </div>

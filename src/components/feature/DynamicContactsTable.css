@@ -547,7 +547,9 @@
     width: 100%;
   }
   .dt-custom-header-row:has(.fb-card) .dt-detail-actions--mobile {
-    display: none;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
   }
   .dt-detail-actions .dt-btn-default {
     position: static;

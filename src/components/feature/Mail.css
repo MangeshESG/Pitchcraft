@@ -545,6 +545,35 @@ body {
     padding-right: 10px;
   }
 
+  .mail-config-create-group {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 12px !important;
+  }
+
+  .mail-config-create-group__grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .mail-config-create-group__grid > div,
+  .mail-config-create-group__grid input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .mail-config-create-group__actions {
+    flex-wrap: wrap;
+  }
+
+  .mail-config-create-group__actions > button {
+    flex: 1 1 120px;
+    min-width: 0;
+  }
+
   .mail-config-filters {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr));

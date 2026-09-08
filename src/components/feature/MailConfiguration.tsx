@@ -535,8 +535,8 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                 </div>
 
                 {showCreateGroup && (
-                  <div style={{ padding: 16, marginBottom: 18, border: "1px solid #bbdfbd", borderRadius: 8, background: "#f7fcf7" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) minmax(280px, 2fr) auto", gap: 12, alignItems: "end" }}>
+                  <div className="mail-config-create-group" style={{ padding: 16, marginBottom: 18, border: "1px solid #bbdfbd", borderRadius: 8, background: "#f7fcf7" }}>
+                    <div className="mail-config-create-group__grid" style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) minmax(280px, 2fr) auto", gap: 12, alignItems: "end" }}>
                       <div>
                         <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Group name</label>
                         <input
@@ -555,7 +555,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                           style={{ width: "100%", height: 38, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 6 }}
                         />
                       </div>
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div className="mail-config-create-group__actions" style={{ display: "flex", gap: 8 }}>
                         <button type="button" className="button secondary small" onClick={resetGroupForm}>Cancel</button>
                         <button
                           type="button"

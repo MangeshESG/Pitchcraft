@@ -8,6 +8,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import RichTextEditor from "../../common/RTEEditor";
+import "./ContactComposeEmailPopup.css";
 
 interface ContactComposeEmailPopupProps {
   isOpen: boolean;
@@ -136,6 +137,7 @@ export const RecipientChipInput: React.FC<RecipientChipInputProps> = ({
 
   return (
     <div
+      className="recipient-chip-input"
       style={{
         ...compactFieldStyle,
         minHeight: 42,
@@ -383,6 +385,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
 
   return (
     <div
+      className="contact-compose-backdrop"
       style={{
         position: "fixed",
         inset: 0,
@@ -396,6 +399,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       onClick={onClose}
     >
       <div
+        className="contact-compose-modal"
         style={{
           width: "min(1180px, 96vw)",
           maxHeight: "92vh",
@@ -408,6 +412,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
         onClick={(event) => event.stopPropagation()}
       >
         <div
+          className="contact-compose-header"
           style={{
             display: "flex",
             alignItems: "center",
@@ -434,7 +439,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
             <FontAwesomeIcon icon={faArrowLeft} />
             Compose email
           </button>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div className="contact-compose-header-actions" style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <button
               type="button"
               onClick={handleGenerate}
@@ -491,6 +496,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
         </div>
 
         <div
+          className="contact-compose-form"
           style={{
             border: "1px solid #e0e6ef",
             borderRadius: 8,
@@ -498,7 +504,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
             background: "#fff",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
+          <div className="contact-compose-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
             <label style={labelStyle}>Select blueprint</label>
             <select
               value={selectedBlueprintId}
@@ -514,7 +520,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
             </select>
             </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
+          <div className="contact-compose-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
             <label style={labelStyle}>From</label>
             <select
               value={selectedFromId}
@@ -538,7 +544,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
             )}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
+          <div className="contact-compose-field contact-compose-to-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
             <label style={labelStyle}>To</label>
             <input
               value={toEmail}
@@ -573,7 +579,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
           </div>
 
           {showCc && (
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
+            <div className="contact-compose-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
               <label style={labelStyle}>Cc</label>
               <RecipientChipInput
                 recipients={ccEmails}
@@ -597,7 +603,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
           )}
 
           {showBcc && (
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
+            <div className="contact-compose-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
               <label style={labelStyle}>Bcc</label>
               <RecipientChipInput
                 recipients={bccEmails}
@@ -620,7 +626,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
             </div>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+          <div className="contact-compose-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
             <label style={labelStyle}>Subject</label>
             <input
               value={emailSubject}
@@ -630,7 +636,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
             />
           </div>
 
-          <div>
+          <div className="contact-compose-editor">
             <div
               style={{
                 width: "100%",

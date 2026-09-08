@@ -1,0 +1,17 @@
+@media (max-width: 640px) {
+  .common-responsive-toast {
+    width: calc(100vw - 24px) !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 24px) !important;
+    bottom: calc(64px + env(safe-area-inset-bottom)) !important;
+    padding: 12px 14px !important;
+    gap: 10px !important;
+    box-sizing: border-box;
+    font-size: 14px !important;
+  }
+
+  .common-responsive-toast > div:nth-last-child(2) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}

@@ -1,0 +1,98 @@
+@media (max-width: 640px) {
+  .contact-compose-backdrop {
+    padding: 8px !important;
+    align-items: stretch !important;
+  }
+
+  .contact-compose-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px) !important;
+    padding: 12px !important;
+    border-radius: 8px !important;
+    box-sizing: border-box;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+
+  .contact-compose-header {
+    align-items: flex-start !important;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px !important;
+  }
+
+  .contact-compose-header > button:first-child {
+    width: 100%;
+    font-size: 17px !important;
+  }
+
+  .contact-compose-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 8px !important;
+  }
+
+  .contact-compose-header-actions > button {
+    min-width: 0;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  .contact-compose-form {
+    width: 100%;
+    min-width: 0;
+    padding: 12px !important;
+    box-sizing: border-box;
+  }
+
+  .contact-compose-field {
+    width: 100%;
+    min-width: 0;
+    align-items: stretch !important;
+    flex-wrap: wrap;
+    gap: 8px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .contact-compose-field > label {
+    width: 100% !important;
+    flex: 0 0 100%;
+  }
+
+  .contact-compose-field > select,
+  .contact-compose-field > input,
+  .contact-compose-field > div {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    flex: 1 1 100% !important;
+    box-sizing: border-box;
+  }
+
+  .contact-compose-to-field > button {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 0 10px !important;
+    border: 1px solid #d8dee8 !important;
+    border-radius: 6px;
+  }
+
+  .contact-compose-editor,
+  .contact-compose-editor > div,
+  .contact-compose-editor .rich-text-editor,
+  .contact-compose-editor .rich-text-editor > div {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .contact-compose-editor .rte-toolbar {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+}

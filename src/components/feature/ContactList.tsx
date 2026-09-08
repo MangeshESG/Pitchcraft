@@ -2431,6 +2431,12 @@ const filterFields: any = useMemo(() => {
                     dispatch(openPanel("add-contact-modal"))
 
                   }
+                  onRefresh={() => {
+                    if (selectedDataFileForView) {
+                      return fetchDetailContacts("list", selectedDataFileForView);
+                    }
+                  }}
+                  isRefreshing={isLoadingDetail}
                   columnNameMap={columnNameMap}
                   customHeader={
                     <>
@@ -3477,6 +3483,12 @@ const filterFields: any = useMemo(() => {
                     setSelectedSegmentForView(null);
                   }}
                   backLabel="Back to segments"
+                  onRefresh={() => {
+                    if (selectedSegmentForView) {
+                      return fetchDetailContacts("segment", selectedSegmentForView);
+                    }
+                  }}
+                  isRefreshing={isLoadingDetail}
                   customHeader={
                     <>
                       <div style={{ marginBottom: 16 }}>

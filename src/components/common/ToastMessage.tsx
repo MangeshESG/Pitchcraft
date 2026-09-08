@@ -1,5 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
+import './ToastMessage.css';
 
 interface ToastMessageProps {
   show: boolean;
@@ -90,6 +91,7 @@ const ToastMessage: React.FC<ToastMessageProps> = ({
   return createPortal(
     <>
       <div
+        className="common-responsive-toast"
         style={{
           position: 'fixed',
           ...positionStyle,
