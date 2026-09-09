@@ -155,6 +155,56 @@ const postJson = async (url: string, body: unknown, fallback: string) => {
   return readJson(res, fallback);
 };
 
+// ------------------------------------------------------- admin tuning
+
+/**
+ * The tuning values behind a run, as the admin page shows them. The bounds
+ * come from the API rather than being repeated here, so the field can never
+ * offer a number the server would refuse.
+ */
+export interface ValidationSettings {
+  /** Contacts sent in one model request. */
+  batchSize: number;
+  defaultBatchSize: number;
+  minBatchSize: number;
+  maxBatchSize: number;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+}
+
+export const fetchValidationSettings = async (): Promise<ValidationSettings> => {
+  const json = await readJson(
+    await fetch(`${BASE}/settings`),
+    "Validation settings could not be loaded"
+  );
+
+  return {
+    batchSize: Number(json?.batchSize) || 50,
+    defaultBatchSize: Number(json?.defaultBatchSize) || 50,
+    minBatchSize: Number(json?.minBatchSize) || 1,
+    maxBatchSize: Number(json?.maxBatchSize) || 200,
+    updatedAt: json?.updatedAt ?? null,
+    updatedBy: json?.updatedBy ?? null,
+  };
+};
+
+/** Returns the message the API wrote, which says what was actually stored. */
+export const saveValidationBatchSize = async (
+  batchSize: number,
+  updatedBy: number
+): Promise<{ batchSize: number; message: string }> => {
+  const json = await postJson(
+    `${BASE}/settings/batch-size`,
+    { batchSize, updatedBy },
+    "The batch size could not be saved"
+  );
+
+  return {
+    batchSize: Number(json?.batchSize) || batchSize,
+    message: json?.message ?? "Saved.",
+  };
+};
+
 // ---------------------------------------------------------------- briefs
 
 export const fetchBriefs = async (

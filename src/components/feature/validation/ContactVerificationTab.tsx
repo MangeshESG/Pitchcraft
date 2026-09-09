@@ -5,6 +5,7 @@ import {
   markVerified,
 } from "../../../api/contactValidation";
 import ValidationCell from "./ValidationCell";
+import { verifiedScore } from "./validationColumns";
 import { formatUserDate } from "../../common/dateTimePreferences";
 
 interface ContactVerificationTabProps {
@@ -123,8 +124,8 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
           </div>
           <div style={{ marginTop: 3, fontSize: 12.5, color: "#6b7280", lineHeight: 1.5 }}>
             {result?.isVerified && result.verifiedAt
-              ? `Checked by hand on ${formatUserDate(result.verifiedAt)}. Re-running a check will not clear this.`
-              : "Mark a contact verified when you have checked it yourself, or corrected something the AI got wrong."}
+              ? `Checked by hand on ${formatUserDate(result.verifiedAt)}. Every check that had run was set to 100. Re-running a check will not clear this mark, but it will write its own score over the 100.`
+              : "Mark a contact verified when you have checked it yourself, or corrected something the AI got wrong. Every check that has already run will be set to 100 — checks that have never run stay empty, and the scores the AI gave are not kept."}
           </div>
         </div>
 
@@ -174,11 +175,13 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
       {hasAnyCheck && (
         <div style={{ display: "grid", gap: 12 }}>
           {CHECKS.map((check) => {
-            const score = (result as any)[`${check.key}Confidence`] as number | null;
+            const raw = (result as any)[`${check.key}Confidence`] as number | null;
             const comments = (result as any)[`${check.key}Comments`] as string | null;
             const checkedAt = (result as any)[
               check.key === "emailValidity" ? "emailCheckedAt" : `${check.key}CheckedAt`
             ] as string | null;
+            const score = verifiedScore(
+              raw, result?.isVerified, result?.verifiedAt, checkedAt);
 
             return (
               <div
@@ -216,6 +219,7 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
                     </span>
                     <ValidationCell
                       score={score}
+                      overriddenFrom={score !== raw ? raw : undefined}
                       comments={comments}
                       checkedAt={checkedAt}
                       sources={result?.sources ?? []}

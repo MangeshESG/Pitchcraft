@@ -56,6 +56,7 @@ import { closePanel, openPanel } from "../../slices/panelSlice";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import useColumnPreferences from "../../hooks/useColumnPreferences";
 import ValidationRunPanel from "./validation/ValidationRunPanel";
+import ValidateContactsButton from "./validation/ValidateContactsButton";
 import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_DEFAULT_VISIBLE_COLUMNS,
@@ -81,40 +82,6 @@ const DEFAULT_VISIBLE_COLUMNS = [
   'hasNotes',
   ...VALIDATION_DEFAULT_VISIBLE_COLUMNS,
 ];
-
-/** Matches the other icon buttons in the bulk-action bar. */
-const validateButtonStyle: React.CSSProperties = {
-  background: "none",
-  color: "#3f9f42",
-  border: "none",
-  borderRadius: "12px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "40px",
-  height: "40px",
-  padding: "0",
-  cursor: "pointer",
-};
-
-/** Shield-with-a-tick — the Audience Assurance action. */
-const ValidateShieldIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-    <path
-      d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.9 7.5 10 4.3-1.1 7.5-5.4 7.5-10v-6L12 2.5Z"
-      stroke="#3f9f42"
-      strokeWidth="1.8"
-      strokeLinejoin="round"
-    />
-    <path
-      d="m8.75 11.75 2.3 2.3 4.2-4.6"
-      stroke="#3f9f42"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
 
 const menuBtnStyle = {
   width: "100%",
@@ -2737,14 +2704,9 @@ const filterFields: any = useMemo(() => {
                                 style={{ fontSize: 20, color: "#3f9f42" }}
                               />
                             </button>
-                            <button
-                              className="button secondary"
+                            <ValidateContactsButton
                               onClick={() => dispatch(openPanel("validate-contacts-panel"))}
-                              style={validateButtonStyle}
-                              title="Validate contacts"
-                            >
-                              <ValidateShieldIcon />
-                            </button>
+                            />
                           </div>
                         </div>
                       )}
@@ -3778,14 +3740,9 @@ const filterFields: any = useMemo(() => {
                               style={{ fontSize: 20, color: "#3f9f42" }}
                             />
                           </button>
-                          <button
-                            className="button secondary"
-                            onClick={() => dispatch(openPanel("validate-contacts-panel"))}
-                            style={validateButtonStyle}
-                            title="Validate contacts"
-                          >
-                            <ValidateShieldIcon />
-                          </button>
+                          <ValidateContactsButton
+                              onClick={() => dispatch(openPanel("validate-contacts-panel"))}
+                            />
                         </div>
                       </div>
                       )}

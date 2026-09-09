@@ -1,5 +1,6 @@
 import React from "react";
 import ValidationCell, { parseSources } from "./ValidationCell";
+import { parseApiDate } from "../../../api/contactValidation";
 import { formatUserDate } from "../../common/dateTimePreferences";
 
 /**
@@ -83,6 +84,40 @@ export const VALIDATION_DEFAULT_VISIBLE_COLUMNS = [
   "isVerified",
 ];
 
+/**
+ * The score a cell shows, once the manual mark is taken into account.
+ *
+ * Marking a contact verified is a person saying they have checked the record
+ * themselves, so every check that had run by then reads 100 — their judgement
+ * outranks the model's. Marking now writes the 100s to the database as well;
+ * this is what keeps the older rows honest, the ones marked before it did, and
+ * it costs nothing once the stored score is already 100.
+ *
+ * Two things stay untouched. A check that never ran has no score to raise: a
+ * blank stays blank, because a 100 there would claim an email had been
+ * validated when no email check has ever been run against it. And a check
+ * re-run *after* the mark shows its own score — the run is newer evidence than
+ * the person's look, which is exactly what re-running one is for.
+ */
+export const verifiedScore = (
+  score: any,
+  isVerified: any,
+  verifiedAt?: string | null,
+  checkedAt?: string | null
+): number | null => {
+  if (typeof score !== "number") return null;
+  if (!isVerified) return score;
+
+  // A run since the mark supersedes it. Missing either date means there is
+  // nothing to compare, so the mark stands.
+  if (checkedAt && verifiedAt &&
+      parseApiDate(checkedAt) > parseApiDate(verifiedAt)) {
+    return score;
+  }
+
+  return 100;
+};
+
 const commentCell = (value: any) =>
   !value || !String(value).trim() ? (
     <span style={{ color: "#9ca3af" }}>—</span>
@@ -122,22 +157,27 @@ const scoreCell =
     dateKey: string,
     options: { linkedInHint?: boolean } = {}
   ) =>
-  (value: any, row: any) => (
-    <ValidationCell
-      score={row[scoreKey]}
-      comments={row[commentKey]}
-      checkedAt={row[dateKey]}
-      sources={parseSources(row.validationSources)}
-      // The spec asks for the LinkedIn prompt whenever a live contact check is
-      // anything short of certain — it is the one verdict a person can go and
-      // confirm themselves in a single click.
-      showLinkedInHint={
-        !!options.linkedInHint &&
-        typeof row[scoreKey] === "number" &&
-        row[scoreKey] < 100
-      }
-    />
-  );
+  (value: any, row: any) => {
+    const raw = row[scoreKey];
+    const score = verifiedScore(raw, row.isVerified, row.verifiedAt, row[dateKey]);
+
+    return (
+      <ValidationCell
+        score={score}
+        overriddenFrom={score !== raw ? raw : undefined}
+        comments={row[commentKey]}
+        checkedAt={row[dateKey]}
+        sources={parseSources(row.validationSources)}
+        // The spec asks for the LinkedIn prompt whenever a live contact check is
+        // anything short of certain — it is the one verdict a person can go and
+        // confirm themselves in a single click. A hand-verified contact is not
+        // short of certain, so the mark silences it.
+        showLinkedInHint={
+          !!options.linkedInHint && typeof score === "number" && score < 100
+        }
+      />
+    );
+  };
 
 /** The four checks in the order they read across the cell. */
 const CHECKS: {
@@ -202,19 +242,26 @@ const checksCell = (value: any, row: any) => {
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-      {run.map((check) => (
-        <ValidationCell
-          key={check.key}
-          label={check.short}
-          score={row[check.scoreKey]}
-          comments={row[check.commentKey]}
-          checkedAt={row[check.dateKey]}
-          sources={sources}
-          showLinkedInHint={
-            !!check.linkedInHint && row[check.scoreKey] < 100
-          }
-        />
-      ))}
+      {run.map((check) => {
+        const raw = row[check.scoreKey];
+        const score = verifiedScore(
+          raw, row.isVerified, row.verifiedAt, row[check.dateKey]);
+
+        return (
+          <ValidationCell
+            key={check.key}
+            label={check.short}
+            score={score}
+            overriddenFrom={score !== raw ? raw : undefined}
+            comments={row[check.commentKey]}
+            checkedAt={row[check.dateKey]}
+            sources={sources}
+            showLinkedInHint={
+              !!check.linkedInHint && typeof score === "number" && score < 100
+            }
+          />
+        );
+      })}
     </div>
   );
 };

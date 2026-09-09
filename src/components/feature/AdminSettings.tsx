@@ -3,6 +3,7 @@ import InstructionSetPage from "./blueprint/InstructionSetPage";
 import AiModelSettings from "./AiModelSettings";
 import SecuritySettings from "./SecuritySettings";
 import PromptSettings from "./PromptSettings";
+import ValidationSettings from "./ValidationSettings";
 import {
   pageBodyClass,
   pageClass,
@@ -16,7 +17,12 @@ interface AdminSettingsProps {
   selectedClient: string;
 }
 
-type AdminTab = "InstructionSet" | "AiModels" | "Prompts" | "Security";
+type AdminTab =
+  | "InstructionSet"
+  | "AiModels"
+  | "Prompts"
+  | "Validation"
+  | "Security";
 
 // The subtitle changes with the tab, so the header still says what the panel
 // below it does now that three separate pages share one page title.
@@ -38,6 +44,12 @@ const TABS: { key: AdminTab; label: string; description: string }[] = [
     label: "Prompts",
     description:
       "Edit the AI instructions that ship with the API, such as the email research prompt behind the extension's unlock button.",
+  },
+  {
+    key: "Validation",
+    label: "Validation",
+    description:
+      "Tuning for the Audience Assurance checks. These settings apply to every client and take effect on the next run.",
   },
   {
     key: "Security",
@@ -85,6 +97,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({ selectedClient }) => {
         <div className={pageBodyClass}>
           {adminSubTab === "AiModels" && <AiModelSettings />}
           {adminSubTab === "Prompts" && <PromptSettings />}
+          {adminSubTab === "Validation" && <ValidationSettings />}
           {adminSubTab === "Security" && <SecuritySettings />}
         </div>
       )}

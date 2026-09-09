@@ -31,6 +31,16 @@ export interface ValidationCellProps {
   /** Short prefix inside the chip, e.g. "Fit" or "Data". Omit for score only. */
   label?: string;
   /**
+   * The score the check itself returned, when `score` is the 100 a manual
+   * verification raised it to.
+   *
+   * The popover says so rather than quietly swapping the number: the comments
+   * underneath still describe what the model found, and a chip reading 100
+   * above a paragraph about a missing job title is only confusing without the
+   * line explaining that a person overruled it.
+   */
+  overriddenFrom?: number | null;
+  /**
    * Adds the spec's "Check LinkedIn" prompt below the comments whenever the
    * score is short of certain. Only the live contact check sets this — it is
    * the one whose answer a person can go and confirm in one click.
@@ -53,6 +63,7 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   sources = [],
   checkedAt,
   label,
+  overriddenFrom,
   showLinkedInHint = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -110,7 +121,9 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   }
 
   const band = bandFor(score);
-  const hasDetail = !!comments?.trim() || sources.length > 0 || showLinkedInHint;
+  const isOverridden = typeof overriddenFrom === "number";
+  const hasDetail =
+    !!comments?.trim() || sources.length > 0 || showLinkedInHint || isOverridden;
 
   const positionAndOpen = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
@@ -230,6 +243,22 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
                 </span>
               )}
             </div>
+
+            {isOverridden && (
+              <p
+                style={{
+                  margin: "0 0 8px",
+                  padding: "6px 8px",
+                  borderRadius: 8,
+                  background: "#f1f8f2",
+                  border: "1px solid #d5f0da",
+                  color: "#2d7a30",
+                  fontSize: 12.5,
+                }}
+              >
+                Marked verified by hand. This check itself scored {overriddenFrom}.
+              </p>
+            )}
 
             {comments?.trim() ? (
               <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{comments.trim()}</p>

@@ -40,6 +40,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { ContactsToolbar, ContactsListsRows } from "./ContactList.new";
 import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";
+import ValidationRunPanel from "./validation/ValidationRunPanel";
+import ValidateContactsButton from "./validation/ValidateContactsButton";
 import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
@@ -510,6 +512,15 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const showSaveSegmentCommonModal =
   activePanel === "save-segment-modal";
 
+  /**
+   * A key of its own rather than the list's "validate-contacts-panel": views
+   * render inside ContactList, which keeps its own run panel bound to its own
+   * selection. Sharing the key would open both at once, the list's one holding
+   * no contacts.
+   */
+  const showValidateViewContactsPanel =
+  activePanel === "validate-view-contacts-panel";
+
   const appModal = useAppModal(); // ✅ correct place
   const { toast, showToast, hideToast } = useToast();
   const { triggerRefresh } = useAppData();
@@ -525,6 +536,20 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   }, [selectedView?.id]);
   //------------------------------
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
+
+  /**
+   * The selection as the validation API wants it. The grid tracks ids as
+   * strings because that is what a row key is; a run is addressed by contact
+   * id, and anything unparseable is dropped rather than sent as NaN.
+   */
+  const validationContactIds = useMemo(
+    () =>
+      Array.from(selectedContacts)
+        .map(Number)
+        .filter((id) => !isNaN(id) && id > 0),
+    [selectedContacts]
+  );
+
   const handleSelectContact = (contactId: string) => {
     setSelectedContacts(prev => {
       const newSet = new Set(prev);
@@ -2094,6 +2119,10 @@ const handleDeleteContacts = () => {
           style={{ fontSize: 20, color: "#3f9f42" }}
         />
       </button>
+
+      <ValidateContactsButton
+        onClick={() => dispatch(openPanel("validate-view-contacts-panel"))}
+      />
     </div>
   </div>
 )}
@@ -2348,6 +2377,22 @@ const handleDeleteContacts = () => {
           </div>
         )}
       </div>
+
+      <ValidationRunPanel
+        isOpen={showValidateViewContactsPanel}
+        onClose={() => dispatch(closePanel())}
+        clientId={String(clientId)}
+        contactIds={validationContactIds}
+        onCompleted={() => {
+          // Pull the new scores into the grid. The selection is deliberately
+          // kept: a user who has just validated fifty contacts often wants to
+          // run a second check over the same fifty.
+          if (selectedView) {
+            fetchContactsForView(selectedView);
+          }
+        }}
+        onShowMessage={showContactMessage}
+      />
 
       <BulkUpdatePanel
         //isOpen={showBulkUpdatePanel}
