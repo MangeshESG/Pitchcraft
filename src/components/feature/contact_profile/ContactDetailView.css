@@ -332,6 +332,9 @@
   }
 
   .contact-email-workspace .contact-mail-delete {
-    display: none;
+    display: grid;
+    color: #dc2626;
+    border-color: #fecaca;
+    background: #fff;
   }
 }

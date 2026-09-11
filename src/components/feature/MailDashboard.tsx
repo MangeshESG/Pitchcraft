@@ -87,6 +87,7 @@ interface EmailContact {
   hasClicked?: boolean;
   botClicked?: boolean;
   botOpened?: boolean;
+  isAutoReply?: boolean;
 }
 
 interface ColumnConfig {
@@ -518,6 +519,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     totalClicks: 0,
     errors: 0,
     bounceback: 0,
+    autoReplies: 0,
   });
   const [requestCount, setRequestCount] = useState(0);
   const [emailFilterType, setEmailFilterType] = useState<
@@ -573,7 +575,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     setDetailEmailLogSummary({ successCount: 0, failedCount: 0 });
     setFilteredEventData([]);
     setDailyStats([]);
-    setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0, bounceback: 0 });
+    setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0, bounceback: 0, autoReplies: 0 });
     setRequestCount(0);
     setCurrentPage(1);
     setEmailLogsCurrentPage(1);
@@ -592,6 +594,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "timestamp", label: "Timestamp", visible: true },
     { key: "sentAt", label: "Sent At", visible: true },
     { key: "eventsTimer", label: "Events timer", visible: true },
+    { key: "isAutoReply", label: "Auto replies", visible: true },
     { key: "hasOpened", label: "Opened", visible: true },
     { key: "botOpened", label: "Bot Opened", visible: true },
     { key: "hasClicked", label: "Clicked", visible: true },
@@ -1385,6 +1388,7 @@ const fetchDashboardCardCounts = async (campaignId: string) => {
       totalClicks: Number(counts.totalClicks ?? 0),
       errors: Number(counts.errors ?? 0),
       bounceback: Number(counts.bounceback ?? 0),
+      autoReplies: Number(counts.autoReplies ?? 0),
     });
   } catch (error) {
     console.error("Dashboard: Error loading card counts:", error);
@@ -1487,6 +1491,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         totalClicks: 0,
         errors: 0,
         bounceback: 0,
+        autoReplies: 0,
       });
 
       setDataFetchedForCampaign(getDashboardCacheKey(campaignId));
@@ -1827,14 +1832,15 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     const bouncebackCount = filteredEmailLogs.filter((log: any) => log.isBounced || log.IsBounced).length;
     
     setRequestCount(totalSentCount);
-    setTotalStats({
+    setTotalStats((previousStats) => ({
       sent: totalSentCount,
       opens: uniqueOpensInDateRange.size,
       clicks: uniqueClicksInDateRange.size,
       totalClicks: totalClickCount,
       errors: errorCount,
       bounceback: bouncebackCount,
-    });
+      autoReplies: previousStats.autoReplies,
+    }));
 
     // Update filtered event data
     setFilteredEventData(filteredTrackingData);
@@ -1893,7 +1899,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       setAllEventData([]);
       setEmailLogs([]);
       setDailyStats([]);
-      setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0, bounceback: 0 });
+      setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0, bounceback: 0, autoReplies: 0 });
       setRequestCount(0);
       setDataFetchedForCampaign("");
       setDashboardTab("Overview");
@@ -2087,6 +2093,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         hasClicked: false,
         botClicked: (item as any).isBot && item.eventType === "Click",
         botOpened: (item as any).isBot && item.eventType === "Open",
+        isAutoReply: Boolean((item as any).isAutoReply ?? (item as any).IsAutoReply),
         ipAddress: (item as any).ipAddress || "-",
         ipLocation: (item as any).ipAddress || "-",
       }));
@@ -3291,6 +3298,15 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             spark: dailyStats.map(d => d.sent).map(() => totalStats.bounceback > 0 ? totalStats.bounceback : 0),
             icon: <><path d="M21 12a9 9 0 1 1-3.2-6.9"/><polyline points="21 3 21 9 15 9"/><path d="M9 12h6"/><path d="M12 9v6"/></>,
           },
+          {
+            id: "auto-replies", label: "Auto replies", color: "#0f766e", bg: "#f0fdfa",
+            value: loading ? null : !selectedCampaign ? null : totalStats.autoReplies,
+            sub: !loading && selectedCampaign
+              ? `${requestCount > 0 ? ((totalStats.autoReplies / requestCount) * 100).toFixed(1) : "0.0"}%`
+              : null,
+            spark: dailyStats.map(() => totalStats.autoReplies > 0 ? totalStats.autoReplies : 0),
+            icon: <><path d="M4 4h16v16H4z"/><path d="m4 7 8 6 8-6"/><path d="M8 17h8"/></>,
+          },
         ]).map(card => (
           <div key={card.id} className="md-stat-v2">
             {/* Header row: icon + label */}
@@ -3599,6 +3615,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               // Boolean formatting
               hasOpened: (value: any) => (value ? "✅" : "-"),
               hasClicked: (value: any) => (value ? "✅" : "-"),
+              isAutoReply: (value: any) => (value ? "Yes" : "No"),
               botClicked: (value: any, item: any) => {
                 if (value === true) {
                   return <span style={{ color: "#28a745", fontSize: "14px" }}>✅</span>;
@@ -3869,7 +3886,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                   "country_or_address",
                   "email_subject",
                 ]
-                : ["first_name", "last_name", "full_name", "email", "company", "jobTitle", "location", "ipAddress", "ipLocation"]
+                : ["first_name", "last_name", "full_name", "email", "company", "jobTitle", "location", "ipAddress", "ipLocation", "isAutoReply"]
             }
             primaryKey="id"
             viewMode="table"
