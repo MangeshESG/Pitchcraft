@@ -30,9 +30,9 @@ const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsTab>("Tracking");
 
   return (
-    <div className={pageClass}>
+    <div className={`${pageClass} settings-page`}>
       {/* Page header — same chrome as Profile */}
-      <div className={pageHeaderClass}>
+      <div className={`${pageHeaderClass} settings-page-header`}>
         <h1 className={pageTitleClass}>General</h1>
         <p className={pageSubClass}>
           {settingsSubTab === "Verification"
@@ -40,7 +40,7 @@ const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
             : "Manage tracking, date and time, and email signature settings for this client."}
         </p>
 
-        <nav className="mt-5 flex gap-8" aria-label="General settings tabs">
+        <nav className="settings-tabs mt-5 flex gap-8" aria-label="General settings tabs">
           {TABS.map((tab) => (
             <button
               key={tab.key}
@@ -53,7 +53,7 @@ const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
         </nav>
       </div>
 
-      <div className={pageBodyClass}>
+      <div className={`${pageBodyClass} settings-page-body`}>
         {settingsSubTab === "Tracking" && (
           <Tracking selectedClient={selectedClient} />
         )}

@@ -2371,6 +2371,12 @@ const handleDeleteContacts = () => {
                 clearViewState(clientId);
               }}
               backLabel="Back to views"
+              onRefresh={() => {
+                if (selectedView) {
+                  return fetchContactsForView(selectedView);
+                }
+              }}
+              isRefreshing={isLoadingViewContacts}
               columnNameMap={viewColumnNameMap}
               customHeader={detailHeader}
             />

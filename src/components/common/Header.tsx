@@ -95,6 +95,7 @@ const logoutHandler = () => {
 
     return (
       <div
+        className={`app-header ${userRole === "ADMIN" ? "app-header-admin" : "app-header-user"}`}
         style={{
           position: "sticky",
           top: 0,
@@ -105,22 +106,21 @@ const logoutHandler = () => {
         }}
       >
          <div
+          className="app-header-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "260px 1fr auto",
             alignItems: "center",
           //  padding: "12px 20px",
             width: "100%"
           }}
         >
-          <div>
+          <div className="app-header-client-slot">
           {/* CLIENT DROPDOWN */}
           {userRole === "ADMIN" && handleClientChange && (
-            <div style={{
+            <div className="app-header-client-select" style={{
                   padding: "8px 12px",
                   border: "1px solid #ddd",
                   borderRadius: "4px",
-                  width: "240px"
                 }}>
               <select
                 value={selectedClient || ""}
@@ -145,13 +145,12 @@ const logoutHandler = () => {
              <div />
 
           {/* USER INFO */}
-          <div style={{
+          <div className="app-header-user-actions" style={{
               display: "flex",
               alignItems: "center",
               gap: "16px",
-              whiteSpace: "nowrap"
             }}>
-            <div className="item flex items-center">
+            <div className="app-header-greeting item flex items-center">
               {/* <div className="user-info-wrapper flex items-center gap-2">
                 <div className="user-greeting d-flex align-center mx-[0px] sticky-right"> */}
                   <span className="mr-5">
@@ -172,7 +171,7 @@ const logoutHandler = () => {
                 </div>
 
                 {/* <div className="user-credit text-sm text-gray-600 sticky-right"> */}
-                 <span>
+                 <span className="app-header-credits">
                   Credits:{" "}
                   <span
                    style={{
@@ -188,6 +187,7 @@ const logoutHandler = () => {
                 </span>
 
                 <a
+                  className="linkedin-extension-button"
                   href={CHROME_EXTENSION_URL}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -217,6 +217,7 @@ const logoutHandler = () => {
 
                 {/* UPGRADE BUTTON */}
                 <button
+                  className="app-header-upgrade"
                   onClick={onUpgradeClick}
                   style={{
                     ...lessPriorityButtonStyle,
@@ -244,6 +245,7 @@ const logoutHandler = () => {
             {/* LOGOUT BUTTON */}
             {/* <div className="item"> */}
               <button
+                className="app-header-logout"
                 onClick={logoutHandler}
                 style={{
                   ...lessPriorityButtonStyle,

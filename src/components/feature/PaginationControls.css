@@ -162,9 +162,57 @@
 
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {
-  .pc-wrap { gap: 12px; }
-  .pc-right { width: 100%; justify-content: space-between; }
+  .pc-wrap {
+    width: 100%;
+    gap: 10px;
+  }
+  .pc-info {
+    width: 100%;
+    white-space: nowrap;
+  }
+  .pc-right {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+  }
   .pc-btn-label { display: none; }
-  .pc-nav-pill > button { padding: 0; width: 36px; justify-content: center; }
+  .pc-nav-pill {
+    height: 36px;
+    flex: 0 1 auto;
+  }
+  .pc-nav-pill > button,
+  .pc-nav-pill > button.pc-icon-only {
+    padding: 0;
+    width: 30px;
+    min-width: 30px;
+    justify-content: center;
+  }
+  .pc-nav-page {
+    min-width: 48px;
+    padding: 0 6px;
+    justify-content: center;
+    font-size: 12px;
+  }
+  .pc-nav-page__slash { margin: 0 3px; }
+  .pc-select { order: -1; flex: 0 0 auto; }
+  .pc-select select {
+    width: 98px;
+    height: 36px;
+    padding-left: 10px;
+    padding-right: 24px;
+    font-size: 12px;
+  }
   .pc-jump { display: none; }
+}
+
+@media (max-width: 380px) {
+  .pc-right { gap: 5px; }
+  .pc-select select { width: 88px; padding-left: 7px; }
+  .pc-nav-pill > button,
+  .pc-nav-pill > button.pc-icon-only {
+    width: 27px;
+    min-width: 27px;
+  }
+  .pc-nav-page { min-width: 42px; padding: 0 4px; }
 }

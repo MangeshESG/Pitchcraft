@@ -459,7 +459,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
       : domainRows.slice((domainPage - 1) * domainPageSize, domainPage * domainPageSize);
 
   return (
-        <div style={{ padding: "24px 28px" }}>
+        <div className="mail-config-root" style={{ padding: "24px 28px" }}>
           {!hasMailboxConfig && !smtpListLoading ? (
             <MailConfigurationEmptyState
               onAddMailbox={() => dispatch(openPanel("add-edit-mailbox-modal"))}
@@ -505,7 +505,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
             {/* Mailboxes Section */}
             {configTab === "mailboxes" && (
               <div className="section-wrapper">
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
+                <div className="mail-config-section-head" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
                   <div>
                     <h2 style={{ color: "#111827", textAlign: "left", fontSize: 22, margin: "0 0 6px", fontWeight: 700 }}>
                       Mailboxes
@@ -516,7 +516,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   </div>
 
                   {!isDemoAccount && (
-                    <div style={{ display: "flex", gap: 10 }}>
+                    <div className="mail-config-section-actions" style={{ display: "flex", gap: 10 }}>
                       <button
                         className="btn-default"
                         onClick={() => setShowCreateGroup(true)}
@@ -535,8 +535,8 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                 </div>
 
                 {showCreateGroup && (
-                  <div style={{ padding: 16, marginBottom: 18, border: "1px solid #bbdfbd", borderRadius: 8, background: "#f7fcf7" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) minmax(280px, 2fr) auto", gap: 12, alignItems: "end" }}>
+                  <div className="mail-config-create-group" style={{ padding: 16, marginBottom: 18, border: "1px solid #bbdfbd", borderRadius: 8, background: "#f7fcf7" }}>
+                    <div className="mail-config-create-group__grid" style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) minmax(280px, 2fr) auto", gap: 12, alignItems: "end" }}>
                       <div>
                         <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Group name</label>
                         <input
@@ -555,7 +555,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                           style={{ width: "100%", height: 38, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 6 }}
                         />
                       </div>
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div className="mail-config-create-group__actions" style={{ display: "flex", gap: 8 }}>
                         <button type="button" className="button secondary small" onClick={resetGroupForm}>Cancel</button>
                         <button
                           type="button"
@@ -573,7 +573,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   </div>
                 )}
 
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
+                <div className="mail-config-filters" style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
                   {mailboxFilterOptions.map((option) => {
                     const optionKey = option.key as keyof typeof mailboxCounts;
                     const isActive = mailboxFilter === option.key;
@@ -609,7 +609,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                   })}
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+                <div className="mail-config-list-toolbar" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
                   <input
                     type="text"
                     className="search-input"

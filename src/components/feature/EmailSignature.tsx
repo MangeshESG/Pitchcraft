@@ -339,7 +339,7 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
         position="bottom-center"
         duration={5}
       />
-      <div className="flex justify-between items-center gap-6">
+      <div className="signature-list-header flex justify-between items-center gap-6">
         <p className="text-sm text-gray-600">Manage your email signatures here.</p>
         <button
           onClick={handleAddSignature}
@@ -361,8 +361,8 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
             <p className="text-gray-500">No signatures found. Create your first signature!</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200">
+          <div className="signature-table-wrap bg-white rounded-lg border border-gray-200">
+            <table className="signature-table min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">

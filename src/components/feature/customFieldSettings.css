@@ -122,3 +122,15 @@
 .bp-list-wrap .bp-row__actions {
   overflow: visible;
 }
+
+@media (max-width: 768px) {
+  .bp-list-wrap .bp-row {
+    grid-template-columns: 6px minmax(0, 1fr) 32px !important;
+  }
+
+  .bp-list-wrap .bp-row__actions {
+    width: 32px;
+    justify-self: end;
+    justify-content: flex-end;
+  }
+}

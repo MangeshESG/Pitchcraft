@@ -90,6 +90,32 @@ function buildEmailDocument(raw: string): string {
   img  { max-width: 100%; height: auto; }
   *    { box-sizing: border-box; }
   a    { color: #2563eb; }
+  @media (max-width: 640px) {
+    html, body {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+    }
+    body * {
+      max-width: 100% !important;
+      min-width: 0 !important;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    table {
+      width: 100% !important;
+      max-width: 100% !important;
+      table-layout: auto !important;
+    }
+    img {
+      width: auto !important;
+      max-width: 100% !important;
+      height: auto !important;
+    }
+    pre {
+      white-space: pre-wrap !important;
+    }
+  }
 </style>
 </head>
 <body>

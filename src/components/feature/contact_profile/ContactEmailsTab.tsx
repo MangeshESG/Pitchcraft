@@ -9,6 +9,7 @@ interface ContactEmailsTabProps {
   renderMailReader: () => React.ReactNode;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  hasActiveThread?: boolean;
 }
 
 /**
@@ -27,11 +28,12 @@ const ContactEmailsTab: React.FC<ContactEmailsTabProps> = ({
   renderMailReader,
   onRefresh,
   isRefreshing = false,
+  hasActiveThread = false,
 }) => {
   return (
     <div className="inbox-workspace contact-email-workspace" style={{ marginTop: -25 }}>
       <div
-        className="inbox-content inbox-grid"
+        className={`inbox-content inbox-grid${hasActiveThread ? " has-active-thread" : ""}`}
         style={{
           gridTemplateColumns: "360px minmax(0, 1fr)",
           height: "calc(100vh - 260px)",

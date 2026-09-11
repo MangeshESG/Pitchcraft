@@ -904,7 +904,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         @keyframes rte-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
 
       {/* Toolbar (formatting controls + action buttons pinned right) */}
-      <div ref={toolbarRef} style={tbStyles.toolbar}>
+      <div ref={toolbarRef} className="rte-toolbar" style={tbStyles.toolbar}>
         {!readOnly && (
         <>
         {/* Font family — width is pinned (min/max too) so nothing can stretch

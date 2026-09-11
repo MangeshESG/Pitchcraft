@@ -52,6 +52,7 @@ import { repairAndParseJsonObject } from "../../../utils/jsonRepair";
 import { saveUserCredit } from "../../../slices/authSLice";
 import "../inbox/InboxView.css";
 import { copyToClipboard } from "../../../utils/utils";
+import "./ContactDetailView.css";
 
 // Same-origin: the API serves this app, so pitch generation goes to the host
 // that loaded the page.
@@ -187,7 +188,7 @@ const ResearchCards: React.FC<{ content: string }> = ({ content }) => {
   const entries = Object.entries(data).filter(([, v]) => v != null && !(typeof v === "string" && !v.trim()) && !(Array.isArray(v) && !v.length));
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div className="contact-research-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {entries.map(([key, value]) => {
           const isFullWidth = typeof value === "string";
           return (
@@ -3805,10 +3806,21 @@ dispatch(closePanel());
     return (
       <>
         <div className="read-head">
+          <button
+            type="button"
+            className="mobile-inbox-back"
+            aria-label="Back to emails"
+            title="Back to emails"
+            onClick={() => setSelectedContactThread(null)}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </button>
           <h1 className="read-subject">{activeThread.subject}</h1>
           <div className="read-head-actions">
             <button
-              className="head-icon danger"
+              className="head-icon danger contact-mail-delete"
               title="Delete"
               onClick={() => handleEmailDelete(activeThread, "Permanent")}
             >
@@ -3842,10 +3854,10 @@ dispatch(closePanel());
                 <div className="mail-detail-header">
                   <div className="mail-detail-top">
                     <div className="mail-detail-avatar">{getMailInitials(message.fromEmail, message.contactName)}</div>
-                    <div className="mail-detail-info">
+                    <div className="mail-detail-info contact-mail-sender-info">
                       <div className="mail-detail-sender">{message.contactName || extractSenderName(message.fromEmail)}</div>
-                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{extractEmailAddress(message.fromEmail)}</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                      <div className="contact-mail-sender-email" style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{extractEmailAddress(message.fromEmail)}</div>
+                      <div className="contact-mail-recipient" style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
                         <span style={{ color: "#6b7280", fontSize: 13 }}>To:</span>
                         <span style={{ color: "#2563eb", fontSize: 13 }}>{extractEmailAddress(message.toEmail || activeThread.contactEmail)}</span>
                         <button
@@ -3895,7 +3907,7 @@ dispatch(closePanel());
                         </div>
                       )}
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div className="contact-mail-message-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <button
                         type="button"
                         title="Forward"
@@ -4505,10 +4517,10 @@ dispatch(closePanel());
   return (
     <>
     
-    <div className={embedded ? "w-full" : "flex h-screen overflow-hidden"}>
+    <div className={`${embedded ? "w-full" : "flex h-screen overflow-hidden"} contact-detail-view ${embedded ? "is-embedded" : "is-standalone"}`}>
       {/* SIDE MENU */}
       {!embedded && isSidebarOpen && (
-        <aside className="w-[250px] bg-white border-r shadow-sm flex flex-col h-screen sticky top-0 overflow-hidden">
+        <aside className="contact-detail-sidebar w-[250px] bg-white border-r shadow-sm flex flex-col h-screen sticky top-0 overflow-hidden">
           <div className="p-2 text-xl font-bold border-b">
             <div className="flex justify-between items-start">
               <img
@@ -4902,18 +4914,19 @@ dispatch(closePanel());
 
       {/* Content Area */}
       <div
-        className={
+        className={`contact-detail-shell ${
           embedded
             ? "w-full"
             : "flex flex-col flex-1 overflow-hidden bg-gray-100"
-        }
+        }`}
       >
-        <div className={embedded ? "w-full" : "w-full h-screen overflow-y-auto bg-gray-100"}>
-          <div className={embedded ? "pt-4 pb-20 px-2 min-h-full" : "pt-4 pb-20 px-6 min-h-screen"}>
-            <div className="bg-white rounded-lg shadow-md p-6 mb-8 ">
+        <div className={`contact-detail-scroll ${embedded ? "w-full" : "w-full h-screen overflow-y-auto bg-gray-100"}`}>
+          <div className={`contact-detail-page ${embedded ? "pt-4 pb-20 px-2 min-h-full" : "pt-4 pb-20 px-6 min-h-screen"}`}>
+            <div className="contact-detail-card bg-white rounded-lg shadow-md p-6 mb-8 ">
               {/* TOP TABS */}
               {/* TOP TABS + RIGHT ACTIONS */}
               <div
+                className="contact-detail-toolbar"
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
@@ -4923,7 +4936,7 @@ dispatch(closePanel());
                 }}
               >
                 {/* LEFT: PROFILE / HISTORY */}
-                <div style={{ display: "flex", gap: 24 }}>
+                <div className="contact-detail-tabs" style={{ display: "flex", gap: 24 }}>
                   {/* "insights" tab hidden — research is shown in the right panel. To restore, add "insights" back to the array below. */}
                   {["profile", "history", "lists", "qa", "emails", "verification" /*, "insights" */].map((tab) => (
                     <button
@@ -4982,7 +4995,7 @@ dispatch(closePanel());
                 </div>
 
                 {/* RIGHT: NOTES BUTTON (LIKE IMAGE) */}
-                <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+                <div className="contact-detail-actions" style={{ display: "flex", gap: 20, alignItems: "center" }}>
                   <button
                     onClick={() => {
                       // ✅ Reset all note states when opening "Add note" modal
@@ -5032,6 +5045,7 @@ dispatch(closePanel());
                   {activeTab === "emails" && (
                     <button
                       type="button"
+                      className="contact-compose-trigger"
                       onClick={() => setIsComposePopupOpen(true)}
                       style={{
                         ...defaultButtonStyle,
@@ -5048,6 +5062,7 @@ dispatch(closePanel());
 
                   {/* Campaign-driven web-search insights generation */}
                   <div
+                    className="contact-detail-insights-action"
                     style={{
                       display: "flex",
                       flexDirection: "row-reverse",
@@ -5180,6 +5195,7 @@ dispatch(closePanel());
               {/* ============ HISTORY FILTER PILLS ============ */}
               {activeTab === "history" && (
                 <div
+                  className="contact-detail-tab-panel"
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -6278,6 +6294,7 @@ dispatch(closePanel());
               {/* LISTS TAB */}
               {activeTab === "lists" && (
                 <div
+                  className="contact-detail-tab-panel"
                   style={{
                     background: "#fff",
                     padding: 24,
@@ -6290,7 +6307,7 @@ dispatch(closePanel());
                   )}
 
                   {!isLoadingDetails && contactDetails && (
-                    <div style={{ display: "flex", gap: 32 }}>
+                    <div className="contact-detail-lists-grid" style={{ display: "flex", gap: 32 }}>
                       {/* LEFT: CAMPAIGNS */}
                       <div style={{ flex: 1 }}>
                         <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Campaigns</h3>
@@ -6557,6 +6574,7 @@ dispatch(closePanel());
                   renderMailReader={renderContactMailReader}
                   onRefresh={refreshContactEmailGrid}
                   isRefreshing={isRefreshingContactEmails}
+                  hasActiveThread={Boolean(selectedContactThread)}
                 />
               )}
 
@@ -6874,6 +6892,7 @@ dispatch(closePanel());
       {/* SUCCESS TOAST */}
 {showSuccessToast && (
   <div
+    className="contact-responsive-toast"
     style={{
       position: "fixed",
       bottom: 24,
@@ -6949,6 +6968,7 @@ dispatch(closePanel());
       {/* ERROR TOAST */}
 {showErrorToast && (
   <div
+    className="contact-responsive-toast"
     style={{
       position: "fixed",
       bottom: 24,
