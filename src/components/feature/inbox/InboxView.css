@@ -926,6 +926,13 @@ details[data-reply-email-trail] > summary::marker {
     top: 12px;
     right: 0;
     z-index: 20;
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .inbox-workspace .panel-reopen > span {
+    display: none;
   }
 
   .list-pane,
@@ -994,6 +1001,27 @@ details[data-reply-email-trail] > summary::marker {
 
   .read-head-actions {
     gap: 2px;
+  }
+
+  /* Keep the delete action visible before the floating Contact pill. */
+  .inbox-grid.has-active-thread .read-head {
+    padding-right: 48px;
+  }
+
+  .inbox-grid.has-active-thread .read-head-actions > button {
+    display: none;
+  }
+
+  .inbox-grid.has-active-thread .read-head-actions .head-icon.danger {
+    display: grid;
+    color: var(--green-dark);
+    border-color: var(--green-line);
+    background: #fff;
+  }
+
+  .inbox-grid.has-active-thread .read-head-actions .head-icon.danger:hover {
+    color: var(--green-dark);
+    background: var(--green-tint);
   }
 
   .head-icon {

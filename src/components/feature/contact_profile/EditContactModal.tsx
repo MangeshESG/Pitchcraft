@@ -143,6 +143,7 @@ interface EmailEngagementStats {
   openCount: number;
   clickCount: number;
   bounceBackCount: number;
+  autoReplyCount: number;
 }
 
 /**
@@ -462,6 +463,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     openCount: 0,
     clickCount: 0,
     bounceBackCount: 0,
+    autoReplyCount: 0,
   });
   // const [notesHistory, setNotesHistory] = useState<Note[]>([]);
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
@@ -1205,7 +1207,7 @@ case "boolean":
 
   const fetchEmailEngagementStats = async (contactId: number) => {
     if (!contactId) {
-      setEmailEngagementStats({ sentCount: 0, openCount: 0, clickCount: 0, bounceBackCount: 0 });
+      setEmailEngagementStats({ sentCount: 0, openCount: 0, clickCount: 0, bounceBackCount: 0, autoReplyCount: 0 });
       return;
     }
 
@@ -1227,10 +1229,11 @@ case "boolean":
         openCount: Number(data?.openCount || 0),
         clickCount: Number(data?.clickCount || 0),
         bounceBackCount: Number(data?.bounceBackCount || 0),
+        autoReplyCount: Number(data?.autoReplyCount || 0),
       });
     } catch (err) {
       console.error("Failed to fetch email engagement", err);
-      setEmailEngagementStats({ sentCount: 0, openCount: 0, clickCount: 0, bounceBackCount: 0 });
+      setEmailEngagementStats({ sentCount: 0, openCount: 0, clickCount: 0, bounceBackCount: 0, autoReplyCount: 0 });
     }
   };
 
@@ -1239,15 +1242,18 @@ case "boolean":
     const uniqueOpens = emailEngagementStats.openCount;
     const uniqueClicks = emailEngagementStats.clickCount;
     const bounceBack = emailEngagementStats.bounceBackCount;
+    const autoReplies = emailEngagementStats.autoReplyCount;
 
     return {
       sent,
       uniqueOpens,
       uniqueClicks,
       bounceBack,
+      autoReplies,
       uniqueOpensPct: sent ? ((uniqueOpens / sent) * 100).toFixed(1) : "0.0",
       uniqueClicksPct: sent ? ((uniqueClicks / sent) * 100).toFixed(1) : "0.0",
       bounceBackPct: sent ? ((bounceBack / sent) * 100).toFixed(1) : "0.0",
+      autoRepliesPct: sent ? ((autoReplies / sent) * 100).toFixed(1) : "0.0",
     };
   }, [emailEngagementStats]);
 
@@ -1259,7 +1265,7 @@ case "boolean":
       fetchEmailTimeline(contact.id);
       fetchEmailEngagementStats(contact.id);
     } else {
-      setEmailEngagementStats({ sentCount: 0, openCount: 0, clickCount: 0, bounceBackCount: 0 });
+      setEmailEngagementStats({ sentCount: 0, openCount: 0, clickCount: 0, bounceBackCount: 0, autoReplyCount: 0 });
     }
   }, [contact?.id]);
 
@@ -2858,7 +2864,7 @@ case "boolean":
               </span>
               <h3 className="text-lg font-semibold text-foreground">Email campaign</h3>
             </div>
-            <div className="contact-profile-stats grid grid-cols-4 gap-4">
+            <div className="contact-profile-stats grid grid-cols-5 gap-4">
               <Stat label="Sent" value={emailStats.sent} color="#1b5e20" bgClass='bg-green-50' />
 
               <Stat
@@ -2883,6 +2889,14 @@ case "boolean":
                 percentage={emailStats.bounceBackPct}
                 color="#f97316"
                 bgClass='bg-orange-50'
+              />
+
+              <Stat
+                label="Auto replies"
+                value={emailStats.autoReplies}
+                percentage={emailStats.autoRepliesPct}
+                color="#0f766e"
+                bgClass='bg-teal-50'
               />
             </div>
 

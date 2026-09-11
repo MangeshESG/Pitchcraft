@@ -1030,6 +1030,7 @@ const handleDeleteContact = async () => {
       toEmail: message.toEmail || message.ToEmail,
       date: message.date || message.Date,
       isRead: message.isRead ?? message.IsRead ?? true,
+      isAutoReply: Boolean(message.isAutoReply ?? message.IsAutoReply),
       contactId: message.contactId ?? message.ContactId,
       contactName: message.contactName || message.ContactName,
       attachments: message.attachments || message.Attachments || [],
@@ -1114,6 +1115,7 @@ const handleDeleteContact = async () => {
           toEmail: email.toEmail || email.ToEmail,
           date: email.sentAt || email.SentAt || email.receiveAt || email.ReceiveAt,
           isRead: email.isRead ?? email.IsRead ?? true,
+          isAutoReply: Boolean(email.isAutoReply ?? email.IsAutoReply),
           contactId: email.contactId ?? email.ContactId,
           contactName: email.contactName || email.ContactName,
           attachments: email.attachments || email.Attachments || [],
@@ -1397,6 +1399,7 @@ const handleDeleteContact = async () => {
         toEmail: message.toEmail || message.ToEmail,
         date: message.date || message.Date,
         isRead: message.isRead ?? message.IsRead ?? true,
+        isAutoReply: Boolean(message.isAutoReply ?? message.IsAutoReply),
         contactId: message.contactId ?? message.ContactId,
         contactName: message.contactName || message.ContactName,
         attachments: message.attachments || message.Attachments || [],
@@ -1412,6 +1415,7 @@ const handleDeleteContact = async () => {
         fromEmail: email.fromEmail || email.FromEmail || email.senderEmailId || email.SenderEmailId,
         toEmail: email.toEmail || email.ToEmail,
         date: email.sentAt || email.SentAt || email.receiveAt || email.ReceiveAt,
+        isAutoReply: Boolean(email.isAutoReply ?? email.IsAutoReply),
         attachments: email.attachments || email.Attachments || [],
       },
     ];
@@ -1466,6 +1470,24 @@ const handleDeleteContact = async () => {
               {message.type && (
                 <div style={{ fontSize: 12, color: "#3f9f42", fontWeight: 700, marginBottom: 4 }}>
                   {message.type}
+                </div>
+              )}
+              {message.isAutoReply && (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "4px 9px",
+                    marginBottom: 7,
+                    borderRadius: 6,
+                    border: "1px solid #b7dfba",
+                    background: "#eef8ef",
+                    color: "#2f7d32",
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  Auto reply detected
                 </div>
               )}
               <div style={{ fontWeight: 700, color: "#111827", wordBreak: "break-word" }}>
@@ -3853,7 +3875,24 @@ dispatch(closePanel());
                   <div className="mail-detail-top">
                     <div className="mail-detail-avatar">{getMailInitials(message.fromEmail, message.contactName)}</div>
                     <div className="mail-detail-info contact-mail-sender-info">
-                      <div className="mail-detail-sender">{message.contactName || extractSenderName(message.fromEmail)}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <div className="mail-detail-sender">{message.contactName || extractSenderName(message.fromEmail)}</div>
+                        {message.isAutoReply && (
+                          <span
+                            style={{
+                              padding: "3px 8px",
+                              borderRadius: 6,
+                              border: "1px solid #b7dfba",
+                              background: "#eef8ef",
+                              color: "#2f7d32",
+                              fontSize: 11,
+                              fontWeight: 600,
+                            }}
+                          >
+                            Auto reply
+                          </span>
+                        )}
+                      </div>
                       <div className="contact-mail-sender-email" style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{extractEmailAddress(message.fromEmail)}</div>
                       <div className="contact-mail-recipient" style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
                         <span style={{ color: "#6b7280", fontSize: 13 }}>To:</span>

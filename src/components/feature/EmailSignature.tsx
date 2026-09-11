@@ -29,6 +29,11 @@ interface Signature {
   updatedAt: string | null;
 }
 
+const normalizeProvider = (provider?: string) => {
+  const value = String(provider || "").trim().toLowerCase();
+  return value === "imap" ? "smtp" : value;
+};
+
 const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
@@ -59,12 +64,13 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
 
 
 
-  // Fetch email accounts when panel opens
+  // Email accounts are also needed by the list to show which mailbox owns
+  // each signature, so load them as soon as the selected client changes.
   useEffect(() => {
-    if (isPanelOpen && selectedClient) {
+    if (selectedClient) {
       fetchEmailAccounts();
     }
-  }, [isPanelOpen, selectedClient]);
+  }, [selectedClient]);
 
   // Fetch signatures when component mounts or client changes
   useEffect(() => {
@@ -329,6 +335,17 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
     }
   };
 
+  const getSignatureAccountEmail = (signature: Signature) => {
+    const signatureProvider = normalizeProvider(signature.provider);
+    const account = emailAccounts.find(
+      (item) =>
+        Number(item.id) === Number(signature.outboxId) &&
+        normalizeProvider(item.provider) === signatureProvider
+    );
+
+    return account?.email || "Account not found";
+  };
+
   return (
     <div className="email-signature-container">
       <ToastMessage
@@ -372,6 +389,9 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
                     Provider
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                    Email account
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                     Default
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
@@ -395,6 +415,9 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                         {signature.provider}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {getSignatureAccountEmail(signature)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {signature.isDefault ? (
