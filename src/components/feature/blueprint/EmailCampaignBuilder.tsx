@@ -51,12 +51,16 @@ import startFromScratch from "../../../assets/images/blueprint_start_from_scratc
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
 import LoadingSpinner from "../../common/LoadingSpinner";
-import { OPENAI_MODELS, isDeepSeekModel } from "../../../utils/aiModels";
+import { OPENAI_MODELS, isDeepSeekModel, isQwenModel } from "../../../utils/aiModels";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 
-// The blueprint builder / instruction set must never run on a DeepSeek model.
-// Coerce any DeepSeek (or empty) value back to a safe OpenAI default so loading
-// an older definition/template that was saved with DeepSeek doesn't bring it back.
+// The blueprint builder / instruction set runs on OpenAI only - its picker
+// below lists OPENAI_MODELS and nothing else. Coerce any non-OpenAI (or empty)
+// value back to a safe OpenAI default so loading an older definition/template
+// that was saved with another provider doesn't bring it back. Qwen is held to
+// the same rule as DeepSeek: the builder was never exercised on it, and one
+// provider quietly slipping through a guard the other is held to is the kind
+// of asymmetry that reads as a bug later.
 const DEFAULT_BUILDER_MODEL = "gpt-5.1";
 
 // Minimum plain-text length (HTML stripped, ends trimmed) for a blueprint's
@@ -65,7 +69,9 @@ const DEFAULT_BUILDER_MODEL = "gpt-5.1";
 // preview can be generated. It is not the only one: see loadTemplateForEdit.
 const MIN_EXAMPLE_EMAIL_LENGTH = 10;
 const toBuilderModel = (model?: string | null): string =>
-  !model || isDeepSeekModel(model) ? DEFAULT_BUILDER_MODEL : model;
+  !model || isDeepSeekModel(model) || isQwenModel(model)
+    ? DEFAULT_BUILDER_MODEL
+    : model;
 // Same-origin: the API serves this app, so pitch generation goes to the host
 // that loaded the page.
 const PITCH_GENERATION_API_BASE_URL = API_BASE_URL;
@@ -2014,10 +2020,10 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     "campaign_selected_model",
     "gpt-5.1",
   );
-  // Self-heal: if a DeepSeek model was persisted in this session before DeepSeek
-  // was excluded from the builder, reset it to the OpenAI default on mount.
+  // Self-heal: if a non-OpenAI model was persisted in this session before the
+  // builder was restricted to OpenAI, reset it to the default on mount.
   useEffect(() => {
-    if (isDeepSeekModel(selectedModel)) {
+    if (isDeepSeekModel(selectedModel) || isQwenModel(selectedModel)) {
       setSelectedModel(DEFAULT_BUILDER_MODEL);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

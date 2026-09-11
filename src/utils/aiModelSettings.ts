@@ -1,5 +1,10 @@
 import API_BASE_URL from "../config";
-import { AVAILABLE_AI_MODELS } from "./aiModels";
+import {
+  AVAILABLE_AI_MODELS,
+  MODEL_PROVIDER_ORDER,
+  ModelProvider,
+  getModelProvider,
+} from "./aiModels";
 
 /**
  * Admin-controlled model per AI purpose. The models used to be hardcoded in the
@@ -238,3 +243,23 @@ export const buildModelOptions = (availableModels: string[]) => {
 
   return options;
 };
+
+/**
+ * The picker options split by provider, for rendering as <optgroup>s.
+ *
+ * Worth doing once three providers are priced: a flat list is now twenty-odd
+ * entries deep, and the ids alone do not read as families — "gpt-5.6-luna",
+ * "deepseek-v4-flash" and "qwen3.6-flash" are three different things with no
+ * visual grouping to say so. An admin picking a model for one purpose should
+ * not have to scan the whole list to find the provider they meant.
+ *
+ * Groups with nothing in them are dropped, so a provider with no priced models
+ * leaves no empty heading behind.
+ */
+export const groupModelOptions = (
+  options: ReturnType<typeof buildModelOptions>,
+): { provider: ModelProvider; options: typeof options }[] =>
+  MODEL_PROVIDER_ORDER.map((provider) => ({
+    provider,
+    options: options.filter((option) => getModelProvider(option.id) === provider),
+  })).filter((group) => group.options.length > 0);

@@ -86,7 +86,60 @@ export const DEEPSEEK_MODELS = [
   },
 ];
 
-export const AVAILABLE_AI_MODELS = [...OPENAI_MODELS, ...DEEPSEEK_MODELS];
+export const QWEN_MODELS = [
+  {
+    id: "qwen3.6-plus",
+    name: "Qwen 3.6 Plus",
+    description: "Qwen flagship with server-side web search",
+  },
+  {
+    id: "qwen3.6-plus-thinking",
+    name: "Qwen 3.6 Plus Thinking",
+    description: "Qwen flagship with reasoning enabled",
+  },
+  {
+    id: "qwen3.6-flash",
+    name: "Qwen 3.6 Flash",
+    description: "Qwen fast, low-cost model with server-side web search",
+  },
+  {
+    id: "qwen3.6-flash-thinking",
+    name: "Qwen 3.6 Flash Thinking",
+    description: "Qwen fast model with reasoning enabled",
+  },
+];
+
+export const AVAILABLE_AI_MODELS = [
+  ...OPENAI_MODELS,
+  ...DEEPSEEK_MODELS,
+  ...QWEN_MODELS,
+];
 
 export const isDeepSeekModel = (modelName?: string | null) =>
   Boolean(modelName?.toLowerCase().startsWith("deepseek-"));
+
+// No trailing hyphen, unlike the DeepSeek test above: Qwen ids are not uniform
+// about it ("qwen-plus" but "qwen3.6-plus"), so requiring one would miss half
+// the line. This has to agree with IsQwenModel in the API, which routes on the
+// same bare "qwen" prefix.
+export const isQwenModel = (modelName?: string | null) =>
+  Boolean(modelName?.toLowerCase().startsWith("qwen"));
+
+export type ModelProvider = "OpenAI" | "DeepSeek" | "Qwen";
+
+/**
+ * Which provider serves a model id. Derived from the id rather than from the
+ * lists above so a model the server prices but this build has never heard of
+ * still lands in the right group instead of falling out of the picker.
+ */
+export const getModelProvider = (modelName?: string | null): ModelProvider =>
+  isDeepSeekModel(modelName) ? "DeepSeek"
+  : isQwenModel(modelName) ? "Qwen"
+  : "OpenAI";
+
+// Order the providers appear in the model picker.
+export const MODEL_PROVIDER_ORDER: ModelProvider[] = [
+  "OpenAI",
+  "DeepSeek",
+  "Qwen",
+];

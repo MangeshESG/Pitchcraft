@@ -5,14 +5,16 @@ import InstructionSetManager, {
   TemplateDefinition,
 } from "./InstructionSetManager";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
-import { isDeepSeekModel } from "../../../utils/aiModels";
+import { isDeepSeekModel, isQwenModel } from "../../../utils/aiModels";
 import LoadingSpinner from "../../common/LoadingSpinner";
 import "./EmailCampaignBuilder.css";
 
-// Keep the builder / instruction set off any DeepSeek model.
+// Keep the builder / instruction set on OpenAI only - see EmailCampaignBuilder.
 const DEFAULT_BUILDER_MODEL = "gpt-5.1";
 const toBuilderModel = (model?: string | null): string =>
-  !model || isDeepSeekModel(model) ? DEFAULT_BUILDER_MODEL : model;
+  !model || isDeepSeekModel(model) || isQwenModel(model)
+    ? DEFAULT_BUILDER_MODEL
+    : model;
 
 const normalizeCategory = (category: string) =>
   (category || "").trim().toLowerCase();

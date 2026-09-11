@@ -5,6 +5,7 @@ import {
   buildModelOptions,
   fetchAiModelSettings,
   getModelLabel,
+  groupModelOptions,
   saveAiModelSettings,
 } from "../../utils/aiModelSettings";
 import {
@@ -104,6 +105,12 @@ const AiModelSettings: React.FC = () => {
   const modelOptions = useMemo(
     () => buildModelOptions(availableModels),
     [availableModels],
+  );
+
+  // Same options, split by provider for the <optgroup>s below.
+  const modelOptionGroups = useMemo(
+    () => groupModelOptions(modelOptions),
+    [modelOptions],
   );
 
   /**
@@ -253,10 +260,14 @@ const AiModelSettings: React.FC = () => {
                               {getModelLabel(selected)}
                             </option>
                           )}
-                          {modelOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.name}
-                            </option>
+                          {modelOptionGroups.map((group) => (
+                            <optgroup key={group.provider} label={group.provider}>
+                              {group.options.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {option.name}
+                                </option>
+                              ))}
+                            </optgroup>
                           ))}
                         </select>
                         <p className={hintClass}>
