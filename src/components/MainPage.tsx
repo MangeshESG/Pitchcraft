@@ -56,8 +56,9 @@ import LoadingSpinner from "./common/LoadingSpinner";
 import CustomFieldSettings from "./feature/CustomFieldSettings";
 import ContactDetailView from "./feature/contact_profile/ContactDetailView";
 import { closePanel } from "../slices/panelSlice";
-const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
-//const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
+// Same-origin: the API serves this app, so pitch generation goes to the host
+// that loaded the page.
+const PITCH_GENERATION_API_BASE_URL = API_BASE_URL;
 
 
 

@@ -66,8 +66,9 @@ const DEFAULT_BUILDER_MODEL = "gpt-5.1";
 const MIN_EXAMPLE_EMAIL_LENGTH = 10;
 const toBuilderModel = (model?: string | null): string =>
   !model || isDeepSeekModel(model) ? DEFAULT_BUILDER_MODEL : model;
-const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
-//const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
+// Same-origin: the API serves this app, so pitch generation goes to the host
+// that loaded the page.
+const PITCH_GENERATION_API_BASE_URL = API_BASE_URL;
 
 // --- Type Definitions ---
 export interface Message {

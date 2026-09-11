@@ -3,11 +3,11 @@ import axios from "axios";
 import DOMPurify from "dompurify";
 import { useModel } from "../../../ModelContext";
 import { DEEPSEEK_MODELS } from "../../../utils/aiModels";
+import API_BASE_URL from "../../../config";
 import "./DeepSeekSearchGenerator.css";
 
 const WEB_SEARCH_PLACEHOLDER = "{web_searched_data}";
-const DEEPSEEK_SEARCH_API_URL =
-  "https://playground.esuk.co.uk/api/auth/deepseek/generate-with-search";
+const DEEPSEEK_SEARCH_API_URL = `${API_BASE_URL}/api/auth/deepseek/generate-with-search`;
 
 interface UsageInfo {
   PromptTokens?: number;

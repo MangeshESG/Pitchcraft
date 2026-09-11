@@ -1,19 +1,12 @@
-
 /**
  * Audience Assurance: the saved targeting briefs, the validation runs and
- * their results. Backed by `api/ContactValidation`.
+ * their results. Backed by `api/ContactValidation`, which lives in the same
+ * API that serves this app -- so contact fit, data integrity, live contact and
+ * email discovery all go to the host that loaded the page.
  */
+import API_BASE_URL from "../config";
 
-/**
- * Validation always talks to the deployed API, never to whatever
- * `API_BASE_URL` points at locally: contact fit, data integrity, live contact
- * and email discovery all run server-side against the live host, the same one
- * MainPage generates email from.
- */
-const VALIDATION_API_BASE_URL = "https://playground.esuk.co.uk";
-//const VALIDATION_API_BASE_URL = "https://localhost:7216";
-
-const BASE = `${VALIDATION_API_BASE_URL}/api/ContactValidation`;
+const BASE = `${API_BASE_URL}/api/ContactValidation`;
 
 /**
  * Reads a timestamp the API sent as UTC without saying so.

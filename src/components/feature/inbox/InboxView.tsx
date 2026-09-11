@@ -29,8 +29,9 @@ import { isThreadPinned, pinEmail } from './inboxPin';
 import { InboxEmptyState, InboxSelectState } from './Inbox.new';
 import './InboxView.css';
 
-const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
-//const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
+// Same-origin: the API serves this app, so pitch generation goes to the host
+// that loaded the page.
+const PITCH_GENERATION_API_BASE_URL = API_BASE_URL;
 
 interface UnassignedEmail {
   id: number;

@@ -56,7 +56,7 @@ const CustomerCreateForm: React.FC = () => {
     const fetchCountries = async () => {
       try {
         setLoadingCountries(true);
-        const res = await fetch("https://localhost:7216/api/Plane/get-Countries");
+        const res = await fetch(`${API_BASE_URL}/api/Plane/get-Countries`);
         if (!res.ok) throw new Error("Failed to fetch countries");
         const data = await res.json();
 
