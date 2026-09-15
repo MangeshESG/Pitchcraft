@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import API_BASE_URL from "../../config";
@@ -79,6 +79,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   'job_title',
   'country_or_address',
   'hasLinkedInInfo',
+  'hasWebSearchData',
   'hasNotes',
   ...VALIDATION_DEFAULT_VISIBLE_COLUMNS,
 ];
@@ -1260,8 +1261,9 @@ const formatTimeIST = formatUserTime;
   const filteredDetailContacts = useMemo(() => detailContacts, [detailContacts]);
   const [detailTotalContacts, setDetailTotalContacts] = useState(0);
   const [detailCurrentPage, setDetailCurrentPage] = useState(1);
-  const [detailPageSize] = useState(30);
+  const [detailPageSize, setDetailPageSize] = useState<number | "All">(30);
   const [detailSearchQuery, setDetailSearchQuery] = useState("");
+  const detailRequestIdRef = useRef(0);
   const [detailSelectedContacts, setDetailSelectedContacts] = useState<
     Set<string>
   >(new Set());
@@ -1278,63 +1280,19 @@ const formatTimeIST = formatUserTime;
     string | null
   >(null);
 
-  const fetchAllContactsFromDataFiles = async () => {
-    const dataFileIds = dataFiles
-      .filter((file) => file.id !== -1)
-      .map((file) => file.id);
-
-    if (dataFileIds.length === 0) {
-      return { contacts: [], contactCount: 0 };
-    }
-
-    const requests = dataFileIds.map(async (dataFileId) => {
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${dataFileId}`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch contacts");
-      }
-      const data = await response.json();
-      const contacts = (data.contacts || []).map((contact: any) => ({
-        ...contact,
-        dataFileId,
-      }));
-      return contacts;
-    });
-
-    const results = await Promise.allSettled(requests);
-    const merged = new Map<number, any>();
-
-    results.forEach((result) => {
-      if (result.status === "fulfilled") {
-        result.value.forEach((contact: any) => {
-          const existing = merged.get(contact.id);
-          merged.set(contact.id, existing ? { ...existing, ...contact } : contact);
-        });
-      }
-    });
-
-    const contacts = Array.from(merged.values());
-    return { contacts, contactCount: contacts.length };
-  };
-
   // Add after your other fetch functions
   const fetchDetailContacts = async (type: "list" | "segment", item: any) => {
     if (!item?.id || !effectiveUserId) return;
 
+    const requestId = ++detailRequestIdRef.current;
     setIsLoadingDetail(true);
     try {
       let url = "";
       if (type === "list") {
-        // Check if Super List is selected
         if (item.id === -1) {
-          const data = await fetchAllContactsFromDataFiles();
-          setAllDetailContacts(data.contacts || []);
-          setDetailContacts(data.contacts || []);
-          setDetailTotalContacts(data.contactCount || 0);
-          return;
+          url = `${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId?clientId=${effectiveUserId}&pageNumber=${detailCurrentPage}&pageSize=${detailPageSize === "All" ? 0 : detailPageSize}&search=${encodeURIComponent(detailSearchQuery.trim())}`;
         } else {
-          url = `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${item.id}`;
+          url = `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${item.id}&pageNumber=${detailCurrentPage}&pageSize=${detailPageSize === "All" ? 0 : detailPageSize}&search=${encodeURIComponent(detailSearchQuery.trim())}`;
         }
       } else {
         // Use the new segment-contacts endpoint
@@ -1345,6 +1303,7 @@ const formatTimeIST = formatUserTime;
       if (!response.ok) throw new Error("Failed to fetch contacts");
 
       const data = await response.json();
+      if (requestId !== detailRequestIdRef.current) return;
       if (type === "list") {
         setAllDetailContacts(data.contacts || []);
         setDetailContacts(data.contacts || []);
@@ -1356,12 +1315,15 @@ const formatTimeIST = formatUserTime;
         setDetailTotalContacts(data.contactCount || 0);
       }
     } catch (error) {
+      if (requestId !== detailRequestIdRef.current) return;
       console.error("Error fetching contacts:", error);
       setAllDetailContacts([]);
       setDetailContacts([]);
       setDetailTotalContacts(0);
     } finally {
-      setIsLoadingDetail(false);
+      if (requestId === detailRequestIdRef.current) {
+        setIsLoadingDetail(false);
+      }
     }
   };
 
@@ -1379,12 +1341,7 @@ const formatTimeIST = formatUserTime;
   };
 
   const handleDetailSelectAll = () => {
-    const currentPageContacts = detailContacts
-      .slice(
-        (detailCurrentPage - 1) * detailPageSize,
-        detailCurrentPage * detailPageSize
-      )
-      .map((c) => c.id.toString());
+    const currentPageContacts = detailContacts.map((c) => c.id.toString());
 
     setDetailSelectedContacts((prev) => {
       if (
@@ -1400,9 +1357,13 @@ const formatTimeIST = formatUserTime;
   // Effect to fetch contacts when viewing detail
   useEffect(() => {
     if (viewMode === "detail" && selectedDataFileForView) {
-      fetchDetailContacts("list", selectedDataFileForView);
+      const timeoutId = window.setTimeout(() => {
+        fetchDetailContacts("list", selectedDataFileForView);
+      }, detailSearchQuery ? 300 : 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
-  }, [viewMode, selectedDataFileForView?.id]);
+  }, [viewMode, selectedDataFileForView?.id, detailCurrentPage, detailPageSize, detailSearchQuery]);
 
   useEffect(() => {
     if (segmentViewMode === "detail" && selectedSegmentForView) {
@@ -1746,6 +1707,7 @@ const formatTimeIST = formatUserTime;
       { key: "companyEmployeeCount", header: "Company Employee Count" },
       { key: "companyLinkedInURL", header: "Company LinkedIn URL" },
       { key: "hasLinkedInInfo", header: "LinkedIn Information" },
+      { key: "hasWebSearchData", header: "Web search data" },
       { key: "hasNotes", header: "Notes" },
       { key: "unsubscribe", header: "Unsubscribe" },
       // { key: "companyEventLink", header: "Company Event Link" },
@@ -1772,7 +1734,7 @@ const formatTimeIST = formatUserTime;
           if (value === null || value === undefined) value = "";
 
           // Format boolean values for hasLinkedInInfo and hasNotes
-          if (column.key === "hasLinkedInInfo" || column.key === "hasNotes") {
+          if (column.key === "hasLinkedInInfo" || column.key === "hasWebSearchData" || column.key === "hasNotes") {
             value = value === true ? "Yes" : value === false ? "No" : "";
           }
 
@@ -1990,6 +1952,7 @@ const formatTimeIST = formatUserTime;
     unsubscribe: "Unsubscribe",
     notes: "Notes",
     hasLinkedInInfo: "LinkedIn information",
+    hasWebSearchData: "Web search data",
     hasNotes: "Notes",
     ...VALIDATION_COLUMN_LABELS,
   };
@@ -2063,6 +2026,7 @@ const baseFields: any[] = [
   { key: "companyIndustry", label: "Industry", type: "text" },
   { key: "companyEmployeeCount", label: "Employee Count", type: "number" },
   { key: "hasLinkedInInfo", label: "LinkedIn information", type: "boolean" },
+  { key: "hasWebSearchData", label: "Web search data", type: "boolean" },
   { key: "hasNotes", label: "Notes", type: "boolean" },
   {
     key: TRACKING_OPEN_FIELD,
@@ -2255,12 +2219,21 @@ const filterFields: any = useMemo(() => {
                   data={filteredDetailContacts}
                   isLoading={isLoadingDetail}
                   search={detailSearchQuery}
-                  setSearch={setDetailSearchQuery}
+                  setSearch={(value) => {
+                    setDetailSearchQuery(value);
+                    setDetailCurrentPage(1);
+                  }}
                   showCheckboxes={true}
                   paginated={true}
+                  serverSidePagination={true}
                   currentPage={detailCurrentPage}
                   pageSize={detailPageSize}
                   onPageChange={setDetailCurrentPage}
+                  onPageSizeChange={(size) => {
+                    setDetailPageSize(size);
+                    setDetailCurrentPage(1);
+                    setDetailSelectedContacts(new Set());
+                  }}
                   onOpenProfile={openContactProfile}
                   leadingColumn={{
                     header: "Image",
@@ -2404,7 +2377,15 @@ const filterFields: any = useMemo(() => {
                       if (value === true) {
                         return <span style={{ color: "#28a745", fontSize: "16px" }}>✅</span>;
                       } else if (value === false) {
-                        return <span style={{ color: "#dc3545", fontSize: "16px" }}>-</span>;
+                        return <span style={{ color: "#dc3545", fontSize: "16px" }}>❌</span>;
+                      }
+                      return "-";
+                    },
+                    hasWebSearchData: (value: any) => {
+                      if (value === true) {
+                        return <span style={{ color: "#28a745", fontSize: "16px" }}>✅</span>;
+                      } else if (value === false) {
+                        return <span style={{ color: "#dc3545", fontSize: "16px" }}>❌</span>;
                       }
                       return "-";
                     },

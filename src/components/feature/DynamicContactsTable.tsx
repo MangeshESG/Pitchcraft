@@ -78,7 +78,7 @@ interface DynamicContactsTableProps {
    * name/email/company heuristic when not supplied.
    */
   defaultVisibleColumns?: string[];
-  onPageSizeChange?: (size: number) => void;
+  onPageSizeChange?: (size: PageSize) => void;
 
   currentTab?: string;
 
@@ -797,14 +797,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                 totalRecords={totalRecords}
                 setCurrentPage={onPageChange}
                 setPageSize={(s: any) => {
-                  if (serverSidePagination) {
-                    setPageSize(pageSizeProp);
-                    return;
-                  }
                   setPageSize(s);
-                  onPageSizeChange?.(s as number);
+                  onPageSizeChange?.(s);
                 }}
-                showPageSizeDropdown={!serverSidePagination}
+                showPageSizeDropdown={!serverSidePagination || Boolean(onPageSizeChange)}
+                pageSizeOptions={serverSidePagination ? [10, 20, 30, 40, 50, 100, 200, "All"] : undefined}
                 pageLabel="Page:"
               />
             </div>
@@ -951,16 +948,13 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
               totalPages={totalPages}
               pageSize={pageSize}
               totalRecords={totalRecords}
-              setCurrentPage={onPageChange}
-              setPageSize={(s: any) => {
-                if (serverSidePagination) {
-                  setPageSize(pageSizeProp);
-                  return;
-                }
-                setPageSize(s);
-                onPageSizeChange?.(s as number);
-              }}
-              showPageSizeDropdown={!serverSidePagination}
+                setCurrentPage={onPageChange}
+                setPageSize={(s: any) => {
+                  setPageSize(s);
+                  onPageSizeChange?.(s);
+                }}
+                showPageSizeDropdown={!serverSidePagination || Boolean(onPageSizeChange)}
+                pageSizeOptions={serverSidePagination ? [10, 20, 30, 40, 50, 100, 200, "All"] : undefined}
               pageLabel="Page:"
             />
           </div>
