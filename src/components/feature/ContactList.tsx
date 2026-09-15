@@ -1295,8 +1295,7 @@ const formatTimeIST = formatUserTime;
           url = `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${item.id}&pageNumber=${detailCurrentPage}&pageSize=${detailPageSize === "All" ? 0 : detailPageSize}&search=${encodeURIComponent(detailSearchQuery.trim())}`;
         }
       } else {
-        // Use the new segment-contacts endpoint
-        url = `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${item.id}`;
+        url = `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${item.id}&pageNumber=${detailCurrentPage}&pageSize=${detailPageSize === "All" ? 0 : detailPageSize}&search=${encodeURIComponent(detailSearchQuery.trim())}`;
       }
 
       const response = await fetch(url);
@@ -1367,9 +1366,13 @@ const formatTimeIST = formatUserTime;
 
   useEffect(() => {
     if (segmentViewMode === "detail" && selectedSegmentForView) {
-      fetchDetailContacts("segment", selectedSegmentForView);
+      const timeoutId = window.setTimeout(() => {
+        fetchDetailContacts("segment", selectedSegmentForView);
+      }, detailSearchQuery ? 300 : 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
-  }, [segmentViewMode, selectedSegmentForView?.id]);
+  }, [segmentViewMode, selectedSegmentForView?.id, detailCurrentPage, detailPageSize, detailSearchQuery]);
 
   const [renamingListDescription, setRenamingListDescription] = useState("");
 
@@ -1830,7 +1833,7 @@ const formatTimeIST = formatUserTime;
 
       // Fetch all contacts for this segment using the new endpoint
       const response = await fetch(
-        `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${segment.id}`
+        `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${segment.id}&pageSize=0&includeEmailContent=true`
       );
 
       if (!response.ok) throw new Error("Failed to fetch segment contacts");
@@ -3294,12 +3297,21 @@ const filterFields: any = useMemo(() => {
                   data={detailContacts}
                   isLoading={isLoadingDetail}
                   search={detailSearchQuery}
-                  setSearch={setDetailSearchQuery}
+                  setSearch={(value) => {
+                    setDetailSearchQuery(value);
+                    setDetailCurrentPage(1);
+                  }}
                   showCheckboxes={true}
                   paginated={true}
+                  serverSidePagination={true}
                   currentPage={detailCurrentPage}
                   pageSize={detailPageSize}
                   onPageChange={setDetailCurrentPage}
+                  onPageSizeChange={(size) => {
+                    setDetailPageSize(size);
+                    setDetailCurrentPage(1);
+                    setDetailSelectedContacts(new Set());
+                  }}
                   onOpenProfile={openContactProfile}
                   leadingColumn={{
                     header: "Image",
