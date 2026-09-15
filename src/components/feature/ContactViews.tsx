@@ -500,6 +500,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [isUnsubscribing, setIsUnsubscribing] = useState(false);
   const selectedViewIdRef = useRef<number | null>(null);
   const viewContactsRequestRef = useRef(0);
+  const activeViewFetchKeyRef = useRef<string | null>(null);
   const skipNextViewStateSaveRef = useRef(false);
 
   const activePanel = useSelector(
@@ -1593,6 +1594,12 @@ const handleDeleteContacts = () => {
   };
 
   const fetchContactsForView = async (view: ViewItem) => {
+    const fetchKey = `${view.id}|${viewCurrentPage}|${viewPageSize}|${viewSearchQuery.trim()}`;
+    if (activeViewFetchKeyRef.current === fetchKey) {
+      return;
+    }
+    activeViewFetchKeyRef.current = fetchKey;
+
     const requestId = viewContactsRequestRef.current + 1;
     viewContactsRequestRef.current = requestId;
 
@@ -1636,6 +1643,9 @@ const handleDeleteContacts = () => {
       setViewMetaMissing(false);
       showContactMessage("Failed to load view contacts.", "error");
     } finally {
+      if (activeViewFetchKeyRef.current === fetchKey) {
+        activeViewFetchKeyRef.current = null;
+      }
       if (isLatestRequest()) {
         setIsLoadingViewContacts(false);
       }
