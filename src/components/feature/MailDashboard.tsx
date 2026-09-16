@@ -1332,7 +1332,7 @@ const fetchEmailLogs = async (
   outboxId?: number
 ) => {
   try {
-    const url = new URL(`${API_BASE_URL}/api/Crm/getlogs`);
+    const url = new URL(`${API_BASE_URL}/api/Crm/getlogs`, window.location.origin);
 
     url.searchParams.set("clientId", clientId.toString());
     if (campaignId) url.searchParams.set("campaignId", campaignId.toString());
