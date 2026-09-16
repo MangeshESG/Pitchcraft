@@ -123,7 +123,7 @@ const setLatestDate = (target: Map<string, string>, key: string, value: any) => 
 };
 
 const fetchCampaignEmailLogs = async (clientId: number, campaignId: number) => {
-  const url = new URL(`${API_BASE_URL}/api/Crm/getlogs`);
+  const url = new URL(`${API_BASE_URL}/api/Crm/getlogs`, window.location.origin);
   url.searchParams.set("clientId", String(clientId));
   url.searchParams.set("campaignId", String(campaignId));
 
@@ -136,7 +136,7 @@ const fetchCampaignEmailLogs = async (clientId: number, campaignId: number) => {
 };
 
 const fetchCampaignTrackingLogs = async (clientId: number, campaignId: number) => {
-  const url = new URL(`${API_BASE_URL}/api/Crm/gettrackinglogs`);
+  const url = new URL(`${API_BASE_URL}/api/Crm/gettrackinglogs`, window.location.origin);
   url.searchParams.set("clientId", String(clientId));
   url.searchParams.set("campaignId", String(campaignId));
 
