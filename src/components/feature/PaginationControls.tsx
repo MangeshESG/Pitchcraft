@@ -153,7 +153,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
             >
               {pageSizeOptions.map((s) => (
                 <option key={String(s)} value={s as any}>
-                  {s} / page
+                  {s === "All" ? "All" : `${s} / page`}
                 </option>
               ))}
             </select>

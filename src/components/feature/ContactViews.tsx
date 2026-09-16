@@ -484,7 +484,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [viewContacts, setViewContacts] = useState<any[]>([]);
   const [viewSearchQuery, setViewSearchQuery] = useState("");
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
-  const [viewPageSize] = useState(30);
+  const [viewPageSize, setViewPageSize] = useState<number | "All">(30);
   const [isLoadingViewContacts, setIsLoadingViewContacts] = useState(false);
   const [viewMetaMissing, setViewMetaMissing] = useState(false);
   const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
@@ -500,6 +500,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [isUnsubscribing, setIsUnsubscribing] = useState(false);
   const selectedViewIdRef = useRef<number | null>(null);
   const viewContactsRequestRef = useRef(0);
+  const activeViewFetchKeyRef = useRef<string | null>(null);
   const skipNextViewStateSaveRef = useRef(false);
 
   const activePanel = useSelector(
@@ -1419,7 +1420,11 @@ const handleDeleteContacts = () => {
   };
 
   const fetchViewContactsData = async (
-    view: ViewItem
+    view: ViewItem,
+    page: number = viewCurrentPage,
+    pageSize: number | "All" = viewPageSize,
+    search: string = viewSearchQuery,
+    includeEmailContent: boolean = false
   ): Promise<{ contacts: any[]; metaMissing: boolean; contactCount: number }> => {
     const allDataFileIds = availableDataFiles.map((file) => file.id);
     const excludedDataFileIds = view.excludedDataFileIds || [];
@@ -1434,7 +1439,9 @@ const handleDeleteContacts = () => {
     const hasLocalFilters = !!view.filtersJson;
     const hasLocalSources = dataFileIds.length > 0 || segmentIds.length > 0;
 
-    if (!hasLocalFilters || !hasLocalSources) {
+    // View contacts are always paged by the backend. The local fallback below
+    // remains only for invalid/legacy view ids.
+    if (Number(view.id) > 0) {
       try {
         const response = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
           method: "POST",
@@ -1442,9 +1449,10 @@ const handleDeleteContacts = () => {
           body: JSON.stringify({
             clientId: Number(clientId),
             viewId: Number(view.id),
-            page: 1,
-            pageSize: 0,
-            search: "",
+            page,
+            pageSize: pageSize === "All" ? 0 : pageSize,
+            search: search.trim(),
+            includeEmailContent,
           }),
         });
 
@@ -1586,6 +1594,12 @@ const handleDeleteContacts = () => {
   };
 
   const fetchContactsForView = async (view: ViewItem) => {
+    const fetchKey = `${view.id}|${viewCurrentPage}|${viewPageSize}|${viewSearchQuery.trim()}`;
+    if (activeViewFetchKeyRef.current === fetchKey) {
+      return;
+    }
+    activeViewFetchKeyRef.current = fetchKey;
+
     const requestId = viewContactsRequestRef.current + 1;
     viewContactsRequestRef.current = requestId;
 
@@ -1600,7 +1614,12 @@ const handleDeleteContacts = () => {
     setViewMetaMissing(false);
     
     try {
-      const { contacts, metaMissing, contactCount } = await fetchViewContactsData(view);
+      const { contacts, metaMissing, contactCount } = await fetchViewContactsData(
+        view,
+        viewCurrentPage,
+        viewPageSize,
+        viewSearchQuery
+      );
 
       if (!isLatestRequest()) {
         return;
@@ -1624,6 +1643,9 @@ const handleDeleteContacts = () => {
       setViewMetaMissing(false);
       showContactMessage("Failed to load view contacts.", "error");
     } finally {
+      if (activeViewFetchKeyRef.current === fetchKey) {
+        activeViewFetchKeyRef.current = null;
+      }
       if (isLatestRequest()) {
         setIsLoadingViewContacts(false);
       }
@@ -1633,7 +1655,13 @@ const handleDeleteContacts = () => {
   const handleDownloadView = async (view: ViewItem) => {
     setDownloadingViewId(view.id);
     try {
-      const { contacts, metaMissing, contactCount } = await fetchViewContactsData(view);
+      const { contacts, metaMissing, contactCount } = await fetchViewContactsData(
+        view,
+        1,
+        "All",
+        "",
+        true
+      );
 
       if (metaMissing) {
         showContactMessage(
@@ -1674,13 +1702,12 @@ const handleDeleteContacts = () => {
       setBaseViewContacts([]);
       setViewContacts([]);
       setSelectedContacts(new Set());
-      setViewSearchQuery("");
       setIsLoadingViewContacts(true);
       
       // Small delay to ensure state is cleared before fetching
       const timer = setTimeout(() => {
         fetchContactsForView(selectedView);
-      }, 50);
+      }, viewSearchQuery ? 300 : 0);
       
       return () => clearTimeout(timer);
     }
@@ -1693,6 +1720,9 @@ const handleDeleteContacts = () => {
     selectedViewSegmentKey,
     selectedViewExcludedDataFileKey,
     availableDataFiles.length,
+    viewCurrentPage,
+    viewPageSize,
+    viewSearchQuery,
   ]);
 
   const handleDeleteView = async (view: ViewItem) => {
@@ -1915,7 +1945,6 @@ const handleDeleteContacts = () => {
           initialFiltersJson={selectedView.filtersJson}
           onFiltered={(filteredData) => {
             setViewContacts(filteredData);
-            setViewCurrentPage(1);
             setSelectedContacts(new Set());
           }}
           viewEditor={{
@@ -2196,12 +2225,21 @@ const handleDeleteContacts = () => {
               data={viewContacts}
               isLoading={isLoadingViewContacts}
               search={viewSearchQuery}
-              setSearch={setViewSearchQuery}
+              setSearch={(value) => {
+                setViewSearchQuery(value);
+                setViewCurrentPage(1);
+              }}
               showCheckboxes={true}
               paginated={true}
+              serverSidePagination={true}
               currentPage={viewCurrentPage}
               pageSize={viewPageSize}
               onPageChange={setViewCurrentPage}
+              onPageSizeChange={(size) => {
+                setViewPageSize(size);
+                setViewCurrentPage(1);
+                setSelectedContacts(new Set());
+              }}
               onOpenProfile={openContactProfile}
               leadingColumn={{
                 header: "Image",
@@ -2215,7 +2253,7 @@ const handleDeleteContacts = () => {
                   />
                 ),
               }}
-              totalItems={viewContacts.length}
+              totalItems={selectedView ? (viewContactCounts[selectedView.id] ?? viewContacts.length) : viewContacts.length}
               autoGenerateColumns={true}
               selectedItems={selectedContacts}
               onSelectItem={handleSelectContact}
