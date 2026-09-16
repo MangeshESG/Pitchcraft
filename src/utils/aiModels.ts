@@ -86,7 +86,33 @@ export const DEEPSEEK_MODELS = [
   },
 ];
 
+// Which of these an admin can actually pick is decided by the ModelRates rows,
+// not by this list — buildModelOptions drops anything the server has no price
+// for. That matters here because web search is not available on every model in
+// every Model Studio region: outside Singapore and Beijing only the 3.8 series
+// can search, so the 3.6 entries below are listed but stay hidden unless they
+// are priced.
 export const QWEN_MODELS = [
+  {
+    id: "qwen3.8-max",
+    name: "Qwen 3.8 Max",
+    description: "Qwen flagship, highest capability, with server-side web search",
+  },
+  {
+    id: "qwen3.8-max-thinking",
+    name: "Qwen 3.8 Max Thinking",
+    description: "Qwen flagship with reasoning enabled",
+  },
+  {
+    id: "qwen3.8-flash",
+    name: "Qwen 3.8 Flash",
+    description: "Qwen fast, low-cost model with server-side web search",
+  },
+  {
+    id: "qwen3.8-flash-thinking",
+    name: "Qwen 3.8 Flash Thinking",
+    description: "Qwen fast model with reasoning enabled",
+  },
   {
     id: "qwen3.6-plus",
     name: "Qwen 3.6 Plus",
