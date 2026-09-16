@@ -361,6 +361,14 @@ export const evaluateTrackingCondition = (
   condition: FilterCondition,
   campaignIndexes: Map<number, CampaignEngagementIndex>
 ) => {
+  if (
+    condition.field === TRACKING_SEND_DATE_FIELD &&
+    condition.operator === "isEmpty"
+  ) {
+    // Missing campaign tracking does not mean the contact's send date is null.
+    return row.email_sent_at === null;
+  }
+
   const campaignId = getCampaignIdFromContext(condition.context);
   if (!campaignId) {
     return false;
@@ -390,10 +398,6 @@ export const evaluateTrackingCondition = (
       .map((value) => new Date(value))
       .filter((value) => !Number.isNaN(value.getTime()))
       .sort((left, right) => right.getTime() - left.getTime());
-
-    if (condition.operator === "isEmpty") {
-      return matchedDates.length === 0;
-    }
 
     if (condition.operator === "isNotEmpty") {
       return matchedDates.length > 0;
