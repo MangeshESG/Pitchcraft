@@ -607,14 +607,20 @@ const Output: React.FC<OutputInterface> = ({
   const EMPTY_PROFESSIONAL_SUMMARY =
     "No professional summary information was used in the krafting of the email. There may be no professional summary for this contact or it may not be useful in krafting this email.";
 
-  const onlineResearchText = getWebSearchDisplayText(
-    normalizedInsights.webSearchData ||
-      normalizedInsights.webSearchResponse ||
-      normalizedInsights.searchResults ||
-      everyscrapedData[currentIndex] ||
-      currentInsights,
-    EMPTY_ONLINE_RESEARCH,
-  );
+  // Normalize each source before choosing one: empty objects/arrays and "NA"
+  // must not hide research saved on the contact.
+  const onlineResearchText = [
+    normalizedInsights.webSearchData,
+    normalizedInsights.webSearchResponse,
+    normalizedInsights.searchResults,
+    everyscrapedData[currentIndex],
+    currentInsights,
+    currentContact.web_search_data,
+    currentContact.webSearchData,
+    currentContact.WebSearchData,
+  ]
+    .map((value) => getWebSearchDisplayText(value, ""))
+    .find((value) => value.trim()) || EMPTY_ONLINE_RESEARCH;
   const notesUsedText = getDisplayText(
     normalizedInsights.notes ||
       allSearchTermBodies[currentIndex] ||

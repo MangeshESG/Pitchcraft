@@ -88,6 +88,7 @@ interface DataFile {
 interface CampaignBlueprint {
   id: number;
   templateName: string;
+  templateDefinitionName?: string | null;
   campaignBlueprint: string;
   selectedModel?: string;
 }
@@ -118,6 +119,21 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const [views, setViews] = useState<ViewOption[]>([]);
   const [promptList, setPromptList] = useState<Prompt[]>([]);
   const [campaignBlueprints, setCampaignBlueprints] = useState<CampaignBlueprint[]>([]);
+  const blueprintGroups = React.useMemo(() => {
+    const groups = new Map<string, CampaignBlueprint[]>();
+    campaignBlueprints.forEach((blueprint) => {
+      const category = (blueprint.templateDefinitionName || "").trim() || "Uncategorized";
+      const group = groups.get(category) || [];
+      group.push(blueprint);
+      groups.set(category, group);
+    });
+    return Array.from(groups, ([category, blueprints]) => ({
+      category,
+      blueprints: blueprints.sort((a, b) =>
+        a.templateName.toLowerCase().localeCompare(b.templateName.toLowerCase()),
+      ),
+    })).sort((a, b) => a.category.localeCompare(b.category));
+  }, [campaignBlueprints]);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   // const [showCreateCampaignModal, setShowCreateCampaignModal] = useState(false);
@@ -1319,7 +1335,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
             <div className="relative">
               <select value={campaignForm.templateId} onChange={(e) => setCampaignForm((prev) => ({ ...prev, templateId: e.target.value }))} className="h-10 w-full appearance-none rounded-lg border border-[#dadde2] bg-white pl-3 pr-10 text-[13.5px] text-[#374151] outline-none focus:border-[#3f9f42] focus:ring-2 focus:ring-[#3f9f42]/15">
                 <option value="">Select blueprint</option>
-                {[...campaignBlueprints].sort((a, b) => a.templateName.toLowerCase().localeCompare(b.templateName.toLowerCase())).map((bp) => (<option key={bp.id} value={bp.id}>{bp.templateName}</option>))}
+                {blueprintGroups.map(({ category, blueprints }) => (
+                  <optgroup key={category} label={category}>
+                    {blueprints.map((bp) => (
+                      <option key={bp.id} value={bp.id}>{bp.templateName}</option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
             </div>

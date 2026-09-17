@@ -93,6 +93,7 @@ interface ContactDetailViewProps {
 interface ContactReplyBlueprint {
   id: number;
   templateName: string;
+  templateDefinitionName?: string | null;
 }
 
 interface ContactSmtpUser {
@@ -635,7 +636,7 @@ useEffect(() => {
   const fetchContactReplyBlueprints = async () => {
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}?pageSize=20&pageNumber=1`,
+        `${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}`,
         {
           headers: {
             accept: "*/*",

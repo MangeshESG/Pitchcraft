@@ -13,7 +13,7 @@ import "./ContactComposeEmailPopup.css";
 interface ContactComposeEmailPopupProps {
   isOpen: boolean;
   onClose: () => void;
-  blueprints: Array<{ id: number; templateName: string }>;
+  blueprints: Array<{ id: number; templateName: string; templateDefinitionName?: string | null }>;
   fromOptions: Array<{
     id?: number;
     outboxId?: number;
@@ -260,6 +260,21 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   isSending,
 }) => {
   const [selectedBlueprintId, setSelectedBlueprintId] = useState("");
+  const blueprintGroups = React.useMemo(() => {
+    const groups = new Map<string, ContactComposeEmailPopupProps["blueprints"]>();
+    blueprints.forEach((blueprint) => {
+      const category = (blueprint.templateDefinitionName || "").trim() || "Uncategorized";
+      const group = groups.get(category) || [];
+      group.push(blueprint);
+      groups.set(category, group);
+    });
+    return Array.from(groups, ([category, items]) => ({
+      category,
+      blueprints: items.sort((a, b) =>
+        a.templateName.toLowerCase().localeCompare(b.templateName.toLowerCase()),
+      ),
+    })).sort((a, b) => a.category.localeCompare(b.category));
+  }, [blueprints]);
   const [emailBody, setEmailBody] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
   const [showCc, setShowCc] = useState(false);
@@ -512,10 +527,14 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
               style={{ ...inputStyle, width: 390 }}
             >
               <option value="">Select blueprint (optional)...</option>
-              {blueprints.map((blueprint) => (
-                <option key={blueprint.id} value={blueprint.id}>
-                  {blueprint.templateName}
-                </option>
+              {blueprintGroups.map(({ category, blueprints: items }) => (
+                <optgroup key={category} label={category}>
+                  {items.map((blueprint) => (
+                    <option key={blueprint.id} value={blueprint.id}>
+                      {blueprint.templateName}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
             </div>
