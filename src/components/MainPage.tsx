@@ -1189,6 +1189,7 @@ const handleClientChange = async (
           emailsentdate: entry.email_sent_at || "N/A",
           notes: entry.notes || "",
           linkedin_info: entry.linkedIninformation || "",
+          web_search_data: entry.web_search_data ?? entry.webSearchData ?? entry.WebSearchData ?? "",
 
         }));
 
