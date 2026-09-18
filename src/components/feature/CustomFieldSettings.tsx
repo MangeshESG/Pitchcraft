@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API_BASE_URL from "../../config";
+import { useAppData } from "../../contexts/AppDataContext";
 import "./customFieldSettings.css";
 import "./blueprint/Template.new.css";
 import CommonSidePanel from "../common/CommonSidePanel";
@@ -22,6 +23,7 @@ interface Props {
 }
 
 const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
+  const { triggerRefresh } = useAppData();
   const dispatch = useDispatch();
   const [fields, setFields] = useState<CustomField[]>([]);
   const [name, setName] = useState("");
@@ -139,6 +141,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     });
 
     if (res.ok) {
+      triggerRefresh();
       setName("");
       setOptions([""]);
       setOriginalOptions([]);
@@ -425,6 +428,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
             onChange={(e) => setType(e.target.value)}
           >
             <option value="text">Text</option>
+            <option value="hyperlink">Hyperlink</option>
             <option value="longtext">Long Text</option>
             <option value="number">Number</option>
             <option value="boolean">Checkbox (Yes / No)</option>

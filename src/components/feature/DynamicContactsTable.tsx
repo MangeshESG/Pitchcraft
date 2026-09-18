@@ -5,6 +5,10 @@ import CommonSidePanel from "../common/CommonSidePanel";
 import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import type { ColumnPreference } from "../../api/columnPreferences";
 import "./DynamicContactsTable.css";
+import API_BASE_URL from "../../config";
+import { useAppData } from "../../contexts/AppDataContext";
+import { Link } from "lucide-react";
+import { CustomAttributeDefinition, getAttributeHyperlink, getHyperlinkAttributeKeys, normalizeAttributeKey } from "../../utils/customAttributeLinks";
 
 // ---------- Types ----------
 interface ColumnConfig {
@@ -29,6 +33,8 @@ export interface BulkAction {
 }
 
 interface DynamicContactsTableProps {
+  customAttributeClientId?: string | number | null;
+  customAttributeDefinitions?: CustomAttributeDefinition[];
   data: any[];
   isLoading: boolean;
   search: string;
@@ -176,6 +182,8 @@ const GridRefreshButton: React.FC<{
 
 // ---------- Component ----------
 const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
+  customAttributeClientId,
+  customAttributeDefinitions,
   data,
   isLoading,
   search,
@@ -218,6 +226,31 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   onOpenProfile,
   leadingColumn,
 }) => {
+  const [loadedAttributes, setLoadedAttributes] = useState<CustomAttributeDefinition[]>([]);
+  const { refreshTrigger } = useAppData();
+  useEffect(() => {
+    setLoadedAttributes([]);
+    if (customAttributeDefinitions || !customAttributeClientId) return;
+    const controller = new AbortController();
+    fetch(`${API_BASE_URL}/api/crm/custom-fields?clientId=${encodeURIComponent(customAttributeClientId)}`, {
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("Could not load custom attribute types");
+        return response.json();
+      })
+      .then((fields) => {
+        if (!controller.signal.aborted) setLoadedAttributes(Array.isArray(fields) ? fields : []);
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) console.error(error);
+      });
+    return () => controller.abort();
+  }, [customAttributeClientId, customAttributeDefinitions, refreshTrigger]);
+  const hyperlinkAttributeKeys = useMemo(
+    () => getHyperlinkAttributeKeys(customAttributeDefinitions || loadedAttributes),
+    [customAttributeDefinitions, loadedAttributes],
+  );
   const [columns, setColumns]           = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [pageSize, setPageSize]         = useState<PageSize>(pageSizeProp);
@@ -590,6 +623,18 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     }
 
     const rawValue = item[column.key];
+    if (hyperlinkAttributeKeys.has(normalizeAttributeKey(column.key))) {
+      const href = getAttributeHyperlink(rawValue);
+      if (!href) return <span className="dt-muted">—</span>;
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer"
+          title={String(rawValue)} aria-label={`Open ${column.label}`}
+          style={{ display: "inline-flex", color: "#3f9f42", textDecoration: "none" }}
+          onClick={(event) => event.stopPropagation()}>
+          <Link size={16} aria-hidden="true" />
+        </a>
+      );
+    }
     if (customFormatters[column.key]) return customFormatters[column.key](rawValue, item);
     if (column.formatter) return column.formatter(rawValue, item);
     const v = getSafeRenderableValue(rawValue);

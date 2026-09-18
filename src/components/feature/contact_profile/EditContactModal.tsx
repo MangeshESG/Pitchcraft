@@ -886,10 +886,12 @@ const menuIconStyle = {
 
   switch (field.field_type) {
 
+    case "hyperlink":
     case "text":
       return (
         <input
           type="text"
+          inputMode={field.field_type === "hyperlink" ? "url" : "text"}
           className={underlineInput}
           value={value}
           onChange={(e) =>
@@ -2834,7 +2836,7 @@ case "boolean":
           d="M9 12h6M9 16h6M9 8h6M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
       </svg>
     }
-    title="Custom fields"
+    title="Custom attributes"
   >
   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 

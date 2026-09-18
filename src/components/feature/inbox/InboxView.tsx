@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../../../config';
+import { isReplyOrFollowUpCategory } from '../../../utils/blueprintCategories';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import CreditCheckModal from '../../common/CreditCheckModal';
 import { useCreditCheck } from '../../../hooks/useCreditCheck';
@@ -167,6 +168,27 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showReplyBcc, setShowReplyBcc] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [blueprints, setBlueprints] = useState<BlueprintTemplate[]>([]);
+  const groupedBlueprintOptions = React.useMemo(() => {
+    const groups = new Map<string, BlueprintTemplate[]>();
+    blueprints.forEach((blueprint) => {
+      if (!isReplyOrFollowUpCategory(blueprint.templateDefinitionName)) return;
+      const category = (blueprint.templateDefinitionName || '').trim() || 'Uncategorized';
+      const group = groups.get(category) || [];
+      group.push(blueprint);
+      groups.set(category, group);
+    });
+    return Array.from(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([category, items]) => (
+        <optgroup key={category} label={category}>
+          {items
+            .sort((a, b) => a.templateName.toLowerCase().localeCompare(b.templateName.toLowerCase()))
+            .map((blueprint) => (
+              <option key={blueprint.id} value={blueprint.id}>{blueprint.templateName}</option>
+            ))}
+        </optgroup>
+      ));
+  }, [blueprints]);
   const [selectedBlueprint, setSelectedBlueprint] = useState<number | null>(null);
   const [isKrafting, setIsKrafting] = useState(false);
   const kraftInFlightRef = useRef(false);
@@ -541,7 +563,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       
       try {
         const response = await axios.get(
-          `${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}?pageSize=20&pageNumber=1`,
+          `${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}`,
           {
             headers: {
               accept: '*/*',
@@ -2048,9 +2070,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', background: '#fff' }}
           >
             <option value="">Select Blueprint</option>
-            {blueprints.map((blueprint) => (
-              <option key={blueprint.id} value={blueprint.id}>{blueprint.templateName}</option>
-            ))}
+            {groupedBlueprintOptions}
           </select>
           <button
             type="button"
@@ -3258,11 +3278,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       }}
                     >
                       <option value="">Select Blueprint</option>
-                      {blueprints.map((blueprint) => (
-                        <option key={blueprint.id} value={blueprint.id}>
-                          {blueprint.templateName}
-                        </option>
-                      ))}
+                      {groupedBlueprintOptions}
                     </select>
                     <button
                       onClick={handleKraftEmail}
@@ -3887,11 +3903,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         }}
                       >
                         <option value="">Select Blueprint</option>
-                        {blueprints.map((blueprint) => (
-                          <option key={blueprint.id} value={blueprint.id}>
-                            {blueprint.templateName}
-                          </option>
-                        ))}
+                        {groupedBlueprintOptions}
                       </select>
                       <button
                         onClick={async () => {
@@ -4425,11 +4437,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         }}
                       >
                         <option value="">Select Blueprint</option>
-                        {blueprints.map((blueprint) => (
-                          <option key={blueprint.id} value={blueprint.id}>
-                            {blueprint.templateName}
-                          </option>
-                        ))}
+                        {groupedBlueprintOptions}
                       </select>
                       <button
                         onClick={async () => {

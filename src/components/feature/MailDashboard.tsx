@@ -3464,6 +3464,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
           {/* ContactsTable Component */}          
           <DynamicContactsTable
+            customAttributeClientId={effectiveUserId}
             data={
               emailFilterType === "email-logs"
                 ? transformEmailLogsForTable(detailEmailLogPageData)

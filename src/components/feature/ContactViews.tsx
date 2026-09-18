@@ -2222,6 +2222,7 @@ const handleDeleteContacts = () => {
         ) : (
           <div style={{ padding: "20px 32px 24px" }}>
             <DynamicContactsTable
+              customAttributeClientId={clientId}
               data={viewContacts}
               isLoading={isLoadingViewContacts}
               search={viewSearchQuery}
