@@ -84,6 +84,76 @@ export interface ValidationSource {
   url: string;
 }
 
+/**
+ * A correction the Data Integrity check offered for one field.
+ *
+ * The comments say what is wrong in prose; this says what the value should be,
+ * in a shape a button can act on. Only the Data Integrity check produces them
+ * — it is the one whose findings are about the supplied value itself.
+ */
+export interface DataIntegritySuggestion {
+  /** Stable within one check result; posted back so the server resolves the right one. */
+  id: string;
+  /** A contact column the check is allowed to correct, e.g. "job_title". */
+  field: string;
+  /** What the record said when the check ran. */
+  current?: string | null;
+  suggested: string;
+  /** The evidence behind the correction. The server drops any suggestion without one. */
+  reason?: string | null;
+  status: "pending" | "accepted" | "dismissed";
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
+}
+
+/** What the contact row now holds, after a suggestion was accepted. */
+export interface AppliedSuggestion {
+  field: string;
+  value: string;
+  fullName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}
+
+/**
+ * How each correctable field is named in the UI, and which contact column it
+ * writes. The column names are what the grid rows are keyed by, so a row can
+ * be patched in place from an accepted suggestion without refetching it.
+ *
+ * Kept in step with ValidationSuggestionFields on the server — that list is
+ * what decides which writes are actually allowed; this one only labels them.
+ */
+export const SUGGESTION_FIELDS: Record<string, { label: string; column: string }> = {
+  full_name: { label: "Name", column: "full_name" },
+  job_title: { label: "Job title", column: "job_title" },
+  company_name: { label: "Company", column: "company_name" },
+  email: { label: "Email", column: "email" },
+  website: { label: "Website", column: "website" },
+  country_or_address: { label: "Location", column: "country_or_address" },
+  linkedin_url: { label: "LinkedIn URL", column: "linkedin_url" },
+};
+
+export const suggestionFieldLabel = (field: string): string =>
+  SUGGESTION_FIELDS[field]?.label ?? field;
+
+/**
+ * Reads the suggestions blob. The grid endpoints send it as the JSON string it
+ * is stored as — sending an array would make it a column candidate in the
+ * auto-generated grid — while the results endpoint sends it already parsed.
+ * Malformed JSON yields none rather than taking the score cell down with it.
+ */
+export const parseSuggestions = (raw: unknown): DataIntegritySuggestion[] => {
+  if (Array.isArray(raw)) return raw as DataIntegritySuggestion[];
+  if (typeof raw !== "string" || !raw.trim()) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 export interface ContactValidationResult {
   contactId: number;
   contactFitConfidence?: number | null;
@@ -93,6 +163,7 @@ export interface ContactValidationResult {
   dataIntegrityConfidence?: number | null;
   dataIntegrityComments?: string | null;
   dataIntegrityCheckedAt?: string | null;
+  dataIntegritySuggestions?: DataIntegritySuggestion[];
   liveContactConfidence?: number | null;
   liveContactComments?: string | null;
   liveContactCheckedAt?: string | null;
@@ -333,3 +404,60 @@ export const markVerified = async (
 
   return json.message ?? "Done.";
 };
+
+// ----------------------------------------------------- suggestions
+
+export interface ResolveSuggestionResponse {
+  message: string;
+  /** Present on accept only: the value the contact now holds. */
+  applied?: AppliedSuggestion | null;
+  /** The contact's full suggestion list, with this one resolved. */
+  suggestions: DataIntegritySuggestion[];
+}
+
+const resolveSuggestion = async (
+  action: "accept" | "dismiss",
+  clientId: string | number,
+  contactId: number,
+  suggestionId: string,
+  resolvedBy?: string
+): Promise<ResolveSuggestionResponse> => {
+  const json = await postJson(
+    `${BASE}/suggestions/${action}`,
+    { clientId: Number(clientId), contactId, suggestionId, resolvedBy },
+    action === "accept"
+      ? "The correction could not be applied"
+      : "The suggestion could not be dismissed"
+  );
+
+  return {
+    message: json?.message ?? "Done.",
+    applied: json?.applied ?? null,
+    suggestions: Array.isArray(json?.suggestions) ? json.suggestions : [],
+  };
+};
+
+/**
+ * Writes one suggested correction to the contact and marks it accepted.
+ *
+ * The server does both in one save and sends back the value it stored, so the
+ * caller patches the single row it has on screen rather than refetching the
+ * list — accepting a name fix on row 40 of 500 should not scroll the user back
+ * to the top.
+ */
+export const acceptSuggestion = (
+  clientId: string | number,
+  contactId: number,
+  suggestionId: string,
+  resolvedBy?: string
+): Promise<ResolveSuggestionResponse> =>
+  resolveSuggestion("accept", clientId, contactId, suggestionId, resolvedBy);
+
+/** Marks a suggestion dismissed. The contact is not touched. */
+export const dismissSuggestion = (
+  clientId: string | number,
+  contactId: number,
+  suggestionId: string,
+  resolvedBy?: string
+): Promise<ResolveSuggestionResponse> =>
+  resolveSuggestion("dismiss", clientId, contactId, suggestionId, resolvedBy);

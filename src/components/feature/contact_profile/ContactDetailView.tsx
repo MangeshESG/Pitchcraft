@@ -6652,6 +6652,25 @@ dispatch(closePanel());
                       ? appModal.showSuccess(message)
                       : appModal.showError(message)
                   }
+                  // An accepted correction is already stored; folding it into
+                  // the profile's own state is what stops the header still
+                  // showing "Mike T." after the user has just fixed it.
+                  onContactUpdated={(applied) => {
+                    const patch: Record<string, any> = {
+                      [applied.field]: applied.value,
+                      updated_at: new Date().toISOString(),
+                    };
+
+                    if (applied.field === "full_name") {
+                      patch.full_name = applied.fullName ?? applied.value;
+                      patch.first_name = applied.firstName;
+                      patch.last_name = applied.lastName;
+                    }
+
+                    setContact((prev: any) => (prev ? { ...prev, ...patch } : prev));
+                    setEditingContact((prev: any) =>
+                      prev ? { ...prev, ...patch } : prev);
+                  }}
                 />
               )}
 

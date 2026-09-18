@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import API_BASE_URL from "../../config";
 import DynamicContactsTable from "./DynamicContactsTable";
 import type { ColumnPreference } from "../../api/columnPreferences";
@@ -45,9 +45,13 @@ import ValidateContactsButton from "./validation/ValidateContactsButton";
 import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
-  VALIDATION_FORMATTERS,
+  createValidationFormatters,
   getValidationFieldValue,
 } from "./validation/validationColumns";
+import type {
+  AppliedSuggestion,
+  DataIntegritySuggestion,
+} from "../../api/contactValidation";
 import { useToast } from "../../hooks/useToast";
 
 
@@ -482,6 +486,62 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [selectedView, setSelectedView] = useState<ViewItem | null>(null);
   const [baseViewContacts, setBaseViewContacts] = useState<any[]>([]);
   const [viewContacts, setViewContacts] = useState<any[]>([]);
+
+  /**
+   * Writes the outcome of an accepted or dismissed Data Integrity suggestion
+   * into the rows already on screen, instead of reloading the view.
+   *
+   * The filtered list and the list the filter reads from are both patched: the
+   * grid shows the first, and leaving the second stale would bring the old
+   * value back the moment a filter was re-applied.
+   */
+  const applySuggestionOutcome = useCallback(
+    (
+      contactId: number,
+      suggestions: DataIntegritySuggestion[],
+      applied?: AppliedSuggestion | null
+    ) => {
+      const suggestionsJson = JSON.stringify(suggestions);
+
+      const patchRow = (row: any) => {
+        if (!row || Number(row.id) !== contactId) return row;
+
+        const next: any = {
+          ...row,
+          validation: {
+            ...(row.validation ?? {}),
+            dataIntegritySuggestions: suggestionsJson,
+          },
+        };
+
+        // Absent on a dismissal: nothing was written to the contact.
+        if (applied) {
+          next[applied.field] = applied.value;
+
+          if (applied.field === "full_name") {
+            next.full_name = applied.fullName ?? applied.value;
+            next.first_name = applied.firstName ?? next.first_name;
+            next.last_name = applied.lastName ?? next.last_name;
+          }
+        }
+
+        return next;
+      };
+
+      setViewContacts((prev) => prev.map(patchRow));
+      setBaseViewContacts((prev) => prev.map(patchRow));
+    },
+    []
+  );
+
+  const validationFormatters = useMemo(
+    () =>
+      createValidationFormatters({
+        clientId,
+        onSuggestionResolved: applySuggestionOutcome,
+      }),
+    [clientId, applySuggestionOutcome]
+  );
   const [viewSearchQuery, setViewSearchQuery] = useState("");
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
   const [viewPageSize, setViewPageSize] = useState<number | "All">(30);
@@ -2271,7 +2331,7 @@ const handleDeleteContacts = () => {
               persistedColumnLayout={persistedColumnLayout}
               defaultVisibleColumns={defaultVisibleColumns}
               customFormatters={{
-                ...VALIDATION_FORMATTERS,
+                ...validationFormatters,
                 first_name: (value: any, row: any) => {
                   const { firstName, fullName } = getContactNameParts(row);
                   return firstName || fullName || "-";

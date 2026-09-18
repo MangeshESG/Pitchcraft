@@ -46,6 +46,16 @@ export interface ValidationCellProps {
    * the one whose answer a person can go and confirm in one click.
    */
   showLinkedInHint?: boolean;
+  /**
+   * Marks the chip when the data integrity check has offered a correction
+   * nobody has acted on yet.
+   *
+   * Only a marker. The corrections themselves are listed under the score in
+   * the Data integrity column, where there is room to show what each one would
+   * replace — this is what makes a fixable row findable by eye in the combined
+   * Checks cell, which has no room for any of that.
+   */
+  hasPendingSuggestion?: boolean;
 }
 
 /**
@@ -65,6 +75,7 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   label,
   overriddenFrom,
   showLinkedInHint = false,
+  hasPendingSuggestion = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
@@ -197,6 +208,20 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
         }}
       >
         {label ? `${label} ${score}` : score}
+        {hasPendingSuggestion && (
+          // A correction nobody hovers over is a correction nobody applies.
+          // The dot is what makes a fixable row findable by eye down a column
+          // of scores that otherwise all look the same.
+          <span
+            title="A correction is waiting to be accepted"
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: band.fg,
+            }}
+          />
+        )}
       </button>
 
       {isOpen && anchor &&
@@ -317,14 +342,28 @@ export default ValidationCell;
 /**
  * Reads the sources blob the list endpoints send down as a JSON string.
  * Malformed JSON yields no sources rather than taking the cell down with it.
+ *
+ * Both casings are accepted. The results endpoint returns the list through
+ * MVC, which camel-cases it, while the list endpoints hand over the column as
+ * it was stored — and that was written with Newtonsoft's default Pascal case.
+ * Reading either is what makes the rows already in the database render their
+ * links instead of a row of blanks.
  */
 export const parseSources = (raw: unknown): ValidationSource[] => {
-  if (Array.isArray(raw)) return raw as ValidationSource[];
+  const normalise = (list: any[]): ValidationSource[] =>
+    list
+      .map((item) => ({
+        label: item?.label ?? item?.Label ?? "",
+        url: item?.url ?? item?.Url ?? "",
+      }))
+      .filter((source) => !!source.url);
+
+  if (Array.isArray(raw)) return normalise(raw);
   if (typeof raw !== "string" || !raw.trim()) return [];
 
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? normalise(parsed) : [];
   } catch {
     return [];
   }

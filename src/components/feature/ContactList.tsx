@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import API_BASE_URL from "../../config";
@@ -62,8 +62,12 @@ import {
   VALIDATION_DEFAULT_VISIBLE_COLUMNS,
   VALIDATION_EXCLUDED_FIELDS,
   VALIDATION_FILTER_FIELDS,
-  VALIDATION_FORMATTERS,
+  createValidationFormatters,
 } from "./validation/validationColumns";
+import type {
+  AppliedSuggestion,
+  DataIntegritySuggestion,
+} from "../../api/contactValidation";
 
 /**
  * Columns shown to a client who has never arranged their own layout, and what
@@ -1258,6 +1262,73 @@ const formatTimeIST = formatUserTime;
   // Add detail view states
   const [allDetailContacts, setAllDetailContacts] = useState<Contact[]>([]);
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
+
+  /**
+   * Writes the outcome of an accepted or dismissed Data Integrity suggestion
+   * into the rows already on screen.
+   *
+   * Deliberately not a refetch. The server has stored the change and sent back
+   * exactly what it stored, so there is nothing to go and ask for — and
+   * reloading a five-hundred-contact list because one job title was corrected
+   * would throw away the scroll position and the selection the user built up
+   * getting there. Accepting a correction on row 40 should leave row 40 where
+   * it is, with the new value in it.
+   *
+   * Both arrays are patched because either grid can be the one on screen, and
+   * a contact can sit in both.
+   */
+  const applySuggestionOutcome = useCallback(
+    (
+      contactId: number,
+      suggestions: DataIntegritySuggestion[],
+      applied?: AppliedSuggestion | null
+    ) => {
+      // Stored the way the grid receives it, so a patched row and a freshly
+      // fetched one are the same shape.
+      const suggestionsJson = JSON.stringify(suggestions);
+
+      const patchRow = (row: any) => {
+        if (!row || Number(row.id) !== contactId) return row;
+
+        const next: any = {
+          ...row,
+          validation: {
+            ...(row.validation ?? {}),
+            dataIntegritySuggestions: suggestionsJson,
+          },
+        };
+
+        // Absent on a dismissal: nothing was written to the contact.
+        if (applied) {
+          next[applied.field] = applied.value;
+
+          // A name correction rebuilds first and last as well, and those are
+          // the columns the grid actually shows.
+          if (applied.field === "full_name") {
+            next.full_name = applied.fullName ?? applied.value;
+            next.first_name = applied.firstName ?? next.first_name;
+            next.last_name = applied.lastName ?? next.last_name;
+          }
+        }
+
+        return next;
+      };
+
+      setContacts((prev) => prev.map(patchRow));
+      setDetailContacts((prev) => prev.map(patchRow));
+    },
+    []
+  );
+
+  const validationFormatters = useMemo(
+    () =>
+      createValidationFormatters({
+        clientId: effectiveUserId,
+        onSuggestionResolved: applySuggestionOutcome,
+      }),
+    [effectiveUserId, applySuggestionOutcome]
+  );
+
   const filteredDetailContacts = useMemo(() => detailContacts, [detailContacts]);
   const [detailTotalContacts, setDetailTotalContacts] = useState(0);
   const [detailCurrentPage, setDetailCurrentPage] = useState(1);
@@ -2268,7 +2339,7 @@ const filterFields: any = useMemo(() => {
                   persistedColumnLayout={columnLayout}
                   defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
-                    ...VALIDATION_FORMATTERS,
+                    ...validationFormatters,
                     first_name: (value: any, row: any) => {
                       const { firstName, fullName } = getContactNameParts(row as Contact);
                       return firstName || fullName || "-";
@@ -3343,7 +3414,7 @@ const filterFields: any = useMemo(() => {
                   persistedColumnLayout={columnLayout}
                   defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
-                    ...VALIDATION_FORMATTERS,
+                    ...validationFormatters,
                     first_name: (value: any, row: any) => {
                       const { firstName, fullName } = getContactNameParts(row as Contact);
                       return firstName || fullName || "-";

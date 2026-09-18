@@ -1,10 +1,14 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  acceptSuggestion,
   ContactValidationResult,
+  dismissSuggestion,
   fetchValidationResults,
   markVerified,
+  type AppliedSuggestion,
 } from "../../../api/contactValidation";
 import ValidationCell from "./ValidationCell";
+import SuggestionList from "./SuggestionList";
 import { verifiedScore } from "./validationColumns";
 import { formatUserDate } from "../../common/dateTimePreferences";
 
@@ -12,6 +16,11 @@ interface ContactVerificationTabProps {
   clientId: string | number;
   contactId: number;
   onShowMessage?: (message: string, type: "success" | "error") => void;
+  /**
+   * An accepted correction, so the profile around this tab can show the new
+   * value without refetching the contact.
+   */
+  onContactUpdated?: (applied: AppliedSuggestion) => void;
 }
 
 /** The four checks, in the order the spec introduces them. */
@@ -51,6 +60,7 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
   clientId,
   contactId,
   onShowMessage,
+  onContactUpdated,
 }) => {
   const [result, setResult] = useState<ContactValidationResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,6 +101,30 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  /**
+   * Applies or dismisses one suggested correction.
+   *
+   * The result is folded into the state already held rather than reloaded: the
+   * server sends back the contact's whole suggestion list with this one
+   * resolved, which is the only part of this panel the call can have changed.
+   */
+  const resolveSuggestion = async (
+    suggestion: { id: string },
+    action: "accept" | "dismiss"
+  ) => {
+    const response =
+      action === "accept"
+        ? await acceptSuggestion(clientId, contactId, suggestion.id)
+        : await dismissSuggestion(clientId, contactId, suggestion.id);
+
+    setResult((prev) =>
+      prev ? { ...prev, dataIntegritySuggestions: response.suggestions } : prev);
+
+    if (response.applied) onContactUpdated?.(response.applied);
+
+    onShowMessage?.(response.message, "success");
   };
 
   if (isLoading) {
@@ -245,6 +279,16 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
                     {comments.trim()}
                   </p>
                 )}
+
+                {/* Only data integrity offers corrections — it is the check
+                    whose findings are about the supplied value itself. */}
+                {check.key === "dataIntegrity" &&
+                  !!result?.dataIntegritySuggestions?.length && (
+                    <SuggestionList
+                      suggestions={result.dataIntegritySuggestions}
+                      onResolve={resolveSuggestion}
+                    />
+                  )}
               </div>
             );
           })}

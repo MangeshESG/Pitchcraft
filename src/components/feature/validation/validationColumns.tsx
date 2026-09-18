@@ -1,6 +1,14 @@
 import React from "react";
 import ValidationCell, { parseSources } from "./ValidationCell";
-import { parseApiDate } from "../../../api/contactValidation";
+import SuggestionList from "./SuggestionList";
+import {
+  acceptSuggestion,
+  dismissSuggestion,
+  parseApiDate,
+  parseSuggestions,
+  type AppliedSuggestion,
+  type DataIntegritySuggestion,
+} from "../../../api/contactValidation";
 import { formatUserDate } from "../../common/dateTimePreferences";
 
 /**
@@ -51,6 +59,9 @@ export const VALIDATION_COLUMN_LABELS: Record<string, string> = {
  */
 export const VALIDATION_EXCLUDED_FIELDS = [
   "validationSources",
+  // Read by the data integrity score cell, never shown as a column of its own:
+  // it is a JSON blob, and the auto-generated grid would turn it into one.
+  "dataIntegritySuggestions",
   "contactFitComments",
   "contactFitCheckedAt",
   "dataIntegrityComments",
@@ -187,6 +198,7 @@ const CHECKS: {
   commentKey: string;
   dateKey: string;
   linkedInHint?: boolean;
+  hasSuggestions?: boolean;
 }[] = [
   {
     key: "fit",
@@ -201,6 +213,7 @@ const CHECKS: {
     scoreKey: "dataIntegrityConfidence",
     commentKey: "dataIntegrityComments",
     dateKey: "dataIntegrityCheckedAt",
+    hasSuggestions: true,
   },
   {
     key: "live",
@@ -231,7 +244,7 @@ const CHECKS: {
  * unrun check would fill the column with noise on a list nobody has validated
  * end to end.
  */
-const checksCell = (value: any, row: any) => {
+const checksCell = (suggestions?: SuggestionHandlers) => (value: any, row: any) => {
   const run = CHECKS.filter(
     (check) => typeof row[check.scoreKey] === "number"
   );
@@ -256,6 +269,9 @@ const checksCell = (value: any, row: any) => {
             comments={row[check.commentKey]}
             checkedAt={row[check.dateKey]}
             sources={sources}
+            hasPendingSuggestion={
+              !!check.hasSuggestions && hasPending(suggestions?.read(row))
+            }
             showLinkedInHint={
               !!check.linkedInHint && typeof score === "number" && score < 100
             }
@@ -266,24 +282,152 @@ const checksCell = (value: any, row: any) => {
   );
 };
 
+const hasPending = (suggestions?: DataIntegritySuggestion[]) =>
+  !!suggestions?.some((suggestion) => suggestion.status === "pending");
+
 /**
- * Renderers keyed by column, ready to spread into a grid's `customFormatters`.
+ * The data integrity score, with the corrections it offered listed underneath.
+ *
+ * The corrections sit in the cell rather than behind a hover, because a
+ * correction is something to act on rather than something to read: a button
+ * that only exists while the pointer is still on the chip is a button most
+ * people never reach. The cost is row height, and only on rows that have
+ * something to fix — a clean row renders exactly the chip it did before.
+ *
+ * It is this column and not the contact's own columns because the corrections
+ * for a row can name several different fields, and half of those columns are
+ * switched off in any given layout. Here they are always where the score that
+ * produced them is.
+ */
+const dataIntegrityCell =
+  (suggestions: SuggestionHandlers) => (value: any, row: any) => {
+    const raw = row.dataIntegrityConfidence;
+    const score = verifiedScore(
+      raw, row.isVerified, row.verifiedAt, row.dataIntegrityCheckedAt);
+
+    const offered = suggestions.read(row);
+    const resolve = suggestions.resolverFor(row);
+
+    return (
+      <div>
+        <ValidationCell
+          score={score}
+          overriddenFrom={score !== raw ? raw : undefined}
+          comments={row.dataIntegrityComments}
+          checkedAt={row.dataIntegrityCheckedAt}
+          sources={parseSources(row.validationSources)}
+          hasPendingSuggestion={hasPending(offered)}
+        />
+
+        {offered.length > 0 && (
+          <SuggestionList
+            compact
+            suggestions={offered}
+            onResolve={
+              resolve
+                ? async (suggestion, action) => {
+                    await resolve(suggestion, action);
+                  }
+                : undefined
+            }
+          />
+        )}
+      </div>
+    );
+  };
+
+/**
+ * What a grid has to supply for its Accept buttons to work: who is asking, and
+ * what to do with the corrected value once the server has stored it.
+ *
+ * A grid that supplies none still shows the corrections and the evidence — it
+ * just shows them read-only, rather than offering a button that would post
+ * nowhere.
+ */
+export interface ValidationFormatterOptions {
+  clientId?: string | number | null;
+  /**
+   * Writes an accepted correction into the row on screen.
+   *
+   * This is what keeps a list of five hundred from reloading because one job
+   * title was fixed: the server has already stored the change and sent back
+   * what it stored, so the grid patches the single row it belongs to and
+   * nothing else moves — no refetch, no scroll position lost, no selection
+   * cleared.
+   *
+   * `applied` is absent when the suggestion was dismissed: nothing was written
+   * to the contact, only the suggestion's own state changed.
+   */
+  onSuggestionResolved?: (
+    contactId: number,
+    suggestions: DataIntegritySuggestion[],
+    applied?: AppliedSuggestion | null
+  ) => void;
+  /** Recorded against the suggestion, so the row says who accepted it. */
+  resolvedBy?: string;
+}
+
+interface SuggestionHandlers {
+  read: (row: any) => DataIntegritySuggestion[];
+  resolverFor: (
+    row: any
+  ) =>
+    | ((
+        suggestion: DataIntegritySuggestion,
+        action: "accept" | "dismiss"
+      ) => Promise<DataIntegritySuggestion[]>)
+    | undefined;
+}
+
+const buildSuggestionHandlers = (
+  options: ValidationFormatterOptions
+): SuggestionHandlers => ({
+  read: (row: any) => parseSuggestions(row?.dataIntegritySuggestions),
+
+  resolverFor: (row: any) => {
+    const contactId = Number(row?.id);
+
+    if (!options.clientId || !contactId) return undefined;
+
+    return async (suggestion, action) => {
+      const response =
+        action === "accept"
+          ? await acceptSuggestion(
+              options.clientId!, contactId, suggestion.id, options.resolvedBy)
+          : await dismissSuggestion(
+              options.clientId!, contactId, suggestion.id, options.resolvedBy);
+
+      options.onSuggestionResolved?.(contactId, response.suggestions, response.applied);
+
+      return response.suggestions;
+    };
+  },
+});
+
+/**
+ * The Audience Assurance renderers, ready to spread into a grid's
+ * `customFormatters`.
+ *
+ * A factory rather than a constant because accepting a correction has to reach
+ * back into the grid's own row state, and that state differs per grid — the
+ * list, the segment detail and the saved views each hold their own array.
  *
  * Each score cell carries its own comments and the sources behind them, so the
  * confidence column alone answers "why" without the comment column needing to
  * be switched on. The comment columns exist for reading or exporting in bulk.
  */
-export const VALIDATION_FORMATTERS: Record<
-  string,
-  (value: any, row: any) => React.ReactNode
-> = {
-  checks: checksCell,
+export const createValidationFormatters = (
+  options: ValidationFormatterOptions = {}
+): Record<string, (value: any, row: any) => React.ReactNode> => {
+  const suggestions = buildSuggestionHandlers(options);
+
+  return {
+  checks: checksCell(suggestions),
   lastChecked: (value: any) => formatUserDate(value),
 
   contactFitConfidence: scoreCell(
     "contactFitConfidence", "contactFitComments", "contactFitCheckedAt"),
-  dataIntegrityConfidence: scoreCell(
-    "dataIntegrityConfidence", "dataIntegrityComments", "dataIntegrityCheckedAt"),
+  dataIntegrityConfidence: dataIntegrityCell(suggestions),
   liveContactConfidence: scoreCell(
     "liveContactConfidence", "liveContactComments", "liveContactCheckedAt",
     { linkedInHint: true }),
@@ -302,6 +446,7 @@ export const VALIDATION_FORMATTERS: Record<
   verifiedAt: (value: any) => formatUserDate(value),
 
   isVerified: verifiedCell,
+  };
 };
 
 /**
