@@ -45,6 +45,7 @@ import CommonSidePanel from '../../common/CommonSidePanel';
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import ContactQA from "./ContactQA";
 import ContactComposeEmailPopup, { RecipientChipInput, mergeRecipients, parseRecipientInput } from "./ContactComposeEmailPopup";
+import { isReplyOrFollowUpCategory } from "../../../utils/blueprintCategories";
 import ContactEmailsTab from "./ContactEmailsTab";
 import ContactVerificationTab from "../validation/ContactVerificationTab";
 import { pinEmail } from "../inbox/inboxPin";
@@ -270,6 +271,25 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
     ),
     [contactReplyBlueprints]
   );
+  const groupedContactBlueprintOptions = useMemo(() => {
+    const groups = new Map<string, ContactReplyBlueprint[]>();
+    sortedComposeBlueprints.forEach((blueprint) => {
+      if (!isReplyOrFollowUpCategory(blueprint.templateDefinitionName)) return;
+      const category = (blueprint.templateDefinitionName || "").trim() || "Uncategorized";
+      const group = groups.get(category) || [];
+      group.push(blueprint);
+      groups.set(category, group);
+    });
+    return Array.from(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([category, items]) => (
+        <optgroup key={category} label={category}>
+          {items.map((blueprint) => (
+            <option key={blueprint.id} value={blueprint.id}>{blueprint.templateName}</option>
+          ))}
+        </optgroup>
+      ));
+  }, [sortedComposeBlueprints]);
   const sortedComposeFromOptions = useMemo(
     () => [...composeSmtpUsers].sort((a, b) => {
       const getLabel = (option: ContactSmtpUser) =>
@@ -4025,9 +4045,7 @@ dispatch(closePanel());
                   style={{ padding: "6px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, background: "#fff" }}
                 >
                   <option value="">Select Blueprint</option>
-                  {contactReplyBlueprints.map((blueprint) => (
-                    <option key={blueprint.id} value={blueprint.id}>{blueprint.templateName}</option>
-                  ))}
+                  {groupedContactBlueprintOptions}
                 </select>
                 <button
                   type="button"
@@ -4261,11 +4279,7 @@ dispatch(closePanel());
                   }}
                 >
                   <option value="">Select Blueprint</option>
-                  {contactReplyBlueprints.map((blueprint) => (
-                    <option key={blueprint.id} value={blueprint.id}>
-                      {blueprint.templateName}
-                    </option>
-                  ))}
+                  {groupedContactBlueprintOptions}
                 </select>
                 <button
                   type="button"

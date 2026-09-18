@@ -399,7 +399,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     fetch(`${API_BASE_URL}/api/Crm/custom-fields?clientId=${effectiveUserId}`)
       .then((res) => res.json())
       .then((data) => setCustomFields(data));
-  }, [effectiveUserId]);
+  }, [effectiveUserId, refreshTrigger]);
 
   // Custom attribute columns are keyed by field_name, so the layout needs the
   // id alongside it to survive a rename on the server.
@@ -2290,6 +2290,7 @@ const filterFields: any = useMemo(() => {
               ) : (
                   <div style={{ padding: "20px 32px 24px" }}>
                 <DynamicContactsTable
+                  customAttributeDefinitions={customFields}
                   data={filteredDetailContacts}
                   isLoading={isLoadingDetail}
                   search={detailSearchQuery}
@@ -3364,6 +3365,7 @@ const filterFields: any = useMemo(() => {
                 // Detail view for segments
                 <div style={{ padding: "20px 32px 24px" }}>
                 <DynamicContactsTable
+                  customAttributeDefinitions={customFields}
                   columnNameMap={columnNameMap}
                   data={detailContacts}
                   isLoading={isLoadingDetail}
