@@ -26,6 +26,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { faEdit, faTrashAlt, faSquarePlus } from "@fortawesome/free-regular-svg-icons";
 import EditContactModal from "./EditContactModal";
+import ContactIdentityHeader from "./ContactIdentityHeader";
 import { useAppModal } from "../../../hooks/useAppModal";
 import pitchLogo from "../../../assets/images/pitch_logo.png";
 import "react-quill/dist/quill.snow.css";
@@ -4963,6 +4964,29 @@ dispatch(closePanel());
         <div className={`contact-detail-scroll ${embedded ? "w-full" : "w-full h-screen overflow-y-auto bg-gray-100"}`}>
           <div className={`contact-detail-page ${embedded ? "pt-4 pb-20 px-2 min-h-full" : "pt-4 pb-20 px-6 min-h-screen"}`}>
             <div className="contact-detail-card bg-white rounded-lg shadow-md p-6 mb-8 ">
+              {/* CONTACT IDENTITY — kept above the tabs so the name, photo and
+                  pronunciation stay visible whichever tab is open. */}
+              {editingContact && (
+                <ContactIdentityHeader
+                  className="mb-4"
+                  contactId={editingContact.id}
+                  clientId={effectiveUserId}
+                  name={
+                    [editingContact.first_name, editingContact.last_name]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim() || editingContact.full_name
+                  }
+                  linkedInInformation={editingContact.linkedIninformation}
+                  onShowMessage={(msg, type) =>
+                    type === "success" ? appModal.showSuccess(msg) : appModal.showError(msg)
+                  }
+                  onProfileImageUploaded={() => {
+                    if (contactId) fetchEmailTimeline(Number(contactId));
+                  }}
+                />
+              )}
+
               {/* TOP TABS */}
               {/* TOP TABS + RIGHT ACTIONS */}
               <div
@@ -5304,6 +5328,7 @@ dispatch(closePanel());
                       asPage={true}
                       hideOverlay={true}
                       hideFullName={true}
+                      hideIdentityHeader={true}
                       contact={editingContact}
                       onClose={() => { }}
                       onContactUpdated={(updatedContact) => {
