@@ -63,6 +63,7 @@ import {
   VALIDATION_EXCLUDED_FIELDS,
   VALIDATION_FILTER_FIELDS,
   VALIDATION_FORMATTERS,
+  verifiedScore,
 } from "./validation/validationColumns";
 
 /**
@@ -409,21 +410,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     return map;
   }, [customFields]);
 
-  // Client-level column layout (show/hide + sequence), stored in the DB and
-  // shared by every list, segment and saved view.
-  const {
-    layout: columnLayout,
-    saveLayout: saveColumnLayout,
-    resetLayout: resetColumnLayout,
-    migratedLegacySelection,
-  } = useColumnPreferences(effectiveUserId, {
-    customFieldIdByName,
-    onError: (message) => showContactMessage(message, "error"),
-  });
-
-  // A just-migrated localStorage selection stands in for the defaults, so the
-  // columns a user had hidden before the move to the DB stay hidden.
-  const defaultVisibleColumns = migratedLegacySelection ?? DEFAULT_VISIBLE_COLUMNS;
+  const defaultVisibleColumns = DEFAULT_VISIBLE_COLUMNS;
 
   // Fetch data files
   const fetchDataFiles = async () => {
@@ -1255,6 +1242,17 @@ const formatTimeIST = formatUserTime;
   const [selectedSegmentForView, setSelectedSegmentForView] =
     useState<any>(null);
 
+  const listColumnPreferences = useColumnPreferences(effectiveUserId, {
+    scope: selectedDataFileForView ? { scopeType: "list", scopeId: selectedDataFileForView.id } : null,
+    customFieldIdByName,
+    onError: (message) => showContactMessage(message, "error"),
+  });
+  const segmentColumnPreferences = useColumnPreferences(effectiveUserId, {
+    scope: selectedSegmentForView ? { scopeType: "segment", scopeId: selectedSegmentForView.id } : null,
+    customFieldIdByName,
+    onError: (message) => showContactMessage(message, "error"),
+  });
+
   // Add detail view states
   const [allDetailContacts, setAllDetailContacts] = useState<Contact[]>([]);
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
@@ -1717,6 +1715,23 @@ const formatTimeIST = formatUserTime;
       { key: "created_at", header: "Created date" },
       { key: "updated_at", header: "Updated date" },
       { key: "email_sent_at", header: "Email Sent Date" },
+      ...[
+        { key: "dataIntegrityConfidence", header: "Data Integrity", dateKey: "dataIntegrityCheckedAt" },
+        { key: "liveContactConfidence", header: "Live Contact", dateKey: "liveContactCheckedAt" },
+        { key: "emailValidityConfidence", header: "Email Validity", dateKey: "emailCheckedAt" },
+      ].map(({ key, header, dateKey }) => ({
+        key,
+        header,
+        getValue: (contact: any) => {
+          const validation = { ...contact, ...contact.validation };
+          return verifiedScore(
+            validation[key],
+            validation.isVerified,
+            validation.verifiedAt,
+            validation[dateKey]
+          );
+        },
+      })),
     ];
 
     const customColumns: CsvColumn[] = getCustomFieldColumns(data);
@@ -2219,6 +2234,7 @@ const filterFields: any = useMemo(() => {
               ) : (
                   <div style={{ padding: "20px 32px 24px" }}>
                 <DynamicContactsTable
+                  key={`list-${effectiveUserId}-${selectedDataFileForView?.id}`}
                   customAttributeDefinitions={customFields}
                   data={filteredDetailContacts}
                   isLoading={isLoadingDetail}
@@ -2264,9 +2280,9 @@ const filterFields: any = useMemo(() => {
                     "customFields",
                     ...VALIDATION_EXCLUDED_FIELDS,
                   ]} // Hide large/unwanted fields
-                  onColumnsChange={saveColumnLayout}
-                  onResetColumns={resetColumnLayout}
-                  persistedColumnLayout={columnLayout}
+                  onColumnsChange={listColumnPreferences.saveLayout}
+                  onResetColumns={listColumnPreferences.resetLayout}
+                  persistedColumnLayout={listColumnPreferences.layout}
                   defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
                     ...VALIDATION_FORMATTERS,
@@ -3294,6 +3310,7 @@ const filterFields: any = useMemo(() => {
                 // Detail view for segments
                 <div style={{ padding: "20px 32px 24px" }}>
                 <DynamicContactsTable
+                  key={`segment-${effectiveUserId}-${selectedSegmentForView?.id}`}
                   customAttributeDefinitions={customFields}
                   columnNameMap={columnNameMap}
                   data={detailContacts}
@@ -3340,9 +3357,9 @@ const filterFields: any = useMemo(() => {
                     "customFields",
                     ...VALIDATION_EXCLUDED_FIELDS,
                   ]}
-                  onColumnsChange={saveColumnLayout}
-                  onResetColumns={resetColumnLayout}
-                  persistedColumnLayout={columnLayout}
+                  onColumnsChange={segmentColumnPreferences.saveLayout}
+                  onResetColumns={segmentColumnPreferences.resetLayout}
+                  persistedColumnLayout={segmentColumnPreferences.layout}
                   defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
                     ...VALIDATION_FORMATTERS,
@@ -4095,9 +4112,7 @@ const filterFields: any = useMemo(() => {
           isActive={activeSubTab === "View"}
           refreshToken={viewRefreshToken}
           columnNameMap={columnNameMap}
-          persistedColumnLayout={columnLayout}
-          onColumnsChange={saveColumnLayout}
-          onResetColumns={resetColumnLayout}
+          customFieldIdByName={customFieldIdByName}
           defaultVisibleColumns={defaultVisibleColumns}
           onShowMessage={(message, type) => {
             showContactMessage(message, type === "success" ? "success" : "error");

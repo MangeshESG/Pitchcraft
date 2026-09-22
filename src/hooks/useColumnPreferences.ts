@@ -1,256 +1,169 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ColumnPreference,
+  ColumnPreferenceScope,
   fetchColumnPreferences,
   resetColumnPreferences,
   saveColumnPreferences,
 } from "../api/columnPreferences";
 
-/** The shape DynamicContactsTable emits from `onColumnsChange`. */
 export interface ColumnLike {
   key: string;
   label?: string;
   visible: boolean;
 }
 
-/** Layout written before the DB existed — migrated once, then ignored. */
-const LEGACY_SELECTION_KEY = "contactlist_selected_columns";
-/** Local mirror of the server layout, so the table renders without a flash. */
-const LAYOUT_CACHE_KEY = "contactlist_column_layout";
+const EMPTY_LAYOUT: ColumnPreference[] = [];
 const SAVE_DEBOUNCE_MS = 600;
+const cacheKeyFor = (clientId: string | number, scope: ColumnPreferenceScope) =>
+  `contactlist_column_layout_${clientId}_${scope.scopeType}_${scope.scopeId}`;
 
-const cacheKeyFor = (clientId: string | number) => `${LAYOUT_CACHE_KEY}_${clientId}`;
-
-const readCachedLayout = (clientId: string | number): ColumnPreference[] => {
+const readCachedLayout = (key: string): ColumnPreference[] => {
   try {
-    const raw = localStorage.getItem(cacheKeyFor(clientId));
-    const parsed = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = JSON.parse(localStorage.getItem(key) || "null");
+    return Array.isArray(parsed) ? parsed : EMPTY_LAYOUT;
   } catch {
-    return [];
+    return EMPTY_LAYOUT;
   }
 };
 
-const writeCachedLayout = (clientId: string | number, layout: ColumnPreference[]) => {
+const writeCachedLayout = (key: string, layout: ColumnPreference[]) => {
   try {
-    localStorage.setItem(cacheKeyFor(clientId), JSON.stringify(layout));
+    localStorage.setItem(key, JSON.stringify(layout));
   } catch {
-    /* quota or private mode — the server copy is the source of truth anyway */
+    // The server remains the source of truth when storage is unavailable.
   }
 };
 
-/** Reads the pre-DB localStorage selection so an existing user keeps their columns. */
-const readLegacySelection = (): string[] => {
-  try {
-    const raw = localStorage.getItem(LEGACY_SELECTION_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (!Array.isArray(parsed) || parsed.length === 0) return [];
-    return parsed.filter((k): k is string => typeof k === "string" && k !== "checkbox");
-  } catch {
-    return [];
-  }
+// Serialize writes to a scope, including across unmount/remount. In particular,
+// a delayed save must finish before a reset or a newer save for the same item.
+const writes = new Map<string, Promise<void>>();
+const enqueueWrite = (key: string, operation: () => Promise<void>) => {
+  const next = (writes.get(key) ?? Promise.resolve()).catch(() => {}).then(operation);
+  writes.set(key, next);
+  const cleanup = () => { if (writes.get(key) === next) writes.delete(key); };
+  void next.then(cleanup, cleanup);
+  return next;
 };
 
-/**
- * Each list view auto-generates its own column set, so the table doing the
- * saving only knows part of the layout. Columns the stored layout has but this
- * table doesn't are put back at the position they already held — otherwise a
- * save from a narrow view would wipe another view's columns.
- */
+// Keep columns absent from the current result set (for example after filtering).
 const mergeWithUnknownColumns = (
   incoming: ColumnPreference[],
   previous: ColumnPreference[]
 ): ColumnPreference[] => {
   const incomingKeys = new Set(incoming.map((c) => c.columnKey));
-  // Filtering `previous` keeps these in ascending stored position.
-  const missing = previous.filter((p) => !incomingKeys.has(p.columnKey));
-
-  if (missing.length === 0) return incoming;
-
   const result = [...incoming];
-
-  missing.forEach((column) => {
-    const previousIndex = previous.findIndex((p) => p.columnKey === column.columnKey);
-    result.splice(Math.min(previousIndex, result.length), 0, column);
+  previous.forEach((column, index) => {
+    if (!incomingKeys.has(column.columnKey)) {
+      result.splice(Math.min(index, result.length), 0, column);
+    }
   });
-
   return result.map((column, index) => ({ ...column, sortOrder: index }));
 };
 
 interface Options {
-  /** Maps a custom attribute's field_name to its crm_custom_fields.id. */
+  scope: ColumnPreferenceScope | null;
   customFieldIdByName?: Record<string, number>;
   onError?: (message: string) => void;
 }
 
-/**
- * Client-level column layout (show/hide + sequence), persisted in the DB and
- * shared by every list view, segment and saved view of the client.
- */
+/** An independent layout per client and individual list, segment or saved view. */
 export const useColumnPreferences = (
   clientId: string | number | undefined,
-  { customFieldIdByName, onError }: Options = {}
+  { scope, customFieldIdByName, onError }: Options
 ) => {
-  const [layout, setLayout] = useState<ColumnPreference[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-  /**
-   * The legacy selection when this session migrated one. A legacy selection
-   * listed only the *visible* columns, so it has to act as the default set too
-   * — otherwise a column the user had hidden would come back on this one load.
-   */
-  const [migratedLegacySelection, setMigratedLegacySelection] = useState<string[] | null>(null);
-
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingRef = useRef<ColumnPreference[] | null>(null);
-  // The layout as last known, so a save can re-attach columns this table lacks.
-  const layoutRef = useRef<ColumnPreference[]>([]);
+  const scopeType = scope?.scopeType;
+  const scopeId = scope?.scopeId;
+  const key = clientId && scope ? cacheKeyFor(clientId, scope) : "";
+  const [state, setState] = useState<{ key: string; layout: ColumnPreference[]; loaded: boolean }>({
+    key: "", layout: EMPTY_LAYOUT, loaded: false,
+  });
+  const layout = state.key === key ? state.layout : EMPTY_LAYOUT;
+  const layoutRef = useRef(layout);
   layoutRef.current = layout;
-  // Read inside the debounced flush so a late-arriving custom-field list is used.
-  const customFieldIdByNameRef = useRef(customFieldIdByName);
-  customFieldIdByNameRef.current = customFieldIdByName;
+  const revisionRef = useRef(0);
+  const optionsRef = useRef({ customFieldIdByName, onError });
+  optionsRef.current = { customFieldIdByName, onError };
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRef = useRef<{ key: string; clientId: string | number; scope: ColumnPreferenceScope; columns: ColumnPreference[] } | null>(null);
 
-  const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
-
-  // ---------- Load ----------
-  useEffect(() => {
-    if (!clientId) {
-      setLayout([]);
-      setIsLoaded(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    // Paint the cached layout first; the server response replaces it.
-    const cached = readCachedLayout(clientId);
-    if (cached.length > 0) setLayout(cached);
-
-    (async () => {
-      try {
-        const { hasSavedLayout, columns } = await fetchColumnPreferences(clientId);
-        if (cancelled) return;
-
-        if (hasSavedLayout) {
-          setLayout(columns);
-          writeCachedLayout(clientId, columns);
-          setIsLoaded(true);
-          return;
-        }
-
-        // Nothing stored server-side yet — carry the old localStorage
-        // selection up so returning users keep the columns they had.
-        const legacy = readLegacySelection();
-
-        if (legacy.length > 0) {
-          const migrated: ColumnPreference[] = legacy.map((key, index) => ({
-            columnKey: key,
-            label: null,
-            isVisible: true,
-            sortOrder: index,
-            customFieldId: customFieldIdByNameRef.current?.[key] ?? null,
-          }));
-
-          setLayout(migrated);
-          setMigratedLegacySelection(legacy);
-          writeCachedLayout(clientId, migrated);
-
-          try {
-            await saveColumnPreferences(clientId, migrated);
-            localStorage.removeItem(LEGACY_SELECTION_KEY);
-          } catch {
-            /* retried on the user's next column change */
-          }
-        } else {
-          setLayout([]);
-        }
-
-        if (!cancelled) setIsLoaded(true);
-      } catch (error) {
-        if (cancelled) return;
-        // Offline or API down: keep whatever the cache gave us.
-        console.warn("Column layout could not be loaded:", error);
-        setIsLoaded(true);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [clientId]);
-
-  // ---------- Save ----------
   const flush = useCallback(async () => {
     const pending = pendingRef.current;
-    if (!pending || !clientId) return;
-
+    if (!pending) return;
     pendingRef.current = null;
-
     try {
-      await saveColumnPreferences(clientId, pending);
+      await enqueueWrite(pending.key, () =>
+        saveColumnPreferences(pending.clientId, pending.columns, pending.scope));
     } catch (error) {
       console.warn("Column layout could not be saved:", error);
-      onErrorRef.current?.("Column layout could not be saved. It will apply on this device only.");
+      optionsRef.current.onError?.("Column layout could not be saved. It will apply on this device only.");
     }
-  }, [clientId]);
+  }, []);
 
-  /**
-   * Records the layout in the order given — position in the array is the
-   * column sequence. Applied to local state at once, pushed to the server on a
-   * short debounce so a burst of toggles or a drag is one request.
-   */
-  const saveLayout = useCallback(
-    (columns: ColumnLike[]) => {
-      if (!clientId) return;
+  useEffect(() => {
+    if (!key || !clientId || !scopeType || scopeId === undefined) return;
+    let cancelled = false;
+    const revision = revisionRef.current;
+    setState({ key, layout: readCachedLayout(key), loaded: false });
+    const target = { scopeType, scopeId };
+    void (async () => {
+      try {
+        await writes.get(key)?.catch(() => {});
+        const { columns } = await fetchColumnPreferences(clientId, target);
+        if (cancelled || revision !== revisionRef.current) return;
+        setState({ key, layout: columns, loaded: true });
+        writeCachedLayout(key, columns);
+      } catch (error) {
+        if (cancelled || revision !== revisionRef.current) return;
+        console.warn("Column layout could not be loaded:", error);
+        setState((previous) => previous.key === key ? { ...previous, loaded: true } : previous);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [key, clientId, scopeType, scopeId]);
 
-      const incoming: ColumnPreference[] = columns
-        .filter((c) => c.key && c.key !== "checkbox")
-        .map((c, index) => ({
-          columnKey: c.key,
-          label: c.label ?? null,
-          isVisible: !!c.visible,
-          sortOrder: index,
-          customFieldId: customFieldIdByNameRef.current?.[c.key] ?? null,
-        }));
-
-      const next = mergeWithUnknownColumns(incoming, layoutRef.current);
-
-      setLayout(next);
-      writeCachedLayout(clientId, next);
-      pendingRef.current = next;
-
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(flush, SAVE_DEBOUNCE_MS);
-    },
-    [clientId, flush]
-  );
+  const saveLayout = useCallback((columns: ColumnLike[]) => {
+    if (!key || !clientId || !scopeType || scopeId === undefined) return;
+    const incoming = columns.filter((c) => c.key && c.key !== "checkbox").map((c, index) => ({
+      columnKey: c.key,
+      label: c.label ?? null,
+      isVisible: !!c.visible,
+      sortOrder: index,
+      customFieldId: optionsRef.current.customFieldIdByName?.[c.key] ?? null,
+    }));
+    const next = mergeWithUnknownColumns(incoming, layoutRef.current);
+    revisionRef.current += 1;
+    layoutRef.current = next;
+    setState({ key, layout: next, loaded: true });
+    writeCachedLayout(key, next);
+    pendingRef.current = { key, clientId, scope: { scopeType, scopeId }, columns: next };
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => { void flush(); }, SAVE_DEBOUNCE_MS);
+  }, [key, clientId, scopeType, scopeId, flush]);
 
   const resetLayout = useCallback(async () => {
-    if (!clientId) return;
-
+    if (!key || !clientId || !scopeType || scopeId === undefined) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     pendingRef.current = null;
-
-    setLayout([]);
-    writeCachedLayout(clientId, []);
-
+    revisionRef.current += 1;
+    layoutRef.current = EMPTY_LAYOUT;
+    setState({ key, layout: EMPTY_LAYOUT, loaded: true });
+    writeCachedLayout(key, EMPTY_LAYOUT);
     try {
-      await resetColumnPreferences(clientId);
+      await enqueueWrite(key, () => resetColumnPreferences(clientId, { scopeType, scopeId }));
     } catch (error) {
       console.warn("Column layout could not be reset:", error);
-      onErrorRef.current?.("Column layout could not be reset on the server.");
+      optionsRef.current.onError?.("Column layout could not be reset on the server.");
     }
-  }, [clientId]);
+  }, [key, clientId, scopeType, scopeId]);
 
-  // Don't lose a debounced save on unmount / navigation.
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      void flush();
-    };
-  }, [flush]);
+  // The pending payload owns its original target, even when navigation changes scope.
+  useEffect(() => () => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    void flush();
+  }, [key, flush]);
 
-  return { layout, isLoaded, saveLayout, resetLayout, migratedLegacySelection };
+  return { layout, isLoaded: state.key === key && state.loaded, saveLayout, resetLayout };
 };
 
 export default useColumnPreferences;
