@@ -797,10 +797,20 @@ const MainPage: React.FC = () => {
     const fetchClientData = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/allUserDetails`);
-        const data: Client[] = await response.json();
-        setClientNames(data);
+
+        if (!response.ok) throw new Error(`Client list request failed (${response.status})`);
+
+        const data = await response.json();
+
+        // Checked rather than asserted. `const data: Client[]` only tells the
+        // compiler what to expect; when the API answers with an error object
+        // instead — a 500, a restart, a proxy page — that object lands in state
+        // and the header's .map over it takes the whole app down. An empty
+        // dropdown is a far better failure than a blank screen.
+        setClientNames(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error fetching client details:", error);
+        setClientNames([]);
       }
     };
 

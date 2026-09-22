@@ -6,6 +6,8 @@ import {
   fetchValidationResults,
   markVerified,
   type AppliedSuggestion,
+  type ValidationCheckType,
+  type ValidationSuggestion,
 } from "../../../api/contactValidation";
 import ValidationCell from "./ValidationCell";
 import SuggestionList from "./SuggestionList";
@@ -27,22 +29,26 @@ interface ContactVerificationTabProps {
 const CHECKS = [
   {
     key: "contactFit",
+    checkType: "contact_fit",
     label: "Contact fit",
     blurb: "Does this company and job title belong in the target audience?",
   },
   {
     key: "dataIntegrity",
+    checkType: "data_integrity",
     label: "Data integrity",
     blurb: "Is the record itself complete, clean and consistent?",
   },
   {
     key: "liveContact",
+    checkType: "live_contact",
     label: "Live contact",
     blurb: "Is this person still at that company in that role?",
     linkedInHint: true,
   },
   {
     key: "emailValidity",
+    checkType: "email_verification",
     label: "Email validity",
     blurb: "Is the address real and deliverable?",
   },
@@ -111,16 +117,18 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
    * resolved, which is the only part of this panel the call can have changed.
    */
   const resolveSuggestion = async (
+    checkType: ValidationCheckType,
+    suggestionsKey: string,
     suggestion: { id: string },
     action: "accept" | "dismiss"
   ) => {
     const response =
       action === "accept"
-        ? await acceptSuggestion(clientId, contactId, suggestion.id)
-        : await dismissSuggestion(clientId, contactId, suggestion.id);
+        ? await acceptSuggestion(clientId, contactId, checkType, suggestion.id)
+        : await dismissSuggestion(clientId, contactId, checkType, suggestion.id);
 
     setResult((prev) =>
-      prev ? { ...prev, dataIntegritySuggestions: response.suggestions } : prev);
+      prev ? { ...prev, [suggestionsKey]: response.suggestions } : prev);
 
     if (response.applied) onContactUpdated?.(response.applied);
 
@@ -216,6 +224,9 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
             ] as string | null;
             const score = verifiedScore(
               raw, result?.isVerified, result?.verifiedAt, checkedAt);
+            const suggestionsKey = `${check.key}Suggestions`;
+            const offered =
+              ((result as any)?.[suggestionsKey] as ValidationSuggestion[]) ?? [];
 
             return (
               <div
@@ -280,15 +291,17 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
                   </p>
                 )}
 
-                {/* Only data integrity offers corrections — it is the check
-                    whose findings are about the supplied value itself. */}
-                {check.key === "dataIntegrity" &&
-                  !!result?.dataIntegritySuggestions?.length && (
-                    <SuggestionList
-                      suggestions={result.dataIntegritySuggestions}
-                      onResolve={resolveSuggestion}
-                    />
-                  )}
+                {/* Every check can offer corrections now: the three model
+                    checks from their own prompts, email validity from whatever
+                    Prospeo or Hunter returned. */}
+                {!!offered.length && (
+                  <SuggestionList
+                    suggestions={offered}
+                    onResolve={(suggestion, action) =>
+                      resolveSuggestion(
+                        check.checkType, suggestionsKey, suggestion, action)}
+                  />
+                )}
               </div>
             );
           })}

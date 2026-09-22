@@ -85,13 +85,14 @@ export interface ValidationSource {
 }
 
 /**
- * A correction the Data Integrity check offered for one field.
+ * A correction one check offered for one field.
  *
  * The comments say what is wrong in prose; this says what the value should be,
- * in a shape a button can act on. Only the Data Integrity check produces them
- * — it is the one whose findings are about the supplied value itself.
+ * in a shape a button can act on. Three of the four checks produce them from a
+ * model; email validity builds its own from whatever Prospeo or Hunter
+ * returned, with no model involved.
  */
-export interface DataIntegritySuggestion {
+export interface ValidationSuggestion {
   /** Stable within one check result; posted back so the server resolves the right one. */
   id: string;
   /** A contact column the check is allowed to correct, e.g. "job_title". */
@@ -137,13 +138,34 @@ export const suggestionFieldLabel = (field: string): string =>
   SUGGESTION_FIELDS[field]?.label ?? field;
 
 /**
+ * Where each check's corrections sit on a grid row.
+ *
+ * The four are kept apart all the way through: a suggestion id is only unique
+ * within one check's list, so accepting one has to say which check it came
+ * from, and the grid shows each check's corrections beside its own score.
+ */
+export const VALIDATION_SCORE_KEYS: Record<ValidationCheckType, string> = {
+  contact_fit: "contactFitConfidence",
+  data_integrity: "dataIntegrityConfidence",
+  live_contact: "liveContactConfidence",
+  email_verification: "emailValidityConfidence",
+};
+
+export const SUGGESTION_ROW_KEYS: Record<ValidationCheckType, string> = {
+  contact_fit: "contactFitSuggestions",
+  data_integrity: "dataIntegritySuggestions",
+  live_contact: "liveContactSuggestions",
+  email_verification: "emailValiditySuggestions",
+};
+
+/**
  * Reads the suggestions blob. The grid endpoints send it as the JSON string it
  * is stored as — sending an array would make it a column candidate in the
  * auto-generated grid — while the results endpoint sends it already parsed.
  * Malformed JSON yields none rather than taking the score cell down with it.
  */
-export const parseSuggestions = (raw: unknown): DataIntegritySuggestion[] => {
-  if (Array.isArray(raw)) return raw as DataIntegritySuggestion[];
+export const parseSuggestions = (raw: unknown): ValidationSuggestion[] => {
+  if (Array.isArray(raw)) return raw as ValidationSuggestion[];
   if (typeof raw !== "string" || !raw.trim()) return [];
 
   try {
@@ -163,7 +185,6 @@ export interface ContactValidationResult {
   dataIntegrityConfidence?: number | null;
   dataIntegrityComments?: string | null;
   dataIntegrityCheckedAt?: string | null;
-  dataIntegritySuggestions?: DataIntegritySuggestion[];
   liveContactConfidence?: number | null;
   liveContactComments?: string | null;
   liveContactCheckedAt?: string | null;
@@ -173,6 +194,10 @@ export interface ContactValidationResult {
   emailValidityComments?: string | null;
   emailCheckedAt?: string | null;
   sources: ValidationSource[];
+  contactFitSuggestions?: ValidationSuggestion[];
+  dataIntegritySuggestions?: ValidationSuggestion[];
+  liveContactSuggestions?: ValidationSuggestion[];
+  emailValiditySuggestions?: ValidationSuggestion[];
   isVerified: boolean;
   verifiedAt?: string | null;
   verifiedBy?: string | null;
@@ -412,19 +437,20 @@ export interface ResolveSuggestionResponse {
   /** Present on accept only: the value the contact now holds. */
   applied?: AppliedSuggestion | null;
   /** The contact's full suggestion list, with this one resolved. */
-  suggestions: DataIntegritySuggestion[];
+  suggestions: ValidationSuggestion[];
 }
 
 const resolveSuggestion = async (
   action: "accept" | "dismiss",
   clientId: string | number,
   contactId: number,
+  checkType: ValidationCheckType,
   suggestionId: string,
   resolvedBy?: string
 ): Promise<ResolveSuggestionResponse> => {
   const json = await postJson(
     `${BASE}/suggestions/${action}`,
-    { clientId: Number(clientId), contactId, suggestionId, resolvedBy },
+    { clientId: Number(clientId), contactId, checkType, suggestionId, resolvedBy },
     action === "accept"
       ? "The correction could not be applied"
       : "The suggestion could not be dismissed"
@@ -448,16 +474,58 @@ const resolveSuggestion = async (
 export const acceptSuggestion = (
   clientId: string | number,
   contactId: number,
+  checkType: ValidationCheckType,
   suggestionId: string,
   resolvedBy?: string
 ): Promise<ResolveSuggestionResponse> =>
-  resolveSuggestion("accept", clientId, contactId, suggestionId, resolvedBy);
+  resolveSuggestion("accept", clientId, contactId, checkType, suggestionId, resolvedBy);
 
 /** Marks a suggestion dismissed. The contact is not touched. */
 export const dismissSuggestion = (
   clientId: string | number,
   contactId: number,
+  checkType: ValidationCheckType,
   suggestionId: string,
   resolvedBy?: string
 ): Promise<ResolveSuggestionResponse> =>
-  resolveSuggestion("dismiss", clientId, contactId, suggestionId, resolvedBy);
+  resolveSuggestion("dismiss", clientId, contactId, checkType, suggestionId, resolvedBy);
+
+// ------------------------------------------------- single-score override
+
+/**
+ * Sets one check's score to 100, for a user overruling that verdict alone.
+ *
+ * Narrower than {@link markVerified}, which speaks for the whole contact and
+ * raises all four checks. Someone who disagrees with a data integrity score is
+ * not thereby claiming the email address was validated.
+ */
+export const verifyCheckScore = async (
+  clientId: string | number,
+  contactId: number,
+  checkType: ValidationCheckType,
+  verifiedBy?: string
+): Promise<string> => {
+  const json = await postJson(
+    `${BASE}/score/verify`,
+    { clientId: Number(clientId), contactId, checkType, verifiedBy },
+    "The score could not be set"
+  );
+
+  return json?.message ?? "Done.";
+};
+
+/**
+ * Deletes one contact outright.
+ *
+ * Lives here rather than in a CRM module because the only thing that calls it
+ * is the Audience Assurance cell — the point of the action is "this record is
+ * junk, and the score is how I found out". It posts to the same CRM endpoint
+ * the rest of the app deletes through.
+ */
+export const deleteContact = async (contactId: number): Promise<void> => {
+  await postJson(
+    `${API_BASE_URL}/api/Crm/delete-Datafile-contact?contactId=${contactId}`,
+    {},
+    "The contact could not be deleted"
+  );
+};

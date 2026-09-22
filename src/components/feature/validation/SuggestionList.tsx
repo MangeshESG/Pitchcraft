@@ -1,18 +1,18 @@
 import React, { useState } from "react";
 import {
   suggestionFieldLabel,
-  type DataIntegritySuggestion,
+  type ValidationSuggestion,
 } from "../../../api/contactValidation";
 
 interface SuggestionListProps {
-  suggestions: DataIntegritySuggestion[];
+  suggestions: ValidationSuggestion[];
   /**
    * Applies or dismisses one. Throwing leaves the card as it was and shows the
    * reason. Omitted where there is nothing to post to — the corrections are
    * still worth reading, but the buttons go away rather than doing nothing.
    */
   onResolve?: (
-    suggestion: DataIntegritySuggestion,
+    suggestion: ValidationSuggestion,
     action: "accept" | "dismiss"
   ) => Promise<void>;
   /** Called on any click, so a popover host can pin itself open. */
@@ -52,7 +52,7 @@ const SuggestionList: React.FC<SuggestionListProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const resolve = async (
-    suggestion: DataIntegritySuggestion,
+    suggestion: ValidationSuggestion,
     action: "accept" | "dismiss"
   ) => {
     if (!onResolve) return;

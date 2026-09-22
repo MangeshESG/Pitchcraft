@@ -48,9 +48,12 @@ import {
   createValidationFormatters,
   getValidationFieldValue,
 } from "./validation/validationColumns";
-import type {
-  AppliedSuggestion,
-  DataIntegritySuggestion,
+import {
+  SUGGESTION_ROW_KEYS,
+  VALIDATION_SCORE_KEYS,
+  type AppliedSuggestion,
+  type ValidationCheckType,
+  type ValidationSuggestion,
 } from "../../api/contactValidation";
 import { useToast } from "../../hooks/useToast";
 
@@ -486,6 +489,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [selectedView, setSelectedView] = useState<ViewItem | null>(null);
   const [baseViewContacts, setBaseViewContacts] = useState<any[]>([]);
   const [viewContacts, setViewContacts] = useState<any[]>([]);
+  /** Per-view totals the pager prefers over the loaded row count. */
+  const [viewContactCounts, setViewContactCounts] = useState<Record<number, number>>({});
 
   /**
    * Writes the outcome of an accepted or dismissed Data Integrity suggestion
@@ -498,10 +503,13 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const applySuggestionOutcome = useCallback(
     (
       contactId: number,
-      suggestions: DataIntegritySuggestion[],
+      checkType: ValidationCheckType,
+      suggestions: ValidationSuggestion[],
       applied?: AppliedSuggestion | null
     ) => {
       const suggestionsJson = JSON.stringify(suggestions);
+      // Which of the four blobs on the row this list belongs to.
+      const rowKey = SUGGESTION_ROW_KEYS[checkType];
 
       const patchRow = (row: any) => {
         if (!row || Number(row.id) !== contactId) return row;
@@ -510,7 +518,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           ...row,
           validation: {
             ...(row.validation ?? {}),
-            dataIntegritySuggestions: suggestionsJson,
+            [rowKey]: suggestionsJson,
           },
         };
 
@@ -518,6 +526,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
         if (applied) {
           next[applied.field] = applied.value;
 
+          // A name correction rebuilds first and last as well, and those are
+          // the columns the grid actually shows.
           if (applied.field === "full_name") {
             next.full_name = applied.fullName ?? applied.value;
             next.first_name = applied.firstName ?? next.first_name;
@@ -534,13 +544,63 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     []
   );
 
+  /**
+   * Raises one check's score to 100 on the rows on screen.
+   *
+   * Only that score moves. The other three checks keep their own numbers,
+   * because a user overruling one verdict has not thereby confirmed the other
+   * three — the whole-contact "Mark as verified" is the action that speaks for
+   * all of them.
+   */
+  const applyScoreVerified = useCallback(
+    (contactId: number, checkType: ValidationCheckType) => {
+      const scoreKey = VALIDATION_SCORE_KEYS[checkType];
+
+      const patchRow = (row: any) =>
+        !row || Number(row.id) !== contactId
+          ? row
+          : {
+              ...row,
+              validation: { ...(row.validation ?? {}), [scoreKey]: 100 },
+            };
+
+      setViewContacts((prev) => prev.map(patchRow));
+      setBaseViewContacts((prev) => prev.map(patchRow));
+    },
+    []
+  );
+  /** Drops a deleted contact from the rows on screen, without a refetch. */
+  const applyContactDeleted = useCallback(
+    (contactId: number) => {
+      const without = (rows: any[]) =>
+        rows.filter((row) => Number(row?.id) !== contactId);
+
+      setViewContacts((prev) => without(prev));
+      setBaseViewContacts((prev) => without(prev));
+
+      // The pager prefers this count over the row array's length, so leaving it
+      // alone would show the old total above one fewer row.
+      const viewId = selectedView?.id;
+
+      if (viewId !== undefined) {
+        setViewContactCounts((prev) =>
+          prev[viewId] === undefined
+            ? prev
+            : { ...prev, [viewId]: Math.max(0, prev[viewId] - 1) });
+      }
+    },
+    [selectedView?.id]
+  );
+
   const validationFormatters = useMemo(
     () =>
       createValidationFormatters({
         clientId,
         onSuggestionResolved: applySuggestionOutcome,
+        onScoreVerified: applyScoreVerified,
+        onContactDeleted: applyContactDeleted,
       }),
-    [clientId, applySuggestionOutcome]
+    [clientId, applySuggestionOutcome, applyScoreVerified, applyContactDeleted]
   );
   const [viewSearchQuery, setViewSearchQuery] = useState("");
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
@@ -551,7 +611,6 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [isUpdatingView, setIsUpdatingView] = useState(false);
   const [editorAutoExpand, setEditorAutoExpand] = useState(false);
   const [viewActionsAnchor, setViewActionsAnchor] = useState<string | null>(null);
-  const [viewContactCounts, setViewContactCounts] = useState<Record<number, number>>({});
   const [downloadingViewId, setDownloadingViewId] = useState<number | null>(null);
   const [showBulkUpdatePanel, setShowBulkUpdatePanel] = useState(false);
   const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);

@@ -78,7 +78,8 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   hasPendingSuggestion = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [anchor, setAnchor] =
+    useState<{ top?: number; bottom?: number; left: number; maxHeight: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
@@ -139,12 +140,22 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   const positionAndOpen = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
-      // Flip above the row when there is no room below, so a score near the
-      // bottom of a long list does not open off-screen.
-      const spaceBelow = window.innerHeight - rect.bottom;
+      // Open upwards when there is no room below, so a score near the bottom of
+      // a long list does not open off-screen.
+      //
+      // Upwards pins `bottom` rather than a `top` computed from the maximum
+      // height: the popover is as tall as its comments, so subtracting the
+      // maximum left a short one floating well above the chip it belongs to.
+      const spaceBelow = window.innerHeight - rect.bottom - 8;
+      const spaceAbove = rect.top - 8;
+      const openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+
       setAnchor({
-        top: spaceBelow > 280 ? rect.bottom + 6 : Math.max(8, rect.top - 286),
-        left: Math.min(rect.left, window.innerWidth - 380),
+        ...(openUp
+          ? { bottom: window.innerHeight - rect.top + 6 }
+          : { top: rect.bottom + 6 }),
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - 380)),
+        maxHeight: Math.min(280, Math.max(140, openUp ? spaceAbove : spaceBelow)),
       });
     }
     setIsOpen(true);
@@ -232,9 +243,10 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
             style={{
               position: "fixed",
               top: anchor.top,
+              bottom: anchor.bottom,
               left: anchor.left,
               width: 360,
-              maxHeight: 280,
+              maxHeight: anchor.maxHeight,
               overflowY: "auto",
               background: "#fff",
               border: "1px solid #e8eaee",

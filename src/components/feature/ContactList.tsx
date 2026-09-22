@@ -64,9 +64,12 @@ import {
   VALIDATION_FILTER_FIELDS,
   createValidationFormatters,
 } from "./validation/validationColumns";
-import type {
-  AppliedSuggestion,
-  DataIntegritySuggestion,
+import {
+  SUGGESTION_ROW_KEYS,
+  VALIDATION_SCORE_KEYS,
+  type AppliedSuggestion,
+  type ValidationCheckType,
+  type ValidationSuggestion,
 } from "../../api/contactValidation";
 
 /**
@@ -1280,12 +1283,13 @@ const formatTimeIST = formatUserTime;
   const applySuggestionOutcome = useCallback(
     (
       contactId: number,
-      suggestions: DataIntegritySuggestion[],
+      checkType: ValidationCheckType,
+      suggestions: ValidationSuggestion[],
       applied?: AppliedSuggestion | null
     ) => {
-      // Stored the way the grid receives it, so a patched row and a freshly
-      // fetched one are the same shape.
       const suggestionsJson = JSON.stringify(suggestions);
+      // Which of the four blobs on the row this list belongs to.
+      const rowKey = SUGGESTION_ROW_KEYS[checkType];
 
       const patchRow = (row: any) => {
         if (!row || Number(row.id) !== contactId) return row;
@@ -1294,7 +1298,7 @@ const formatTimeIST = formatUserTime;
           ...row,
           validation: {
             ...(row.validation ?? {}),
-            dataIntegritySuggestions: suggestionsJson,
+            [rowKey]: suggestionsJson,
           },
         };
 
@@ -1320,13 +1324,60 @@ const formatTimeIST = formatUserTime;
     []
   );
 
+  /**
+   * Raises one check's score to 100 on the rows on screen.
+   *
+   * Only that score moves. The other three checks keep their own numbers,
+   * because a user overruling one verdict has not thereby confirmed the other
+   * three — the whole-contact "Mark as verified" is the action that speaks for
+   * all of them.
+   */
+  const applyScoreVerified = useCallback(
+    (contactId: number, checkType: ValidationCheckType) => {
+      const scoreKey = VALIDATION_SCORE_KEYS[checkType];
+
+      const patchRow = (row: any) =>
+        !row || Number(row.id) !== contactId
+          ? row
+          : {
+              ...row,
+              validation: { ...(row.validation ?? {}), [scoreKey]: 100 },
+            };
+
+      setContacts((prev) => prev.map(patchRow));
+      setDetailContacts((prev) => prev.map(patchRow));
+    },
+    []
+  );
+  /** Drops a deleted contact from the rows on screen, without a refetch. */
+  const applyContactDeleted = useCallback((contactId: number) => {
+    const without = (rows: any[]) =>
+      rows.filter((row) => Number(row?.id) !== contactId);
+
+    setContacts((prev) => without(prev));
+    setDetailContacts((prev) => without(prev));
+
+    // The totals are what the pager reads, so they have to move with the rows
+    // or the footer claims twelve items above eleven of them. Floored at zero
+    // because a delete of the last row must not leave "-1 items".
+    setTotalContacts((prev) => Math.max(0, prev - 1));
+    setDetailTotalContacts((prev) => Math.max(0, prev - 1));
+  }, []);
+
   const validationFormatters = useMemo(
     () =>
       createValidationFormatters({
         clientId: effectiveUserId,
         onSuggestionResolved: applySuggestionOutcome,
+        onScoreVerified: applyScoreVerified,
+        onContactDeleted: applyContactDeleted,
       }),
-    [effectiveUserId, applySuggestionOutcome]
+    [
+      effectiveUserId,
+      applySuggestionOutcome,
+      applyScoreVerified,
+      applyContactDeleted,
+    ]
   );
 
   const filteredDetailContacts = useMemo(() => detailContacts, [detailContacts]);
