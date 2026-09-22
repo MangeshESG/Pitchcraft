@@ -2,6 +2,7 @@ import { faAngleLeft, faAngleRight, faCircleLeft } from "@fortawesome/free-solid
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import { parseContactRange } from "../../utils/contactRange";
 
 interface SendEmailPanelProps {
   isOpen: boolean;
@@ -403,18 +404,11 @@ setOverwriteDatabase,
           type="button"
           className="btn-default flex-shrink-0"
           onClick={() => {
-            if (enableIndexRange && startIndex && endIndex) {
-              const fromValue = parseInt(startIndex);
-              const toValue = parseInt(endIndex);
-
-              if (toValue > combinedResponses.length) {
-                setIndexRangeError(
-                  `Maximum contact count is ${combinedResponses.length}`
-                );
-                setShowValidationError(true);
-                return;
-              } else if (toValue <= fromValue) {
-                setIndexRangeError("To must be greater than From");
+            if (enableIndexRange) {
+              try {
+                parseContactRange(startIndex, endIndex, combinedResponses.length);
+              } catch (error) {
+                setIndexRangeError((error as Error).message);
                 setShowValidationError(true);
                 return;
               }

@@ -228,7 +228,7 @@ interface OutputInterface {
   >;
   selectedClient: string;
   isStarted?: boolean;
-  handleStart?: (startIndex?: number) => void;
+  handleStart?: (startIndex?: number, endIndex?: number) => void | Promise<void>;
   handlePauseResume?: () => void;
   handleReset?: () => void;
   handleStop?: () => void; // Add this line
@@ -1667,6 +1667,7 @@ const resolvePromptSafely = async () => {
       nextPageToken?: string | null;
       prevPageToken?: string | null;
       startFromIndex?: number;
+      endAtIndex?: number;
       useCachedData?: boolean;
     },
   ) => {
@@ -2179,8 +2180,11 @@ const resolvePromptSafely = async () => {
         return;
       }
 
-      // Process all contacts
-      for (let i = currentIndex; i < contacts.length; i++) {
+      // The selected final contact is inclusive; never generate past it.
+      const endExclusive = options?.endAtIndex === undefined
+        ? contacts.length
+        : Math.min(options.endAtIndex + 1, contacts.length);
+      for (let i = currentIndex; i < endExclusive; i++) {
 
         // 🔄 Reset LAST email counters per contact
         lastEmailTokens = 0;
@@ -2195,6 +2199,9 @@ const resolvePromptSafely = async () => {
 
           return;
         }
+
+        // Show the contact being processed before awaiting credits or generation.
+        setCurrentIndex(i);
 
         // Process the entry — only the fields the log messages need; every
         // other contact field is resolved server-side.
@@ -2246,7 +2253,7 @@ const resolvePromptSafely = async () => {
             };
 
             kraftResumeIndexRef.current =
-              responseIndex + 1 < contacts.length ? responseIndex + 1 : null;
+              responseIndex + 1 < endExclusive ? responseIndex + 1 : null;
             setAllResponses((prevResponses) => {
               const updated = [...prevResponses];
 
@@ -2256,10 +2263,9 @@ const resolvePromptSafely = async () => {
                 updated.push(existingResponse);
               }
 
-              setCurrentIndex(responseIndex);
-
               return updated;
             });
+            setCurrentIndex(responseIndex);
 
             // Update these to use responseIndex logic
 
@@ -2620,7 +2626,7 @@ const resolvePromptSafely = async () => {
           });
 
           kraftResumeIndexRef.current =
-            responseIndex + 1 < contacts.length ? responseIndex + 1 : null;
+            responseIndex + 1 < endExclusive ? responseIndex + 1 : null;
           setCurrentIndex(responseIndex);
           setRecentlyAddedOrUpdatedId(newResponse.id);
 
@@ -2951,7 +2957,7 @@ const resolvePromptSafely = async () => {
     }
   };
 
-  const handleStart = async (startIndex?: number) => {
+  const handleStart = async (startIndex?: number, endIndex?: number) => {
     if (!selectedPrompt) return;
 
     // Use explicit range starts first; otherwise resume from the next pending contact.
@@ -2960,6 +2966,7 @@ const resolvePromptSafely = async () => {
         ? startIndex
         : kraftResumeIndexRef.current ?? currentIndex;
 
+    setCurrentIndex(indexToStart);
     setAllRecordsProcessed(false);
     setIsStarted(true);
     setIsPaused(false);
@@ -2969,8 +2976,9 @@ const resolvePromptSafely = async () => {
     setIsProcessing(true);
     stopRef.current = false;
 
-    goToTab("Output", {
+    await goToTab("Output", {
       startFromIndex: indexToStart,
+      endAtIndex: endIndex,
       useCachedData: true,
     });
   };

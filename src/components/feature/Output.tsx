@@ -19,6 +19,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import SendEmailPanel from "./SendEmailPanel";
 import KraftEmailPanel from "./KraftEmailPanel";
+import { parseContactRange } from "../../utils/contactRange";
 import { useSoundAlert } from "../common/useSoundAlert";
 import ReactMarkdown from "react-markdown";
 import toggleOn from "../../assets/images/on-button.png";
@@ -182,7 +183,7 @@ interface OutputInterface {
   >;
   selectedClient: string;
   isStarted?: boolean;
-  handleStart?: (startIndex?: number) => void; // Change this line
+  handleStart?: (startIndex?: number, endIndex?: number) => void | Promise<void>;
   handlePauseResume?: () => void;
   handleReset?: () => void;
   isPitchUpdateCompleted?: boolean;
@@ -2543,18 +2544,22 @@ const usageData = useMemo(() => {
             return;
           }
 
+          let range: { startIndex: number; endIndex: number } | undefined;
+          if (enableIndexRange) {
+            try {
+              range = parseContactRange(startIndex, endIndex, combinedResponses.length);
+            } catch (error) {
+              toast.error((error as Error).message);
+              return;
+            }
+          }
           kraftStartClickInFlightRef.current = true;
 
           // Called without await so the button flips to Stop on this click —
           // handleStart sets isProcessing synchronously and runs its own credit
           // check (goToTab -> ensureCanGenerateWithCredits), so the extra
           // round trip that used to happen here is gone.
-          const startIdx =
-            kraftEnableIndexRange && kraftStartIndex
-              ? parseInt(kraftStartIndex) - 1
-              : undefined;
-
-          Promise.resolve(handleStart?.(startIdx)).finally(() => {
+          Promise.resolve(handleStart?.(range?.startIndex, range?.endIndex)).finally(() => {
             kraftStartClickInFlightRef.current = false;
           });
         }}
