@@ -1,17 +1,16 @@
 import API_BASE_URL from "../config";
 
-/**
- * Client-level list-view column layout: which columns are shown and in what
- * order. One layout per client, shared by every list view / segment / saved
- * view. Backed by `crm_column_preferences`.
- */
+export interface ColumnPreferenceScope {
+  scopeType: "list" | "segment" | "view";
+  /** List -1 identifies All contacts. Other IDs must be positive. */
+  scopeId: number;
+}
+
 export interface ColumnPreference {
   columnKey: string;
   label?: string | null;
   isVisible: boolean;
-  /** Zero-based position. Assigned by the server from the array order on save. */
   sortOrder: number;
-  /** crm_custom_fields.id when the column is a custom attribute. */
   customFieldId?: number | null;
   isCustomField?: boolean;
 }
@@ -22,36 +21,35 @@ export interface ColumnPreferencesResponse {
 }
 
 const BASE = `${API_BASE_URL}/api/Crm/column-preferences`;
+const queryFor = (clientId: string | number, scope: ColumnPreferenceScope) =>
+  new URLSearchParams({
+    clientId: String(clientId),
+    scopeType: scope.scopeType,
+    scopeId: String(scope.scopeId),
+  }).toString();
 
 export const fetchColumnPreferences = async (
-  clientId: string | number
+  clientId: string | number,
+  scope: ColumnPreferenceScope
 ): Promise<ColumnPreferencesResponse> => {
-  const res = await fetch(`${BASE}?clientId=${clientId}`);
-
+  const res = await fetch(`${BASE}?${queryFor(clientId, scope)}`);
   if (!res.ok) throw new Error(`Failed to load column layout (${res.status})`);
-
   const json = await res.json();
   const columns: ColumnPreference[] = Array.isArray(json?.columns) ? json.columns : [];
-
-  return {
-    hasSavedLayout: !!json?.hasSavedLayout && columns.length > 0,
-    columns,
-  };
+  return { hasSavedLayout: !!json?.hasSavedLayout && columns.length > 0, columns };
 };
 
-/**
- * Replaces the client's whole layout — the array order *is* the column
- * sequence, so a drag-reorder and a show/hide toggle post the same payload.
- */
 export const saveColumnPreferences = async (
   clientId: string | number,
-  columns: ColumnPreference[]
+  columns: ColumnPreference[],
+  scope: ColumnPreferenceScope
 ): Promise<void> => {
   const res = await fetch(BASE, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       clientId: Number(clientId),
+      ...scope,
       columns: columns.map((c) => ({
         columnKey: c.columnKey,
         label: c.label ?? null,
@@ -60,14 +58,13 @@ export const saveColumnPreferences = async (
       })),
     }),
   });
-
   if (!res.ok) throw new Error(`Failed to save column layout (${res.status})`);
 };
 
 export const resetColumnPreferences = async (
-  clientId: string | number
+  clientId: string | number,
+  scope: ColumnPreferenceScope
 ): Promise<void> => {
-  const res = await fetch(`${BASE}/reset?clientId=${clientId}`, { method: "POST" });
-
+  const res = await fetch(`${BASE}/reset?${queryFor(clientId, scope)}`, { method: "POST" });
   if (!res.ok) throw new Error(`Failed to reset column layout (${res.status})`);
 };

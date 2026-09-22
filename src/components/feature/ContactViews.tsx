@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import API_BASE_URL from "../../config";
 import DynamicContactsTable from "./DynamicContactsTable";
-import type { ColumnPreference } from "../../api/columnPreferences";
+import useColumnPreferences from "../../hooks/useColumnPreferences";
 import PaginationControls from "./PaginationControls";
 import FilterBuilder from "../common/FilterBuilder";
 import type { ViewEditorPayload } from "../common/FilterBuilder";
@@ -46,6 +46,7 @@ import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
   createValidationFormatters,
+  verifiedScore,
   getValidationFieldValue,
 } from "./validation/validationColumns";
 import {
@@ -88,9 +89,7 @@ interface ContactViewsProps {
   clientId: string | number;
   filterFields: ContactFieldOption[];
   columnNameMap?: Record<string, string>;
-  persistedColumnLayout?: ColumnPreference[];
-  onColumnsChange?: (columns: any[]) => void;
-  onResetColumns?: () => void;
+  customFieldIdByName?: Record<string, number>;
   defaultVisibleColumns?: string[];
   onShowMessage?: (message: string, type: "success" | "error") => void;
   isActive?: boolean;
@@ -462,9 +461,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   clientId,
   filterFields,
   columnNameMap,
-  persistedColumnLayout = [],
-  onColumnsChange,
-  onResetColumns,
+  customFieldIdByName,
   defaultVisibleColumns,
   isActive = false,
   refreshToken = 0,
@@ -650,6 +647,16 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   ) => {
     showToast(message, type, 3000);
   };
+
+  const {
+    layout: persistedColumnLayout,
+    saveLayout: onColumnsChange,
+    resetLayout: onResetColumns,
+  } = useColumnPreferences(clientId, {
+    scope: selectedView ? { scopeType: "view", scopeId: selectedView.id } : null,
+    customFieldIdByName,
+    onError: (message) => showContactMessage(message, "error"),
+  });
 
   useEffect(() => {
     selectedViewIdRef.current = selectedView?.id ?? null;
@@ -935,6 +942,23 @@ const handleDeleteContacts = () => {
       { key: "created_at", header: "Created date" },
       { key: "updated_at", header: "Updated date" },
       { key: "email_sent_at", header: "Email Sent Date" },
+      ...[
+        { key: "dataIntegrityConfidence", header: "Data Integrity", dateKey: "dataIntegrityCheckedAt" },
+        { key: "liveContactConfidence", header: "Live Contact", dateKey: "liveContactCheckedAt" },
+        { key: "emailValidityConfidence", header: "Email Validity", dateKey: "emailCheckedAt" },
+      ].map(({ key, header, dateKey }) => ({
+        key,
+        header,
+        getValue: (contact: any) => {
+          const validation = { ...contact, ...contact.validation };
+          return verifiedScore(
+            validation[key],
+            validation.isVerified,
+            validation.verifiedAt,
+            validation[dateKey]
+          );
+        },
+      })),
     ];
 
     const customColumns = getCustomFieldColumns(data);
@@ -2341,6 +2365,7 @@ const handleDeleteContacts = () => {
         ) : (
           <div style={{ padding: "20px 32px 24px" }}>
             <DynamicContactsTable
+              key={`view-${clientId}-${selectedView?.id}`}
               customAttributeClientId={clientId}
               data={viewContacts}
               isLoading={isLoadingViewContacts}
