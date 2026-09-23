@@ -51,6 +51,23 @@ export const OPENAI_MODELS = [
     name: "GPT-5.6 Luna",
     description: "Fastest, lowest-cost tier",
   },
+  {
+    id: "gpt-6-astra",
+    name: "GPT-6 Astra",
+    description:
+      "GPT-6 flagship. Always reasons, so it is the slowest and dearest of the three and needs a high MaxTokens",
+  },
+  {
+    id: "gpt-6-sol",
+    name: "GPT-6 Sol",
+    description: "GPT-6 balanced tier, about a fifth of Astra's price",
+  },
+  {
+    id: "gpt-6-luna",
+    name: "GPT-6 Luna",
+    description:
+      "GPT-6 fastest, lowest-cost tier — around half the price of 5.6 Luna",
+  },
 ];
 
 export const DEEPSEEK_MODELS = [
