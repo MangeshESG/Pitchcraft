@@ -59,7 +59,6 @@ import ValidationRunPanel from "./validation/ValidationRunPanel";
 import ValidateContactsButton from "./validation/ValidateContactsButton";
 import {
   VALIDATION_COLUMN_LABELS,
-  VALIDATION_DEFAULT_VISIBLE_COLUMNS,
   VALIDATION_EXCLUDED_FIELDS,
   VALIDATION_FILTER_FIELDS,
   VALIDATION_FORMATTERS,
@@ -72,17 +71,16 @@ import {
  * starts hidden.
  */
 const DEFAULT_VISIBLE_COLUMNS = [
-  'first_name',
-  'last_name',
   'full_name',
-  'email',
-  'company_name',
   'job_title',
+  'company_name',
+  'email',
+  'website',
+  'linkedin_url',
+  'created_at',
   'country_or_address',
-  'hasLinkedInInfo',
-  'hasWebSearchData',
-  'hasNotes',
-  ...VALIDATION_DEFAULT_VISIBLE_COLUMNS,
+  'companyTelephone',
+  'companyIndustry',
 ];
 
 const menuBtnStyle = {
@@ -1259,6 +1257,7 @@ const formatTimeIST = formatUserTime;
   const filteredDetailContacts = useMemo(() => detailContacts, [detailContacts]);
   const [detailTotalContacts, setDetailTotalContacts] = useState(0);
   const [detailCurrentPage, setDetailCurrentPage] = useState(1);
+  const [detailSort, setDetailSort] = useState<{ key: string | null; direction: "asc" | "desc" }>({ key: null, direction: "asc" });
   const [detailPageSize, setDetailPageSize] = useState<number | "All">(30);
   const [detailSearchQuery, setDetailSearchQuery] = useState("");
   const detailRequestIdRef = useRef(0);
@@ -1296,6 +1295,7 @@ const formatTimeIST = formatUserTime;
         url = `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${item.id}&pageNumber=${detailCurrentPage}&pageSize=${detailPageSize === "All" ? 0 : detailPageSize}&search=${encodeURIComponent(detailSearchQuery.trim())}`;
       }
 
+      if (detailSort.key) url += `&sortBy=${encodeURIComponent(detailSort.key)}&sortDirection=${detailSort.direction}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch contacts");
 
@@ -1360,7 +1360,7 @@ const formatTimeIST = formatUserTime;
 
       return () => window.clearTimeout(timeoutId);
     }
-  }, [viewMode, selectedDataFileForView?.id, detailCurrentPage, detailPageSize, detailSearchQuery]);
+  }, [viewMode, selectedDataFileForView?.id, detailCurrentPage, detailPageSize, detailSearchQuery, detailSort]);
 
   useEffect(() => {
     if (segmentViewMode === "detail" && selectedSegmentForView) {
@@ -1370,7 +1370,7 @@ const formatTimeIST = formatUserTime;
 
       return () => window.clearTimeout(timeoutId);
     }
-  }, [segmentViewMode, selectedSegmentForView?.id, detailCurrentPage, detailPageSize, detailSearchQuery]);
+  }, [segmentViewMode, selectedSegmentForView?.id, detailCurrentPage, detailPageSize, detailSearchQuery, detailSort]);
 
   const [renamingListDescription, setRenamingListDescription] = useState("");
 
@@ -1716,6 +1716,7 @@ const formatTimeIST = formatUserTime;
       { key: "updated_at", header: "Updated date" },
       { key: "email_sent_at", header: "Email Sent Date" },
       ...[
+        { key: "contactFitConfidence", header: "Contact Fit", dateKey: "contactFitCheckedAt" },
         { key: "dataIntegrityConfidence", header: "Data Integrity", dateKey: "dataIntegrityCheckedAt" },
         { key: "liveContactConfidence", header: "Live Contact", dateKey: "liveContactCheckedAt" },
         { key: "emailValidityConfidence", header: "Email Validity", dateKey: "emailCheckedAt" },
@@ -2246,6 +2247,8 @@ const filterFields: any = useMemo(() => {
                   showCheckboxes={true}
                   paginated={true}
                   serverSidePagination={true}
+                  serverSort={detailSort}
+                  onSortChange={(sort) => { setDetailSort(sort); setDetailCurrentPage(1); setDetailSelectedContacts(new Set()); }}
                   currentPage={detailCurrentPage}
                   pageSize={detailPageSize}
                   onPageChange={setDetailCurrentPage}
@@ -3323,6 +3326,8 @@ const filterFields: any = useMemo(() => {
                   showCheckboxes={true}
                   paginated={true}
                   serverSidePagination={true}
+                  serverSort={detailSort}
+                  onSortChange={(sort) => { setDetailSort(sort); setDetailCurrentPage(1); setDetailSelectedContacts(new Set()); }}
                   currentPage={detailCurrentPage}
                   pageSize={detailPageSize}
                   onPageChange={setDetailCurrentPage}

@@ -1,3 +1,4 @@
+import * as userDates from "../../common/dateTimePreferences";
 'use client';
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
@@ -1307,10 +1308,10 @@ const handleDeleteContact = async () => {
     return cleaned.replace(/<[^>]+>/g, "");
   };
   const formatDateTime = (date?: string) =>
-    date ? new Date(date).toLocaleString() : "-";
+    userDates.formatUserDateTime(date);
 
   const formatTime = (date?: string): string =>
-    date ? new Date(date).toLocaleTimeString() : "-";
+    userDates.formatUserTime(date);
 
   const toggleEmailBody = (trackingId: string) => {
     setExpandedEmailId(prev =>
@@ -3347,20 +3348,7 @@ dispatch(closePanel());
     return (parts[0] || email || "?").substring(0, 1).toUpperCase();
   };
 
-  const formatMailListDate = (dateString?: string): string => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-    }
-    if (diffDays < 7) {
-      return date.toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" });
-    }
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
+  const formatMailListDate = (dateString?: string): string => userDates.formatUserDateTime(dateString, "");
 
   const getContactMailPreview = (body?: string): string => {
     if (!body) return "No preview available";

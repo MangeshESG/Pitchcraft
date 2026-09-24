@@ -1,3 +1,4 @@
+import * as userDates from "../../common/dateTimePreferences";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import ElementsTab from "./ElementsTab";
 import { categoryLabel } from "./categoryLabels";
@@ -949,7 +950,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                                     : <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{content}</p>
                                   }
                                   <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: "right" }}>
-                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                    {userDates.formatUserTime(new Date(msg.timestamp))}
                                   </div>
                                 </div>
                               </div>

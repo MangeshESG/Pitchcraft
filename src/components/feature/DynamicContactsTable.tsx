@@ -1,3 +1,4 @@
+import * as userDates from "../common/dateTimePreferences";
 import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import React from "react";
 import PaginationControls from "./PaginationControls";
@@ -33,6 +34,8 @@ export interface BulkAction {
 }
 
 interface DynamicContactsTableProps {
+  onSortChange?: (sort: { key: string; direction: "asc" | "desc" }) => void;
+  serverSort?: { key: string | null; direction: "asc" | "desc" };
   customAttributeClientId?: string | number | null;
   customAttributeDefinitions?: CustomAttributeDefinition[];
   data: any[];
@@ -182,6 +185,8 @@ const GridRefreshButton: React.FC<{
 
 // ---------- Component ----------
 const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
+  onSortChange,
+  serverSort,
   customAttributeClientId,
   customAttributeDefinitions,
   data,
@@ -254,7 +259,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const [columns, setColumns]           = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [pageSize, setPageSize]         = useState<PageSize>(pageSizeProp);
-  const [sortConfig, setSortConfig]     = useState<SortConfig>({ key: null, direction: "asc" });
+  const [localSortConfig, setSortConfig]     = useState<SortConfig>({ key: null, direction: "asc" });
   const isInitializedRef                = useRef(false);
   /** Column order before any saved layout is applied — restored by "Reset to default". */
   const naturalOrderRef                 = useRef<string[]>([]);
@@ -277,6 +282,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     const allKeys = new Set<string>();
     dataArray.slice(0, 10).forEach((item) => Object.keys(item).forEach((k) => allKeys.add(k)));
 
+    // Defaults must remain available even when their values are empty.
+    defaultVisibleColumns?.forEach((key) => allKeys.add(key));
     Array.from(allKeys).forEach((key) => {
       if (excludeFields.includes(key)) return;
       if (includeFields.length > 0 && !includeFields.includes(key)) return;
@@ -294,8 +301,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       });
     });
 
-    const alwaysInclude = new Set(["first_name", "last_name", "full_name"]);
-    return generated.filter((col) => {
+    const alwaysInclude = new Set(["first_name", "last_name", "full_name", ...(defaultVisibleColumns || [])]);
+    const available = generated.filter((col) => {
       if (col.key === "checkbox") return true;
       if (alwaysInclude.has(col.key)) return true;
       return dataArray.some((item) => {
@@ -303,7 +310,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         return v !== null && v !== undefined && v !== "" && v !== "—";
       });
     });
-  }, [showCheckboxes, excludeFields, includeFields, customFormatters]); // eslint-disable-line
+    if (!defaultVisibleColumns?.length) return available;
+    const order = new Map(defaultVisibleColumns.map((key, index) => [key, index]));
+    const rank = (key: string) => key === "checkbox" ? -1 : order.get(key) ?? defaultVisibleColumns.length;
+    return available.sort((a, b) => rank(a.key) - rank(b.key));
+  }, [showCheckboxes, excludeFields, includeFields, customFormatters, defaultVisibleColumns]); // eslint-disable-line
 
   const detectColumnType = (key: string, value: any): ColumnConfig["type"] => {
     const k = key.toLowerCase();
@@ -358,9 +369,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             if (isNaN(d.getTime())) return <span>{value}</span>;
             return (
               <span className="dt-num">
-                {d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                {" "}
-                {d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {userDates.formatUserDateTime(d)}
               </span>
             );
           } catch { return <span>{value}</span>; }
@@ -507,18 +516,18 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     onColumnsChange?.(updated);
   };
 
+  const sortConfig = serverSort || localSortConfig;
   // ---------- Sort ----------
   const handleSort = (columnKey: string) => {
-    setSortConfig((prev) => ({
-      key: columnKey,
-      direction: prev.key === columnKey && prev.direction === "asc" ? "desc" : "asc",
-    }));
+    const next = { key: columnKey, direction: sortConfig.key === columnKey && sortConfig.direction === "asc" ? "desc" as const : "asc" as const };
+    setSortConfig(next);
+    onSortChange?.(next);
+    onPageChange(1);
   };
 
   const sortedData = useMemo(() => {
-    // Under server-side pagination we can only sort the rows currently loaded
-    // (the active page), which is enough to keep header click-to-sort working.
-    if (!sortConfig.key) return filteredData;
+    // Server-paginated contact pages already arrive in global sort order.
+    if ((serverSidePagination && onSortChange) || !sortConfig.key) return filteredData;
     const k = sortConfig.key;
     return [...filteredData].sort((a, b) => {
       const va = a?.[k], vb = b?.[k];
@@ -528,12 +537,12 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       if (typeof va === "number" && typeof vb === "number")
         return sortConfig.direction === "asc" ? va - vb : vb - va;
       const da = Date.parse(va), db = Date.parse(vb);
-      if (!isNaN(da) && !isNaN(db))
+      if (/(date|time|_at$|At$)/i.test(k) && !isNaN(da) && !isNaN(db))
         return sortConfig.direction === "asc" ? da - db : db - da;
       const sa = String(va).toLowerCase(), sb = String(vb).toLowerCase();
       return sortConfig.direction === "asc" ? sa.localeCompare(sb) : sb.localeCompare(sa);
     });
-  }, [filteredData, sortConfig, serverSidePagination]);
+  }, [filteredData, sortConfig, serverSidePagination, onSortChange]);
 
   const totalRecords = serverSidePagination && typeof totalItems === "number"
     ? totalItems

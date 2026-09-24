@@ -17,6 +17,19 @@ import Myplan from "./components/feature/Myplan";
 const UserComp = lazy(() => import("./components/User") as any);
 
 const App: React.FC = () => {
+  const [, refreshDateTimeDisplays] = React.useState(0);
+  useEffect(() => {
+    const refresh = () => refreshDateTimeDisplays((value) => value + 1);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "pitchcraft.dateTimePreferences") refresh();
+    };
+    window.addEventListener("dateTimePreferencesChanged", refresh);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("dateTimePreferencesChanged", refresh);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
   useEffect(() => {
     // SignalZen live chat — mirrors the official embed snippet.
     // Position (left/right) is configured in the SignalZen dashboard.

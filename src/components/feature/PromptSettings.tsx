@@ -1,3 +1,4 @@
+import * as userDates from "../common/dateTimePreferences";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import {
@@ -32,7 +33,7 @@ const formatUpdated = (updatedAt: string | null, updatedBy: string | null) => {
   const when = new Date(updatedAt);
   const stamp = Number.isNaN(when.getTime())
     ? updatedAt
-    : when.toLocaleString();
+    : userDates.formatUserDateTime(when);
 
   return updatedBy
     ? `Last saved ${stamp} by client ${updatedBy}`

@@ -1,3 +1,4 @@
+import * as userDates from "../../common/dateTimePreferences";
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { faAngleRight, faAngleLeft, faCircleRight, faCircleLeft } from "@fortawesome/free-solid-svg-icons";
 import BlueprintBuilderPanel from "./BlueprintBuilderPanel";
@@ -972,7 +973,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                     <div className={`message-bubble ${msg.type}`}>
                       {renderMessageContent(msg.content)}
                       <div className={`message-time ${msg.type}`}>
-                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {userDates.formatUserTime(new Date(msg.timestamp))}
                       </div>
                     </div>
                   </div>
