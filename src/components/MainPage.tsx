@@ -32,7 +32,7 @@ import axios from "axios";
 import Header from "./common/Header";
 import API_BASE_URL from "../config";
 import { extractGenerationInsights } from "../utils/generationInsights";
-import { DEFAULT_DATE_TIME_PREFERENCES, setDateTimePreferences } from "./common/dateTimePreferences";
+import { DEFAULT_DATE_TIME_PREFERENCES, setDateTimePreferences, formatUserDateTime } from "./common/dateTimePreferences";
 import { useDispatch } from "react-redux";
 import { useModel } from "../ModelContext";
 import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
@@ -1299,8 +1299,8 @@ const handleClientChange = async (
     isPauseReport: boolean = false,
   ) => {
     // use the values from the top of your component!
-    const formattedStartTime = startTime ? startTime.toLocaleString() : "N/A";
-    const formattedEndTime = endTime ? endTime.toLocaleString() : "N/A";
+    const formattedStartTime = formatUserDateTime(startTime, "N/A");
+    const formattedEndTime = formatUserDateTime(endTime, "N/A");
     const lastPitch =
       generatedPitches.length > 0
         ? generatedPitches[generatedPitches.length - 1].pitch
@@ -1411,14 +1411,7 @@ const handleClientChange = async (
 
   // Helper function to format date and time
   function formatDateTime(date: Date): string {
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are zero-based
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    const seconds = String(date.getSeconds()).padStart(2, "0");
-
-    return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+    return formatUserDateTime(date);
   }
 
 

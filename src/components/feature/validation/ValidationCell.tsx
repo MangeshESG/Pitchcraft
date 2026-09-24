@@ -1,3 +1,4 @@
+import * as userDates from "../../common/dateTimePreferences";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { parseApiDate, type ValidationSource } from "../../../api/contactValidation";
@@ -272,11 +273,7 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
               </span>
               {checkedAt && (
                 <span style={{ fontSize: 11.5, color: "#6b7280" }}>
-                  {parseApiDate(checkedAt).toLocaleDateString(undefined, {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {userDates.formatUserDate(parseApiDate(checkedAt))}
                 </span>
               )}
             </div>

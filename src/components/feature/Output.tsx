@@ -29,6 +29,7 @@ import { faAngleRight, faAngleLeft, faCircleRight, faDownload, faBullhorn } from
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus,faBell    } from "@fortawesome/free-regular-svg-icons";
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
+import { formatUserDateTime } from "../common/dateTimePreferences";
 import { KraftEmailEmptyState, KraftLoadingState, KraftCampaignSelectState } from "./Output.new";
 import RichTextEditor from "../common/RTEEditor";
 import { repairAndParseJsonObject } from "../../utils/jsonRepair";
@@ -417,6 +418,12 @@ const Output: React.FC<OutputInterface> = ({
 
 }) => {
   const appModal = useAppModal();
+  const [, refreshDateTimeDisplay] = useState(0);
+  useEffect(() => {
+    const refresh = () => refreshDateTimeDisplay((value) => value + 1);
+    window.addEventListener("dateTimePreferencesChanged", refresh);
+    return () => window.removeEventListener("dateTimePreferencesChanged", refresh);
+  }, []);
   const [loading, setLoading] = useState(true);
   const safeCampaigns = Array.isArray(campaigns) ? campaigns : [];
 
@@ -795,7 +802,7 @@ const Output: React.FC<OutputInterface> = ({
         Website: item.website || "N/A",
         LinkedIn: item.linkedin || item.linkedIn_URL || "N/A",
         Pitch: item.pitch || item.sample_email_body || "N/A",
-        Timestamp: item.timestamp || new Date().toISOString(),
+        Timestamp: formatUserDateTime(item.timestamp || new Date()),
         Generated: item.generated ? "Yes" : "No",
         Subject: item.subject || "N/A",
       }));
@@ -1053,17 +1060,7 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
   };
 
   // You'll need this helper function
-  const formatDateTime = (date: Date): string => {
-    return date.toLocaleString("en-US", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-  };
+  const formatDateTime = formatUserDateTime;
   // Add a function to save the edited content
   const saveEditedContent = async () => {
     setIsSaving(true);
@@ -1396,9 +1393,7 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     message: string,
     color: "green" | "red" | "orange" | "blue" = "green",
   ) => {
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const stamp = `${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const stamp = formatUserDateTime(new Date());
     setOutputForm((prev: any) => ({
       ...prev,
       generatedContent:

@@ -1,3 +1,4 @@
+import * as userDates from "../../common/dateTimePreferences";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -171,13 +172,7 @@ const formatDateLabel = (value?: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
 
-  return parsed.toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return userDates.formatUserDateTime(parsed);
 };
 
 const toReadableLabel = (value: string) =>

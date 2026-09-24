@@ -1,3 +1,4 @@
+import * as userDates from "../common/dateTimePreferences";
 import React, { useState, useEffect } from "react";
 import CommonSidePanel from "../common/CommonSidePanel";
 import RichTextEditor from "../common/RTEEditor";
@@ -431,11 +432,7 @@ const EmailSignature: React.FC<EmailSignatureProps> = ({ selectedClient }) => {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(signature.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {userDates.formatUserDate(signature.createdAt)}
                     </td>
                     <td className="px-6 py-4">
                       <div 

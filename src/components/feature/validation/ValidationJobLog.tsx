@@ -1,3 +1,4 @@
+import * as userDates from "../../common/dateTimePreferences";
 import { ValidationJob, fetchJobs, parseApiDate } from "../../../api/contactValidation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { bannerClass, cardClass, hintClass } from "../../common/settingsStyles";
@@ -22,12 +23,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const formatDate = (value: string) =>
-  parseApiDate(value).toLocaleString(undefined, {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  userDates.formatUserDateTime(parseApiDate(value));
 
 /**
  * What every validation run consumed and what it cost.

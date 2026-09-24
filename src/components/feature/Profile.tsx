@@ -1,3 +1,4 @@
+import * as userDates from "../common/dateTimePreferences";
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import API_BASE_URL from "../../config";
@@ -126,7 +127,7 @@ const Profile: React.FC<ProfileProps> = ({ selectedClient = "" }) => {
         setSavedForm(loaded);
         const createdAt = data.createdAt ?? data.CreatedAt;
         if (createdAt) {
-          setMemberSince(new Date(createdAt).toLocaleDateString());
+          setMemberSince(createdAt);
         }
       })
       .catch(() => {
@@ -334,7 +335,7 @@ const Profile: React.FC<ProfileProps> = ({ selectedClient = "" }) => {
           {isViewingOtherClient
             ? `Personal and company details for ${clientLabel}, the client selected in the header.`
             : "Manage your personal details, company information and password."}
-          {memberSince ? ` Member since ${memberSince}.` : ""}
+          {memberSince ? ` Member since ${userDates.formatUserDate(memberSince)}.` : ""}
         </p>
 
         <nav className="mt-5 flex gap-8" aria-label="Profile tabs">

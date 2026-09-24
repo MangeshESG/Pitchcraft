@@ -601,6 +601,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   );
   const [viewSearchQuery, setViewSearchQuery] = useState("");
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
+  const [contactSort, setContactSort] = useState<{ key: string | null; direction: "asc" | "desc" }>({ key: null, direction: "asc" });
   const [viewPageSize, setViewPageSize] = useState<number | "All">(30);
   const [isLoadingViewContacts, setIsLoadingViewContacts] = useState(false);
   const [viewMetaMissing, setViewMetaMissing] = useState(false);
@@ -943,6 +944,7 @@ const handleDeleteContacts = () => {
       { key: "updated_at", header: "Updated date" },
       { key: "email_sent_at", header: "Email Sent Date" },
       ...[
+        { key: "contactFitConfidence", header: "Contact Fit", dateKey: "contactFitCheckedAt" },
         { key: "dataIntegrityConfidence", header: "Data Integrity", dateKey: "dataIntegrityCheckedAt" },
         { key: "liveContactConfidence", header: "Live Contact", dateKey: "liveContactCheckedAt" },
         { key: "emailValidityConfidence", header: "Email Validity", dateKey: "emailCheckedAt" },
@@ -1594,6 +1596,8 @@ const handleDeleteContacts = () => {
             viewId: Number(view.id),
             page,
             pageSize: pageSize === "All" ? 0 : pageSize,
+            sortBy: contactSort.key,
+            sortDirection: contactSort.direction,
             search: search.trim(),
             includeEmailContent,
           }),
@@ -1737,7 +1741,7 @@ const handleDeleteContacts = () => {
   };
 
   const fetchContactsForView = async (view: ViewItem) => {
-    const fetchKey = `${view.id}|${viewCurrentPage}|${viewPageSize}|${viewSearchQuery.trim()}`;
+    const fetchKey = `${view.id}|${viewCurrentPage}|${viewPageSize}|${viewSearchQuery.trim()}|${contactSort.key}|${contactSort.direction}`;
     if (activeViewFetchKeyRef.current === fetchKey) {
       return;
     }
@@ -1865,6 +1869,7 @@ const handleDeleteContacts = () => {
     availableDataFiles.length,
     viewCurrentPage,
     viewPageSize,
+    contactSort,
     viewSearchQuery,
   ]);
 
@@ -2377,6 +2382,8 @@ const handleDeleteContacts = () => {
               showCheckboxes={true}
               paginated={true}
               serverSidePagination={true}
+              serverSort={contactSort}
+              onSortChange={(sort) => { setContactSort(sort); setViewCurrentPage(1); setSelectedContacts(new Set()); }}
               currentPage={viewCurrentPage}
               pageSize={viewPageSize}
               onPageChange={setViewCurrentPage}
