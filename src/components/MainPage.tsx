@@ -3980,7 +3980,7 @@ try {
 
             {shouldRenderTab("Dashboard") && (
               <div className="tab-content preserved-tab-panel" style={getTabPanelStyle(tab === "Dashboard")}>
-                <Dashboard firstName={firstName ?? undefined} clientId={effectiveUserId ?? undefined} />
+                <Dashboard firstName={firstName ?? undefined} clientId={effectiveUserId ?? undefined} unreadEmailCount={inboxUnreadCount} />
               </div>
             )}
 

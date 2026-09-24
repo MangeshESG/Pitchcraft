@@ -10,6 +10,7 @@ import {
   faPlayCircle,
   faCheck,
   faCircleQuestion,
+  faEnvelope,
 } from "@fortawesome/free-solid-svg-icons";
 import ToastMessage from "../common/ToastMessage";
 import { useToast } from "../../hooks/useToast";
@@ -41,6 +42,7 @@ interface OnboardingStep {
 }
 
 interface KpiTileData {
+  icon?: React.ReactNode;
   label: string;
   value: string;
   delta: string;
@@ -87,6 +89,7 @@ export interface DashboardProps {
   clientId?: number | string;
   /** Onboarding step statuses keyed by step id (blueprint/contacts/campaign/kraft/schedule). */
   stepStatus?: Partial<Record<string, StepStatus>>;
+  unreadEmailCount?: number;
   /** KPI numbers — pass real values once available. */
   kpis?: {
     totalContacts?: string;
@@ -430,7 +433,7 @@ const Sparkline: React.FC<{
   );
 };
 
-const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, onClick }) => {
+const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, onClick, icon }) => {
   const clickable = typeof onClick === "function";
   return (
     <div
@@ -461,7 +464,7 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, onClick }
         <div className="text-[30px] font-bold text-gray-900 leading-none tabular-nums tracking-tight max-sm:shrink-0 max-sm:text-2xl">
           {value}
         </div>
-        <Sparkline data={series} color={color} />
+        {icon || <Sparkline data={series} color={color} />}
       </div>
     </div>
   );
@@ -553,7 +556,8 @@ const PostOnboardingView: React.FC<{
   firstName: string;
   kpis: NonNullable<DashboardProps["kpis"]>;
   clientId?: number | string;
-}> = ({ firstName, kpis, clientId }) => {
+  unreadEmailCount: number;
+}> = ({ firstName, kpis, clientId, unreadEmailCount }) => {
   const navigate = useNavigate();
   const { toast, showToast, hideToast } = useToast();
   const [contacts, setContacts] = useState<ContactApiRow[]>([]);
@@ -718,8 +722,8 @@ const PostOnboardingView: React.FC<{
       </div>
 
       {/* KPI skeleton tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {["Total contacts", "Emails krafted", "Emails sent", "Send rate", "Kraft rate"].map((label) => (
+      <div className="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-4 overflow-x-auto pb-2">
+        {["Total contacts", "Emails krafted", "Emails sent", "Unread emails", "Send rate", "Kraft rate"].map((label) => (
           <div key={label} className="rounded-2xl border border-gray-200 bg-white p-5">
             <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">
               {label}
@@ -787,6 +791,14 @@ const PostOnboardingView: React.FC<{
       onClick: () => navigate("/main?tab=Mail&mailSubTab=Dashboard"),
     },
     {
+      label: "Unread emails",
+      value: unreadEmailCount.toLocaleString(),
+      delta: "",
+      series: [],
+      icon: <FontAwesomeIcon icon={faEnvelope} className="text-[28px] text-[#3f9f42] mb-1" aria-hidden="true" />,
+      onClick: () => navigate("/main?tab=Mail&mailSubTab=Inbox"),
+    },
+    {
       label: "Send rate",
       value: totalContactsCount > 0 ? `${sendRate}%` : "—",
       delta: "",
@@ -848,7 +860,7 @@ const PostOnboardingView: React.FC<{
       </div>
 
       {/* KPI tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-4 overflow-x-auto pb-2">
         {tiles.map((t) => (
           <KpiTile key={t.label} {...t} />
         ))}
@@ -1000,6 +1012,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   setupComplete,
   firstName,
   clientId,
+  unreadEmailCount = 0,
   stepStatus: externalStepStatus,
   kpis,
 }) => {
@@ -1100,7 +1113,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="w-full min-h-full bg-gray-50">
       {derivedComplete ? (
         <div className="p-6 max-sm:p-3">
-          <PostOnboardingView firstName={name} kpis={kpis ?? {}} clientId={clientId} />
+          <PostOnboardingView firstName={name} kpis={kpis ?? {}} clientId={clientId} unreadEmailCount={unreadEmailCount} />
         </div>
       ) : (
         <div className="p-6 max-sm:p-3">
