@@ -956,7 +956,11 @@ body {
 /* ── Stats Grid ── */
 .md-stats-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(150px, 1fr);
+  overflow-x: auto;
+  padding-bottom: 6px;
   gap: 12px;
   margin-bottom: 22px;
 }
@@ -1120,7 +1124,9 @@ body {
   display: flex;
   gap: 14px;
   margin-top: 18px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 6px;
 }
 
 .md-summary-card {
@@ -1349,9 +1355,6 @@ body {
 
 /* ── Responsive ── */
 @media (max-width: 1024px) {
-  .md-stats-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
 
   .mde-empty-hero__content {
     grid-template-columns: 1fr;
@@ -1366,9 +1369,6 @@ body {
   }
 }
 @media (max-width: 640px) {
-  .md-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
   .md-controls-bar {
     flex-direction: column;
     align-items: stretch;
