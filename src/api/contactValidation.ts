@@ -208,8 +208,25 @@ export interface ContactValidationResult {
  * uses, repeated here so the run panel can show the cost before committing to
  * it rather than after.
  */
-export const creditsForContacts = (count: number): number =>
-  Math.max(0, Math.ceil(count / 10));
+export const creditsForContacts = (
+  count: number,
+  checkType?: ValidationCheckType,
+): number =>
+  checkType === "email_verification"
+    ? Math.max(0, count)
+    : Math.max(0, Math.ceil(count / 10));
+
+/**
+ * What the panel says under the credit figure. Email discovery is priced
+ * per contact because it runs the same four-stage unlock the extension does,
+ * and the AI search stage inside it costs about what one unlock costs. It is
+ * also the only check that charges as it goes rather than reserving up front,
+ * so a contact it finds nothing for is never billed at all.
+ */
+export const creditNoteFor = (checkType?: ValidationCheckType): string =>
+  checkType === "email_verification"
+    ? "One credit per contact, charged only for contacts an address is found for."
+    : "One credit per ten contacts. Credits for contacts that come back with no result are refunded when the run finishes.";
 
 // ---------------------------------------------------------------- helpers
 
