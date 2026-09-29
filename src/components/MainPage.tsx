@@ -797,10 +797,19 @@ const MainPage: React.FC = () => {
     const fetchClientData = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/allUserDetails`);
-        const data: Client[] = await response.json();
-        setClientNames(data);
+        if (!response.ok) {
+          throw new Error(`Failed to load clients (HTTP ${response.status})`);
+        }
+
+        const data: unknown = await response.json();
+        if (!Array.isArray(data)) {
+          throw new Error("Client list response is not an array");
+        }
+
+        setClientNames(data as Client[]);
       } catch (error) {
         console.error("Error fetching client details:", error);
+        setClientNames([]);
       }
     };
 

@@ -10,7 +10,6 @@ import {
   faPlayCircle,
   faCheck,
   faCircleQuestion,
-  faEnvelope,
 } from "@fortawesome/free-solid-svg-icons";
 import ToastMessage from "../common/ToastMessage";
 import { useToast } from "../../hooks/useToast";
@@ -42,7 +41,6 @@ interface OnboardingStep {
 }
 
 interface KpiTileData {
-  icon?: React.ReactNode;
   label: string;
   value: string;
   delta: string;
@@ -433,7 +431,7 @@ const Sparkline: React.FC<{
   );
 };
 
-const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, onClick, icon }) => {
+const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, onClick }) => {
   const clickable = typeof onClick === "function";
   return (
     <div
@@ -464,7 +462,7 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, onClick, 
         <div className="text-[30px] font-bold text-gray-900 leading-none tabular-nums tracking-tight max-sm:shrink-0 max-sm:text-2xl">
           {value}
         </div>
-        {icon || <Sparkline data={series} color={color} />}
+        {series.length > 0 && <Sparkline data={series} color={color} />}
       </div>
     </div>
   );
@@ -722,15 +720,15 @@ const PostOnboardingView: React.FC<{
       </div>
 
       {/* KPI skeleton tiles */}
-      <div className="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-4 overflow-x-auto pb-2">
-        {["Total contacts", "Emails krafted", "Emails sent", "Unread emails", "Send rate", "Kraft rate"].map((label) => (
+      <div className="grid grid-cols-[repeat(5,minmax(180px,1fr))_minmax(90px,0.5fr)] gap-4 overflow-x-auto pb-2">
+        {["Total contacts", "Emails krafted", "Emails sent", "Send rate", "Kraft rate", "Unread emails"].map((label) => (
           <div key={label} className="rounded-2xl border border-gray-200 bg-white p-5">
             <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">
               {label}
             </div>
             <div className="mt-3 flex items-end justify-between gap-3">
-              <div className="h-7 w-20 rounded-md bg-gray-100 animate-pulse" />
-              <div className="h-[52px] w-[120px] rounded-md bg-gray-50 animate-pulse" />
+              <div className="h-7 w-20 max-w-full rounded-md bg-gray-100 animate-pulse" />
+              {label !== "Unread emails" && <div className="h-[52px] w-[120px] rounded-md bg-gray-50 animate-pulse" />}
             </div>
           </div>
         ))}
@@ -791,14 +789,6 @@ const PostOnboardingView: React.FC<{
       onClick: () => navigate("/main?tab=Mail&mailSubTab=Dashboard"),
     },
     {
-      label: "Unread emails",
-      value: unreadEmailCount.toLocaleString(),
-      delta: "",
-      series: [],
-      icon: <FontAwesomeIcon icon={faEnvelope} className="text-[28px] text-[#3f9f42] mb-1" aria-hidden="true" />,
-      onClick: () => navigate("/main?tab=Mail&mailSubTab=Inbox"),
-    },
-    {
       label: "Send rate",
       value: totalContactsCount > 0 ? `${sendRate}%` : "—",
       delta: "",
@@ -811,6 +801,13 @@ const PostOnboardingView: React.FC<{
       delta: "",
       series: [10, 18, 24, 30, 38, 42, kraftRate],
       color: "#3b82f6",
+    },
+    {
+      label: "Unread emails",
+      value: unreadEmailCount.toLocaleString(),
+      delta: "",
+      series: [],
+      onClick: () => navigate("/main?tab=Mail&mailSubTab=Inbox"),
     },
   ];
 
@@ -860,7 +857,7 @@ const PostOnboardingView: React.FC<{
       </div>
 
       {/* KPI tiles */}
-      <div className="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-4 overflow-x-auto pb-2">
+      <div className="grid grid-cols-[repeat(5,minmax(180px,1fr))_minmax(90px,0.5fr)] gap-4 overflow-x-auto pb-2">
         {tiles.map((t) => (
           <KpiTile key={t.label} {...t} />
         ))}

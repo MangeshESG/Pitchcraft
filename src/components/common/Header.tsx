@@ -133,7 +133,7 @@ const logoutHandler = () => {
                   }}
               >
                 <option value="">Select a client</option>
-                {clientNames.map((client) => (
+                {(Array.isArray(clientNames) ? clientNames : []).map((client) => (
                   <option key={client.clientID} value={client.clientID.toString()}>
                     {`${client.firstName} ${client.lastName} - ${client.companyName}`}
                   </option>
