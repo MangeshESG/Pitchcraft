@@ -726,6 +726,17 @@ pre span {
   font-family: inherit;
 }
 
+/* The editable surface names its own typeface instead of inheriting the app
+   UI font (Segoe UI on Windows). Generated mail only carries an inline
+   font-family on the runs the model chose to style, so inheriting left styled
+   and unstyled text side by side in two different fonts. This stack is the
+   same one the toolbar's "Sans Serif" option writes, so the two agree. */
+.rich-text-editor [contenteditable] {
+  font-family: arial, helvetica, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 /* Keep wide email images (banners etc.) inside the editor instead of
    stretching it horizontally */
 .rich-text-editor [contenteditable] img {
@@ -753,14 +764,24 @@ pre span {
   font-weight: 600;
 }
 
+/* Tailwind's preflight zeroes the margins on p/ul/ol. The list rules below
+   put back list-style and padding, but paragraph and list spacing was never
+   restored, so the gaps between blocks came only from whatever inline margin
+   the generated HTML happened to carry - which is why it was inconsistent. */
 .rich-text-editor p {
   font-size: 14px;
   line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.rich-text-editor p:last-child {
+  margin-bottom: 0;
 }
 
 .rich-text-editor ul {
   list-style-type: disc;
   padding-left: 15px;
+  margin: 0 0 16px;
 }
 
 .rich-text-editor ul li {
@@ -770,7 +791,7 @@ pre span {
 .rich-text-editor ol {
   list-style-type: decimal;
   padding-left: 17px;
-
+  margin: 0 0 16px;
 }
 
 .rich-text-editor ol li {
