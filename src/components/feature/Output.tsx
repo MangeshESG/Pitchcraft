@@ -81,7 +81,7 @@ const normalizeExternalUrl = (url?: string | null) => {
 
 const OutputContactAvatar: React.FC<{
   contact: any;
-  clientId: string | number;
+  clientId: string | number | null;
   onOpen: () => void;
 }> = ({ contact, clientId, onOpen }) => {
   const [imageUnavailable, setImageUnavailable] = useState(false);
@@ -101,7 +101,7 @@ const OutputContactAvatar: React.FC<{
       title={`Open ${name} profile`}
       style={{ width: 34, height: 34, padding: 0, marginRight: 4, border: "1px solid #dfe7df", borderRadius: "50%", overflow: "hidden", background: "#eef8ef", color: "#3f9f42", display: "inline-flex", alignItems: "center", justifyContent: "center", verticalAlign: "middle", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
     >
-      {!imageUnavailable && contact?.id ? (
+      {!imageUnavailable && contact?.id && clientId ? (
         <img
           src={`${API_BASE_URL}/api/Attachment/profile-image/${contact.id}?clientId=${clientId}`}
           alt={`${name} profile`}
