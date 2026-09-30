@@ -811,6 +811,7 @@ const MainPage: React.FC = () => {
       } catch (error) {
         console.error("Error fetching client details:", error);
         setClientNames([]);
+        setClientNames([]);
       }
     };
 

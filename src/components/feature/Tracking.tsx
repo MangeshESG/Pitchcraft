@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL from '../../config';
-import { Mail, RotateCcw } from 'lucide-react';
+import { Link2Off, Mail, RotateCcw } from 'lucide-react';
 import {
   bannerClass,
   cardClass,
@@ -87,9 +87,11 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
 
 const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
   const [isTracking, setIsTracking] = useState(false);
+  const [isRfcUnsubscribeAllowed, setIsRfcUnsubscribeAllowed] = useState(false);
   const [isBounceBack, setIsBounceBack] = useState(false);
   const [loading, setLoading] = useState(false);
   const [bounceBackLoading, setBounceBackLoading] = useState(false);
+  const [rfcLoading, setRfcLoading] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 
   const getClientId = () => {
@@ -123,7 +125,25 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
         setLoading(false);
       }
     };
+    const fetchRfcStatus = async () => {
+      setRfcLoading(true);
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/Crm/rfc-unsubscribe-by-id?clientId=${getClientId()}`,
+          { method: 'GET', headers: { accept: '*/*' } }
+        );
+        if (!response.ok) throw new Error('Failed to load RFC setting');
+        const data = await response.json();
+        setIsRfcUnsubscribeAllowed(data.isRfcUnsubscribeAllowed === true);
+      } catch {
+        setBanner({ type: 'error', text: 'Failed to load RFC unsubscribe setting.' });
+      } finally {
+        setRfcLoading(false);
+      }
+    };
+
     fetchTrackingStatus();
+    fetchRfcStatus();
   }, [selectedClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggleTracking = async () => {
@@ -151,6 +171,30 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleRfcUnsubscribe = async () => {
+    setRfcLoading(true);
+    setBanner(null);
+    const nextValue = !isRfcUnsubscribeAllowed;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/update-rfc-unsubscribe?clientId=${getClientId()}&isRfcUnsubscribeAllowed=${nextValue}`,
+        { method: 'POST', headers: { accept: '*/*' } }
+      );
+      if (!response.ok) throw new Error('Failed to save RFC setting');
+
+      setIsRfcUnsubscribeAllowed(nextValue);
+      setBanner({
+        type: 'success',
+        text: `RFC one-click unsubscribe ${nextValue ? 'enabled' : 'disabled'} successfully.`,
+      });
+    } catch {
+      setBanner({ type: 'error', text: 'Could not update the RFC unsubscribe setting.' });
+    } finally {
+      setRfcLoading(false);
     }
   };
 
@@ -197,6 +241,19 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
             disabled={loading}
             statusText={loading ? 'Updating…' : isTracking ? 'Enabled' : 'Disabled'}
             onToggle={handleToggleTracking}
+          />
+
+          <div className="my-5 border-t border-[#e8eaee]" />
+
+          <ToggleRow
+            icon={<Link2Off className="h-5 w-5" />}
+            title="RFC one-click unsubscribe"
+            description="Include one-click unsubscribe headers in outgoing emails."
+            checked={isRfcUnsubscribeAllowed}
+            busy={rfcLoading}
+            disabled={rfcLoading}
+            statusText={rfcLoading ? 'Loading...' : isRfcUnsubscribeAllowed ? 'Enabled' : 'Disabled'}
+            onToggle={handleToggleRfcUnsubscribe}
           />
 
           <div className="my-5 border-t border-[#e8eaee]" />

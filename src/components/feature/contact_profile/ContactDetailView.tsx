@@ -1,5 +1,7 @@
 'use client';
 
+
+
 import * as userDates from "../../common/dateTimePreferences";
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -2101,6 +2103,7 @@ const handleDeleteContact = async () => {
           contactid: Number(contactId),
           campaignid: null,
           isFollowUp: false,
+          IsContactCompose: true,
           CcEmail: ccEmails,
           BccEmail: bccEmails,
           OutboxId: outboxId,
