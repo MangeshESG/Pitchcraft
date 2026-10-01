@@ -84,6 +84,98 @@ export interface ValidationSource {
   url: string;
 }
 
+/**
+ * A correction one check offered for one field.
+ *
+ * The comments say what is wrong in prose; this says what the value should be,
+ * in a shape a button can act on. Three of the four checks produce them from a
+ * model; email validity builds its own from whatever Prospeo or Hunter
+ * returned, with no model involved.
+ */
+export interface ValidationSuggestion {
+  /** Stable within one check result; posted back so the server resolves the right one. */
+  id: string;
+  /** A contact column the check is allowed to correct, e.g. "job_title". */
+  field: string;
+  /** What the record said when the check ran. */
+  current?: string | null;
+  suggested: string;
+  /** The evidence behind the correction. The server drops any suggestion without one. */
+  reason?: string | null;
+  status: "pending" | "accepted" | "dismissed";
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
+}
+
+/** What the contact row now holds, after a suggestion was accepted. */
+export interface AppliedSuggestion {
+  field: string;
+  value: string;
+  fullName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}
+
+/**
+ * How each correctable field is named in the UI, and which contact column it
+ * writes. The column names are what the grid rows are keyed by, so a row can
+ * be patched in place from an accepted suggestion without refetching it.
+ *
+ * Kept in step with ValidationSuggestionFields on the server — that list is
+ * what decides which writes are actually allowed; this one only labels them.
+ */
+export const SUGGESTION_FIELDS: Record<string, { label: string; column: string }> = {
+  full_name: { label: "Name", column: "full_name" },
+  job_title: { label: "Job title", column: "job_title" },
+  company_name: { label: "Company", column: "company_name" },
+  email: { label: "Email", column: "email" },
+  website: { label: "Website", column: "website" },
+  country_or_address: { label: "Location", column: "country_or_address" },
+  linkedin_url: { label: "LinkedIn URL", column: "linkedin_url" },
+};
+
+export const suggestionFieldLabel = (field: string): string =>
+  SUGGESTION_FIELDS[field]?.label ?? field;
+
+/**
+ * Where each check's corrections sit on a grid row.
+ *
+ * The four are kept apart all the way through: a suggestion id is only unique
+ * within one check's list, so accepting one has to say which check it came
+ * from, and the grid shows each check's corrections beside its own score.
+ */
+export const VALIDATION_SCORE_KEYS: Record<ValidationCheckType, string> = {
+  contact_fit: "contactFitConfidence",
+  data_integrity: "dataIntegrityConfidence",
+  live_contact: "liveContactConfidence",
+  email_verification: "emailValidityConfidence",
+};
+
+export const SUGGESTION_ROW_KEYS: Record<ValidationCheckType, string> = {
+  contact_fit: "contactFitSuggestions",
+  data_integrity: "dataIntegritySuggestions",
+  live_contact: "liveContactSuggestions",
+  email_verification: "emailValiditySuggestions",
+};
+
+/**
+ * Reads the suggestions blob. The grid endpoints send it as the JSON string it
+ * is stored as — sending an array would make it a column candidate in the
+ * auto-generated grid — while the results endpoint sends it already parsed.
+ * Malformed JSON yields none rather than taking the score cell down with it.
+ */
+export const parseSuggestions = (raw: unknown): ValidationSuggestion[] => {
+  if (Array.isArray(raw)) return raw as ValidationSuggestion[];
+  if (typeof raw !== "string" || !raw.trim()) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 export interface ContactValidationResult {
   contactId: number;
   contactFitConfidence?: number | null;
@@ -102,6 +194,10 @@ export interface ContactValidationResult {
   emailValidityComments?: string | null;
   emailCheckedAt?: string | null;
   sources: ValidationSource[];
+  contactFitSuggestions?: ValidationSuggestion[];
+  dataIntegritySuggestions?: ValidationSuggestion[];
+  liveContactSuggestions?: ValidationSuggestion[];
+  emailValiditySuggestions?: ValidationSuggestion[];
   isVerified: boolean;
   verifiedAt?: string | null;
   verifiedBy?: string | null;
@@ -112,8 +208,25 @@ export interface ContactValidationResult {
  * uses, repeated here so the run panel can show the cost before committing to
  * it rather than after.
  */
-export const creditsForContacts = (count: number): number =>
-  Math.max(0, Math.ceil(count / 10));
+export const creditsForContacts = (
+  count: number,
+  checkType?: ValidationCheckType,
+): number =>
+  checkType === "email_verification"
+    ? Math.max(0, count)
+    : Math.max(0, Math.ceil(count / 10));
+
+/**
+ * What the panel says under the credit figure. Email discovery is priced
+ * per contact because it runs the same four-stage unlock the extension does,
+ * and the AI search stage inside it costs about what one unlock costs. It is
+ * also the only check that charges as it goes rather than reserving up front,
+ * so a contact it finds nothing for is never billed at all.
+ */
+export const creditNoteFor = (checkType?: ValidationCheckType): string =>
+  checkType === "email_verification"
+    ? "One credit per contact, charged only for contacts an address is found for."
+    : "One credit per ten contacts. Credits for contacts that come back with no result are refunded when the run finishes.";
 
 // ---------------------------------------------------------------- helpers
 
@@ -332,4 +445,104 @@ export const markVerified = async (
   );
 
   return json.message ?? "Done.";
+};
+
+// ----------------------------------------------------- suggestions
+
+export interface ResolveSuggestionResponse {
+  message: string;
+  /** Present on accept only: the value the contact now holds. */
+  applied?: AppliedSuggestion | null;
+  /** The contact's full suggestion list, with this one resolved. */
+  suggestions: ValidationSuggestion[];
+}
+
+const resolveSuggestion = async (
+  action: "accept" | "dismiss",
+  clientId: string | number,
+  contactId: number,
+  checkType: ValidationCheckType,
+  suggestionId: string,
+  resolvedBy?: string
+): Promise<ResolveSuggestionResponse> => {
+  const json = await postJson(
+    `${BASE}/suggestions/${action}`,
+    { clientId: Number(clientId), contactId, checkType, suggestionId, resolvedBy },
+    action === "accept"
+      ? "The correction could not be applied"
+      : "The suggestion could not be dismissed"
+  );
+
+  return {
+    message: json?.message ?? "Done.",
+    applied: json?.applied ?? null,
+    suggestions: Array.isArray(json?.suggestions) ? json.suggestions : [],
+  };
+};
+
+/**
+ * Writes one suggested correction to the contact and marks it accepted.
+ *
+ * The server does both in one save and sends back the value it stored, so the
+ * caller patches the single row it has on screen rather than refetching the
+ * list — accepting a name fix on row 40 of 500 should not scroll the user back
+ * to the top.
+ */
+export const acceptSuggestion = (
+  clientId: string | number,
+  contactId: number,
+  checkType: ValidationCheckType,
+  suggestionId: string,
+  resolvedBy?: string
+): Promise<ResolveSuggestionResponse> =>
+  resolveSuggestion("accept", clientId, contactId, checkType, suggestionId, resolvedBy);
+
+/** Marks a suggestion dismissed. The contact is not touched. */
+export const dismissSuggestion = (
+  clientId: string | number,
+  contactId: number,
+  checkType: ValidationCheckType,
+  suggestionId: string,
+  resolvedBy?: string
+): Promise<ResolveSuggestionResponse> =>
+  resolveSuggestion("dismiss", clientId, contactId, checkType, suggestionId, resolvedBy);
+
+// ------------------------------------------------- single-score override
+
+/**
+ * Sets one check's score to 100, for a user overruling that verdict alone.
+ *
+ * Narrower than {@link markVerified}, which speaks for the whole contact and
+ * raises all four checks. Someone who disagrees with a data integrity score is
+ * not thereby claiming the email address was validated.
+ */
+export const verifyCheckScore = async (
+  clientId: string | number,
+  contactId: number,
+  checkType: ValidationCheckType,
+  verifiedBy?: string
+): Promise<string> => {
+  const json = await postJson(
+    `${BASE}/score/verify`,
+    { clientId: Number(clientId), contactId, checkType, verifiedBy },
+    "The score could not be set"
+  );
+
+  return json?.message ?? "Done.";
+};
+
+/**
+ * Deletes one contact outright.
+ *
+ * Lives here rather than in a CRM module because the only thing that calls it
+ * is the Audience Assurance cell — the point of the action is "this record is
+ * junk, and the score is how I found out". It posts to the same CRM endpoint
+ * the rest of the app deletes through.
+ */
+export const deleteContact = async (contactId: number): Promise<void> => {
+  await postJson(
+    `${API_BASE_URL}/api/Crm/delete-Datafile-contact?contactId=${contactId}`,
+    {},
+    "The contact could not be deleted"
+  );
 };

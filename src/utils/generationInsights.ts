@@ -36,6 +36,7 @@ export const extractGenerationInsights = (data: any): GenerationInsights => {
     webSearchData: firstString(
       data?.webSearchData,
       data?.WebSearchData,
+      runtime?.web_searched_data,
       runtime?.search_output_summary,
     ),
     emails: firstString(

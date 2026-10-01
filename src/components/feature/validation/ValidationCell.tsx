@@ -47,6 +47,16 @@ export interface ValidationCellProps {
    * the one whose answer a person can go and confirm in one click.
    */
   showLinkedInHint?: boolean;
+  /**
+   * Marks the chip when the data integrity check has offered a correction
+   * nobody has acted on yet.
+   *
+   * Only a marker. The corrections themselves are listed under the score in
+   * the Data integrity column, where there is room to show what each one would
+   * replace — this is what makes a fixable row findable by eye in the combined
+   * Checks cell, which has no room for any of that.
+   */
+  hasPendingSuggestion?: boolean;
 }
 
 /**
@@ -66,9 +76,11 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   label,
   overriddenFrom,
   showLinkedInHint = false,
+  hasPendingSuggestion = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [anchor, setAnchor] =
+    useState<{ top?: number; bottom?: number; left: number; maxHeight: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
@@ -129,12 +141,22 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   const positionAndOpen = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
-      // Flip above the row when there is no room below, so a score near the
-      // bottom of a long list does not open off-screen.
-      const spaceBelow = window.innerHeight - rect.bottom;
+      // Open upwards when there is no room below, so a score near the bottom of
+      // a long list does not open off-screen.
+      //
+      // Upwards pins `bottom` rather than a `top` computed from the maximum
+      // height: the popover is as tall as its comments, so subtracting the
+      // maximum left a short one floating well above the chip it belongs to.
+      const spaceBelow = window.innerHeight - rect.bottom - 8;
+      const spaceAbove = rect.top - 8;
+      const openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+
       setAnchor({
-        top: spaceBelow > 280 ? rect.bottom + 6 : Math.max(8, rect.top - 286),
-        left: Math.min(rect.left, window.innerWidth - 380),
+        ...(openUp
+          ? { bottom: window.innerHeight - rect.top + 6 }
+          : { top: rect.bottom + 6 }),
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - 380)),
+        maxHeight: Math.min(280, Math.max(140, openUp ? spaceAbove : spaceBelow)),
       });
     }
     setIsOpen(true);
@@ -198,6 +220,20 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
         }}
       >
         {label ? `${label} ${score}` : score}
+        {hasPendingSuggestion && (
+          // A correction nobody hovers over is a correction nobody applies.
+          // The dot is what makes a fixable row findable by eye down a column
+          // of scores that otherwise all look the same.
+          <span
+            title="A correction is waiting to be accepted"
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: band.fg,
+            }}
+          />
+        )}
       </button>
 
       {isOpen && anchor &&
@@ -208,9 +244,10 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
             style={{
               position: "fixed",
               top: anchor.top,
+              bottom: anchor.bottom,
               left: anchor.left,
               width: 360,
-              maxHeight: 280,
+              maxHeight: anchor.maxHeight,
               overflowY: "auto",
               background: "#fff",
               border: "1px solid #e8eaee",
@@ -314,14 +351,28 @@ export default ValidationCell;
 /**
  * Reads the sources blob the list endpoints send down as a JSON string.
  * Malformed JSON yields no sources rather than taking the cell down with it.
+ *
+ * Both casings are accepted. The results endpoint returns the list through
+ * MVC, which camel-cases it, while the list endpoints hand over the column as
+ * it was stored — and that was written with Newtonsoft's default Pascal case.
+ * Reading either is what makes the rows already in the database render their
+ * links instead of a row of blanks.
  */
 export const parseSources = (raw: unknown): ValidationSource[] => {
-  if (Array.isArray(raw)) return raw as ValidationSource[];
+  const normalise = (list: any[]): ValidationSource[] =>
+    list
+      .map((item) => ({
+        label: item?.label ?? item?.Label ?? "",
+        url: item?.url ?? item?.Url ?? "",
+      }))
+      .filter((source) => !!source.url);
+
+  if (Array.isArray(raw)) return normalise(raw);
   if (typeof raw !== "string" || !raw.trim()) return [];
 
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? normalise(parsed) : [];
   } catch {
     return [];
   }

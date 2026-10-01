@@ -28,6 +28,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { faEdit, faTrashAlt, faSquarePlus } from "@fortawesome/free-regular-svg-icons";
 import EditContactModal from "./EditContactModal";
+import ContactIdentityHeader from "./ContactIdentityHeader";
 import { useAppModal } from "../../../hooks/useAppModal";
 import pitchLogo from "../../../assets/images/pitch_logo.png";
 import "react-quill/dist/quill.snow.css";
@@ -96,6 +97,7 @@ interface ContactDetailViewProps {
 interface ContactReplyBlueprint {
   id: number;
   templateName: string;
+  templateDefinitionName?: string | null;
 }
 
 interface ContactSmtpUser {
@@ -657,7 +659,7 @@ useEffect(() => {
   const fetchContactReplyBlueprints = async () => {
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}?pageSize=20&pageNumber=1`,
+        `${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}`,
         {
           headers: {
             accept: "*/*",
@@ -4966,6 +4968,29 @@ dispatch(closePanel());
         <div className={`contact-detail-scroll ${embedded ? "w-full" : "w-full h-screen overflow-y-auto bg-gray-100"}`}>
           <div className={`contact-detail-page ${embedded ? "pt-4 pb-20 px-2 min-h-full" : "pt-4 pb-20 px-6 min-h-screen"}`}>
             <div className="contact-detail-card bg-white rounded-lg shadow-md p-6 mb-8 ">
+              {/* CONTACT IDENTITY — kept above the tabs so the name, photo and
+                  pronunciation stay visible whichever tab is open. */}
+              {editingContact && (
+                <ContactIdentityHeader
+                  className="mb-4"
+                  contactId={editingContact.id}
+                  clientId={effectiveUserId}
+                  name={
+                    [editingContact.first_name, editingContact.last_name]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim() || editingContact.full_name
+                  }
+                  linkedInInformation={editingContact.linkedIninformation}
+                  onShowMessage={(msg, type) =>
+                    type === "success" ? appModal.showSuccess(msg) : appModal.showError(msg)
+                  }
+                  onProfileImageUploaded={() => {
+                    if (contactId) fetchEmailTimeline(Number(contactId));
+                  }}
+                />
+              )}
+
               {/* TOP TABS */}
               {/* TOP TABS + RIGHT ACTIONS */}
               <div
@@ -5307,6 +5332,7 @@ dispatch(closePanel());
                       asPage={true}
                       hideOverlay={true}
                       hideFullName={true}
+                      hideIdentityHeader={true}
                       contact={editingContact}
                       onClose={() => { }}
                       onContactUpdated={(updatedContact) => {
@@ -6630,6 +6656,25 @@ dispatch(closePanel());
                       ? appModal.showSuccess(message)
                       : appModal.showError(message)
                   }
+                  // An accepted correction is already stored; folding it into
+                  // the profile's own state is what stops the header still
+                  // showing "Mike T." after the user has just fixed it.
+                  onContactUpdated={(applied) => {
+                    const patch: Record<string, any> = {
+                      [applied.field]: applied.value,
+                      updated_at: new Date().toISOString(),
+                    };
+
+                    if (applied.field === "full_name") {
+                      patch.full_name = applied.fullName ?? applied.value;
+                      patch.first_name = applied.firstName;
+                      patch.last_name = applied.lastName;
+                    }
+
+                    setContact((prev: any) => (prev ? { ...prev, ...patch } : prev));
+                    setEditingContact((prev: any) =>
+                      prev ? { ...prev, ...patch } : prev);
+                  }}
                 />
               )}
 

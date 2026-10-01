@@ -1,6 +1,18 @@
 import React from "react";
 import ValidationCell, { parseSources } from "./ValidationCell";
-import { parseApiDate } from "../../../api/contactValidation";
+import CheckActions from "./CheckActions";
+import {
+  acceptSuggestion,
+  deleteContact,
+  dismissSuggestion,
+  parseApiDate,
+  parseSuggestions,
+  SUGGESTION_ROW_KEYS,
+  verifyCheckScore,
+  type AppliedSuggestion,
+  type ValidationCheckType,
+  type ValidationSuggestion,
+} from "../../../api/contactValidation";
 import { formatUserDate } from "../../common/dateTimePreferences";
 
 /**
@@ -51,6 +63,12 @@ export const VALIDATION_COLUMN_LABELS: Record<string, string> = {
  */
 export const VALIDATION_EXCLUDED_FIELDS = [
   "validationSources",
+  // Read by the score cells, never shown as columns of their own: they are JSON
+  // blobs, and the auto-generated grid would turn each into a column.
+  "contactFitSuggestions",
+  "dataIntegritySuggestions",
+  "liveContactSuggestions",
+  "emailValiditySuggestions",
   "contactFitComments",
   "contactFitCheckedAt",
   "dataIntegrityComments",
@@ -150,32 +168,70 @@ const verifiedCell = (value: any) =>
     <span style={{ color: "#9ca3af" }}>—</span>
   );
 
+/**
+ * One check's score, with an info icon opening everything a user can do about
+ * it: accept or dismiss a correction, set that score to 100 by hand, or delete
+ * the contact.
+ *
+ * The row stays one line. Rendering corrections inline made a bad row three
+ * times the height of a good one, which is the wrong trade for a grid that is
+ * scanned before it is acted on — four hundred contacts are read to find the
+ * bad ones, and only then is one of them dealt with.
+ *
+ * The actions hang off each check's own column rather than the contact's
+ * fields, because one row's corrections can name several different fields and
+ * half of those columns are switched off in any given layout. Here they are
+ * always beside the verdict that produced them, and beside the right one:
+ * accepting a job title the live contact check found is a different decision
+ * from accepting one data integrity found, and they carry different evidence.
+ */
 const scoreCell =
   (
-    scoreKey: string,
-    commentKey: string,
-    dateKey: string,
-    options: { linkedInHint?: boolean } = {}
+    check: {
+      checkType: ValidationCheckType;
+      scoreKey: string;
+      commentKey: string;
+      dateKey: string;
+      linkedInHint?: boolean;
+    },
+    actions?: CheckActionHandlers
   ) =>
   (value: any, row: any) => {
-    const raw = row[scoreKey];
-    const score = verifiedScore(raw, row.isVerified, row.verifiedAt, row[dateKey]);
+    const raw = row[check.scoreKey];
+    const score = verifiedScore(raw, row.isVerified, row.verifiedAt, row[check.dateKey]);
+
+    // This check has never run, so there is no verdict to act on.
+    if (typeof raw !== "number") {
+      return <span style={{ color: "#9ca3af" }}>—</span>;
+    }
 
     return (
-      <ValidationCell
-        score={score}
-        overriddenFrom={score !== raw ? raw : undefined}
-        comments={row[commentKey]}
-        checkedAt={row[dateKey]}
-        sources={parseSources(row.validationSources)}
-        // The spec asks for the LinkedIn prompt whenever a live contact check is
-        // anything short of certain — it is the one verdict a person can go and
-        // confirm themselves in a single click. A hand-verified contact is not
-        // short of certain, so the mark silences it.
-        showLinkedInHint={
-          !!options.linkedInHint && typeof score === "number" && score < 100
-        }
-      />
+      <span style={{ display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}>
+        <ValidationCell
+          score={score}
+          overriddenFrom={score !== raw ? raw : undefined}
+          comments={row[check.commentKey]}
+          checkedAt={row[check.dateKey]}
+          sources={parseSources(row.validationSources)}
+          // The spec asks for the LinkedIn prompt whenever a live contact check
+          // is anything short of certain — it is the one verdict a person can
+          // go and confirm themselves in a single click. A hand-verified
+          // contact is not short of certain, so the mark silences it.
+          showLinkedInHint={
+            !!check.linkedInHint && typeof score === "number" && score < 100
+          }
+        />
+
+        {actions && (
+          <CheckActions
+            checkLabel={CHECK_LABELS[check.checkType]}
+            suggestions={actions.read(row, check.checkType)}
+            onResolve={actions.resolverFor(row, check.checkType)}
+            onVerify={actions.verifierFor(row, check.checkType)}
+            onDelete={actions.deleterFor(row)}
+          />
+        )}
+      </span>
     );
   };
 
@@ -183,6 +239,7 @@ const scoreCell =
 const CHECKS: {
   key: string;
   short: string;
+  checkType: ValidationCheckType;
   scoreKey: string;
   commentKey: string;
   dateKey: string;
@@ -191,6 +248,7 @@ const CHECKS: {
   {
     key: "fit",
     short: "Fit",
+    checkType: "contact_fit",
     scoreKey: "contactFitConfidence",
     commentKey: "contactFitComments",
     dateKey: "contactFitCheckedAt",
@@ -198,6 +256,7 @@ const CHECKS: {
   {
     key: "data",
     short: "Data",
+    checkType: "data_integrity",
     scoreKey: "dataIntegrityConfidence",
     commentKey: "dataIntegrityComments",
     dateKey: "dataIntegrityCheckedAt",
@@ -205,6 +264,7 @@ const CHECKS: {
   {
     key: "live",
     short: "Live",
+    checkType: "live_contact",
     scoreKey: "liveContactConfidence",
     commentKey: "liveContactComments",
     dateKey: "liveContactCheckedAt",
@@ -213,6 +273,7 @@ const CHECKS: {
   {
     key: "email",
     short: "Email",
+    checkType: "email_verification",
     scoreKey: "emailValidityConfidence",
     commentKey: "emailValidityComments",
     dateKey: "emailCheckedAt",
@@ -231,7 +292,7 @@ const CHECKS: {
  * unrun check would fill the column with noise on a list nobody has validated
  * end to end.
  */
-const checksCell = (value: any, row: any) => {
+const checksCell = (actions?: CheckActionHandlers) => (value: any, row: any) => {
   const run = CHECKS.filter(
     (check) => typeof row[check.scoreKey] === "number"
   );
@@ -256,6 +317,7 @@ const checksCell = (value: any, row: any) => {
             comments={row[check.commentKey]}
             checkedAt={row[check.dateKey]}
             sources={sources}
+            hasPendingSuggestion={hasPending(actions?.read(row, check.checkType))}
             showLinkedInHint={
               !!check.linkedInHint && typeof score === "number" && score < 100
             }
@@ -266,29 +328,160 @@ const checksCell = (value: any, row: any) => {
   );
 };
 
+const hasPending = (suggestions?: ValidationSuggestion[]) =>
+  !!suggestions?.some((suggestion) => suggestion.status === "pending");
+
 /**
- * Renderers keyed by column, ready to spread into a grid's `customFormatters`.
+ * What a grid has to supply for its Accept buttons to work: who is asking, and
+ * what to do with the corrected value once the server has stored it.
+ *
+ * A grid that supplies none still shows the corrections and the evidence — it
+ * just shows them read-only, rather than offering a button that would post
+ * nowhere.
+ */
+export interface ValidationFormatterOptions {
+  clientId?: string | number | null;
+  /**
+   * Writes an accepted correction into the row on screen.
+   *
+   * This is what keeps a list of five hundred from reloading because one job
+   * title was fixed: the server has already stored the change and sent back
+   * what it stored, so the grid patches the single row it belongs to and
+   * nothing else moves — no refetch, no scroll position lost, no selection
+   * cleared.
+   *
+   * `applied` is absent when the suggestion was dismissed: nothing was written
+   * to the contact, only the suggestion's own state changed.
+   */
+  onSuggestionResolved?: (
+    contactId: number,
+    checkType: ValidationCheckType,
+    suggestions: ValidationSuggestion[],
+    applied?: AppliedSuggestion | null
+  ) => void;
+  /**
+   * Raises one check's score to 100 on the row on screen.
+   *
+   * Only the named check changes — the other three keep saying what they
+   * found, because a user overruling one verdict is not claiming the other
+   * three were checked.
+   */
+  onScoreVerified?: (contactId: number, checkType: ValidationCheckType) => void;
+  /** Drops the deleted contact from the rows on screen. */
+  onContactDeleted?: (contactId: number) => void;
+  /** Recorded against the suggestion, so the row says who accepted it. */
+  resolvedBy?: string;
+}
+
+/** How each check is named in its own action panel. */
+const CHECK_LABELS: Record<ValidationCheckType, string> = {
+  contact_fit: "Contact fit",
+  data_integrity: "Data integrity",
+  live_contact: "Live contact",
+  email_verification: "Email validity",
+};
+
+interface CheckActionHandlers {
+  read: (row: any, checkType: ValidationCheckType) => ValidationSuggestion[];
+  resolverFor: (
+    row: any,
+    checkType: ValidationCheckType
+  ) =>
+    | ((
+        suggestion: ValidationSuggestion,
+        action: "accept" | "dismiss"
+      ) => Promise<void>)
+    | undefined;
+  verifierFor: (
+    row: any,
+    checkType: ValidationCheckType
+  ) => (() => Promise<void>) | undefined;
+  deleterFor: (row: any) => (() => Promise<void>) | undefined;
+}
+
+const buildCheckActionHandlers = (
+  options: ValidationFormatterOptions
+): CheckActionHandlers => {
+  /**
+   * The contact this row is about, or 0 when the grid cannot say — which is
+   * what switches every action off rather than posting somewhere arbitrary.
+   */
+  const contactIdOf = (row: any) =>
+    options.clientId ? Number(row?.id) || 0 : 0;
+
+  return {
+    read: (row: any, checkType) =>
+      parseSuggestions(row?.[SUGGESTION_ROW_KEYS[checkType]]),
+
+    resolverFor: (row: any, checkType) => {
+      const contactId = contactIdOf(row);
+      if (!contactId) return undefined;
+
+      return async (suggestion, action) => {
+        const response =
+          action === "accept"
+            ? await acceptSuggestion(
+                options.clientId!, contactId, checkType, suggestion.id, options.resolvedBy)
+            : await dismissSuggestion(
+                options.clientId!, contactId, checkType, suggestion.id, options.resolvedBy);
+
+        options.onSuggestionResolved?.(
+          contactId, checkType, response.suggestions, response.applied);
+      };
+    },
+
+    verifierFor: (row: any, checkType) => {
+      const contactId = contactIdOf(row);
+      if (!contactId || !options.onScoreVerified) return undefined;
+
+      return async () => {
+        await verifyCheckScore(
+          options.clientId!, contactId, checkType, options.resolvedBy);
+
+        options.onScoreVerified!(contactId, checkType);
+      };
+    },
+
+    deleterFor: (row: any) => {
+      const contactId = contactIdOf(row);
+      if (!contactId || !options.onContactDeleted) return undefined;
+
+      return async () => {
+        await deleteContact(contactId);
+        options.onContactDeleted!(contactId);
+      };
+    },
+  };
+};
+
+/**
+ * The Audience Assurance renderers, ready to spread into a grid's
+ * `customFormatters`.
+ *
+ * A factory rather than a constant because accepting a correction has to reach
+ * back into the grid's own row state, and that state differs per grid — the
+ * list, the segment detail and the saved views each hold their own array.
  *
  * Each score cell carries its own comments and the sources behind them, so the
  * confidence column alone answers "why" without the comment column needing to
  * be switched on. The comment columns exist for reading or exporting in bulk.
  */
-export const VALIDATION_FORMATTERS: Record<
-  string,
-  (value: any, row: any) => React.ReactNode
-> = {
-  checks: checksCell,
+export const createValidationFormatters = (
+  options: ValidationFormatterOptions = {}
+): Record<string, (value: any, row: any) => React.ReactNode> => {
+  const actions = buildCheckActionHandlers(options);
+
+  // Built from the same list the combined Checks cell reads, so a column and
+  // its chip can never disagree about which check they are showing.
+  const byCheck = Object.fromEntries(
+    CHECKS.map((check) => [check.scoreKey, scoreCell(check, actions)])
+  );
+
+  return {
+  checks: checksCell(actions),
   lastChecked: (value: any) => formatUserDate(value),
 
-  contactFitConfidence: scoreCell(
-    "contactFitConfidence", "contactFitComments", "contactFitCheckedAt"),
-  dataIntegrityConfidence: scoreCell(
-    "dataIntegrityConfidence", "dataIntegrityComments", "dataIntegrityCheckedAt"),
-  liveContactConfidence: scoreCell(
-    "liveContactConfidence", "liveContactComments", "liveContactCheckedAt",
-    { linkedInHint: true }),
-  emailValidityConfidence: scoreCell(
-    "emailValidityConfidence", "emailValidityComments", "emailCheckedAt"),
+  ...byCheck,
 
   contactFitComments: commentCell,
   dataIntegrityComments: commentCell,
@@ -302,6 +495,7 @@ export const VALIDATION_FORMATTERS: Record<
   verifiedAt: (value: any) => formatUserDate(value),
 
   isVerified: verifiedCell,
+  };
 };
 
 /**

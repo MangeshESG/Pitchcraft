@@ -51,6 +51,23 @@ export const OPENAI_MODELS = [
     name: "GPT-5.6 Luna",
     description: "Fastest, lowest-cost tier",
   },
+  {
+    id: "gpt-6-astra",
+    name: "GPT-6 Astra",
+    description:
+      "GPT-6 flagship. Always reasons, so it is the slowest and dearest of the three and needs a high MaxTokens",
+  },
+  {
+    id: "gpt-6-sol",
+    name: "GPT-6 Sol",
+    description: "GPT-6 balanced tier, about a fifth of Astra's price",
+  },
+  {
+    id: "gpt-6-luna",
+    name: "GPT-6 Luna",
+    description:
+      "GPT-6 fastest, lowest-cost tier — around half the price of 5.6 Luna",
+  },
 ];
 
 export const DEEPSEEK_MODELS = [
@@ -88,10 +105,11 @@ export const DEEPSEEK_MODELS = [
 
 // Which of these an admin can actually pick is decided by the ModelRates rows,
 // not by this list — buildModelOptions drops anything the server has no price
-// for. That matters here because web search is not available on every model in
-// every Model Studio region: outside Singapore and Beijing only the 3.8 series
-// can search, so the 3.6 entries below are listed but stay hidden unless they
-// are priced.
+// for. This list is the models authorized in the Frankfurt (eu-central-1)
+// Pitchkraft workspace; each was verified 2026-09-28 to chat and to web-search
+// through /responses. A model outside this workspace's authorization returns
+// 403 "Model access denied", so adding one here means authorizing it in Model
+// Studio first. The 3.6 series cannot web-search in Frankfurt and is left out.
 export const QWEN_MODELS = [
   {
     id: "qwen3.8-max",
@@ -114,24 +132,34 @@ export const QWEN_MODELS = [
     description: "Qwen fast model with reasoning enabled",
   },
   {
-    id: "qwen3.6-plus",
-    name: "Qwen 3.6 Plus",
-    description: "Qwen flagship with server-side web search",
+    id: "qwen3.7-max",
+    name: "Qwen 3.7 Max",
+    description: "Qwen previous-generation flagship with server-side web search",
   },
   {
-    id: "qwen3.6-plus-thinking",
-    name: "Qwen 3.6 Plus Thinking",
-    description: "Qwen flagship with reasoning enabled",
+    id: "qwen3.7-max-thinking",
+    name: "Qwen 3.7 Max Thinking",
+    description: "Qwen previous-generation flagship with reasoning enabled",
   },
   {
-    id: "qwen3.6-flash",
-    name: "Qwen 3.6 Flash",
-    description: "Qwen fast, low-cost model with server-side web search",
+    id: "qwen3.7-plus",
+    name: "Qwen 3.7 Plus",
+    description: "Qwen balanced model with server-side web search",
   },
   {
-    id: "qwen3.6-flash-thinking",
-    name: "Qwen 3.6 Flash Thinking",
-    description: "Qwen fast model with reasoning enabled",
+    id: "qwen3.7-plus-thinking",
+    name: "Qwen 3.7 Plus Thinking",
+    description: "Qwen balanced model with reasoning enabled",
+  },
+  {
+    id: "qwen3.7-flash",
+    name: "Qwen 3.7 Flash",
+    description: "Qwen previous-generation fast model with server-side web search",
+  },
+  {
+    id: "qwen3.7-flash-thinking",
+    name: "Qwen 3.7 Flash Thinking",
+    description: "Qwen previous-generation fast model with reasoning enabled",
   },
 ];
 

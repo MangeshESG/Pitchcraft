@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import API_BASE_URL from "../../config";
@@ -61,9 +61,16 @@ import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
   VALIDATION_FILTER_FIELDS,
-  VALIDATION_FORMATTERS,
+  createValidationFormatters,
   verifiedScore,
 } from "./validation/validationColumns";
+import {
+  SUGGESTION_ROW_KEYS,
+  VALIDATION_SCORE_KEYS,
+  type AppliedSuggestion,
+  type ValidationCheckType,
+  type ValidationSuggestion,
+} from "../../api/contactValidation";
 
 /**
  * Columns shown to a client who has never arranged their own layout, and what
@@ -1254,6 +1261,121 @@ const formatTimeIST = formatUserTime;
   // Add detail view states
   const [allDetailContacts, setAllDetailContacts] = useState<Contact[]>([]);
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
+
+  /**
+   * Writes the outcome of an accepted or dismissed Data Integrity suggestion
+   * into the rows already on screen.
+   *
+   * Deliberately not a refetch. The server has stored the change and sent back
+   * exactly what it stored, so there is nothing to go and ask for — and
+   * reloading a five-hundred-contact list because one job title was corrected
+   * would throw away the scroll position and the selection the user built up
+   * getting there. Accepting a correction on row 40 should leave row 40 where
+   * it is, with the new value in it.
+   *
+   * Both arrays are patched because either grid can be the one on screen, and
+   * a contact can sit in both.
+   */
+  const applySuggestionOutcome = useCallback(
+    (
+      contactId: number,
+      checkType: ValidationCheckType,
+      suggestions: ValidationSuggestion[],
+      applied?: AppliedSuggestion | null
+    ) => {
+      const suggestionsJson = JSON.stringify(suggestions);
+      // Which of the four blobs on the row this list belongs to.
+      const rowKey = SUGGESTION_ROW_KEYS[checkType];
+
+      const patchRow = (row: any) => {
+        if (!row || Number(row.id) !== contactId) return row;
+
+        const next: any = {
+          ...row,
+          validation: {
+            ...(row.validation ?? {}),
+            [rowKey]: suggestionsJson,
+          },
+        };
+
+        // Absent on a dismissal: nothing was written to the contact.
+        if (applied) {
+          next[applied.field] = applied.value;
+
+          // A name correction rebuilds first and last as well, and those are
+          // the columns the grid actually shows.
+          if (applied.field === "full_name") {
+            next.full_name = applied.fullName ?? applied.value;
+            next.first_name = applied.firstName ?? next.first_name;
+            next.last_name = applied.lastName ?? next.last_name;
+          }
+        }
+
+        return next;
+      };
+
+      setContacts((prev) => prev.map(patchRow));
+      setDetailContacts((prev) => prev.map(patchRow));
+    },
+    []
+  );
+
+  /**
+   * Raises one check's score to 100 on the rows on screen.
+   *
+   * Only that score moves. The other three checks keep their own numbers,
+   * because a user overruling one verdict has not thereby confirmed the other
+   * three — the whole-contact "Mark as verified" is the action that speaks for
+   * all of them.
+   */
+  const applyScoreVerified = useCallback(
+    (contactId: number, checkType: ValidationCheckType) => {
+      const scoreKey = VALIDATION_SCORE_KEYS[checkType];
+
+      const patchRow = (row: any) =>
+        !row || Number(row.id) !== contactId
+          ? row
+          : {
+              ...row,
+              validation: { ...(row.validation ?? {}), [scoreKey]: 100 },
+            };
+
+      setContacts((prev) => prev.map(patchRow));
+      setDetailContacts((prev) => prev.map(patchRow));
+    },
+    []
+  );
+  /** Drops a deleted contact from the rows on screen, without a refetch. */
+  const applyContactDeleted = useCallback((contactId: number) => {
+    const without = (rows: any[]) =>
+      rows.filter((row) => Number(row?.id) !== contactId);
+
+    setContacts((prev) => without(prev));
+    setDetailContacts((prev) => without(prev));
+
+    // The totals are what the pager reads, so they have to move with the rows
+    // or the footer claims twelve items above eleven of them. Floored at zero
+    // because a delete of the last row must not leave "-1 items".
+    setTotalContacts((prev) => Math.max(0, prev - 1));
+    setDetailTotalContacts((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  const validationFormatters = useMemo(
+    () =>
+      createValidationFormatters({
+        clientId: effectiveUserId,
+        onSuggestionResolved: applySuggestionOutcome,
+        onScoreVerified: applyScoreVerified,
+        onContactDeleted: applyContactDeleted,
+      }),
+    [
+      effectiveUserId,
+      applySuggestionOutcome,
+      applyScoreVerified,
+      applyContactDeleted,
+    ]
+  );
+
   const filteredDetailContacts = useMemo(() => detailContacts, [detailContacts]);
   const [detailTotalContacts, setDetailTotalContacts] = useState(0);
   const [detailCurrentPage, setDetailCurrentPage] = useState(1);
@@ -2288,7 +2410,7 @@ const filterFields: any = useMemo(() => {
                   persistedColumnLayout={listColumnPreferences.layout}
                   defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
-                    ...VALIDATION_FORMATTERS,
+                    ...validationFormatters,
                     first_name: (value: any, row: any) => {
                       const { firstName, fullName } = getContactNameParts(row as Contact);
                       return firstName || fullName || "-";
@@ -3367,7 +3489,7 @@ const filterFields: any = useMemo(() => {
                   persistedColumnLayout={segmentColumnPreferences.layout}
                   defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
-                    ...VALIDATION_FORMATTERS,
+                    ...validationFormatters,
                     first_name: (value: any, row: any) => {
                       const { firstName, fullName } = getContactNameParts(row as Contact);
                       return firstName || fullName || "-";

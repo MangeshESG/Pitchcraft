@@ -801,6 +801,7 @@ const MainPage: React.FC = () => {
           throw new Error(`Failed to load clients (HTTP ${response.status})`);
         }
 
+        // The API may return an error object; only an array is safe for the header dropdown.
         const data: unknown = await response.json();
         if (!Array.isArray(data)) {
           throw new Error("Client list response is not an array");
@@ -1198,6 +1199,7 @@ const handleClientChange = async (
           emailsentdate: entry.email_sent_at || "N/A",
           notes: entry.notes || "",
           linkedin_info: entry.linkedIninformation || "",
+          web_search_data: entry.web_search_data ?? entry.webSearchData ?? entry.WebSearchData ?? "",
 
         }));
 

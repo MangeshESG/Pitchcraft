@@ -1,10 +1,16 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  acceptSuggestion,
   ContactValidationResult,
+  dismissSuggestion,
   fetchValidationResults,
   markVerified,
+  type AppliedSuggestion,
+  type ValidationCheckType,
+  type ValidationSuggestion,
 } from "../../../api/contactValidation";
 import ValidationCell from "./ValidationCell";
+import SuggestionList from "./SuggestionList";
 import { verifiedScore } from "./validationColumns";
 import { formatUserDate } from "../../common/dateTimePreferences";
 
@@ -12,28 +18,37 @@ interface ContactVerificationTabProps {
   clientId: string | number;
   contactId: number;
   onShowMessage?: (message: string, type: "success" | "error") => void;
+  /**
+   * An accepted correction, so the profile around this tab can show the new
+   * value without refetching the contact.
+   */
+  onContactUpdated?: (applied: AppliedSuggestion) => void;
 }
 
 /** The four checks, in the order the spec introduces them. */
 const CHECKS = [
   {
     key: "contactFit",
+    checkType: "contact_fit",
     label: "Contact fit",
     blurb: "Does this company and job title belong in the target audience?",
   },
   {
     key: "dataIntegrity",
+    checkType: "data_integrity",
     label: "Data integrity",
     blurb: "Is the record itself complete, clean and consistent?",
   },
   {
     key: "liveContact",
+    checkType: "live_contact",
     label: "Live contact",
     blurb: "Is this person still at that company in that role?",
     linkedInHint: true,
   },
   {
     key: "emailValidity",
+    checkType: "email_verification",
     label: "Email validity",
     blurb: "Is the address real and deliverable?",
   },
@@ -51,6 +66,7 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
   clientId,
   contactId,
   onShowMessage,
+  onContactUpdated,
 }) => {
   const [result, setResult] = useState<ContactValidationResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,6 +107,32 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  /**
+   * Applies or dismisses one suggested correction.
+   *
+   * The result is folded into the state already held rather than reloaded: the
+   * server sends back the contact's whole suggestion list with this one
+   * resolved, which is the only part of this panel the call can have changed.
+   */
+  const resolveSuggestion = async (
+    checkType: ValidationCheckType,
+    suggestionsKey: string,
+    suggestion: { id: string },
+    action: "accept" | "dismiss"
+  ) => {
+    const response =
+      action === "accept"
+        ? await acceptSuggestion(clientId, contactId, checkType, suggestion.id)
+        : await dismissSuggestion(clientId, contactId, checkType, suggestion.id);
+
+    setResult((prev) =>
+      prev ? { ...prev, [suggestionsKey]: response.suggestions } : prev);
+
+    if (response.applied) onContactUpdated?.(response.applied);
+
+    onShowMessage?.(response.message, "success");
   };
 
   if (isLoading) {
@@ -182,6 +224,9 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
             ] as string | null;
             const score = verifiedScore(
               raw, result?.isVerified, result?.verifiedAt, checkedAt);
+            const suggestionsKey = `${check.key}Suggestions`;
+            const offered =
+              ((result as any)?.[suggestionsKey] as ValidationSuggestion[]) ?? [];
 
             return (
               <div
@@ -244,6 +289,18 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
                   >
                     {comments.trim()}
                   </p>
+                )}
+
+                {/* Every check can offer corrections now: the three model
+                    checks from their own prompts, email validity from whatever
+                    Prospeo or Hunter returned. */}
+                {!!offered.length && (
+                  <SuggestionList
+                    suggestions={offered}
+                    onResolve={(suggestion, action) =>
+                      resolveSuggestion(
+                        check.checkType, suggestionsKey, suggestion, action)}
+                  />
                 )}
               </div>
             );

@@ -7,6 +7,7 @@ import {
   ValidationCheckType,
   ValidationJob,
   creditsForContacts,
+  creditNoteFor,
   fetchBriefs,
   fetchCheckTypes,
   fetchJob,
@@ -60,7 +61,7 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const credits = creditsForContacts(contactIds.length);
+  const credits = creditsForContacts(contactIds.length, checkType);
   const selected = checkTypes.find((c) => c.key === checkType);
 
   // ---------- Load the pickers ----------
@@ -358,8 +359,7 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
           {credits} credit{credits === 1 ? "" : "s"}
         </strong>
         <div style={{ marginTop: 2, fontSize: 12, color: "#6b7280" }}>
-          One credit per ten contacts. Credits for contacts that come back with no
-          result are refunded when the run finishes.
+          {creditNoteFor(checkType)}
         </div>
       </div>
 
