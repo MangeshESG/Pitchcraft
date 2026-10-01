@@ -24,28 +24,44 @@ import { formatUserDate } from "../../common/dateTimePreferences";
  */
 
 /**
- * Labels for the score columns. The generated labels would read "Contact Fit
- * Confidence" and "Contact Fit Checked At"; these are what the checks are
- * called in the product.
+ * User-facing names for validation result columns. Internal field keys stay
+ * unchanged so saved layouts and API data keep working.
  */
 export const VALIDATION_COLUMN_LABELS: Record<string, string> = {
   checks: "Checks",
   lastChecked: "Last checked",
-  contactFitConfidence: "Contact fit",
-  contactFitComments: "Contact fit comments",
-  contactFitCheckedAt: "Contact fit last checked",
-  dataIntegrityConfidence: "Data integrity",
-  dataIntegrityComments: "Data integrity comments",
-  dataIntegrityCheckedAt: "Data integrity last checked",
-  liveContactConfidence: "Live contact",
-  liveContactComments: "Live contact comments",
-  liveContactCheckedAt: "Live contact last checked",
+  contactFitConfidence: "Target Audience Match",
+  contactFitComments: "Target Audience Match comments",
+  contactFitCheckedAt: "Target Audience Match last checked",
+  dataIntegrityConfidence: "Data Integrity Check",
+  dataIntegrityComments: "Data Integrity Check comments",
+  dataIntegrityCheckedAt: "Data Integrity Check last checked",
+  liveContactConfidence: "Employment Match",
+  liveContactComments: "Employment Match comments",
+  liveContactCheckedAt: "Employment Match last checked",
   emailValidityConfidence: "Email validity",
   emailValidityComments: "Email validity comments",
   emailCheckedAt: "Email last checked",
   isVerified: "Verified",
   verifiedAt: "Verified on",
 };
+
+export const VALIDATION_CHECK_LABELS: Record<ValidationCheckType, string> = {
+  contact_fit: "Target Audience Match",
+  data_integrity: "Data Integrity Check",
+  live_contact: "Employment Match",
+  email_verification: "Email verification",
+};
+
+const SCORE_COLUMN_BY_CHECK: Record<ValidationCheckType, string> = {
+  contact_fit: "contactFitConfidence",
+  data_integrity: "dataIntegrityConfidence",
+  live_contact: "liveContactConfidence",
+  email_verification: "emailValidityConfidence",
+};
+
+export const getValidationScoreColumn = (checkType: ValidationCheckType): string =>
+  SCORE_COLUMN_BY_CHECK[checkType];
 
 /**
  * Validation fields that travel on the row but never become columns.

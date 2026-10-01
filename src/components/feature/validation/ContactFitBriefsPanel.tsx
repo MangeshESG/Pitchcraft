@@ -115,7 +115,7 @@ const ContactFitBriefsPanel: React.FC<ContactFitBriefsPanelProps> = ({ selectedC
       <div className={`${cardClass} mb-6`}>
         <h2 className="text-[15px] font-semibold text-[#0b1220]">Targeting briefs</h2>
         <p className={hintClass}>
-          The Contact fit check scores each contact against one of these — which
+          The Target Audience Match check scores each contact against one of these — which
           companies belong in the audience, and which job titles. The more
           precisely a brief says what should <em>fail</em>, the more useful the
           scores are.
@@ -222,7 +222,7 @@ const ContactFitBriefsPanel: React.FC<ContactFitBriefsPanelProps> = ({ selectedC
             checked={draft.isDefault}
             onChange={(e) => setDraft({ ...draft, isDefault: e.target.checked })}
           />
-          Preselect this brief when running a Contact fit check
+          Preselect this brief when running a Target Audience Match check
         </label>
 
         <div className="mt-6 flex gap-3">

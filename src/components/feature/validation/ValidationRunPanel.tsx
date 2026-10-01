@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CommonSidePanel from "../../common/CommonSidePanel";
+import { VALIDATION_CHECK_LABELS } from "./validationColumns";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import {
   CheckTypeInfo,
@@ -263,28 +264,10 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
                   }}
                 >
                   <span style={{ fontSize: 13.5, fontWeight: 600, color: "#0b1220" }}>
-                    {type.label}
+                    {VALIDATION_CHECK_LABELS[type.key] || type.label}
                   </span>
 
-                  {/* Web search is what a run actually costs, so which checks
-                      use it is worth showing before one is chosen. */}
-                  {type.usesWebSearch && (
-                    <span
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: 600,
-                        padding: "2px 7px",
-                        borderRadius: 999,
-                        background: "#fff7ed",
-                        color: "#b45309",
-                        border: "1px solid #fed7aa",
-                        whiteSpace: "nowrap",
-                      }}
-                      title="This check researches the live web, which is the expensive part of a run."
-                    >
-                      Uses web search
-                    </span>
-                  )}
+
                 </div>
                 <div style={{ marginTop: 4, fontSize: 12.5, color: "#6b7280", lineHeight: 1.5 }}>
                   {type.description}
@@ -312,7 +295,7 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
                 lineHeight: 1.5,
               }}
             >
-              No briefs saved yet. Contact fit scores contacts against a brief, so
+              No briefs saved yet. Target Audience Match scores contacts against a brief, so
               write one under Settings &gt; General &gt; Verification first.
             </div>
           ) : (

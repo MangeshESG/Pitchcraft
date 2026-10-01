@@ -36,7 +36,7 @@ const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
         <h1 className={pageTitleClass}>General</h1>
         <p className={pageSubClass}>
           {settingsSubTab === "Verification"
-            ? "Targeting briefs for the Contact fit check, and what every validation run has cost."
+            ? "Targeting briefs for the Target Audience Match check, and what every validation run has cost."
             : "Manage tracking, date and time, and email signature settings for this client."}
         </p>
 

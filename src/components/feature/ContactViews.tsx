@@ -46,6 +46,7 @@ import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
   createValidationFormatters,
+  getValidationScoreColumn,
   verifiedScore,
   getValidationFieldValue,
 } from "./validation/validationColumns";
@@ -659,6 +660,10 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     onError: (message) => showContactMessage(message, "error"),
   });
 
+  const [validationColumnToReveal, setValidationColumnToReveal] = useState<{
+    key: string; requestId: number; scopeId: number;
+  } | null>(null);
+
   useEffect(() => {
     selectedViewIdRef.current = selectedView?.id ?? null;
   }, [selectedView?.id]);
@@ -944,9 +949,9 @@ const handleDeleteContacts = () => {
       { key: "updated_at", header: "Updated date" },
       { key: "email_sent_at", header: "Email Sent Date" },
       ...[
-        { key: "contactFitConfidence", header: "Contact Fit", dateKey: "contactFitCheckedAt" },
-        { key: "dataIntegrityConfidence", header: "Data Integrity", dateKey: "dataIntegrityCheckedAt" },
-        { key: "liveContactConfidence", header: "Live Contact", dateKey: "liveContactCheckedAt" },
+        { key: "contactFitConfidence", header: "Target Audience Match", dateKey: "contactFitCheckedAt" },
+        { key: "dataIntegrityConfidence", header: "Data Integrity Check", dateKey: "dataIntegrityCheckedAt" },
+        { key: "liveContactConfidence", header: "Employment Match", dateKey: "liveContactCheckedAt" },
         { key: "emailValidityConfidence", header: "Email Validity", dateKey: "emailCheckedAt" },
       ].map(({ key, header, dateKey }) => ({
         key,
@@ -1848,7 +1853,6 @@ const handleDeleteContacts = () => {
       // Immediately clear to show loading state
       setBaseViewContacts([]);
       setViewContacts([]);
-      setSelectedContacts(new Set());
       setIsLoadingViewContacts(true);
       
       // Small delay to ensure state is cleared before fetching
@@ -2371,6 +2375,8 @@ const handleDeleteContacts = () => {
           <div style={{ padding: "20px 32px 24px" }}>
             <DynamicContactsTable
               key={`view-${clientId}-${selectedView?.id}`}
+              revealColumn={validationColumnToReveal?.scopeId === selectedView?.id ? validationColumnToReveal : null}
+              onRevealHandled={() => setValidationColumnToReveal(null)}
               customAttributeClientId={clientId}
               data={viewContacts}
               isLoading={isLoadingViewContacts}
@@ -2383,14 +2389,13 @@ const handleDeleteContacts = () => {
               paginated={true}
               serverSidePagination={true}
               serverSort={contactSort}
-              onSortChange={(sort) => { setContactSort(sort); setViewCurrentPage(1); setSelectedContacts(new Set()); }}
+              onSortChange={(sort) => { setContactSort(sort); setViewCurrentPage(1); }}
               currentPage={viewCurrentPage}
               pageSize={viewPageSize}
               onPageChange={setViewCurrentPage}
               onPageSizeChange={(size) => {
                 setViewPageSize(size);
                 setViewCurrentPage(1);
-                setSelectedContacts(new Set());
               }}
               onOpenProfile={openContactProfile}
               leadingColumn={{
@@ -2579,7 +2584,17 @@ const handleDeleteContacts = () => {
         onClose={() => dispatch(closePanel())}
         clientId={String(clientId)}
         contactIds={validationContactIds}
-        onCompleted={() => {
+        onCompleted={(job) => {
+          if (job.status !== "failed" && job.processedCount > 0) {
+            if (selectedView) {
+              setValidationColumnToReveal({
+                key: getValidationScoreColumn(job.checkType),
+                requestId: job.id,
+                scopeId: selectedView.id,
+              });
+            }
+          }
+
           // Pull the new scores into the grid. The selection is deliberately
           // kept: a user who has just validated fifty contacts often wants to
           // run a second check over the same fifty.

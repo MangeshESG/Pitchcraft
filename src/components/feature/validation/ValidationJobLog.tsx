@@ -2,17 +2,13 @@ import * as userDates from "../../common/dateTimePreferences";
 import { ValidationJob, fetchJobs, parseApiDate } from "../../../api/contactValidation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { bannerClass, cardClass, hintClass } from "../../common/settingsStyles";
+import { VALIDATION_CHECK_LABELS } from "./validationColumns";
 
 interface ValidationJobLogProps {
   selectedClient: string;
 }
 
-const CHECK_LABELS: Record<string, string> = {
-  contact_fit: "Contact fit",
-  data_integrity: "Data integrity",
-  live_contact: "Live contact",
-  email_verification: "Email verification",
-};
+const CHECK_LABELS: Record<string, string> = VALIDATION_CHECK_LABELS;
 
 const STATUS_STYLES: Record<string, string> = {
   completed: "border-[#d5f0da] bg-[#f1f8f2] text-[#2d7a30]",
