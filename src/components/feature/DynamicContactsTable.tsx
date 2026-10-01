@@ -1,6 +1,7 @@
 import * as userDates from "../common/dateTimePreferences";
 import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import React from "react";
+import { createPortal } from "react-dom";
 import PaginationControls from "./PaginationControls";
 import CommonSidePanel from "../common/CommonSidePanel";
 import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
@@ -72,6 +73,8 @@ interface DynamicContactsTableProps {
   customHeader?: React.ReactNode;
   /** Fires with the full column list in display order — position is the sequence. */
   onColumnsChange?: (columns: ColumnConfig[]) => void;
+  revealColumn?: { key: string; requestId: number } | null;
+  onRevealHandled?: () => void;
   columnNameMap?: Record<string, string>;
 
   /**
@@ -221,6 +224,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   hideSearch = false,
   customHeader,
   onColumnsChange,
+  revealColumn,
+  onRevealHandled,
   columnNameMap,
   persistedColumnLayout = [],
   onResetColumns,
@@ -270,29 +275,33 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
   // ---------- Column generation ----------
   const generateColumnsFromData = useCallback((dataArray: any[]): ColumnConfig[] => {
-    if (!dataArray || dataArray.length === 0) return [];
-
-    const sampleItem = dataArray[0];
     const generated: ColumnConfig[] = [];
 
     if (showCheckboxes) {
       generated.push({ key: "checkbox", label: "", visible: true, width: "44px", type: "custom", searchable: false, sortable: false });
     }
 
+    // Schema, saved layout, and every loaded row contribute columns. A field
+    // stays available in the picker even when this page has no value for it.
     const allKeys = new Set<string>();
-    dataArray.slice(0, 10).forEach((item) => Object.keys(item).forEach((k) => allKeys.add(k)));
-
-    // Defaults must remain available even when their values are empty.
     defaultVisibleColumns?.forEach((key) => allKeys.add(key));
+    Object.keys(columnNameMap || {}).forEach((key) => allKeys.add(key));
+    (customAttributeDefinitions || loadedAttributes).forEach((field) => {
+      const key = field.field_name || field.fieldName || field.field_key || field.fieldKey;
+      if (key) allKeys.add(key);
+    });
+    dataArray.forEach((item) => Object.keys(item).forEach((key) => allKeys.add(key)));
+    persistedColumnLayout.forEach((item) => allKeys.add(item.columnKey));
+
     Array.from(allKeys).forEach((key) => {
-      if (excludeFields.includes(key)) return;
+      if (key === "checkbox" || excludeFields.includes(key)) return;
       if (includeFields.length > 0 && !includeFields.includes(key)) return;
 
-      const sample = sampleItem[key];
-      const type   = detectColumnType(key, sample);
+      const sample = dataArray.find((item) => item[key] !== null && item[key] !== undefined)?.[key];
+      const type = detectColumnType(key, sample);
       generated.push({
         key,
-        label: generateLabel(key),
+        label: columnNameMap?.[key] || generateLabel(key),
         visible: getDefaultVisibility(key, type),
         type,
         searchable: ["string", "email", "url"].includes(type || "string"),
@@ -301,20 +310,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       });
     });
 
-    const alwaysInclude = new Set(["first_name", "last_name", "full_name", ...(defaultVisibleColumns || [])]);
-    const available = generated.filter((col) => {
-      if (col.key === "checkbox") return true;
-      if (alwaysInclude.has(col.key)) return true;
-      return dataArray.some((item) => {
-        const v = item[col.key];
-        return v !== null && v !== undefined && v !== "" && v !== "—";
-      });
-    });
-    if (!defaultVisibleColumns?.length) return available;
+    if (!defaultVisibleColumns?.length) return generated;
     const order = new Map(defaultVisibleColumns.map((key, index) => [key, index]));
     const rank = (key: string) => key === "checkbox" ? -1 : order.get(key) ?? defaultVisibleColumns.length;
-    return available.sort((a, b) => rank(a.key) - rank(b.key));
-  }, [showCheckboxes, excludeFields, includeFields, customFormatters, defaultVisibleColumns]); // eslint-disable-line
+    return generated.sort((a, b) => rank(a.key) - rank(b.key));
+  }, [showCheckboxes, excludeFields, includeFields, customFormatters, defaultVisibleColumns, columnNameMap, persistedColumnLayout, customAttributeDefinitions, loadedAttributes]); // eslint-disable-line
 
   const detectColumnType = (key: string, value: any): ColumnConfig["type"] => {
     const k = key.toLowerCase();
@@ -448,19 +448,48 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   };
 
   useEffect(() => {
-    if (!isInitializedRef.current && data.length > 0) {
-      if (customColumns) {
-        setColumns(applyLayout(rememberNaturalOrder(customColumns), persistedColumnLayout));
-      } else if (autoGenerateColumns) {
-        setColumns(applyLayout(rememberNaturalOrder(generateColumnsFromData(processedData)), persistedColumnLayout));
-      }
-      isInitializedRef.current = true;
-    } else if (customColumns && isInitializedRef.current) {
-      setColumns(applyLayout(rememberNaturalOrder(customColumns), persistedColumnLayout));
-    }
-  }, [processedData.length, customColumns, autoGenerateColumns, persistedColumnLayout]); // eslint-disable-line
+    const available = customColumns || (autoGenerateColumns ? generateColumnsFromData(processedData) : []);
+    if (available.length === 0) return;
 
-  useEffect(() => { if (data.length === 0) isInitializedRef.current = false; }, [data.length]);
+    if (customColumns) {
+      isInitializedRef.current = true;
+      setColumns(applyLayout(rememberNaturalOrder(available), persistedColumnLayout));
+      return;
+    }
+
+    setColumns((current) => {
+      if (!isInitializedRef.current) {
+        isInitializedRef.current = true;
+        return applyLayout(rememberNaturalOrder(available), persistedColumnLayout);
+      }
+
+      const known = new Set(current.map((column) => column.key));
+      const additions = available.filter((column) => !known.has(column.key));
+      if (additions.length === 0) return current;
+
+      naturalOrderRef.current = [...naturalOrderRef.current, ...additions.map((column) => column.key)];
+      return applyLayout([...current, ...additions], persistedColumnLayout);
+    });
+  }, [processedData, customColumns, autoGenerateColumns, generateColumnsFromData, persistedColumnLayout]);
+
+  useEffect(() => {
+    if (!revealColumn) return;
+
+    const target = columns.find((column) => column.key === revealColumn.key);
+    if (!target) return;
+
+    if (!target.visible) {
+      // A newly revealed validation result belongs after the current columns.
+      const updated = [
+        ...columns.filter((column) => column.key !== revealColumn.key),
+        { ...target, visible: true },
+      ];
+      setColumns(updated);
+      onColumnsChange?.(updated);
+    }
+
+    onRevealHandled?.();
+  }, [revealColumn, columns, onColumnsChange, onRevealHandled]);
 
   useEffect(() => {
     setPageSize(pageSizeProp);
@@ -1015,8 +1044,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         )}
       </div>
 
-      {/* Floating bulk-action bar */}
-      {renderBulkBar()}
+      {/* Keep the fixed bar outside scrolling table containers. */}
+      {typeof document !== "undefined" && createPortal(renderBulkBar(), document.body)}
 
       {/* Column visibility side panel */}
       <CommonSidePanel

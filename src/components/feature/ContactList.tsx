@@ -62,6 +62,7 @@ import {
   VALIDATION_EXCLUDED_FIELDS,
   VALIDATION_FILTER_FIELDS,
   createValidationFormatters,
+  getValidationScoreColumn,
   verifiedScore,
 } from "./validation/validationColumns";
 import {
@@ -1252,6 +1253,9 @@ const formatTimeIST = formatUserTime;
     customFieldIdByName,
     onError: (message) => showContactMessage(message, "error"),
   });
+  const [validationColumnToReveal, setValidationColumnToReveal] = useState<{
+    key: string; requestId: number; scopeType: "list" | "segment"; scopeId: number;
+  } | null>(null);
   const segmentColumnPreferences = useColumnPreferences(effectiveUserId, {
     scope: selectedSegmentForView ? { scopeType: "segment", scopeId: selectedSegmentForView.id } : null,
     customFieldIdByName,
@@ -1838,9 +1842,9 @@ const formatTimeIST = formatUserTime;
       { key: "updated_at", header: "Updated date" },
       { key: "email_sent_at", header: "Email Sent Date" },
       ...[
-        { key: "contactFitConfidence", header: "Contact Fit", dateKey: "contactFitCheckedAt" },
-        { key: "dataIntegrityConfidence", header: "Data Integrity", dateKey: "dataIntegrityCheckedAt" },
-        { key: "liveContactConfidence", header: "Live Contact", dateKey: "liveContactCheckedAt" },
+        { key: "contactFitConfidence", header: "Target Audience Match", dateKey: "contactFitCheckedAt" },
+        { key: "dataIntegrityConfidence", header: "Data Integrity Check", dateKey: "dataIntegrityCheckedAt" },
+        { key: "liveContactConfidence", header: "Employment Match", dateKey: "liveContactCheckedAt" },
         { key: "emailValidityConfidence", header: "Email Validity", dateKey: "emailCheckedAt" },
       ].map(({ key, header, dateKey }) => ({
         key,
@@ -2358,6 +2362,8 @@ const filterFields: any = useMemo(() => {
                   <div style={{ padding: "20px 32px 24px" }}>
                 <DynamicContactsTable
                   key={`list-${effectiveUserId}-${selectedDataFileForView?.id}`}
+                  revealColumn={validationColumnToReveal?.scopeType === "list" && validationColumnToReveal.scopeId === selectedDataFileForView?.id ? validationColumnToReveal : null}
+                  onRevealHandled={() => setValidationColumnToReveal(null)}
                   customAttributeDefinitions={customFields}
                   data={filteredDetailContacts}
                   isLoading={isLoadingDetail}
@@ -3436,6 +3442,8 @@ const filterFields: any = useMemo(() => {
                 <div style={{ padding: "20px 32px 24px" }}>
                 <DynamicContactsTable
                   key={`segment-${effectiveUserId}-${selectedSegmentForView?.id}`}
+                  revealColumn={validationColumnToReveal?.scopeType === "segment" && validationColumnToReveal.scopeId === selectedSegmentForView?.id ? validationColumnToReveal : null}
+                  onRevealHandled={() => setValidationColumnToReveal(null)}
                   customAttributeDefinitions={customFields}
                   columnNameMap={columnNameMap}
                   data={detailContacts}
@@ -4235,6 +4243,7 @@ const filterFields: any = useMemo(() => {
         ) : (
         <ContactViews
           clientId={effectiveUserId}
+          isAdmin={userRole === "ADMIN"}
           filterFields={filterFields}
           isActive={activeSubTab === "View"}
           refreshToken={viewRefreshToken}
@@ -4502,10 +4511,20 @@ const filterFields: any = useMemo(() => {
       />
       <ValidationRunPanel
         isOpen={showValidateContactsPanel}
+        isAdmin={userRole === "ADMIN"}
         onClose={() => dispatch(closePanel())}
         clientId={effectiveUserId ?? ""}
         contactIds={activeSelectedContactIds}
-        onCompleted={() => {
+        onCompleted={(job) => {
+          if (job.status !== "failed" && job.processedCount > 0) {
+            const key = getValidationScoreColumn(job.checkType);
+            if (viewMode === "detail" && selectedDataFileForView) {
+              setValidationColumnToReveal({ key, requestId: job.id, scopeType: "list", scopeId: selectedDataFileForView.id });
+            } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+              setValidationColumnToReveal({ key, requestId: job.id, scopeType: "segment", scopeId: selectedSegmentForView.id });
+            }
+          }
+
           // Pull the new scores into whichever grid is on screen. The
           // selection is deliberately kept: a user who has just validated
           // fifty contacts often wants to run a second check over the same

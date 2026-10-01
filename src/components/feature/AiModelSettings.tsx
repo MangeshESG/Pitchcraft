@@ -44,7 +44,7 @@ const PURPOSE_GROUPS: { title: string; blurb: string; keys: string[] }[] = [
   {
     title: "Audience Assurance",
     blurb:
-      "The validation checks. Contact fit and Live contact use web search, which is what a run actually costs; Data integrity never searches, so the cheapest capable model belongs there.",
+      "The validation checks. Target Audience Match and Employment Match use web search, which is what a run actually costs; Data Integrity Check never searches, so the cheapest capable model belongs there.",
     keys: ["contact_fit", "data_integrity", "live_contact"],
   },
 ];

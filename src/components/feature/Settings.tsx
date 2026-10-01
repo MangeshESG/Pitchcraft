@@ -15,6 +15,7 @@ import {
 
 interface SettingsProps {
   selectedClient: string;
+  isAdmin: boolean;
 }
 
 type SettingsTab = "Tracking" | "DateTime" | "EmailSignature" | "Verification";
@@ -26,7 +27,7 @@ const TABS: { key: SettingsTab; label: string }[] = [
   { key: "Verification", label: "Verification" },
 ];
 
-const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
+const Settings: React.FC<SettingsProps> = ({ selectedClient, isAdmin }) => {
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsTab>("Tracking");
 
   return (
@@ -36,7 +37,9 @@ const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
         <h1 className={pageTitleClass}>General</h1>
         <p className={pageSubClass}>
           {settingsSubTab === "Verification"
-            ? "Targeting briefs for the Contact fit check, and what every validation run has cost."
+            ? isAdmin
+              ? "Targeting briefs for the Target Audience Match check, and what every validation run has cost."
+              : "Targeting briefs for the Target Audience Match check and validation run history."
             : "Manage tracking, date and time, and email signature settings for this client."}
         </p>
 
@@ -67,7 +70,7 @@ const Settings: React.FC<SettingsProps> = ({ selectedClient }) => {
           <>
             <ContactFitBriefsPanel selectedClient={selectedClient} />
             <div className="mt-8">
-              <ValidationJobLog selectedClient={selectedClient} />
+              <ValidationJobLog selectedClient={selectedClient} isAdmin={isAdmin} />
             </div>
           </>
         )}

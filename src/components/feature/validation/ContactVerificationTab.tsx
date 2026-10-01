@@ -30,19 +30,19 @@ const CHECKS = [
   {
     key: "contactFit",
     checkType: "contact_fit",
-    label: "Contact fit",
+    label: "Target Audience Match",
     blurb: "Does this company and job title belong in the target audience?",
   },
   {
     key: "dataIntegrity",
     checkType: "data_integrity",
-    label: "Data integrity",
+    label: "Data Integrity Check",
     blurb: "Is the record itself complete, clean and consistent?",
   },
   {
     key: "liveContact",
     checkType: "live_contact",
-    label: "Live contact",
+    label: "Employment Match",
     blurb: "Is this person still at that company in that role?",
     linkedInHint: true,
   },

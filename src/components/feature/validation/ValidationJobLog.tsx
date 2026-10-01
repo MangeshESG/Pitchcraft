@@ -2,17 +2,14 @@ import * as userDates from "../../common/dateTimePreferences";
 import { ValidationJob, fetchJobs, parseApiDate } from "../../../api/contactValidation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { bannerClass, cardClass, hintClass } from "../../common/settingsStyles";
+import { VALIDATION_CHECK_LABELS } from "./validationColumns";
 
 interface ValidationJobLogProps {
   selectedClient: string;
+  isAdmin: boolean;
 }
 
-const CHECK_LABELS: Record<string, string> = {
-  contact_fit: "Contact fit",
-  data_integrity: "Data integrity",
-  live_contact: "Live contact",
-  email_verification: "Email verification",
-};
+const CHECK_LABELS: Record<string, string> = VALIDATION_CHECK_LABELS;
 
 const STATUS_STYLES: Record<string, string> = {
   completed: "border-[#d5f0da] bg-[#f1f8f2] text-[#2d7a30]",
@@ -34,7 +31,7 @@ const formatDate = (value: string) =>
  * runs, which is what makes this log the basis for credit pricing rather than
  * a diagnostic curiosity.
  */
-const ValidationJobLog: React.FC<ValidationJobLogProps> = ({ selectedClient }) => {
+const ValidationJobLog: React.FC<ValidationJobLogProps> = ({ selectedClient, isAdmin }) => {
   const [jobs, setJobs] = useState<ValidationJob[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,17 +83,19 @@ const ValidationJobLog: React.FC<ValidationJobLogProps> = ({ selectedClient }) =
 
       {summary && (
         <div className={`${cardClass} mb-6`}>
-          <h2 className="text-[15px] font-semibold text-[#0b1220]">Cost per 100 contacts</h2>
+          <h2 className="text-[15px] font-semibold text-[#0b1220]">{isAdmin ? "Cost per 100 contacts" : "Validation activity per 100 contacts"}</h2>
           <p className={hintClass}>
             Averaged over {summary.contacts.toLocaleString()} validated contacts.
-            Web searches drive the cost, so that is the number to watch.
+            {isAdmin && " Web searches drive the cost, so that is the number to watch."}
           </p>
 
-          <div className="mt-4 grid grid-cols-3 gap-4">
+          <div className={isAdmin ? "mt-4 grid grid-cols-3 gap-4" : "mt-4 grid grid-cols-1 gap-4"}>
             {[
               { label: "Web searches", value: summary.searchesPer100.toFixed(1) },
-              { label: "Tokens", value: summary.tokensPer100.toLocaleString() },
+              ...(isAdmin ? [
+                { label: "Tokens", value: summary.tokensPer100.toLocaleString() },
               { label: "Cost", value: `$${summary.costPer100.toFixed(3)}` },
+              ] : []),
             ].map((stat) => (
               <div key={stat.label} className="rounded-lg border border-[#eef0f3] bg-[#fafbfc] p-4">
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6b7280]">
@@ -130,15 +129,15 @@ const ValidationJobLog: React.FC<ValidationJobLogProps> = ({ selectedClient }) =
                 <th className="py-2 pr-3 font-semibold">Status</th>
                 <th className="py-2 pr-3 text-right font-semibold">Contacts</th>
                 <th className="py-2 pr-3 text-right font-semibold">Searches</th>
-                <th className="py-2 pr-3 text-right font-semibold">Tokens</th>
-                <th className="py-2 pr-3 text-right font-semibold">Cost</th>
+                {isAdmin && <th className="py-2 pr-3 text-right font-semibold">Tokens</th>}
+                {isAdmin && <th className="py-2 pr-3 text-right font-semibold">Cost</th>}
                 <th className="py-2 text-right font-semibold">Credits</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f4f5f7]">
               {jobs.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={8} className="py-6 text-center text-[#6b7280]">
+                  <td colSpan={isAdmin ? 8 : 6} className="py-6 text-center text-[#6b7280]">
                     No validation runs yet.
                   </td>
                 </tr>
@@ -173,12 +172,16 @@ const ValidationJobLog: React.FC<ValidationJobLogProps> = ({ selectedClient }) =
                     )}
                   </td>
                   <td className="py-2.5 pr-3 text-right text-[#0b1220]">{job.webSearchCalls}</td>
+                  {isAdmin && (
+                    <>
                   <td className="py-2.5 pr-3 text-right text-[#6b7280]">
                     {job.totalTokens.toLocaleString()}
                   </td>
                   <td className="py-2.5 pr-3 text-right text-[#0b1220]">
                     ${job.calculatedCost.toFixed(4)}
                   </td>
+                    </>
+                  )}
                   <td className="py-2.5 text-right text-[#0b1220]">{job.creditsCharged}</td>
                 </tr>
               ))}
