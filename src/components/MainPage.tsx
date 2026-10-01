@@ -32,6 +32,7 @@ import axios from "axios";
 import Header from "./common/Header";
 import API_BASE_URL from "../config";
 import { extractGenerationInsights } from "../utils/generationInsights";
+import { EmailHighlight, parseEmailHighlights } from "../utils/emailHighlights";
 import { DEFAULT_DATE_TIME_PREFERENCES, setDateTimePreferences, formatUserDateTime } from "./common/dateTimePreferences";
 import { useDispatch } from "react-redux";
 import { useModel } from "../ModelContext";
@@ -136,6 +137,8 @@ interface GeneratedEmailResult {
   notes: string;
   emails: string;
   professionalSummary: string;
+  /** Source highlights, kept out of the body so it stays send-ready. */
+  emailHighlights: EmailHighlight[];
   usage: { totalTokens: number; totalCost: number };
 }
 
@@ -1190,6 +1193,7 @@ const handleClientChange = async (
           website: entry.website || "N/A",
           linkedin: entry.linkedin_url || "N/A",
           pitch: entry.email_body || "No email body found",
+          email_highlights: entry.email_highlights ?? entry.emailHighlights ?? null,
           timestamp: entry.created_at || new Date().toISOString(),
           nextPageToken: null,
           prevPageToken: null,
@@ -1620,6 +1624,9 @@ const generateEmailViaBackend = async (params: {
     notes: insights.notes,
     emails: insights.emails,
     professionalSummary: insights.professionalSummary,
+    emailHighlights: parseEmailHighlights(
+      data.emailHighlights ?? data.EmailHighlights,
+    ),
     usage: normalizeGenerationUsage(data.usage ?? data.Usage),
   };
 };
@@ -2046,6 +2053,7 @@ const resolvePromptSafely = async () => {
               ? {
                   ...r,
                   pitch: displayPitch,
+                  email_highlights: generation.emailHighlights,
                   subject: subjectLine,
                   // Refresh the "Krafted" date to reflect this regeneration.
                   lastemailupdateddate: new Date().toISOString(),
@@ -2523,6 +2531,7 @@ const resolvePromptSafely = async () => {
             website: entry.website || "N/A",
             linkedin: entry.linkedin_url || "N/A",
             pitch: displayPitch,
+            email_highlights: generation.emailHighlights,
             subject: entry.email_subject || "N/A",
             lastemailupdateddate: entry.updated_at || "N/A",
             emailsentdate: entry.email_sent_at || "N/A",
@@ -2562,6 +2571,7 @@ const resolvePromptSafely = async () => {
             website: entry.website || "N/A",
             linkedin: entry.linkedin_url || "N/A",
             pitch: displayPitch,
+            email_highlights: generation.emailHighlights,
             subject: subjectLine,
             lastemailupdateddate: entry.updated_at || "N/A",
             emailsentdate: entry.email_sent_at || "N/A",
@@ -2577,6 +2587,7 @@ const resolvePromptSafely = async () => {
             website: entry.website || "N/A",
             linkedin: entry.linkedin_url || "N/A",
             pitch: displayPitch,
+            email_highlights: generation.emailHighlights,
             subject: subjectLine,
             timestamp: new Date().toISOString(),
             id: entry.id,

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef , useMemo, useCallback } from "react
 import Modal from "../common/Modal";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { copyToClipboard } from "../../utils/utils";
+import { parseEmailHighlights } from "../../utils/emailHighlights";
 import previousIcon from "../../assets/images/previous.png";
 import nextIcon from "../../assets/images/Next.png";
 import singleprvIcon from "../../assets/images/SinglePrv.png";
@@ -1140,6 +1141,18 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
       setEditableContent("");
     }
   }, [currentIndex, combinedResponses]);
+
+  // Source highlights for the contact on screen. The editor paints them over
+  // the body by matching their wording; the body itself stays clean, so what
+  // "Save changes" writes and what the prospect receives are the same thing.
+  const currentHighlights = useMemo(
+    () =>
+      parseEmailHighlights(
+        combinedResponses[currentIndex]?.email_highlights ??
+          combinedResponses[currentIndex]?.emailHighlights,
+      ),
+    [combinedResponses, currentIndex],
+  );
 
   useEffect(() => {
     console.log("combinedResponses updated:", combinedResponses);
@@ -3212,6 +3225,7 @@ const usageData = useMemo(() => {
                             <RichTextEditor
                               value={editableContent}
                               onChange={setEditableContent}
+                              highlights={currentHighlights}
                               height={500}
                               autoGrow
                               showActionButtons
@@ -3349,6 +3363,7 @@ const usageData = useMemo(() => {
                               <RichTextEditor
                                 value={editableContent}
                                 onChange={setEditableContent}
+                                highlights={currentHighlights}
                                 height={340}
                                 autoGrow
                               />

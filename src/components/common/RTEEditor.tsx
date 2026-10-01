@@ -1,7 +1,14 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import DOMPurify from "dompurify";
 import { repairAndParseJsonObject } from "../../utils/jsonRepair";
+import {
+  EmailHighlight,
+  HIGHLIGHT_ATTR,
+  applyHighlights,
+  stripHighlights,
+  stripHighlightsFromHtml,
+} from "../../utils/emailHighlights";
 
 // Empty-state copy — identical to the Insights tab in Output.tsx.
 const EMPTY_ONLINE_RESEARCH =
@@ -233,6 +240,14 @@ interface RichTextEditorProps {
   onExpandEditor?: () => void;
 
   // ── Action bar (rendered only when showActionButtons is true) ──
+  /**
+   * Source highlights to paint over the email, matched against its wording.
+   *
+   * They are a view of `value`, never part of it: what `onChange` reports and
+   * what gets saved stays the clean body the prospect receives.
+   */
+  highlights?: EmailHighlight[];
+
   /** Highlight toggle (on/off) — controlled by the parent. */
   highlightActive?: boolean;
   onToggleHighlight?: () => void;
@@ -473,6 +488,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   isAdmin,
   infoButtonsOnly = false,
   reserveRight = 0,
+  highlights,
 }) => {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
@@ -545,6 +561,17 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   };
 
+  // Identity-stable key for the highlight records, so re-painting is driven
+  // by their content and not by the parent handing over a fresh array on
+  // every render — that would wipe the caret mid-sentence.
+  const highlightKey = useMemo(
+    () => JSON.stringify(highlights ?? []),
+    [highlights],
+  );
+
+  const highlightsRef = useRef<EmailHighlight[] | undefined>(highlights);
+  highlightsRef.current = highlights;
+
   useEffect(() => {
     if (!editorRef.current) return;
     const incoming = value || "";
@@ -552,10 +579,32 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     // converting newlines to <br> — otherwise innerHTML collapses them to spaces.
     const looksLikeHtml = /<[a-z][\s\S]*>/i.test(incoming);
     const html = looksLikeHtml ? incoming : incoming.replace(/\r\n|\r|\n/g, "<br>");
-    if (editorRef.current.innerHTML !== html) {
-      editorRef.current.innerHTML = html;
+    // Compared without the highlights: they live in the DOM but not in
+    // `value`, so counting them as a difference would re-write the editor on
+    // every render and drop the caret while the user is typing.
+    if (stripHighlightsFromHtml(editorRef.current.innerHTML) === html) return;
+
+    editorRef.current.innerHTML = html;
+
+    if (highlightsRef.current?.length) {
+      applyHighlights(editorRef.current, highlightsRef.current);
     }
   }, [value]);
+
+  // Re-paint when the records themselves change — highlights that arrive
+  // after the body, or a regeneration that produced the same wording.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    if (!highlights?.length) {
+      stripHighlights(editor);
+      return;
+    }
+
+    applyHighlights(editor, highlights);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightKey]);
 
   // Close any open toolbar dropdown when clicking outside of it
   useEffect(() => {
@@ -620,7 +669,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const syncEditorValue = () => {
     if (!editorRef.current) return;
     normalizeEditorLinks();
-    onChange(editorRef.current.innerHTML);
+    // The painted highlights are stripped out of what we report, so the body
+    // that gets saved and sent is the clean one. They stay on screen — this
+    // reads a copy, it does not touch the live editor.
+    onChange(stripHighlightsFromHtml(editorRef.current.innerHTML));
   };
 
   const handleCommand = (command: string, value?: string) => {
@@ -899,6 +951,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           deliberately left alone. */}
       <style>{`[data-rte-hl="off"] [style*="cursor:help"],
         [data-rte-hl="off"] [style*="cursor: help"],
+        [data-rte-hl="off"] [${HIGHLIGHT_ATTR}],
         [data-rte-hl="off"] [title^="Sourced from"],
         [data-rte-hl="off"] [title^="Personalized"]{background-color:transparent !important;cursor:auto !important;}
         @keyframes rte-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
@@ -1359,7 +1412,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 const body = details.querySelector('.contact-reply-trail-body') as HTMLElement | null;
                 if (body) body.style.display = isOpen ? 'none' : 'block';
               }
-              onChange(e.currentTarget.innerHTML);
+              onChange(stripHighlightsFromHtml(e.currentTarget.innerHTML));
             }
           }}
           onKeyDown={(e) => {
