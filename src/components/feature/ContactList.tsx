@@ -4243,6 +4243,7 @@ const filterFields: any = useMemo(() => {
         ) : (
         <ContactViews
           clientId={effectiveUserId}
+          isAdmin={userRole === "ADMIN"}
           filterFields={filterFields}
           isActive={activeSubTab === "View"}
           refreshToken={viewRefreshToken}
@@ -4510,6 +4511,7 @@ const filterFields: any = useMemo(() => {
       />
       <ValidationRunPanel
         isOpen={showValidateContactsPanel}
+        isAdmin={userRole === "ADMIN"}
         onClose={() => dispatch(closePanel())}
         clientId={effectiveUserId ?? ""}
         contactIds={activeSelectedContactIds}

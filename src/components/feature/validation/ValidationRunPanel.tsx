@@ -17,6 +17,7 @@ import {
 
 interface ValidationRunPanelProps {
   isOpen: boolean;
+  isAdmin?: boolean;
   onClose: () => void;
   clientId: string | number;
   contactIds: number[];
@@ -46,6 +47,7 @@ const labelStyle: React.CSSProperties = {
  */
 const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
   isOpen,
+  isAdmin = false,
   onClose,
   clientId,
   contactIds,
@@ -418,6 +420,8 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
             <span>Web searches</span>
             <span style={{ textAlign: "right", color: "#0b1220" }}>{job.webSearchCalls}</span>
 
+            {isAdmin && (
+              <>
             <span>Tokens</span>
             <span style={{ textAlign: "right", color: "#0b1220" }}>
               {job.totalTokens.toLocaleString()}
@@ -428,6 +432,8 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
               ${job.calculatedCost.toFixed(4)}
             </span>
 
+              </>
+            )}
             <span>Credits charged</span>
             <span style={{ textAlign: "right", color: "#0b1220" }}>{job.creditsCharged}</span>
           </div>

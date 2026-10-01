@@ -88,6 +88,7 @@ interface ViewItem extends ViewSummary, ViewMeta {}
 
 interface ContactViewsProps {
   clientId: string | number;
+  isAdmin?: boolean;
   filterFields: ContactFieldOption[];
   columnNameMap?: Record<string, string>;
   customFieldIdByName?: Record<string, number>;
@@ -460,6 +461,7 @@ const getTrackingCampaignIds = (groups: FilterGroup[]) =>
 
 const ContactViews: React.FC<ContactViewsProps> = ({
   clientId,
+  isAdmin = false,
   filterFields,
   columnNameMap,
   customFieldIdByName,
@@ -2581,6 +2583,7 @@ const handleDeleteContacts = () => {
 
       <ValidationRunPanel
         isOpen={showValidateViewContactsPanel}
+        isAdmin={isAdmin}
         onClose={() => dispatch(closePanel())}
         clientId={String(clientId)}
         contactIds={validationContactIds}

@@ -4221,7 +4221,7 @@ try {
                 {settingsSubTab === "Admin" && userRole === "ADMIN" ? (
                   <AdminSettings selectedClient={(effectiveUserId ?? "").toString()} />
                 ) : (
-                  <Settings selectedClient={(effectiveUserId ?? "").toString()} />
+                  <Settings selectedClient={(effectiveUserId ?? "").toString()} isAdmin={userRole === "ADMIN"} />
                 )}
               </div>
             )}
