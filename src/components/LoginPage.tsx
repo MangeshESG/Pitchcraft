@@ -18,6 +18,7 @@ import API_BASE_URL from "../config";
 import "./LoginPage.css";
 import { RootState } from "../Redux/store";
 import pitchLogo from "../assets/images/pitch_logo.png";
+import LoginCaptcha from "./LoginCaptcha";
 
 type ViewMode = "login" | "register" | "forgot" | "otp";
 
@@ -98,6 +99,8 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
 
   useEffect(() => {
     console.log("User ID from Redux:", reduxUserId);
@@ -150,6 +153,10 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!captchaToken) {
+      setError("Please complete the I’m not a robot check.");
+      return;
+    }
     setError("");
     setIsLoading(true);
 
@@ -158,7 +165,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
       console.log("All cookies:", document.cookie);
       console.log("Trusted device cookie:", trustedDeviceNumber);
 
-      const body: any = { username, password };
+      const body: any = { username, password, captchaToken };
 
       if (
         trustedDeviceNumber &&
@@ -263,6 +270,8 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
       setError("Server error. Please try again later.");
     } finally {
       setIsLoading(false);
+      setCaptchaToken(null);
+      setCaptchaResetKey((current) => current + 1);
     }
   };
 
@@ -335,7 +344,8 @@ useEffect(() => {
           </a>
         </div>
 
-        <button type="submit" className="login-button" disabled={isLoading}>
+        <LoginCaptcha onChange={setCaptchaToken} resetKey={captchaResetKey} />
+        <button type="submit" className="login-button" disabled={isLoading || !captchaToken}>
           {isLoading ? (
             <>
               <div className="spinner"></div>
@@ -654,6 +664,8 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
   const [trustThisDevice, setTrustThisDevice] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [resendCaptchaToken, setResendCaptchaToken] = useState<string | null>(null);
+  const [resendCaptchaResetKey, setResendCaptchaResetKey] = useState(0);
   const [resendCooldown, setResendCooldown] = useState(30);
   const { isExpired, startTimer, formatTime } = useOtpTimer();
 
@@ -918,6 +930,10 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
 
   const handleResendOtp = async () => {
     if (isResending || resendCooldown > 0) return;
+    if (loginUser && !resendCaptchaToken) {
+      setError("Please complete the I’m not a robot check to resend the code.");
+      return;
+    }
     setIsResending(true);
     setError("");
     setMsg("");
@@ -926,7 +942,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
       // Login OTP resend
       if (loginUser && loginPassword) {
         const trustedDeviceNumber = getCookie("trustedDeviceNumber");
-        const body: any = { username: loginUser, password: loginPassword };
+        const body: any = { username: loginUser, password: loginPassword, captchaToken: resendCaptchaToken };
 
         if (
           trustedDeviceNumber &&
@@ -1008,6 +1024,10 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
       console.error("Resend OTP error:", err);
       setError("Error resending OTP. Please try again.");
     } finally {
+      if (loginUser) {
+        setResendCaptchaToken(null);
+        setResendCaptchaResetKey((current) => current + 1);
+      }
       setIsResending(false);
     }
   };
@@ -1086,12 +1106,13 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           )}
         </button>
 
+        {loginUser && <LoginCaptcha onChange={setResendCaptchaToken} resetKey={resendCaptchaResetKey} />}
         <div style={{ marginTop: 12, textAlign: "center", fontSize: 14 }}>
           <span style={{ color: "#666" }}>Didn't receive the code? </span>
           <button
             type="button"
             onClick={handleResendOtp}
-            disabled={isResending || resendCooldown > 0}
+            disabled={isResending || resendCooldown > 0 || Boolean(loginUser && !resendCaptchaToken)}
             style={{
               padding: 0,
               border: "none",

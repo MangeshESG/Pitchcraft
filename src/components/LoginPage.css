@@ -396,3 +396,9 @@
   color: #3f9f42;
   font-weight: 600;
 }
+.login-captcha {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+  min-height: 78px;
+}
