@@ -236,6 +236,7 @@ const scoreCell =
           showLinkedInHint={
             !!check.linkedInHint && typeof score === "number" && score < 100
           }
+          linkedInUrl={rowLinkedInUrl(row)}
         />
 
         {actions && (
@@ -337,12 +338,21 @@ const checksCell = (actions?: CheckActionHandlers) => (value: any, row: any) => 
             showLinkedInHint={
               !!check.linkedInHint && typeof score === "number" && score < 100
             }
+            linkedInUrl={rowLinkedInUrl(row)}
           />
         );
       })}
     </div>
   );
 };
+
+/**
+ * The row's LinkedIn profile, whichever casing the grid handed over — the
+ * list endpoints send the column as it was stored, the results endpoint sends
+ * it camel-cased through MVC.
+ */
+const rowLinkedInUrl = (row: any): string | null =>
+  row?.linkedin_url ?? row?.linkedInUrl ?? row?.linkedinUrl ?? row?.LinkedInURL ?? null;
 
 const hasPending = (suggestions?: ValidationSuggestion[]) =>
   !!suggestions?.some((suggestion) => suggestion.status === "pending");
