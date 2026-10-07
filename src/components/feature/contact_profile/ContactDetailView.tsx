@@ -2147,7 +2147,15 @@ const handleDeleteContact = async () => {
       return true;
     } catch (error: any) {
       console.error("Failed to send compose email:", error);
-      showContactMailError(error.response?.data?.message || error.message || "Failed to send email.");
+      const message = error.response?.data?.message || error.message || "Failed to send email.";
+      if (typeof message === "string" && (
+        message.includes("Outlook SMTP AUTH is disabled") ||
+        message.includes("This personal Outlook.com account cannot send through SMTP yet")
+      )) {
+        appModal.showError(message);
+      } else {
+        showContactMailError(message);
+      }
       return false;
     } finally {
       setIsSendingComposeEmail(false);

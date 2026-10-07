@@ -47,6 +47,7 @@ interface KpiTileData {
   deltaPos?: boolean;
   series: number[];
   color?: string;
+  valueColor?: string;
   onClick?: () => void;
 }
 
@@ -431,7 +432,7 @@ const Sparkline: React.FC<{
   );
 };
 
-const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, onClick }) => {
+const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, valueColor, onClick }) => {
   const clickable = typeof onClick === "function";
   return (
     <div
@@ -459,7 +460,7 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, onClick }
         {label}
       </div>
       <div className="mt-1.5 flex items-end justify-between gap-3 max-sm:gap-2 max-sm:overflow-hidden">
-        <div className="text-[30px] font-bold text-gray-900 leading-none tabular-nums tracking-tight max-sm:shrink-0 max-sm:text-2xl">
+        <div className={`text-[30px] font-bold leading-none tabular-nums tracking-tight max-sm:shrink-0 max-sm:text-2xl ${valueColor ?? "text-gray-900"}`}>
           {value}
         </div>
         {series.length > 0 && <Sparkline data={series} color={color} />}
@@ -720,8 +721,8 @@ const PostOnboardingView: React.FC<{
       </div>
 
       {/* KPI skeleton tiles */}
-      <div className="grid grid-cols-[repeat(5,minmax(180px,1fr))_minmax(90px,0.5fr)] gap-4 overflow-x-auto pb-2">
-        {["Total contacts", "Emails krafted", "Emails sent", "Send rate", "Kraft rate", "Unread emails"].map((label) => (
+      <div className="grid grid-cols-[minmax(90px,0.5fr)_repeat(5,minmax(180px,1fr))] gap-4 overflow-x-auto pb-2">
+        {["Unread emails", "Total contacts", "Emails krafted", "Emails sent", "Send rate", "Kraft rate"].map((label) => (
           <div key={label} className="rounded-2xl border border-gray-200 bg-white p-5">
             <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">
               {label}
@@ -766,6 +767,14 @@ const PostOnboardingView: React.FC<{
 
   const tiles: KpiTileData[] = [
     {
+      label: "Unread emails",
+      value: unreadEmailCount.toLocaleString(),
+      valueColor: unreadEmailCount > 0 ? "text-red-600" : undefined,
+      delta: "",
+      series: [],
+      onClick: () => navigate("/main?tab=Mail&mailSubTab=Inbox"),
+    },
+    {
       label: "Total contacts",
       value: kpis.totalContacts ?? (totalContactsCount > 0 ? totalContactsCount.toLocaleString() : "—"),
       delta: "",
@@ -801,13 +810,6 @@ const PostOnboardingView: React.FC<{
       delta: "",
       series: [10, 18, 24, 30, 38, 42, kraftRate],
       color: "#3b82f6",
-    },
-    {
-      label: "Unread emails",
-      value: unreadEmailCount.toLocaleString(),
-      delta: "",
-      series: [],
-      onClick: () => navigate("/main?tab=Mail&mailSubTab=Inbox"),
     },
   ];
 
@@ -857,7 +859,7 @@ const PostOnboardingView: React.FC<{
       </div>
 
       {/* KPI tiles */}
-      <div className="grid grid-cols-[repeat(5,minmax(180px,1fr))_minmax(90px,0.5fr)] gap-4 overflow-x-auto pb-2">
+      <div className="grid grid-cols-[minmax(90px,0.5fr)_repeat(5,minmax(180px,1fr))] gap-4 overflow-x-auto pb-2">
         {tiles.map((t) => (
           <KpiTile key={t.label} {...t} />
         ))}
