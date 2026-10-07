@@ -2379,6 +2379,7 @@ const handleDeleteContacts = () => {
               key={`view-${clientId}-${selectedView?.id}`}
               revealColumn={validationColumnToReveal?.scopeId === selectedView?.id ? validationColumnToReveal : null}
               onRevealHandled={() => setValidationColumnToReveal(null)}
+              showDetailToggle
               customAttributeClientId={clientId}
               data={viewContacts}
               isLoading={isLoadingViewContacts}

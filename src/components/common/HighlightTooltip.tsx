@@ -21,8 +21,10 @@ const TIP_WIDTH = 360;
  * for, the words themselves and the page behind them.
  */
 interface TipGroup {
-  /** The source and its role, read as one line: "Web Searched Data: Factual basis". */
-  headline: string;
+  /** The citation itself, with the owner stripped off: "Note 1", "Message #4". */
+  label: string;
+  /** What the source was used for — the one run set in bold on the line. */
+  role: string;
   /** When the note was written or the message sent, as the prompt gave it. */
   date?: string;
   /** The wording the source supplied, shown without the "Excerpt" label. */
@@ -42,7 +44,21 @@ const KEYED = /^(source|role|date|excerpt|url|link)\s*:\s*([\s\S]*)$/i;
 /** Only the first line is read loosely, to split "Heading: sentence" apart. */
 const TITLE_KEYED = /^([A-Za-z][A-Za-z /&'-]{0,40}):\s*([\s\S]*)$/;
 
-const emptyGroup = (): TipGroup => ({ headline: "", urls: [], lines: [] });
+const emptyGroup = (): TipGroup => ({ label: "", role: "", urls: [], lines: [] });
+
+/**
+ * Drops the owner from a citation's source: "Notes — Note 1" becomes
+ * "Note 1". The card is already headed with the owner and coloured by it, so
+ * repeating it on every citation only pushed the part that says *which* note
+ * or message this was towards the end of the line.
+ */
+const stripOwner = (source: string, title: string): string => {
+  const parts = source.split(/\s+[—–-]\s+/);
+  if (parts.length > 1) return parts.slice(1).join(" — ").trim();
+
+  const bare = source.trim();
+  return bare.toLowerCase() === title.trim().toLowerCase() ? "" : bare;
+};
 
 /**
  * Splits a label into its heading and its citations.
@@ -96,8 +112,8 @@ const parseTip = (raw: string): TipContent => {
 
     if (key === "source") {
       // A new citation starts here; its role, if any, follows on the next line.
-      source = value;
-      open().headline = value;
+      source = stripOwner(value, title);
+      open().label = source;
       lastKey = key;
       return;
     }
@@ -105,7 +121,8 @@ const parseTip = (raw: string): TipContent => {
     const group = current ?? open();
 
     if (key === "role") {
-      group.headline = source && value ? `${source}: ${value}` : value || source;
+      group.role = value;
+      if (!group.label) group.label = source;
       lastKey = key;
       return;
     }
@@ -134,7 +151,8 @@ const parseTip = (raw: string): TipContent => {
   });
 
   return { title, groups: groups.filter((group) =>
-    group.headline || group.date || group.excerpt || group.urls.length || group.lines.length) };
+    group.label || group.role || group.date || group.excerpt ||
+    group.urls.length || group.lines.length) };
 };
 
 interface TipState {
@@ -388,30 +406,34 @@ const HighlightTooltip: React.FC<HighlightTooltipProps> = ({ rootRef, enabled = 
               : undefined
           }
         >
-          {group.headline && (
-            <div style={{ fontWeight: 600, color: "#374151", wordBreak: "break-word" }}>
-              {group.headline}
-            </div>
-          )}
-
-          {group.date && (
-            // Under the source, not beside it: it says how old the evidence is,
-            // which is a caveat on the citation rather than part of its name.
-            <div style={{ marginTop: group.headline ? 2 : 0, fontSize: 12, color: "#6b7280" }}>
-              {group.date}
-            </div>
-          )}
-
-          {group.excerpt && (
+          {/* The citation and the wording it supplied read as one sentence,
+              with the role in bold: it is the part that says why the words are
+              there, and the only thing worth finding at a glance. */}
+          {(group.label || group.role || group.excerpt) && (
             <p
               style={{
-                margin: group.headline || group.date ? "4px 0 0" : 0,
+                margin: 0,
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-word",
               }}
             >
-              {linkifyText(group.excerpt)}
+              {group.label && <span style={{ color: "#374151" }}>{group.label}: </span>}
+              {group.role && <strong style={{ fontWeight: 600 }}>{group.role}</strong>}
+              {group.excerpt && (
+                <>
+                  {(group.label || group.role) && " : "}
+                  {linkifyText(group.excerpt)}
+                </>
+              )}
             </p>
+          )}
+
+          {group.date && (
+            // Under the sentence, not inside it: it says how old the evidence
+            // is, which is a caveat on the citation rather than part of it.
+            <div style={{ marginTop: 2, fontSize: 12, color: "#6b7280" }}>
+              {group.date}
+            </div>
           )}
 
           {group.lines.map((line, lineIndex) => (
@@ -419,7 +441,7 @@ const HighlightTooltip: React.FC<HighlightTooltipProps> = ({ rootRef, enabled = 
               key={`line-${lineIndex}`}
               style={{
                 margin:
-                  group.headline || group.date || group.excerpt || lineIndex
+                  group.label || group.role || group.date || group.excerpt || lineIndex
                     ? "4px 0 0"
                     : 0,
                 whiteSpace: "pre-wrap",

@@ -4,6 +4,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import PaginationControls from "./PaginationControls";
 import CommonSidePanel from "../common/CommonSidePanel";
+import { GridDetailModeProvider } from "../common/GridDetailMode";
 import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import type { ColumnPreference } from "../../api/columnPreferences";
 import "./DynamicContactsTable.css";
@@ -54,6 +55,13 @@ interface DynamicContactsTableProps {
   totalItems?: number;
 
   autoGenerateColumns?: boolean;
+  /**
+   * Offers the "Show details" switch beside the Columns button.
+   *
+   * Only the grids whose cells have something to expand turn it on — on a grid
+   * of plain fields the switch would be a control that changes nothing.
+   */
+  showDetailToggle?: boolean;
   customColumns?: ColumnConfig[];
   excludeFields?: string[];
   includeFields?: string[];
@@ -207,6 +215,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   onSelectItem,
   totalItems,
   autoGenerateColumns = true,
+  showDetailToggle = false,
   customColumns,
   excludeFields = [],
   includeFields = [],
@@ -263,6 +272,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   );
   const [columns, setColumns]           = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
+  /**
+   * Expands every cell's detail into the column instead of leaving it on
+   * hover. Off by default, and reset per tab like the column panel.
+   */
+  const [showDetails, setShowDetails] = useState(false);
   const [pageSize, setPageSize]         = useState<PageSize>(pageSizeProp);
   const [localSortConfig, setSortConfig]     = useState<SortConfig>({ key: null, direction: "asc" });
   const isInitializedRef                = useRef(false);
@@ -501,7 +515,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     setColumns((prev) => (prev.length > 0 ? applyLayout(prev, persistedColumnLayout) : prev));
   }, [persistedColumnLayout]); // eslint-disable-line
 
-  useEffect(() => { setShowColumnPanel(false); }, [currentTab]);
+  useEffect(() => { setShowColumnPanel(false); setShowDetails(false); }, [currentTab]);
 
   // ---------- Search ----------
   const filteredData = useMemo(() => {
@@ -768,7 +782,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
   // ---------- Render ----------
   return (
-    <>
+    <GridDetailModeProvider value={showDetails}>
       {/* Detail view header */}
       {viewMode === "detail" && (
         <div className="dt-detail-header">
@@ -858,6 +872,26 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           </div>
 
           <div className="dt-toolbar__right">
+            {/* Inline-detail switch */}
+            {showDetailToggle && (
+              <button
+                type="button"
+                className={`dt-btn-tertiary dt-detail-toggle${showDetails ? " is-on" : ""}`}
+                onClick={() => setShowDetails((on) => !on)}
+                aria-pressed={showDetails}
+                title={
+                  showDetails
+                    ? "Hide the comments, sources and corrections again — they stay available on hover."
+                    : "Show each score's comments, sources and suggested corrections in the column instead of on hover."
+                }
+              >
+                <span className="dt-switch" aria-hidden="true">
+                  <span className="dt-switch__knob" />
+                </span>
+                Details
+              </button>
+            )}
+
             {/* Columns button */}
             <button className="dt-btn-tertiary" onClick={() => setShowColumnPanel(true)}>
               <svg viewBox="0 0 24 24" width="14" height="14">
@@ -895,7 +929,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       {/* Table card */}
       <div className="dt-card">
         <div className="dt-scroll">
-          <table className="dt-table">
+          <table className={`dt-table${showDetails ? " dt-table--details" : ""}`}>
             <thead>
               <tr>
                 {leadingColumn && !showCheckboxes && leadingHeaderCell}
@@ -1178,7 +1212,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           </div>
         }
       />
-    </>
+    </GridDetailModeProvider>
   );
 };
 
