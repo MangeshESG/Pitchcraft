@@ -2,6 +2,7 @@ import * as userDates from "../../common/dateTimePreferences";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { parseApiDate, type ValidationSource } from "../../../api/contactValidation";
+import { linkifyText } from "../../../utils/linkify";
 
 /**
  * The confidence bands the checks are scored against.
@@ -23,6 +24,19 @@ const BANDS = [
 
 const bandFor = (score: number) =>
   BANDS.find((band) => score >= band.min) ?? BANDS[BANDS.length - 1];
+
+/**
+ * The contact's LinkedIn column as something a browser can open.
+ *
+ * The column is free text: it arrives with the scheme, without it, or as the
+ * "-" the grid shows for an empty cell, and a link built from the last of
+ * those would navigate to a page on this app.
+ */
+const linkedInProfileUrl = (raw?: string | null): string | null => {
+  const value = (raw ?? "").trim();
+  if (!value || value === "-" || !/linkedin\.com/i.test(value)) return null;
+  return /^https?:\/\//i.test(value) ? value : `https://${value.replace(/^\/+/, "")}`;
+};
 
 export interface ValidationCellProps {
   score?: number | null;
@@ -47,6 +61,12 @@ export interface ValidationCellProps {
    * the one whose answer a person can go and confirm in one click.
    */
   showLinkedInHint?: boolean;
+  /**
+   * The contact's LinkedIn profile, which turns the "Check LinkedIn" prompt
+   * into the click it is asking for. Without one the prompt stays as text —
+   * the profile tab knows the scores but not the contact's fields.
+   */
+  linkedInUrl?: string | null;
   /**
    * Marks the chip when the data integrity check has offered a correction
    * nobody has acted on yet.
@@ -76,12 +96,20 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   label,
   overriddenFrom,
   showLinkedInHint = false,
+  linkedInUrl,
   hasPendingSuggestion = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [anchor, setAnchor] =
     useState<{ top?: number; bottom?: number; left: number; maxHeight: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  /**
+   * The popover itself, so a click inside it is not read as a click outside.
+   * Without this the source links are unusable: the popover is portalled to
+   * the body, so pressing a link closed it on mousedown and the click landed
+   * on nothing.
+   */
+  const popoverRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * A click pins the popover open so it survives the pointer leaving. Without
@@ -114,7 +142,11 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
         return;
       }
 
-      if (!buttonRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        !buttonRef.current?.contains(target) &&
+        !popoverRef.current?.contains(target)
+      ) {
         isPinned.current = false;
         setIsOpen(false);
       }
@@ -134,6 +166,7 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   }
 
   const band = bandFor(score);
+  const profileUrl = linkedInProfileUrl(linkedInUrl);
   const isOverridden = typeof overriddenFrom === "number";
   const hasDetail =
     !!comments?.trim() || sources.length > 0 || showLinkedInHint || isOverridden;
@@ -239,6 +272,7 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
       {isOpen && anchor &&
         createPortal(
           <div
+            ref={popoverRef}
             onMouseEnter={cancelHoverTimer}
             onMouseLeave={handleMouseLeave}
             style={{
@@ -295,7 +329,11 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
             )}
 
             {comments?.trim() ? (
-              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{comments.trim()}</p>
+              // The model writes its evidence into the sentence, so any URL in
+              // the comments is made clickable rather than left as dead text.
+              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                {linkifyText(comments.trim())}
+              </p>
             ) : (
               <p style={{ margin: 0, color: "#6b7280" }}>No issues were reported.</p>
             )}
@@ -303,9 +341,21 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
             {showLinkedInHint && (
               <p
                 style={{ margin: "10px 0 0", fontWeight: 600, color: "#b45309" }}
-                title="Click on the LinkedIn column to open LinkedIn with this contact. If you have downloaded the PitchKraft browser extension then it will automatically check the contact against the data held in LinkedIn."
+                title="Opens this contact's LinkedIn profile. If you have downloaded the PitchKraft browser extension then it will automatically check the contact against the data held in LinkedIn."
               >
-                Check LinkedIn
+                {profileUrl ? (
+                  <a
+                    href={profileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(event) => event.stopPropagation()}
+                    style={{ color: "#b45309", textDecoration: "underline" }}
+                  >
+                    Check LinkedIn ↗
+                  </a>
+                ) : (
+                  "Check LinkedIn"
+                )}
               </p>
             )}
 

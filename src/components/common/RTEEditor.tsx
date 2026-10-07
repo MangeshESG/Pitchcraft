@@ -5,10 +5,14 @@ import { repairAndParseJsonObject } from "../../utils/jsonRepair";
 import {
   EmailHighlight,
   HIGHLIGHT_ATTR,
+  TOOLTIP_ATTR,
   applyHighlights,
+  canonicalizeBodyHtml,
+  captureHighlightTitles,
   stripHighlights,
   stripHighlightsFromHtml,
 } from "../../utils/emailHighlights";
+import HighlightTooltip from "./HighlightTooltip";
 
 // Empty-state copy — identical to the Insights tab in Output.tsx.
 const EMPTY_ONLINE_RESEARCH =
@@ -582,9 +586,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     // Compared without the highlights: they live in the DOM but not in
     // `value`, so counting them as a difference would re-write the editor on
     // every render and drop the caret while the user is typing.
-    if (stripHighlightsFromHtml(editorRef.current.innerHTML) === html) return;
+    if (stripHighlightsFromHtml(editorRef.current.innerHTML) === canonicalizeBodyHtml(html)) return;
 
     editorRef.current.innerHTML = html;
+
+    // Older emails carry their highlights in the body, explanation and all.
+    // Taking the explanation off `title` is what stops the browser answering
+    // the hover with its own black bubble over the styled card.
+    captureHighlightTitles(editorRef.current);
 
     if (highlightsRef.current?.length) {
       applyHighlights(editorRef.current, highlightsRef.current);
@@ -952,6 +961,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       <style>{`[data-rte-hl="off"] [style*="cursor:help"],
         [data-rte-hl="off"] [style*="cursor: help"],
         [data-rte-hl="off"] [${HIGHLIGHT_ATTR}],
+        [data-rte-hl="off"] [${TOOLTIP_ATTR}],
         [data-rte-hl="off"] [title^="Sourced from"],
         [data-rte-hl="off"] [title^="Personalized"]{background-color:transparent !important;cursor:auto !important;}
         @keyframes rte-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
@@ -1422,6 +1432,11 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             }
           }}
         />
+
+        {/* Styled hover card for the source highlights, in place of the
+            browser's own `title` bubble — white, and with the links inside the
+            explanation reachable. Off with the highlight toggle. */}
+        <HighlightTooltip rootRef={editorRef} enabled={highlightsOn && !infoPanel} />
 
         {/* Info view — shown in place of the editor; same bordered area as the
             email body, grows with content (no nested box, no inner scroller). */}

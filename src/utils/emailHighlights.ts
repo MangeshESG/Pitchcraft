@@ -26,6 +26,31 @@ export interface EmailHighlight {
 export const HIGHLIGHT_ATTR = "data-pk-hl";
 
 /**
+ * Carries the hover text instead of `title`.
+ *
+ * A `title` is answered by the browser's own black bubble: it cannot be
+ * styled, it drops the formatting, and the links written into the explanation
+ * are unreachable inside it. Holding the text here leaves the styled popover
+ * as the only tooltip. `stripHighlightsFromHtml` puts a captured `title` back,
+ * so what gets saved and sent is what arrived.
+ */
+export const TOOLTIP_ATTR = "data-pk-tip";
+
+/**
+ * Highlights that were painted into the body before the records were split
+ * out of it: a span with the colour inline and the explanation in `title`.
+ * They still arrive from the API on older emails.
+ */
+const LEGACY_TITLE_SELECTOR = [
+  `[${HIGHLIGHT_ATTR}][title]`,
+  '[title][style*="cursor:help"]',
+  '[title][style*="cursor: help"]',
+  '[title^="Sourced from"]',
+  '[title^="Personalized"]',
+  '[title^="Web Searched"]',
+].join(",");
+
+/**
  * Owner → background colour. These are the blueprint's own source colours;
  * changing a colour here restyles every email, including ones generated
  * before the change, because the body no longer carries the colour.
@@ -272,7 +297,7 @@ export const applyHighlights = (
     const wrapped = wrapRange(slots, start, end, (span) => {
       span.setAttribute(HIGHLIGHT_ATTR, highlight.owner || "1");
       span.setAttribute("style", `background-color:${color};cursor:help;`);
-      if (label) span.setAttribute("title", label);
+      if (label) span.setAttribute(TOOLTIP_ATTR, label);
     });
 
     if (wrapped) applied += 1;
@@ -302,12 +327,65 @@ export const stripHighlights = (root: HTMLElement): void => {
   if (marks.length) root.normalize();
 };
 
+/**
+ * Moves the explanation off `title` and onto {@link TOOLTIP_ATTR}, for the
+ * highlights that were painted into the body itself. Call it on whatever was
+ * just written into the editor; the ones this module paints never carry a
+ * `title` in the first place.
+ */
+export const captureHighlightTitles = (root: HTMLElement): void => {
+  const marks = Array.from(
+    root.querySelectorAll<HTMLElement>(LEGACY_TITLE_SELECTOR),
+  );
+
+  for (const mark of marks) {
+    const title = mark.getAttribute("title") ?? "";
+    mark.removeAttribute("title");
+    if (title.trim()) mark.setAttribute(TOOLTIP_ATTR, title);
+  }
+};
+
+/** The other half of {@link captureHighlightTitles}, so nothing is lost. */
+const restoreHighlightTitles = (root: HTMLElement): void => {
+  const marks = Array.from(root.querySelectorAll<HTMLElement>(`[${TOOLTIP_ATTR}]`));
+
+  for (const mark of marks) {
+    const tip = mark.getAttribute(TOOLTIP_ATTR) ?? "";
+    mark.removeAttribute(TOOLTIP_ATTR);
+    if (tip) mark.setAttribute("title", tip);
+  }
+};
+
 /** Same as {@link stripHighlights}, for an HTML string. */
 export const stripHighlightsFromHtml = (html: string): string => {
-  if (!html || html.indexOf(HIGHLIGHT_ATTR) === -1) return html;
+  if (
+    !html ||
+    (html.indexOf(HIGHLIGHT_ATTR) === -1 && html.indexOf(TOOLTIP_ATTR) === -1)
+  ) {
+    return html;
+  }
 
   const holder = document.createElement("div");
   holder.innerHTML = html;
   stripHighlights(holder);
+  restoreHighlightTitles(holder);
   return holder.innerHTML;
+};
+
+/**
+ * `html` as the editor will report it back once its tooltips have been
+ * captured and stripped out again.
+ *
+ * The editor compares what it holds against the value it was given to decide
+ * whether to rewrite itself. Capturing a `title` can move it along the tag, so
+ * the two have to be compared after the same round trip — otherwise the editor
+ * rewrites on every render and the caret jumps out of the sentence being typed.
+ */
+export const canonicalizeBodyHtml = (html: string): string => {
+  if (!html || html.indexOf("title") === -1) return html;
+
+  const holder = document.createElement("div");
+  holder.innerHTML = html;
+  captureHighlightTitles(holder);
+  return stripHighlightsFromHtml(holder.innerHTML);
 };
