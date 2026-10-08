@@ -272,7 +272,12 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
 
                 </div>
                 <div style={{ marginTop: 4, fontSize: 12.5, color: "#6b7280", lineHeight: 1.5 }}>
-                  {type.description}
+                  {type.key === "email_verification"
+                    ? type.description
+                        .replace(/Prospeo/gi, "Stage 1")
+                        .replace(/(?:an? AI )?web search/gi, "Stage 2")
+                        .replace(/Hunter/gi, "Stage 3")
+                    : type.description}
                 </div>
               </button>
             );

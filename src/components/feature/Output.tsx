@@ -1588,6 +1588,17 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
             message: `Email body or subject is incorrect for ${combinedResponses[currentIndex]?.name || combinedResponses[currentIndex]?.email || "this contact"}. Please check your email content and subject line.`,
             confirmText: "OK",
           });
+        } else if (typeof errorMessage === "string" && (
+          errorMessage.includes("Outlook SMTP AUTH is disabled") ||
+          errorMessage.includes("This personal Outlook.com account cannot send through SMTP yet")
+        )) {
+          setEmailError(errorMessage);
+          appModal.showModal({
+            type: "error",
+            title: "Outlook sending is blocked",
+            message: errorMessage,
+            confirmText: "OK",
+          });
         } else {
           setEmailError(errorMessage);
           toast.error("Failed to send email");
@@ -2047,6 +2058,19 @@ const sleepWithCountdown = async (ms: number) => {
                 appModal.hideModal();
                 resolve(void 0);
               }, 3000);
+            });
+          } else if (typeof errorMessage === "string" && (
+            errorMessage.includes("Outlook SMTP AUTH is disabled") ||
+            errorMessage.includes("This personal Outlook.com account cannot send through SMTP yet")
+          )) {
+            setEmailError(errorMessage);
+            appendSendLog(errorMessage, "red");
+            stopBulkRef.current = true;
+            appModal.showModal({
+              type: "error",
+              title: "Outlook sending is blocked",
+              message: errorMessage,
+              confirmText: "OK",
             });
           }
         }

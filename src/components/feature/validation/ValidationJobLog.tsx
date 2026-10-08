@@ -19,6 +19,13 @@ const STATUS_STYLES: Record<string, string> = {
   queued: "border-[#e8eaee] bg-[#f8f9fa] text-[#6b7280]",
 };
 
+const statusLabel = (job: ValidationJob, isAdmin: boolean) => {
+  if (isAdmin) return job.status;
+  if (job.status === "completed") return "Completed";
+  if (job.status === "partial" || job.status === "failed") return "Failed";
+  return "In progress";
+};
+
 const formatDate = (value: string) =>
   userDates.formatUserDateTime(parseApiDate(value));
 
@@ -78,25 +85,30 @@ const ValidationJobLog: React.FC<ValidationJobLogProps> = ({ selectedClient, isA
   }, [jobs]);
 
   return (
-    <div className="max-w-5xl">
+    <div className="w-full min-w-0">
       {error && <div className={bannerClass("error")}>{error}</div>}
 
       {summary && (
-        <div className={`${cardClass} mb-6`}>
-          <h2 className="text-[15px] font-semibold text-[#0b1220]">{isAdmin ? "Cost per 100 contacts" : "Validation activity per 100 contacts"}</h2>
-          <p className={hintClass}>
-            Averaged over {summary.contacts.toLocaleString()} validated contacts.
-            {isAdmin && " Web searches drive the cost, so that is the number to watch."}
-          </p>
+        <div className={cardClass + " mb-6"}>
+          <h2 className="text-[15px] font-semibold text-[#0b1220]">
+            {isAdmin ? "Cost per 100 contacts" : "Validated contacts"}
+          </h2>
+          {isAdmin && (
+            <p className={hintClass}>
+              Averaged over {summary.contacts.toLocaleString()} validated contacts.
+              Web searches drive the cost, so that is the number to watch.
+            </p>
+          )}
 
-          <div className={isAdmin ? "mt-4 grid grid-cols-3 gap-4" : "mt-4 grid grid-cols-1 gap-4"}>
-            {[
-              { label: "Web searches", value: summary.searchesPer100.toFixed(1) },
-              ...(isAdmin ? [
-                { label: "Tokens", value: summary.tokensPer100.toLocaleString() },
-              { label: "Cost", value: `$${summary.costPer100.toFixed(3)}` },
-              ] : []),
-            ].map((stat) => (
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {(isAdmin
+              ? [
+                  { label: "Web searches", value: summary.searchesPer100.toFixed(1) },
+                  { label: "Tokens", value: summary.tokensPer100.toLocaleString() },
+                  { label: "Cost", value: "$" + summary.costPer100.toFixed(3) },
+                ]
+              : [{ label: "Contacts", value: summary.contacts.toLocaleString() }]
+            ).map((stat) => (
               <div key={stat.label} className="rounded-lg border border-[#eef0f3] bg-[#fafbfc] p-4">
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6b7280]">
                   {stat.label}
@@ -128,7 +140,7 @@ const ValidationJobLog: React.FC<ValidationJobLogProps> = ({ selectedClient, isA
                 <th className="py-2 pr-3 font-semibold">Check</th>
                 <th className="py-2 pr-3 font-semibold">Status</th>
                 <th className="py-2 pr-3 text-right font-semibold">Contacts</th>
-                <th className="py-2 pr-3 text-right font-semibold">Searches</th>
+                {isAdmin && <th className="py-2 pr-3 text-right font-semibold">Searches</th>}
                 {isAdmin && <th className="py-2 pr-3 text-right font-semibold">Tokens</th>}
                 {isAdmin && <th className="py-2 pr-3 text-right font-semibold">Cost</th>}
                 <th className="py-2 text-right font-semibold">Credits</th>
@@ -137,14 +149,14 @@ const ValidationJobLog: React.FC<ValidationJobLogProps> = ({ selectedClient, isA
             <tbody className="divide-y divide-[#f4f5f7]">
               {jobs.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={isAdmin ? 8 : 6} className="py-6 text-center text-[#6b7280]">
+                  <td colSpan={isAdmin ? 8 : 5} className="py-6 text-center text-[#6b7280]">
                     No validation runs yet.
                   </td>
                 </tr>
               )}
 
               {jobs.map((job) => (
-                <tr key={job.id} title={job.errorMessage ?? undefined}>
+                <tr key={job.id} title={isAdmin ? job.errorMessage ?? undefined : undefined}>
                   <td className="py-2.5 pr-3 whitespace-nowrap text-[#6b7280]">
                     {formatDate(job.createdAt)}
                   </td>
@@ -154,12 +166,12 @@ const ValidationJobLog: React.FC<ValidationJobLogProps> = ({ selectedClient, isA
                   <td className="py-2.5 pr-3">
                     <span
                       className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-                        STATUS_STYLES[job.status] ?? STATUS_STYLES.queued
+                        STATUS_STYLES[!isAdmin && job.status === "partial" ? "failed" : job.status] ?? STATUS_STYLES.queued
                       }`}
                     >
-                      {job.status}
+                      {statusLabel(job, isAdmin)}
                     </span>
-                    {job.errorMessage && (
+                    {isAdmin && job.errorMessage && (
                       <div className="mt-1 max-w-[280px] text-[11px] leading-snug text-[#b91c1c]">
                         {job.errorMessage}
                       </div>
@@ -167,11 +179,11 @@ const ValidationJobLog: React.FC<ValidationJobLogProps> = ({ selectedClient, isA
                   </td>
                   <td className="py-2.5 pr-3 text-right text-[#0b1220]">
                     {job.processedCount}
-                    {job.failedCount > 0 && (
+                    {isAdmin && job.failedCount > 0 && (
                       <span className="text-[#b91c1c]"> (+{job.failedCount} failed)</span>
                     )}
                   </td>
-                  <td className="py-2.5 pr-3 text-right text-[#0b1220]">{job.webSearchCalls}</td>
+                  {isAdmin && <td className="py-2.5 pr-3 text-right text-[#0b1220]">{job.webSearchCalls}</td>}
                   {isAdmin && (
                     <>
                   <td className="py-2.5 pr-3 text-right text-[#6b7280]">

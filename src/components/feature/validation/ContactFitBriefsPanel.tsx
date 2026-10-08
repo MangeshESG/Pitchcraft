@@ -108,7 +108,7 @@ const ContactFitBriefsPanel: React.FC<ContactFitBriefsPanelProps> = ({ selectedC
   };
 
   return (
-    <div className="max-w-4xl">
+    <div className="w-full min-w-0">
       {banner && <div className={bannerClass(banner.type)}>{banner.text}</div>}
 
       {/* ---------- Saved briefs ---------- */}
