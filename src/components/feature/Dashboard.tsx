@@ -450,7 +450,7 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, valueColo
           : undefined
       }
       title={clickable ? `View ${label.toLowerCase()}` : undefined}
-      className={`rounded-2xl border border-gray-200 bg-white p-5 transition hover:shadow-md max-sm:min-w-0 max-sm:p-4 ${
+      className={`grid grid-rows-[1fr_52px] rounded-2xl border border-gray-200 bg-white p-5 transition hover:shadow-md max-sm:min-w-0 max-sm:p-4 ${
         clickable
           ? "cursor-pointer hover:border-[#3f9f42] focus:outline-none focus:ring-2 focus:ring-[#3f9f42]/40"
           : ""
@@ -459,7 +459,7 @@ const KpiTile: React.FC<KpiTileData> = ({ label, value, series, color, valueColo
       <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">
         {label}
       </div>
-      <div className="mt-1.5 flex items-end justify-between gap-3 max-sm:gap-2 max-sm:overflow-hidden">
+      <div className="flex items-end justify-between gap-3 max-sm:gap-2 max-sm:overflow-hidden">
         <div className={`text-[30px] font-bold leading-none tabular-nums tracking-tight max-sm:shrink-0 max-sm:text-2xl ${valueColor ?? "text-gray-900"}`}>
           {value}
         </div>
