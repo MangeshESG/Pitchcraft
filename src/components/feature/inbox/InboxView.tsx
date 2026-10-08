@@ -11,6 +11,7 @@ import { useCreditCheck } from '../../../hooks/useCreditCheck';
 import { useSoundAlert } from '../../common/useSoundAlert';
 import RichTextEditor from '../../common/RTEEditor';
 import { extractGenerationInsights } from '../../../utils/generationInsights';
+import { EmailHighlight, parseEmailHighlights } from '../../../utils/emailHighlights';
 import { RecipientChipInput, mergeRecipients, parseRecipientInput } from '../contact_profile/ContactComposeEmailPopup';
 import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
@@ -160,6 +161,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [kraftEmails, setKraftEmails] = useState<string>('');
   const [kraftNotes, setKraftNotes] = useState<string>('');
   const [kraftProfessionalSummary, setKraftProfessionalSummary] = useState<string>('');
+  // Source highlights for the draft the last kraft produced. The editor paints
+  // them over the body by matching their wording and strips them back out of
+  // what it reports, so the reply that is sent stays the clean email.
+  const [kraftHighlights, setKraftHighlights] = useState<EmailHighlight[]>([]);
   const [replyAttachments, setReplyAttachments] = useState<File[]>([]);
   const [replyCcEmails, setReplyCcEmails] = useState<string[]>([]);
   const [replyCcDraft, setReplyCcDraft] = useState('');
@@ -497,6 +502,32 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     };
     fetchUnreadCounts();
   }, [effectiveUserId, token, isVisible, selectedInboxId]);
+
+  // An inbox belongs to one client, so a switch of account has to drop the
+  // one that is selected. Without this the id stays in state across the
+  // switch and the thread lists keep showing the previous client's mail —
+  // threads whose contactId the new client cannot act on, so Kraft and the
+  // other per-contact actions fail. The saved-inbox restore below is keyed
+  // per client and runs again once the selection is clear.
+  const lastClientIdRef = useRef(effectiveUserId);
+
+  useEffect(() => {
+    if (lastClientIdRef.current === effectiveUserId) return;
+    lastClientIdRef.current = effectiveUserId;
+
+    setSelectedInboxId(null);
+    setSelectedProvider('');
+    setInboxList([]);
+    setThreads([]);
+    setSelectedThread(null);
+    setSelectedUnassignedThread(null);
+    setSelectedSentThread(null);
+    setSelectedAllMessagesThread(null);
+    setSelectedThreadIds([]);
+    setInboxCurrentPage(1);
+    setInboxTotalCount(0);
+    setInboxTotalPages(0);
+  }, [effectiveUserId]);
 
   useEffect(() => {
     const fetchInboxList = async () => {
@@ -1057,6 +1088,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setKraftEmails(kraftInsights.emails);
         setKraftNotes(kraftInsights.notes);
         setKraftProfessionalSummary(kraftInsights.professionalSummary);
+        setKraftHighlights(parseEmailHighlights(response.data?.emailHighlights));
 
         playSound();
         window.dispatchEvent(
@@ -1117,6 +1149,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setKraftEmails(kraftInsights.emails);
         setKraftNotes(kraftInsights.notes);
         setKraftProfessionalSummary(kraftInsights.professionalSummary);
+        setKraftHighlights(parseEmailHighlights(response.data?.emailHighlights));
         playSound();
         window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
       } else {
@@ -1177,6 +1210,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setKraftEmails(kraftInsights.emails);
         setKraftNotes(kraftInsights.notes);
         setKraftProfessionalSummary(kraftInsights.professionalSummary);
+        setKraftHighlights(parseEmailHighlights(response.data?.emailHighlights));
         playSound();
         window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
       } else {
@@ -1565,6 +1599,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const buildCollapsedReplyTrail = (formattedTrail: string): string => {
     return `<br/><details ${replyTrailMarker} style="margin:0;padding:0;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35;text-align:left;"><summary contenteditable="false" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;list-style:none;user-select:none;color:#3f9f42;background:#eaf5ea;border:1px solid #cfe7d0;border-radius:999px;font-weight:700;font-size:18px;line-height:1;width:34px;height:22px;padding:0;margin:0 0 10px 0;">...</summary><style>details[data-reply-email-trail][open] > summary{display:none;}</style><div>${replyTrailSeparator}${formattedTrail}</div></details>`;
   };
+
+  // Highlights describe the wording of the draft they were generated for, so
+  // they are dropped once both drafts are empty — closing a thread, sending,
+  // or switching tabs. This covers every reset in one place instead of each
+  // of the twenty-odd setReplyText('') calls. While a draft is open they are
+  // left alone: a record whose wording was edited away is simply not painted.
+  useEffect(() => {
+    if (!replyText.trim() && !forwardMessage.trim()) setKraftHighlights([]);
+  }, [replyText, forwardMessage]);
 
   const replaceReplyDraftContent = (nextDraftHtml: string) => {
     setReplyText((currentReplyText) => {
@@ -2176,6 +2219,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           }}
           onExpandEditor={() => handleModalOpen('modal-forward-expand')}
           finalPrompt={kraftFinalPrompt}
+          highlights={kraftHighlights}
           webSearchData={kraftWebSearchData}
           insightEmails={kraftEmails}
           insightNotes={kraftNotes}
@@ -2189,7 +2233,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         >
           <div style={{ padding: '20px' }}>
             <label style={{ fontWeight: 500, fontSize: '16px', marginBottom: '12px', display: 'block' }}>Forward editor</label>
-            <RichTextEditor value={forwardMessage} onChange={setForwardMessage} height={520} />
+            <RichTextEditor value={forwardMessage} onChange={setForwardMessage} height={520} highlights={kraftHighlights} />
           </div>
         </Modal>
       </div>
@@ -3302,6 +3346,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       regenerateDisabled={!selectedBlueprint || !selectedThread?.contactId}
                       showDeviceButton
                       finalPrompt={kraftFinalPrompt}
+                      highlights={kraftHighlights}
                       webSearchData={kraftWebSearchData}
                       insightEmails={kraftEmails}
                       insightNotes={kraftNotes}
@@ -3330,7 +3375,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 >
                   <div style={{ padding: '20px' }}>
                     <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply editor</label>
-                    <RichTextEditor value={replyText} onChange={setReplyText} />
+                    <RichTextEditor value={replyText} onChange={setReplyText} highlights={kraftHighlights} />
                   </div>
                 </Modal>
                 {renderReplyAttachments()}
@@ -3933,6 +3978,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setKraftEmails(kraftInsights.emails);
         setKraftNotes(kraftInsights.notes);
         setKraftProfessionalSummary(kraftInsights.professionalSummary);
+        setKraftHighlights(parseEmailHighlights(response.data?.emailHighlights));
                               playSound();
                               window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
                             } else {
@@ -3980,6 +4026,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         }
                         showDeviceButton
                         finalPrompt={kraftFinalPrompt}
+                        highlights={kraftHighlights}
                         webSearchData={kraftWebSearchData}
                         insightEmails={kraftEmails}
                         insightNotes={kraftNotes}
@@ -4008,7 +4055,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   >
                     <div style={{ padding: '20px' }}>
                       <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply editor</label>
-                      <RichTextEditor value={replyText} onChange={setReplyText} />
+                      <RichTextEditor value={replyText} onChange={setReplyText} highlights={kraftHighlights} />
                     </div>
                   </Modal>
                   {renderReplyAttachments()}
@@ -4472,6 +4519,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setKraftEmails(kraftInsights.emails);
         setKraftNotes(kraftInsights.notes);
         setKraftProfessionalSummary(kraftInsights.professionalSummary);
+        setKraftHighlights(parseEmailHighlights(response.data?.emailHighlights));
                               playSound();
                               window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
                             } else {
@@ -4520,6 +4568,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         }
                         showDeviceButton
                         finalPrompt={kraftFinalPrompt}
+                        highlights={kraftHighlights}
                         webSearchData={kraftWebSearchData}
                         insightEmails={kraftEmails}
                         insightNotes={kraftNotes}
@@ -4548,7 +4597,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   >
                     <div style={{ padding: '20px' }}>
                       <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply editor</label>
-                      <RichTextEditor value={replyText} onChange={setReplyText} />
+                      <RichTextEditor value={replyText} onChange={setReplyText} highlights={kraftHighlights} />
                     </div>
                   </Modal>
                   {renderReplyAttachments()}
