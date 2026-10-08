@@ -441,6 +441,13 @@
 
 /* ============ COLUMNS SIDE PANEL ============ */
 .dt-cols-panel { display: flex; flex-direction: column; gap: 12px; }
+.dt-cols-panel__search {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid #d1d5db; border-radius: 8px;
+  background: #fff; color: #111827; font: inherit;
+}
+.dt-cols-panel__search:focus { outline: 2px solid #3f9f42; outline-offset: 1px; }
+.dt-cols-panel__empty { margin: 8px 0; color: #6b7280; font-size: 13px; }
 .dt-cols-panel__actions {
   display: flex; align-items: center; gap: 8px;
   padding-bottom: 4px;

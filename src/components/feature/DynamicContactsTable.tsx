@@ -272,6 +272,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   );
   const [columns, setColumns]           = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
+  const [columnSearch, setColumnSearch] = useState("");
   /**
    * Expands every cell's detail into the column instead of leaving it on
    * hover. Off by default, and reset per tab like the column panel.
@@ -893,7 +894,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             )}
 
             {/* Columns button */}
-            <button className="dt-btn-tertiary" onClick={() => setShowColumnPanel(true)}>
+            <button className="dt-btn-tertiary" onClick={() => { setColumnSearch(""); setShowColumnPanel(true); }}>
               <svg viewBox="0 0 24 24" width="14" height="14">
                 <rect x="3" y="4" width="6" height="16" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.7"/>
                 <rect x="11" y="4" width="6" height="16" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.7"/>
@@ -1089,6 +1090,14 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         width={360}
         children={
           <div className="dt-cols-panel">
+            <input
+              className="dt-cols-panel__search"
+              type="search"
+              value={columnSearch}
+              onChange={(e) => setColumnSearch(e.target.value)}
+              placeholder="Search columns"
+              aria-label="Search columns"
+            />
             <div className="dt-cols-panel__actions">
               <button
                 className="dt-link-btn"
@@ -1132,7 +1141,9 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             </p>
 
             <div className="dt-cols-panel__list">
-              {columns.filter((c) => c.key !== "checkbox").map((column) => (
+              {columns.filter((c) => c.key !== "checkbox" &&
+                `${columnNameMap?.[c.key] || c.label} ${c.key}`.toLocaleLowerCase().includes(columnSearch.trim().toLocaleLowerCase())
+              ).map((column) => (
                 <div
                   key={column.key}
                   className={
@@ -1198,6 +1209,9 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                   )}
                 </div>
               ))}
+              {columnSearch.trim() && !columns.some((c) => c.key !== "checkbox" &&
+                `${columnNameMap?.[c.key] || c.label} ${c.key}`.toLocaleLowerCase().includes(columnSearch.trim().toLocaleLowerCase())
+              ) && <p className="dt-cols-panel__empty">No columns found.</p>}
             </div>
           </div>
         }
