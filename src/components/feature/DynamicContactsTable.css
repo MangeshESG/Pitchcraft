@@ -115,6 +115,25 @@
 }
 .dt-btn-tertiary:hover { background: var(--dt-bg-2); }
 
+/* Inline-detail switch (sits beside the Columns button) */
+.dt-detail-toggle.is-on {
+  border-color: var(--dt-brand);
+  background: var(--dt-brand-50);
+  color: var(--dt-brand-d);
+}
+.dt-switch {
+  width: 28px; height: 16px; border-radius: 999px;
+  background: #cdd2da; position: relative; flex-shrink: 0;
+  transition: background 0.15s;
+}
+.dt-detail-toggle.is-on .dt-switch { background: var(--dt-brand); }
+.dt-switch__knob {
+  position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #fff; transition: transform 0.15s;
+}
+.dt-detail-toggle.is-on .dt-switch__knob { transform: translateX(12px); }
+
 /* ============ TOOLBAR ============ */
 .dt-toolbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -244,6 +263,15 @@
   white-space: normal;
 }
 .dt-td-check { width: 44px; padding: 0 0 0 16px !important; }
+
+/* Expanded rows: the comments and corrections are in the cells, so they need
+   room to read and the scores have to sit at the top of the row rather than
+   floating in the middle of a paragraph. */
+.dt-table--details td {
+  max-width: 420px;
+  vertical-align: top;
+}
+.dt-table--details .dt-td-check { vertical-align: top; padding-top: 14px !important; }
 
 /* Density variants */
 .dt-table.dt-density-compact td { padding: 8px 14px; }

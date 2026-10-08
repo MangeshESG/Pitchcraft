@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { parseApiDate, type ValidationSource } from "../../../api/contactValidation";
 import { linkifyText } from "../../../utils/linkify";
+import { useGridDetailMode } from "../../common/GridDetailMode";
 
 /**
  * The confidence bands the checks are scored against.
@@ -99,6 +100,13 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   linkedInUrl,
   hasPendingSuggestion = false,
 }) => {
+  /**
+   * The grid's "Details" switch. On, the comments, the evidence and the
+   * override note are written into the column underneath the chip instead of
+   * waiting behind a hover — which is what makes a column of scores readable
+   * when the user is working through them rather than scanning past them.
+   */
+  const expanded = useGridDetailMode();
   const [isOpen, setIsOpen] = useState(false);
   const [anchor, setAnchor] =
     useState<{ top?: number; bottom?: number; left: number; maxHeight: number } | null>(null);
@@ -199,7 +207,9 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   // column instead of clicking every cell. The short delay stops the popover
   // flickering open as the pointer crosses chips on its way somewhere else.
   const handleMouseEnter = () => {
-    if (!hasDetail) return;
+    // Expanded, the detail is already on screen; opening it again over the top
+    // of itself only covers the rows underneath.
+    if (!hasDetail || expanded) return;
     cancelHoverTimer();
     hoverTimer.current = setTimeout(positionAndOpen, 120);
   };
@@ -212,7 +222,7 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   };
 
   const handleClick = () => {
-    if (!hasDetail) return;
+    if (!hasDetail || expanded) return;
     cancelHoverTimer();
 
     if (isOpen && isPinned.current) {
@@ -225,7 +235,97 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
     positionAndOpen();
   };
 
-  return (
+  /**
+   * Everything behind the score: the override note, the comments, the
+   * LinkedIn prompt and the sources.
+   *
+   * One definition for both homes. The popover and the expanded column are
+   * the same evidence in two places, and two copies of it would drift apart
+   * the first time one of them gained a line.
+   */
+  const detailBody = (
+    <>
+      {isOverridden && (
+        <p
+          style={{
+            margin: "0 0 8px",
+            padding: "6px 8px",
+            borderRadius: 8,
+            background: "#f1f8f2",
+            border: "1px solid #d5f0da",
+            color: "#2d7a30",
+            fontSize: 12.5,
+          }}
+        >
+          Marked verified by hand. This check itself scored {overriddenFrom}.
+        </p>
+      )}
+
+      {comments?.trim() ? (
+        // The model writes its evidence into the sentence, so any URL in
+        // the comments is made clickable rather than left as dead text.
+        <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+          {linkifyText(comments.trim())}
+        </p>
+      ) : (
+        <p style={{ margin: 0, color: "#6b7280" }}>No issues were reported.</p>
+      )}
+
+      {showLinkedInHint && (
+        <p
+          style={{ margin: "10px 0 0", fontWeight: 600, color: "#b45309" }}
+          title="Opens this contact's LinkedIn profile. If you have downloaded the PitchKraft browser extension then it will automatically check the contact against the data held in LinkedIn."
+        >
+          {profileUrl ? (
+            <a
+              href={profileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(event) => event.stopPropagation()}
+              style={{ color: "#b45309", textDecoration: "underline" }}
+            >
+              Check LinkedIn ↗
+            </a>
+          ) : (
+            "Check LinkedIn"
+          )}
+        </p>
+      )}
+
+      {sources.length > 0 && (
+        <div style={{ marginTop: 12, borderTop: "1px solid #f0f1f4", paddingTop: 10 }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              color: "#6b7280",
+              marginBottom: 6,
+            }}
+          >
+            Sources
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 16 }}>
+            {sources.map((source) => (
+              <li key={source.url} style={{ marginBottom: 4 }}>
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#2563eb", wordBreak: "break-word" }}
+                >
+                  {source.label || source.url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  );
+
+  const chip = (
     <>
       <button
         ref={buttonRef}
@@ -268,6 +368,43 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
           />
         )}
       </button>
+    </>
+  );
+
+  if (expanded) {
+    return (
+      <div style={{ display: "block", textAlign: "left" }}>
+        {chip}
+
+        {hasDetail && (
+          <div
+            style={{
+              marginTop: 6,
+              padding: "8px 10px",
+              borderRadius: 9,
+              border: "1px solid #eef0f3",
+              background: "#fbfcfd",
+              fontSize: 12.5,
+              lineHeight: 1.5,
+              color: "#0b1220",
+              whiteSpace: "normal",
+            }}
+          >
+            {checkedAt && (
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>
+                {userDates.formatUserDate(parseApiDate(checkedAt))}
+              </div>
+            )}
+            {detailBody}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {chip}
 
       {isOpen && anchor &&
         createPortal(
@@ -312,83 +449,7 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
               )}
             </div>
 
-            {isOverridden && (
-              <p
-                style={{
-                  margin: "0 0 8px",
-                  padding: "6px 8px",
-                  borderRadius: 8,
-                  background: "#f1f8f2",
-                  border: "1px solid #d5f0da",
-                  color: "#2d7a30",
-                  fontSize: 12.5,
-                }}
-              >
-                Marked verified by hand. This check itself scored {overriddenFrom}.
-              </p>
-            )}
-
-            {comments?.trim() ? (
-              // The model writes its evidence into the sentence, so any URL in
-              // the comments is made clickable rather than left as dead text.
-              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                {linkifyText(comments.trim())}
-              </p>
-            ) : (
-              <p style={{ margin: 0, color: "#6b7280" }}>No issues were reported.</p>
-            )}
-
-            {showLinkedInHint && (
-              <p
-                style={{ margin: "10px 0 0", fontWeight: 600, color: "#b45309" }}
-                title="Opens this contact's LinkedIn profile. If you have downloaded the PitchKraft browser extension then it will automatically check the contact against the data held in LinkedIn."
-              >
-                {profileUrl ? (
-                  <a
-                    href={profileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(event) => event.stopPropagation()}
-                    style={{ color: "#b45309", textDecoration: "underline" }}
-                  >
-                    Check LinkedIn ↗
-                  </a>
-                ) : (
-                  "Check LinkedIn"
-                )}
-              </p>
-            )}
-
-            {sources.length > 0 && (
-              <div style={{ marginTop: 12, borderTop: "1px solid #f0f1f4", paddingTop: 10 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    color: "#6b7280",
-                    marginBottom: 6,
-                  }}
-                >
-                  Sources
-                </div>
-                <ul style={{ margin: 0, paddingLeft: 16 }}>
-                  {sources.map((source) => (
-                    <li key={source.url} style={{ marginBottom: 4 }}>
-                      <a
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: "#2563eb", wordBreak: "break-word" }}
-                      >
-                        {source.label || source.url}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {detailBody}
           </div>,
           document.body
         )}

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import SuggestionList from "./SuggestionList";
 import type { ValidationSuggestion } from "../../../api/contactValidation";
+import { useGridDetailMode } from "../../common/GridDetailMode";
 
 interface CheckActionsProps {
   /** The check this panel belongs to, e.g. "Live contact". */
@@ -52,6 +53,12 @@ const CheckActions: React.FC<CheckActionsProps> = ({
   onVerify,
   onDelete,
 }) => {
+  /**
+   * The grid's "Details" switch. On, the corrections and the actions are
+   * written into the column instead of hiding behind the icon — the icon is
+   * for scanning a long list, this is for working through one.
+   */
+  const expanded = useGridDetailMode();
   const [isOpen, setIsOpen] = useState(false);
   /**
    * Where the panel is pinned, as one vertical edge and a left.
@@ -151,6 +158,146 @@ const CheckActions: React.FC<CheckActionsProps> = ({
     }
   };
 
+  /**
+   * The corrections and the three actions, shared by the popover and the
+   * expanded column so the two can never offer different buttons.
+   */
+  const panelContent = (
+    <>
+      {suggestions.length > 0 ? (
+        <SuggestionList
+          compact
+          suggestions={suggestions}
+          onResolve={onResolve}
+        />
+      ) : (
+        <p style={{ margin: "0 0 4px", color: "#6b7280", fontSize: 12.5 }}>
+          No corrections were suggested for this contact.
+        </p>
+      )}
+
+      <div
+        style={{
+          display: "grid",
+          gap: 6,
+          marginTop: 12,
+          paddingTop: 10,
+          borderTop: "1px solid #f0f1f4",
+        }}
+      >
+        {onVerify && (
+          <button
+            type="button"
+            onClick={() => void run("verify", onVerify)}
+            disabled={busy !== null}
+            title={`Sets this ${checkLabel.toLowerCase()} score to 100. The other three checks keep their own scores.`}
+            style={{
+              ...ACTION_BUTTON,
+              border: "1px solid #3f9f42",
+              background: "#f1f8f2",
+              color: "#2d7a30",
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            {busy === "verify" ? "Saving…" : "✓ Mark verified — set this score to 100"}
+          </button>
+        )}
+
+        {onDelete && !isConfirmingDelete && (
+          <button
+            type="button"
+            onClick={() => setIsConfirmingDelete(true)}
+            disabled={busy !== null}
+            style={{
+              ...ACTION_BUTTON,
+              border: "1px solid #e5e7eb",
+              background: "#fff",
+              color: "#b91c1c",
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            Delete this contact
+          </button>
+        )}
+
+        {onDelete && isConfirmingDelete && (
+          <div
+            style={{
+              padding: "9px 10px",
+              borderRadius: 8,
+              border: "1px solid #fecaca",
+              background: "#fef2f2",
+            }}
+          >
+            <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "#7f1d1d", lineHeight: 1.5 }}>
+              Delete this contact permanently? This cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => void run("delete", onDelete)}
+                disabled={busy !== null}
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: 7,
+                  border: "1px solid #b91c1c",
+                  background: "#b91c1c",
+                  color: "#fff",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: busy ? "not-allowed" : "pointer",
+                  opacity: busy ? 0.6 : 1,
+                }}
+              >
+                {busy === "delete" ? "Deleting…" : "Delete"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsConfirmingDelete(false)}
+                disabled={busy !== null}
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: 7,
+                  border: "1px solid #d1d5db",
+                  background: "#fff",
+                  color: "#374151",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#b91c1c" }}>{error}</p>
+      )}
+    </>
+  );
+
+  if (expanded) {
+    return (
+      <div
+        style={{
+          display: "block",
+          marginTop: 8,
+          paddingTop: 8,
+          borderTop: "1px solid #eef0f3",
+          textAlign: "left",
+          whiteSpace: "normal",
+          fontSize: 13,
+          color: "#0b1220",
+        }}
+      >
+        {panelContent}
+      </div>
+    );
+  }
+
   return (
     <>
       <button
@@ -216,118 +363,7 @@ const CheckActions: React.FC<CheckActionsProps> = ({
               {checkLabel}
             </div>
 
-            {suggestions.length > 0 ? (
-              <SuggestionList
-                compact
-                suggestions={suggestions}
-                onResolve={onResolve}
-              />
-            ) : (
-              <p style={{ margin: "0 0 4px", color: "#6b7280", fontSize: 12.5 }}>
-                No corrections were suggested for this contact.
-              </p>
-            )}
-
-            <div
-              style={{
-                display: "grid",
-                gap: 6,
-                marginTop: 12,
-                paddingTop: 10,
-                borderTop: "1px solid #f0f1f4",
-              }}
-            >
-              {onVerify && (
-                <button
-                  type="button"
-                  onClick={() => void run("verify", onVerify)}
-                  disabled={busy !== null}
-                  title={`Sets this ${checkLabel.toLowerCase()} score to 100. The other three checks keep their own scores.`}
-                  style={{
-                    ...ACTION_BUTTON,
-                    border: "1px solid #3f9f42",
-                    background: "#f1f8f2",
-                    color: "#2d7a30",
-                    opacity: busy ? 0.6 : 1,
-                  }}
-                >
-                  {busy === "verify" ? "Saving…" : "✓ Mark verified — set this score to 100"}
-                </button>
-              )}
-
-              {onDelete && !isConfirmingDelete && (
-                <button
-                  type="button"
-                  onClick={() => setIsConfirmingDelete(true)}
-                  disabled={busy !== null}
-                  style={{
-                    ...ACTION_BUTTON,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    color: "#b91c1c",
-                    opacity: busy ? 0.6 : 1,
-                  }}
-                >
-                  Delete this contact
-                </button>
-              )}
-
-              {onDelete && isConfirmingDelete && (
-                <div
-                  style={{
-                    padding: "9px 10px",
-                    borderRadius: 8,
-                    border: "1px solid #fecaca",
-                    background: "#fef2f2",
-                  }}
-                >
-                  <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "#7f1d1d", lineHeight: 1.5 }}>
-                    Delete this contact permanently? This cannot be undone.
-                  </p>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      type="button"
-                      onClick={() => void run("delete", onDelete)}
-                      disabled={busy !== null}
-                      style={{
-                        padding: "4px 12px",
-                        borderRadius: 7,
-                        border: "1px solid #b91c1c",
-                        background: "#b91c1c",
-                        color: "#fff",
-                        fontSize: 12.5,
-                        fontWeight: 600,
-                        cursor: busy ? "not-allowed" : "pointer",
-                        opacity: busy ? 0.6 : 1,
-                      }}
-                    >
-                      {busy === "delete" ? "Deleting…" : "Delete"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsConfirmingDelete(false)}
-                      disabled={busy !== null}
-                      style={{
-                        padding: "4px 12px",
-                        borderRadius: 7,
-                        border: "1px solid #d1d5db",
-                        background: "#fff",
-                        color: "#374151",
-                        fontSize: 12.5,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {error && (
-              <p style={{ margin: "8px 0 0", fontSize: 12, color: "#b91c1c" }}>{error}</p>
-            )}
+            {panelContent}
           </div>,
           document.body
         )}

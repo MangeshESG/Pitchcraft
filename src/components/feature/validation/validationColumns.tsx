@@ -14,6 +14,7 @@ import {
   type ValidationSuggestion,
 } from "../../../api/contactValidation";
 import { formatUserDate } from "../../common/dateTimePreferences";
+import { useGridDetailMode } from "../../common/GridDetailMode";
 
 /**
  * The Audience Assurance columns, shared by every contact grid.
@@ -152,6 +153,50 @@ export const verifiedScore = (
   return 100;
 };
 
+/**
+ * The wrapper around one check's score and its actions.
+ *
+ * Collapsed, the two sit on one line and the row stays a single line high.
+ * Expanded, the comments and the corrections are underneath the score, so the
+ * cell has to become a block and let its text wrap — an inline-flex, nowrap
+ * cell would run a paragraph off the side of the table.
+ */
+const CellStack: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const expanded = useGridDetailMode();
+
+  return (
+    <span
+      style={
+        expanded
+          ? { display: "block", whiteSpace: "normal", minWidth: 230 }
+          : { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }
+      }
+    >
+      {children}
+    </span>
+  );
+};
+
+/**
+ * The combined Checks cell's layout: four chips across while they are just
+ * chips, one under another once each carries its own comments.
+ */
+const ChipStack: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const expanded = useGridDetailMode();
+
+  return (
+    <div
+      style={
+        expanded
+          ? { display: "flex", flexDirection: "column", gap: 10, minWidth: 230 }
+          : { display: "flex", flexWrap: "wrap", gap: 5 }
+      }
+    >
+      {children}
+    </div>
+  );
+};
+
 const commentCell = (value: any) =>
   !value || !String(value).trim() ? (
     <span style={{ color: "#9ca3af" }}>—</span>
@@ -222,7 +267,7 @@ const scoreCell =
     }
 
     return (
-      <span style={{ display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}>
+      <CellStack>
         <ValidationCell
           score={score}
           overriddenFrom={score !== raw ? raw : undefined}
@@ -248,7 +293,7 @@ const scoreCell =
             onDelete={actions.deleterFor(row)}
           />
         )}
-      </span>
+      </CellStack>
     );
   };
 
@@ -319,7 +364,7 @@ const checksCell = (actions?: CheckActionHandlers) => (value: any, row: any) => 
   const sources = parseSources(row.validationSources);
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+    <ChipStack>
       {run.map((check) => {
         const raw = row[check.scoreKey];
         const score = verifiedScore(
@@ -342,7 +387,7 @@ const checksCell = (actions?: CheckActionHandlers) => (value: any, row: any) => 
           />
         );
       })}
-    </div>
+    </ChipStack>
   );
 };
 

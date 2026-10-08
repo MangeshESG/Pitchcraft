@@ -2364,6 +2364,7 @@ const filterFields: any = useMemo(() => {
                   key={`list-${effectiveUserId}-${selectedDataFileForView?.id}`}
                   revealColumn={validationColumnToReveal?.scopeType === "list" && validationColumnToReveal.scopeId === selectedDataFileForView?.id ? validationColumnToReveal : null}
                   onRevealHandled={() => setValidationColumnToReveal(null)}
+                  showDetailToggle
                   customAttributeDefinitions={customFields}
                   data={filteredDetailContacts}
                   isLoading={isLoadingDetail}
@@ -3444,6 +3445,7 @@ const filterFields: any = useMemo(() => {
                   key={`segment-${effectiveUserId}-${selectedSegmentForView?.id}`}
                   revealColumn={validationColumnToReveal?.scopeType === "segment" && validationColumnToReveal.scopeId === selectedSegmentForView?.id ? validationColumnToReveal : null}
                   onRevealHandled={() => setValidationColumnToReveal(null)}
+                  showDetailToggle
                   customAttributeDefinitions={customFields}
                   columnNameMap={columnNameMap}
                   data={detailContacts}
