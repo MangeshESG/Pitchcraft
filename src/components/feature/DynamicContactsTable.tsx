@@ -4,6 +4,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import PaginationControls from "./PaginationControls";
 import CommonSidePanel from "../common/CommonSidePanel";
+import ValidateContactsButton from "./validation/ValidateContactsButton";
 import { GridDetailModeProvider } from "../common/GridDetailMode";
 import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import type { ColumnPreference } from "../../api/columnPreferences";
@@ -62,6 +63,7 @@ interface DynamicContactsTableProps {
    * of plain fields the switch would be a control that changes nothing.
    */
   showDetailToggle?: boolean;
+  validationAction?: { onClick: () => void; selectedCount: number };
   customColumns?: ColumnConfig[];
   excludeFields?: string[];
   includeFields?: string[];
@@ -216,6 +218,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   totalItems,
   autoGenerateColumns = true,
   showDetailToggle = false,
+  validationAction,
   customColumns,
   excludeFields = [],
   includeFields = [],
@@ -539,22 +542,40 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const moveColumn = (fromKey: string, toKey: string) => {
     if (!fromKey || !toKey || fromKey === toKey) return;
 
-    const list = [...columns];
-    const from = list.findIndex((c) => c.key === fromKey);
-    const to   = list.findIndex((c) => c.key === toKey);
+    const movedColumn = columns.find((c) => c.key === fromKey);
+    const targetColumn = columns.find((c) => c.key === toKey);
+    if (!movedColumn || !targetColumn || movedColumn.visible !== targetColumn.visible) return;
+
+    // The picker groups selected columns first. Reorder within that group while
+    // leaving the other group's saved order untouched.
+    const group = columns.filter((c) => c.key !== "checkbox" && c.visible === movedColumn.visible);
+    const from = group.findIndex((c) => c.key === fromKey);
+    const to   = group.findIndex((c) => c.key === toKey);
     if (from < 0 || to < 0) return;
 
-    const [moved] = list.splice(from, 1);
-    list.splice(to, 0, moved);
+    const [moved] = group.splice(from, 1);
+    group.splice(to, 0, moved);
+    const list = columns.map((c) => c.key !== "checkbox" && c.visible === movedColumn.visible
+      ? group.shift()!
+      : c);
 
     setColumns(list);
     onColumnsChange?.(list);
   };
 
   const toggleColumn = (columnKey: string) => {
-    const updated = columns.map((c) =>
-      c.key === columnKey ? { ...c, visible: !c.visible } : c
-    );
+    const column = columns.find((c) => c.key === columnKey);
+    if (!column) return;
+
+    // Newly selected columns go after the existing selected columns. Keep
+    // their order as-is until the user explicitly drags a column.
+    const updated = column.visible
+      ? columns.map((c) => c.key === columnKey ? { ...c, visible: false } : c)
+      : [
+          ...columns.filter((c) => c.key === "checkbox" || (c.visible && c.key !== columnKey)),
+          { ...column, visible: true },
+          ...columns.filter((c) => !c.visible && c.key !== columnKey),
+        ];
 
     setColumns(updated);
     onColumnsChange?.(updated);
@@ -597,6 +618,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     : sortedData.slice((currentPage - 1) * (pageSize as number), currentPage * (pageSize as number));
 
   const visibleColumns = columns.filter((c) => c.visible);
+  const columnSearchTerm = columnSearch.trim().toLocaleLowerCase();
+  const panelColumns = [
+    ...columns.filter((c) => c.key !== "checkbox" && c.visible),
+    ...columns.filter((c) => c.key !== "checkbox" && !c.visible),
+  ].filter((c) => `${columnNameMap?.[c.key] || c.label} ${c.key}`.toLocaleLowerCase().includes(columnSearchTerm));
 
   // Show a dedicated profile-link column only when the "Full name" column is
   // hidden — otherwise the name itself is the link to the profile.
@@ -873,6 +899,13 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           </div>
 
           <div className="dt-toolbar__right">
+            {validationAction && (
+              <ValidateContactsButton
+                onClick={validationAction.onClick}
+                disabled={validationAction.selectedCount === 0}
+                title={validationAction.selectedCount === 0 ? "Please select contact" : "Validation check"}
+              />
+            )}
             {/* Inline-detail switch */}
             {showDetailToggle && (
               <button
@@ -1102,7 +1135,10 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
               <button
                 className="dt-link-btn"
                 onClick={() => {
-                  const updated = columns.map((c) => c.key === "checkbox" ? c : { ...c, visible: true });
+                  const updated = [
+                    ...columns.filter((c) => c.key === "checkbox" || c.visible),
+                    ...columns.filter((c) => c.key !== "checkbox" && !c.visible).map((c) => ({ ...c, visible: true })),
+                  ];
                   setColumns(updated);
                   onColumnsChange?.(updated);
                 }}
@@ -1141,9 +1177,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             </p>
 
             <div className="dt-cols-panel__list">
-              {columns.filter((c) => c.key !== "checkbox" &&
-                `${columnNameMap?.[c.key] || c.label} ${c.key}`.toLocaleLowerCase().includes(columnSearch.trim().toLocaleLowerCase())
-              ).map((column) => (
+              {panelColumns.map((column) => (
                 <div
                   key={column.key}
                   className={
@@ -1160,6 +1194,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                     e.dataTransfer.setData("text/plain", column.key);
                   }}
                   onDragOver={(e) => {
+                    if (columns.find((c) => c.key === dragKey)?.visible !== column.visible) return;
                     e.preventDefault();
                     e.dataTransfer.dropEffect = "move";
                     if (dragOverKey !== column.key) setDragOverKey(column.key);
@@ -1209,9 +1244,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                   )}
                 </div>
               ))}
-              {columnSearch.trim() && !columns.some((c) => c.key !== "checkbox" &&
-                `${columnNameMap?.[c.key] || c.label} ${c.key}`.toLocaleLowerCase().includes(columnSearch.trim().toLocaleLowerCase())
-              ) && <p className="dt-cols-panel__empty">No columns found.</p>}
+              {columnSearchTerm && panelColumns.length === 0 && <p className="dt-cols-panel__empty">No columns found.</p>}
             </div>
           </div>
         }

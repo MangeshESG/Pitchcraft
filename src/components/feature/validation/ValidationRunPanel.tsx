@@ -2,6 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import CommonSidePanel from "../../common/CommonSidePanel";
 import { VALIDATION_CHECK_LABELS } from "./validationColumns";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
+import targetAudienceIcon from "../../../assets/validation/target-audience-match.png";
+import employmentMatchIcon from "../../../assets/validation/employment-match.png";
+import emailVerificationIcon from "../../../assets/validation/email-verification.png";
+import dataIntegrityIcon from "../../../assets/validation/data-integrity-check.png";
 import {
   CheckTypeInfo,
   ContactFitBrief,
@@ -28,6 +32,13 @@ interface ValidationRunPanelProps {
 
 /** How often a running job is polled. */
 const POLL_MS = 3000;
+
+const CHECK_ICONS: Partial<Record<ValidationCheckType, string>> = {
+  contact_fit: targetAudienceIcon,
+  data_integrity: dataIntegrityIcon,
+  live_contact: employmentMatchIcon,
+  email_verification: emailVerificationIcon,
+};
 
 const labelStyle: React.CSSProperties = {
   display: "block",
@@ -265,7 +276,12 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
                     gap: 8,
                   }}
                 >
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: "#0b1220" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 10, fontSize: 13.5, fontWeight: 600, color: "#0b1220" }}>
+                    {CHECK_ICONS[type.key] && (
+                      <span aria-hidden="true" style={{ position: "relative", display: "inline-block", width: 40, height: 40, overflow: "hidden", flexShrink: 0 }}>
+                        <img src={CHECK_ICONS[type.key]} alt="" style={{ position: "absolute", width: 76, height: 76, maxWidth: "none", top: "50%", left: "50%", transform: "translate(-50%, -50%)" }} />
+                      </span>
+                    )}
                     {VALIDATION_CHECK_LABELS[type.key] || type.label}
                   </span>
 
