@@ -4,6 +4,7 @@ import { useOtpTimer } from "../hooks/useOtpTimer";
 import { usePageTitle } from "../hooks/usePageTitle";
 import "./LoginPage.css";
 import API_BASE_URL from "../config";
+import LoginCaptcha from "./LoginCaptcha";
 
 
 const RegistrationPage: React.FC = () => {
@@ -24,6 +25,9 @@ const RegistrationPage: React.FC = () => {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [emailForOtp, setEmailForOtp] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { timeLeft, isExpired, startTimer, formatTime } = useOtpTimer();
 
   const navigate = useNavigate();
@@ -50,6 +54,12 @@ React.useEffect(() => {
     setSuccess("");
     setError("");
 
+    if (!captchaToken) {
+      setError("Please complete the I’m not a robot check and try again.");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/Login/register`, {
         method: "POST",
@@ -57,7 +67,7 @@ React.useEffect(() => {
           "Content-Type": "application/json",
           Accept: "*/*",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, captchaToken }),
       });
 
       if (response.ok) {
@@ -77,6 +87,10 @@ React.useEffect(() => {
       }
     } catch (err: any) {
       setError("Error submitting form: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+      setCaptchaToken(null);
+      setCaptchaResetKey((current) => current + 1);
     }
   };
 
@@ -274,9 +288,10 @@ React.useEffect(() => {
       </div>
     </div>
 
+        <LoginCaptcha onChange={setCaptchaToken} resetKey={captchaResetKey} />
         <div className="form-group mb-0" style={{ marginTop: "20px" }}>
-          <button type="submit" className="button save-button d-flex justify-center">
-            Register
+          <button type="submit" className="button save-button d-flex justify-center" disabled={isSubmitting || !captchaToken}>
+            {isSubmitting ? "Registering..." : "Register"}
           </button>
         </div>
       </form>
