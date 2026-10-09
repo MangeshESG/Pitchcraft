@@ -384,6 +384,8 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
   e.preventDefault();
@@ -400,6 +402,11 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
     return;
   }
 
+  if (!captchaToken) {
+    setError("Please complete the I’m not a robot check and try again.");
+    return;
+  }
+
   setIsLoading(true);
   try {
     const response = await fetch(`${API_BASE_URL}/api/login/register`, {
@@ -408,6 +415,7 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
       body: JSON.stringify({
         ...form,
         marketingConsent, // optional but recommended to send
+        captchaToken,
       }),
     });
 
@@ -439,6 +447,8 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
     setError("Server error: " + (err as Error).message);
   } finally {
     setIsLoading(false);
+    setCaptchaToken(null);
+    setCaptchaResetKey((current) => current + 1);
   }
 };
 
@@ -567,7 +577,8 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
             </span>
           </label>
         </div>
-        <button type="submit" className="register-button" disabled={isLoading}>
+        <LoginCaptcha onChange={setCaptchaToken} resetKey={captchaResetKey} />
+        <button type="submit" className="register-button" disabled={isLoading || !captchaToken}>
           {isLoading ? (
             <>
               <div className="spinner"></div>
@@ -930,7 +941,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
 
   const handleResendOtp = async () => {
     if (isResending || resendCooldown > 0) return;
-    if (loginUser && !resendCaptchaToken) {
+    if ((loginUser || registerEmail) && !resendCaptchaToken) {
       setError("Please complete the I’m not a robot check to resend the code.");
       return;
     }
@@ -989,7 +1000,8 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
             password: registerPassword,
             companyName: localStorage.getItem("registerCompanyName") || "",
             jobTitle: localStorage.getItem("registerJobTitle") || "",
-            marketingConsent: true
+            marketingConsent: true,
+            captchaToken: resendCaptchaToken
           }),
         });
 
@@ -1024,7 +1036,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
       console.error("Resend OTP error:", err);
       setError("Error resending OTP. Please try again.");
     } finally {
-      if (loginUser) {
+      if (loginUser || registerEmail) {
         setResendCaptchaToken(null);
         setResendCaptchaResetKey((current) => current + 1);
       }
@@ -1106,13 +1118,13 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           )}
         </button>
 
-        {loginUser && <LoginCaptcha onChange={setResendCaptchaToken} resetKey={resendCaptchaResetKey} />}
+        {(loginUser || registerEmail) && <LoginCaptcha onChange={setResendCaptchaToken} resetKey={resendCaptchaResetKey} />}
         <div style={{ marginTop: 12, textAlign: "center", fontSize: 14 }}>
           <span style={{ color: "#666" }}>Didn't receive the code? </span>
           <button
             type="button"
             onClick={handleResendOtp}
-            disabled={isResending || resendCooldown > 0 || Boolean(loginUser && !resendCaptchaToken)}
+            disabled={isResending || resendCooldown > 0 || Boolean((loginUser || registerEmail) && !resendCaptchaToken)}
             style={{
               padding: 0,
               border: "none",
