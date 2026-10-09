@@ -41,7 +41,6 @@ import { ContactsToolbar, ContactsListsRows } from "./ContactList.new";
 import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import ValidationRunPanel from "./validation/ValidationRunPanel";
-import ValidateContactsButton from "./validation/ValidateContactsButton";
 import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
@@ -2303,9 +2302,6 @@ const handleDeleteContacts = () => {
         />
       </button>
 
-      <ValidateContactsButton
-        onClick={() => dispatch(openPanel("validate-view-contacts-panel"))}
-      />
     </div>
   </div>
 )}
@@ -2380,6 +2376,10 @@ const handleDeleteContacts = () => {
               revealColumn={validationColumnToReveal?.scopeId === selectedView?.id ? validationColumnToReveal : null}
               onRevealHandled={() => setValidationColumnToReveal(null)}
               showDetailToggle
+              validationAction={{
+                onClick: () => dispatch(openPanel("validate-view-contacts-panel")),
+                selectedCount: selectedContacts.size,
+              }}
               customAttributeClientId={clientId}
               data={viewContacts}
               isLoading={isLoadingViewContacts}

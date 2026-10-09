@@ -11,11 +11,13 @@ import React from "react";
 const ValidateContactsButton: React.FC<{
   onClick: () => void;
   title?: string;
-}> = ({ onClick, title = "Validate contacts" }) => (
+  disabled?: boolean;
+}> = ({ onClick, title = "Validate contacts", disabled = false }) => (
   <button
     type="button"
     className="button secondary"
-    onClick={onClick}
+    onClick={disabled ? undefined : onClick}
+    aria-disabled={disabled}
     title={title}
     style={{
       background: "none",
@@ -28,7 +30,8 @@ const ValidateContactsButton: React.FC<{
       width: "40px",
       height: "40px",
       padding: "0",
-      cursor: "pointer",
+      cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.5 : 1,
     }}
   >
     {/* Shield with a tick. */}

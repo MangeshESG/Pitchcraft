@@ -56,7 +56,6 @@ import { closePanel, openPanel } from "../../slices/panelSlice";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import useColumnPreferences from "../../hooks/useColumnPreferences";
 import ValidationRunPanel from "./validation/ValidationRunPanel";
-import ValidateContactsButton from "./validation/ValidateContactsButton";
 import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
@@ -2365,6 +2364,10 @@ const filterFields: any = useMemo(() => {
                   revealColumn={validationColumnToReveal?.scopeType === "list" && validationColumnToReveal.scopeId === selectedDataFileForView?.id ? validationColumnToReveal : null}
                   onRevealHandled={() => setValidationColumnToReveal(null)}
                   showDetailToggle
+                  validationAction={{
+                    onClick: () => dispatch(openPanel("validate-contacts-panel")),
+                    selectedCount: detailSelectedContacts.size,
+                  }}
                   customAttributeDefinitions={customFields}
                   data={filteredDetailContacts}
                   isLoading={isLoadingDetail}
@@ -2843,9 +2846,6 @@ const filterFields: any = useMemo(() => {
                                 style={{ fontSize: 20, color: "#3f9f42" }}
                               />
                             </button>
-                            <ValidateContactsButton
-                              onClick={() => dispatch(openPanel("validate-contacts-panel"))}
-                            />
                           </div>
                         </div>
                       )}
@@ -3446,6 +3446,10 @@ const filterFields: any = useMemo(() => {
                   revealColumn={validationColumnToReveal?.scopeType === "segment" && validationColumnToReveal.scopeId === selectedSegmentForView?.id ? validationColumnToReveal : null}
                   onRevealHandled={() => setValidationColumnToReveal(null)}
                   showDetailToggle
+                  validationAction={{
+                    onClick: () => dispatch(openPanel("validate-contacts-panel")),
+                    selectedCount: detailSelectedContacts.size,
+                  }}
                   customAttributeDefinitions={customFields}
                   columnNameMap={columnNameMap}
                   data={detailContacts}
@@ -3901,9 +3905,6 @@ const filterFields: any = useMemo(() => {
                               style={{ fontSize: 20, color: "#3f9f42" }}
                             />
                           </button>
-                          <ValidateContactsButton
-                              onClick={() => dispatch(openPanel("validate-contacts-panel"))}
-                            />
                         </div>
                       </div>
                       )}
