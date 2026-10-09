@@ -8,6 +8,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import RichTextEditor from "../../common/RTEEditor";
+import { EmailHighlight, parseEmailHighlights } from "../../../utils/emailHighlights";
 import "./ContactComposeEmailPopup.css";
 
 interface ContactComposeEmailPopupProps {
@@ -38,6 +39,8 @@ interface ContactComposeEmailPopupProps {
     emails?: string;
     notes?: string;
     professionalSummary?: string;
+    /** Highlight records as the generator returned them, raw or JSON. */
+    emailHighlights?: unknown;
   }>;
   onSend: (payload: {
     emailSubject: string;
@@ -290,6 +293,9 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   const [previewEmails, setPreviewEmails] = useState("");
   const [previewNotes, setPreviewNotes] = useState("");
   const [previewProfessionalSummary, setPreviewProfessionalSummary] = useState("");
+  // Source highlights for the generated body. The editor paints them over the
+  // wording it finds, so the body that gets sent stays clean.
+  const [previewHighlights, setPreviewHighlights] = useState<EmailHighlight[]>([]);
   // Device-preview width for the body editor ("" = desktop).
   const [previewWidth, setPreviewWidth] = useState("");
   const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
@@ -331,6 +337,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       setHasGeneratedBody(false);
       setPreviewWidth("");
       setOpenDeviceDropdown(false);
+      setPreviewHighlights([]);
     }
   }, [isOpen]);
 
@@ -375,6 +382,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       setPreviewEmails(generatedEmail.emails || "");
       setPreviewNotes(generatedEmail.notes || "");
       setPreviewProfessionalSummary(generatedEmail.professionalSummary || "");
+      setPreviewHighlights(parseEmailHighlights(generatedEmail.emailHighlights));
     } finally {
       setIsGenerating(false);
     }
@@ -686,6 +694,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
                   setPreviewWidth(width);
                   setOpenDeviceDropdown(false);
                 }}
+                highlights={previewHighlights}
                 finalPrompt={previewFinalPrompt}
                 webSearchData={previewWebSearchData}
                 insightEmails={previewEmails}

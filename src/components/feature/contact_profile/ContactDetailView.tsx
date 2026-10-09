@@ -36,6 +36,7 @@ import "react-quill/dist/quill.snow.css";
 import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
 import RichTextEditor from '../../common/RTEEditor';
 import { extractGenerationInsights } from '../../../utils/generationInsights';
+import { EmailHighlight, parseEmailHighlights } from '../../../utils/emailHighlights';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import CreditCheckModal from "../../common/CreditCheckModal";
 import Modal from "../../common/Modal";
@@ -331,6 +332,9 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [kraftEmails, setKraftEmails] = useState("");
   const [kraftNotes, setKraftNotes] = useState("");
   const [kraftProfessionalSummary, setKraftProfessionalSummary] = useState("");
+  // Source highlights for the draft the last kraft produced. The editor paints
+  // them over the wording it finds; nothing is written into the saved body.
+  const [kraftHighlights, setKraftHighlights] = useState<EmailHighlight[]>([]);
 
   const captureKraftInsights = (responseData: any) => {
     const insights = extractGenerationInsights(responseData);
@@ -339,7 +343,16 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
     setKraftEmails(insights.emails);
     setKraftNotes(insights.notes);
     setKraftProfessionalSummary(insights.professionalSummary);
+    setKraftHighlights(parseEmailHighlights(responseData?.emailHighlights));
   };
+
+  // Highlights describe the wording of the draft they were generated for, so
+  // they are dropped once both drafts are empty — closing a thread, sending,
+  // or switching tabs. While a draft is open they are left alone: a record
+  // whose wording was edited away is simply not painted.
+  useEffect(() => {
+    if (!contactReplyText.trim() && !contactForwardMessage.trim()) setKraftHighlights([]);
+  }, [contactReplyText, contactForwardMessage]);
 
   useEffect(() => {
     if (!showContactReplySection && !showContactForwardSection) return;
@@ -1949,6 +1962,7 @@ const handleDeleteContact = async () => {
           emails: generationInsights.emails,
           notes: generationInsights.notes,
           professionalSummary: generationInsights.professionalSummary,
+          emailHighlights: response.data.emailHighlights,
         };
       }
 
@@ -4157,6 +4171,7 @@ dispatch(closePanel());
                     setOpenContactForwardDeviceDropdown(false);
                   }}
                   onExpandEditor={() => setIsContactForwardExpanded(true)}
+                  highlights={kraftHighlights}
                   finalPrompt={kraftFinalPrompt}
                   webSearchData={kraftWebSearchData}
                   insightEmails={kraftEmails}
@@ -4446,6 +4461,7 @@ dispatch(closePanel());
                     setOpenContactReplyDeviceDropdown(false);
                   }}
                   onExpandEditor={() => setIsContactReplyExpanded(true)}
+                  highlights={kraftHighlights}
                   finalPrompt={kraftFinalPrompt}
                   webSearchData={kraftWebSearchData}
                   insightEmails={kraftEmails}
@@ -4501,7 +4517,7 @@ dispatch(closePanel());
         >
           <div style={{ padding: 20 }}>
             <label style={{ fontWeight: 500, fontSize: 16, marginBottom: 12, display: "block" }}>Reply editor</label>
-              <RichTextEditor value={contactReplyText} onChange={setContactReplyText} height={520} />
+              <RichTextEditor value={contactReplyText} onChange={setContactReplyText} height={520} highlights={kraftHighlights} />
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 14 }}>
                 <button
                   type="button"
@@ -4545,7 +4561,7 @@ dispatch(closePanel());
         >
           <div style={{ padding: 20 }}>
             <label style={{ fontWeight: 500, fontSize: 16, marginBottom: 12, display: "block" }}>Forward editor</label>
-            <RichTextEditor value={contactForwardMessage} onChange={setContactForwardMessage} height={520} />
+            <RichTextEditor value={contactForwardMessage} onChange={setContactForwardMessage} height={520} highlights={kraftHighlights} />
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 14 }}>
               <button
                 type="button"
