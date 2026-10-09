@@ -60,7 +60,6 @@ const ValidateRecordsModal: React.FC<ValidateRecordsModalProps> = ({
                     headers: {
                       'accept': '*/*'
                     },
-                    body: ''
                   }
                 );
                 

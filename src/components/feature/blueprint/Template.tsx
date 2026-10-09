@@ -679,7 +679,6 @@ const Template: React.FC<TemplateProps> = ({
         {
           method: "POST",
           headers: { accept: "*/*" },
-          body: "",
         },
       );
 

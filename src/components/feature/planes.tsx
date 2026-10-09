@@ -319,7 +319,6 @@ const [errorPopup, setErrorPopup] = useState<string | null>(null);
       const response = await fetch(`${API_BASE_URL}/api/stripe/create-credit-intent?UserId=${effectiveUserId}&Credits=${creditAmount}`, {
         method: "POST",
         headers: { "accept": "*/*" },
-        body: "",
       });
 
       if (!response.ok) throw new Error("Failed to create payment intent");

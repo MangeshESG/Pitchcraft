@@ -153,7 +153,7 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/Crm/updatetracking?clientId=${getClientId()}&IsTracking=${newState}`,
-        { method: 'POST', headers: { accept: '*/*' }, body: '' }
+        { method: 'POST', headers: { accept: '*/*' } }
       );
       if (response.ok) {
         setIsTracking(newState);
@@ -205,7 +205,7 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/Crm/updatebounceback?clientId=${getClientId()}&bounceBack=${newState}`,
-        { method: 'POST', headers: { accept: '*/*' }, body: '' }
+        { method: 'POST', headers: { accept: '*/*' } }
       );
       if (response.ok) {
         setIsBounceBack(newState);

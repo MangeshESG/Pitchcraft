@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useOtpTimer } from "../hooks/useOtpTimer";
 import { usePageTitle } from "../hooks/usePageTitle";
+import API_BASE_URL from "../config";
 import "./LoginPage.css"; // Reuse login page styles
 
 const ForgotPasswordPage: React.FC = () => {
@@ -22,13 +23,12 @@ const ForgotPasswordPage: React.FC = () => {
 
     try {
       const response = await fetch(
-        `https://test.pitchkraft.ai/api/Login/restpass_send-otp?email=${encodeURIComponent(email)}`,
+        `${API_BASE_URL}/api/Login/restpass_send-otp?email=${encodeURIComponent(email)}`,
         {
           method: "POST",
           headers: {
             Accept: "*/*",
           },
-          body: "",
         }
       );
 
@@ -52,7 +52,7 @@ const ForgotPasswordPage: React.FC = () => {
     setError("");
 
     try {
-      const url = `https://test.pitchkraft.ai/api/Login/verify-otp-and-reset-password?Email=${encodeURIComponent(
+      const url = `${API_BASE_URL}/api/Login/verify-otp-and-reset-password?Email=${encodeURIComponent(
         email
       )}&Otp=${encodeURIComponent(otp)}&NewPassword=${encodeURIComponent(
         newPassword
@@ -63,7 +63,6 @@ const ForgotPasswordPage: React.FC = () => {
         headers: {
           Accept: "*/*",
         },
-        body: "",
       });
 
       if (response.ok) {

@@ -702,7 +702,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           headers: {
             'accept': '*/*'
           },
-          body: ''
         }
       );
       
@@ -1258,7 +1257,6 @@ const actionIconStyle = {
           headers: {
             'accept': '*/*'
           },
-          body: ''
         }
       );
       
@@ -1550,7 +1548,6 @@ const actionIconStyle = {
                 headers: {
                   'accept': '*/*'
                 },
-                body: ''
               }
             );
             

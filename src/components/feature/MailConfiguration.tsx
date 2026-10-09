@@ -1629,7 +1629,6 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
                           headers: {
                             'accept': '*/*'
                           },
-                          body: ''
                         }
                       );
                       
