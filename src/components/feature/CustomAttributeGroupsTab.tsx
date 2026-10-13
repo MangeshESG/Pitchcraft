@@ -27,9 +27,10 @@ interface Props {
   onCreate: () => void;
   onEdit: (group: AttributeGroup) => void;
   onChanged: () => void;
+  onToast: (message: string, type: "success" | "error" | "info" | "warning") => void;
 }
 
-const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdit, onChanged }) => {
+const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdit, onChanged, onToast }) => {
   const [groups, setGroups] = useState<AttributeGroup[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -69,7 +70,9 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
       onChanged();
     } catch (err: any) {
       setGroups(groups);
-      setError(err.message || "Could not save group order.");
+      const message = err.message || "Could not save group order.";
+      setError(message);
+      onToast(message, "error");
     } finally { setSavingOrder(false); }
   };
 
@@ -87,7 +90,9 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
       onChanged();
     } catch (err: any) {
       setMembers(members);
-      setMemberError(err.message || "Could not save attribute order.");
+      const message = err.message || "Could not save attribute order.";
+      setMemberError(message);
+      onToast(message, "error");
     } finally { setSavingOrder(false); }
   };
 
@@ -131,7 +136,7 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
           setTotal(result.total);
           setError("");
         })
-        .catch((err) => { if (active) setError(err.message || "Could not load groups."); })
+        .catch((err) => { if (active) { const message = err.message || "Could not load groups."; setError(message); onToast(message, "error"); } })
         .finally(() => { if (active) setLoading(false); });
     }, search ? 250 : 0);
     return () => { active = false; clearTimeout(timer); };
@@ -149,7 +154,7 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
           setMemberTotal(result.total);
           setMemberError("");
         })
-        .catch((err) => { if (active) setMemberError(err.message || "Could not load group attributes."); })
+        .catch((err) => { if (active) { const message = err.message || "Could not load group attributes."; setMemberError(message); onToast(message, "error"); } })
         .finally(() => { if (active) setMembersLoading(false); });
     }, memberSearch ? 250 : 0);
     return () => { active = false; clearTimeout(timer); };
@@ -164,7 +169,9 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
       setPage((current) => total - 1 <= (current - 1) * PAGE_SIZE ? Math.max(1, current - 1) : current);
       onChanged();
     } catch (err: any) {
-      setError(err.message || "Could not delete group.");
+      const message = err.message || "Could not delete group.";
+      setError(message);
+      onToast(message, "error");
     } finally {
       setDeleting(false);
     }

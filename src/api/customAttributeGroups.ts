@@ -40,24 +40,44 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
   if (!token) throw new Error("Please sign in again to manage attribute groups.");
 
-  const response = await fetch(`${basePath}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...init?.headers,
-    },
-  });
-  if (!response.ok) {
-    const body = await response.text();
-    let message = body;
-    try {
-      const parsed = JSON.parse(body);
-      message = parsed.message || parsed.title || body;
-    } catch { /* Plain-text API error. */ }
-    throw new Error(message || "Could not save the attribute group.");
+  let response: Response;
+  try {
+    response = await fetch(`${basePath}${path}`, {
+      ...init,
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch {
+    throw new Error("Could not connect to the custom attributes service. Please try again.");
   }
-  return response.status === 204 ? undefined as T : response.json();
+  if (!response.ok) {
+    let message = "";
+    if (response.headers.get("content-type")?.toLowerCase().includes("json")) {
+      try {
+        const parsed = await response.json();
+        const candidate = parsed?.message || parsed?.title || parsed?.detail;
+        if (typeof candidate === "string" && candidate.length <= 300 && !/<[^>]*>/.test(candidate)) {
+          message = candidate;
+        }
+      } catch { /* Use a safe status message below. */ }
+    }
+    if (!message) {
+      if (response.status === 401) message = "Your session has expired. Please sign in again.";
+      else if (response.status === 403) message = "Custom attributes are unavailable or access is denied (403). Please contact support.";
+      else if (response.status === 404) message = "Custom attributes service is unavailable on this server. Please contact support.";
+      else message = `Custom attributes request failed (${response.status}). Please try again.`;
+    }
+    throw new Error(message);
+  }
+  if (response.status === 204) return undefined as T;
+  if (!response.headers.get("content-type")?.toLowerCase().includes("json")) {
+    throw new Error("Custom attributes service returned an unexpected response. Please contact support.");
+  }
+  return response.json();
 }
 
 export function getAttributeGroups(page: number, pageSize: number, search: string) {
@@ -73,7 +93,7 @@ export function getGroupAttributes(page: number, pageSize: number, search: strin
 
 export function saveAttributeGroup(groupId: number | null, body: SaveAttributeGroup) {
   return request<{ id: number; name: string }>(groupId === null ? "" : `/${groupId}`, {
-    method: groupId === null ? "POST" : "PUT",
+    method: "POST",
     body: JSON.stringify(body),
   });
 }
@@ -83,11 +103,11 @@ export function deleteAttributeGroup(groupId: number) {
 }
 
 export function reorderAttributeGroups(page: number, pageSize: number, orderedIds: number[]) {
-  return request<void>("/order", { method: "PUT", body: JSON.stringify({ page, pageSize, orderedIds }) });
+  return request<void>("/order", { method: "POST", body: JSON.stringify({ page, pageSize, orderedIds }) });
 }
 
 export function reorderGroupAttributes(groupId: number, page: number, pageSize: number, orderedIds: number[]) {
-  return request<void>(`/${groupId}/attributes/order`, { method: "PUT", body: JSON.stringify({ page, pageSize, orderedIds }) });
+  return request<void>(`/${groupId}/attributes/order`, { method: "POST", body: JSON.stringify({ page, pageSize, orderedIds }) });
 }
 
 export interface CustomAttributeLayout {
