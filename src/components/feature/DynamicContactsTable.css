@@ -136,6 +136,31 @@
 }
 .dt-action-group > .dt-detail-toggle.is-on:hover { background: var(--dt-bg-2); }
 
+/* The validation button becomes its own progress bar while a run is in flight. */
+.dt-validate-btn.is-running { cursor: pointer; min-width: 168px; }
+.dt-validate-progress {
+  display: flex; flex-direction: column; gap: 4px;
+  width: 100%; align-items: stretch;
+}
+.dt-validate-progress__head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12.5px; color: var(--dt-ink-soft); white-space: nowrap;
+}
+.dt-validate-progress__count { margin-left: auto; font-variant-numeric: tabular-nums; }
+.dt-validate-progress__track {
+  height: 4px; border-radius: 999px; background: #eef0f3; overflow: hidden;
+}
+.dt-validate-progress__fill {
+  display: block; height: 100%; background: var(--dt-brand);
+  transition: width 0.4s ease;
+}
+.dt-spinner {
+  width: 11px; height: 11px; flex-shrink: 0; border-radius: 50%;
+  border: 2px solid rgba(63, 159, 66, 0.25); border-top-color: var(--dt-brand);
+  animation: dt-spin 0.7s linear infinite;
+}
+@keyframes dt-spin { to { transform: rotate(360deg); } }
+
 /* Inline-detail switch (sits beside the Columns button) */
 .dt-detail-toggle.is-on {
   border-color: var(--dt-brand);

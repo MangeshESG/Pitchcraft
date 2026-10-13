@@ -27,6 +27,11 @@ interface ValidationRunPanelProps {
   contactIds: number[];
   /** Fires when a run finishes so the caller can refresh its grid. */
   onCompleted?: (job: ValidationJob) => void;
+  /**
+   * Fires on every status change of the run this panel started, open or not,
+   * so the caller can keep showing progress once the panel is closed.
+   */
+  onJobChange?: (job: ValidationJob | null) => void;
   onShowMessage?: (message: string, type: "success" | "error" | "info") => void;
 }
 
@@ -63,6 +68,7 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
   clientId,
   contactIds,
   onCompleted,
+  onJobChange,
   onShowMessage,
 }) => {
   const [checkTypes, setCheckTypes] = useState<CheckTypeInfo[]>([]);
@@ -74,6 +80,16 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // A run outlives the panel being open and the grid being switched, so the
+  // poll loop reads the callers' latest callbacks rather than the ones that
+  // existed when the run was started.
+  const onCompletedRef = useRef(onCompleted);
+  const onShowMessageRef = useRef(onShowMessage);
+  useEffect(() => {
+    onCompletedRef.current = onCompleted;
+    onShowMessageRef.current = onShowMessage;
+  });
 
   const credits = creditsForContacts(contactIds.length, checkType);
   const selected = checkTypes.find((c) => c.key === checkType);
@@ -106,15 +122,22 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
     };
   }, [isOpen, clientId]);
 
-  // Reset between openings so a previous run's result never reads as this one's.
+  // Clear the previous result when the panel is reopened, so it never reads as
+  // this opening's run. A run still in flight is deliberately kept: closing the
+  // panel must not stop the polling, or the grid would never be refreshed and
+  // the toolbar would have no progress to show.
   useEffect(() => {
-    if (isOpen) return;
+    if (!isOpen) return;
 
-    setJob(null);
     setError(null);
     setIsStarting(false);
-    if (pollRef.current) clearTimeout(pollRef.current);
+    setJob((current) => (current && !current.isFinished ? current : null));
   }, [isOpen]);
+
+  // Keep the caller's copy of the run in step with ours.
+  useEffect(() => {
+    onJobChange?.(job);
+  }, [job, onJobChange]);
 
   // ---------- Follow a running job ----------
   const poll = useCallback(
@@ -128,20 +151,20 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
           return;
         }
 
-        onCompleted?.(latest);
+        onCompletedRef.current?.(latest);
 
         if (latest.status === "failed") {
-          onShowMessage?.(
+          onShowMessageRef.current?.(
             latest.errorMessage || "The validation run failed.",
             "error"
           );
         } else if (latest.status === "partial") {
-          onShowMessage?.(
+          onShowMessageRef.current?.(
             `${latest.processedCount} of ${latest.contactCount} contacts were validated. ${latest.failedCount} could not be.`,
             "info"
           );
         } else {
-          onShowMessage?.(
+          onShowMessageRef.current?.(
             `${latest.processedCount} contact${latest.processedCount === 1 ? "" : "s"} validated.`,
             "success"
           );
@@ -150,7 +173,7 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
         setError(pollError?.message ?? "The run status could not be read.");
       }
     },
-    [clientId, onCompleted, onShowMessage]
+    [clientId]
   );
 
   useEffect(() => {

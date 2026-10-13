@@ -4,7 +4,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import PaginationControls from "./PaginationControls";
 import CommonSidePanel from "../common/CommonSidePanel";
-import ValidateContactsButton from "./validation/ValidateContactsButton";
+import ValidateContactsButton, { ValidationRunProgress } from "./validation/ValidateContactsButton";
 import { GridDetailModeProvider } from "../common/GridDetailMode";
 import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import type { ColumnPreference } from "../../api/columnPreferences";
@@ -63,7 +63,12 @@ interface DynamicContactsTableProps {
    * of plain fields the switch would be a control that changes nothing.
    */
   showDetailToggle?: boolean;
-  validationAction?: { onClick: () => void; selectedCount: number };
+  validationAction?: {
+    onClick: () => void;
+    selectedCount: number;
+    /** The run in flight, so the button can stand in as its progress bar. */
+    progress?: ValidationRunProgress | null;
+  };
   customColumns?: ColumnConfig[];
   excludeFields?: string[];
   includeFields?: string[];
@@ -918,6 +923,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                 {validationAction && (
                   <ValidateContactsButton
                     onClick={validationAction.onClick}
+                    progress={validationAction.progress}
                     disabled={validationAction.selectedCount === 0}
                     title={
                       validationAction.selectedCount === 0

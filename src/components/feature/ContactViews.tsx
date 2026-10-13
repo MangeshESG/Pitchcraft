@@ -54,6 +54,7 @@ import {
   VALIDATION_SCORE_KEYS,
   type AppliedSuggestion,
   type ValidationCheckType,
+  type ValidationJob,
   type ValidationSuggestion,
 } from "../../api/contactValidation";
 import { useToast } from "../../hooks/useToast";
@@ -664,6 +665,23 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [validationColumnToReveal, setValidationColumnToReveal] = useState<{
     key: string; requestId: number; scopeId: number;
   } | null>(null);
+  /**
+   * The validation run in flight. Held here rather than in the panel so the
+   * toolbar can keep showing its progress after the panel is closed.
+   */
+  const [activeValidationJob, setActiveValidationJob] = useState<ValidationJob | null>(null);
+  const validationProgress = useMemo(
+    () =>
+      activeValidationJob
+        ? {
+            processed: activeValidationJob.processedCount,
+            total: activeValidationJob.contactCount,
+            isFinished: activeValidationJob.isFinished,
+            failed: activeValidationJob.status === "failed",
+          }
+        : null,
+    [activeValidationJob]
+  );
 
   useEffect(() => {
     selectedViewIdRef.current = selectedView?.id ?? null;
@@ -2381,6 +2399,7 @@ const handleDeleteContacts = () => {
               validationAction={{
                 onClick: () => dispatch(openPanel("validate-view-contacts-panel")),
                 selectedCount: selectedContacts.size,
+                progress: validationProgress,
               }}
               customAttributeClientId={clientId}
               data={viewContacts}
@@ -2590,6 +2609,7 @@ const handleDeleteContacts = () => {
         onClose={() => dispatch(closePanel())}
         clientId={String(clientId)}
         contactIds={validationContactIds}
+        onJobChange={setActiveValidationJob}
         onCompleted={(job) => {
           if (job.status !== "failed" && job.processedCount > 0) {
             if (selectedView) {

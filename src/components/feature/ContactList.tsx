@@ -69,6 +69,7 @@ import {
   VALIDATION_SCORE_KEYS,
   type AppliedSuggestion,
   type ValidationCheckType,
+  type ValidationJob,
   type ValidationSuggestion,
 } from "../../api/contactValidation";
 
@@ -1255,6 +1256,23 @@ const formatTimeIST = formatUserTime;
   const [validationColumnToReveal, setValidationColumnToReveal] = useState<{
     key: string; requestId: number; scopeType: "list" | "segment"; scopeId: number;
   } | null>(null);
+  /**
+   * The validation run in flight. Held here rather than in the panel so the
+   * toolbar can keep showing its progress after the panel is closed.
+   */
+  const [activeValidationJob, setActiveValidationJob] = useState<ValidationJob | null>(null);
+  const validationProgress = useMemo(
+    () =>
+      activeValidationJob
+        ? {
+            processed: activeValidationJob.processedCount,
+            total: activeValidationJob.contactCount,
+            isFinished: activeValidationJob.isFinished,
+            failed: activeValidationJob.status === "failed",
+          }
+        : null,
+    [activeValidationJob]
+  );
   const segmentColumnPreferences = useColumnPreferences(effectiveUserId, {
     scope: selectedSegmentForView ? { scopeType: "segment", scopeId: selectedSegmentForView.id } : null,
     customFieldIdByName,
@@ -2368,6 +2386,7 @@ const filterFields: any = useMemo(() => {
                   validationAction={{
                     onClick: () => dispatch(openPanel("validate-contacts-panel")),
                     selectedCount: detailSelectedContacts.size,
+                    progress: validationProgress,
                   }}
                   customAttributeDefinitions={customFields}
                   data={filteredDetailContacts}
@@ -3450,6 +3469,7 @@ const filterFields: any = useMemo(() => {
                   validationAction={{
                     onClick: () => dispatch(openPanel("validate-contacts-panel")),
                     selectedCount: detailSelectedContacts.size,
+                    progress: validationProgress,
                   }}
                   customAttributeDefinitions={customFields}
                   columnNameMap={columnNameMap}
@@ -4519,6 +4539,7 @@ const filterFields: any = useMemo(() => {
         onClose={() => dispatch(closePanel())}
         clientId={effectiveUserId ?? ""}
         contactIds={activeSelectedContactIds}
+        onJobChange={setActiveValidationJob}
         onCompleted={(job) => {
           if (job.status !== "failed" && job.processedCount > 0) {
             const key = getValidationScoreColumn(job.checkType);
