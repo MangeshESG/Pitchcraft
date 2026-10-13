@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import API_BASE_URL from "../../config";
 import { useAppData } from "../../contexts/AppDataContext";
 import "./customFieldSettings.css";
@@ -9,13 +9,16 @@ import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import { MoreVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import customFieldNewUserImage from "../../assets/images/Custom_field_new_user.png";
+import CustomAttributeGroupsTab from "./CustomAttributeGroupsTab";
+import { AttributeGroup, getGroupAttributes, saveAttributeGroup } from "../../api/customAttributeGroups";
 
 interface CustomField {
   id: number;
   field_name: string;
   field_key: string;
   field_type: string;
-  options_json?: string;
+  options_json?: string | null;
+  group_id?: number | null;
 }
 
 interface Props {
@@ -37,6 +40,20 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   const [fieldToDelete, setFieldToDelete] = useState<CustomField | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [fieldSearch, setFieldSearch] = useState("");
+  const [fieldPage, setFieldPage] = useState(1);
+  const [fieldTotal, setFieldTotal] = useState(0);
+  const [fieldsLoading, setFieldsLoading] = useState(true);
+  const [fieldsError, setFieldsError] = useState("");
+  const fieldLoadId = useRef(0);
+  const [activeTab, setActiveTab] = useState<"fields" | "groups">("fields");
+  const [editingGroup, setEditingGroup] = useState<AttributeGroup | null>(null);
+  const [groupMode, setGroupMode] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupDescription, setGroupDescription] = useState("");
+  const [groupChanges, setGroupChanges] = useState<Map<number, boolean>>(new Map());
+  const [groupSaving, setGroupSaving] = useState(false);
+  const [groupError, setGroupError] = useState("");
+  const [groupRefreshKey, setGroupRefreshKey] = useState(0);
 
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
   const activePanel = useSelector((state: RootState) => state.panel.activePanel);
@@ -56,21 +73,26 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   );
 
   const loadFields = async () => {
+    const loadId = ++fieldLoadId.current;
+    setFieldsLoading(true);
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/crm/custom-fields?clientId=${effectiveUserId}`
-      );
-      if (!res.ok) return;
-      const data = await res.json();
-      setFields(data || []);
+      const result = await getGroupAttributes(fieldPage, 20, fieldSearch);
+      if (loadId !== fieldLoadId.current) return;
+      setFields(result.items);
+      setFieldTotal(result.total);
+      setFieldsError("");
+      if (fieldPage > 1 && result.items.length === 0) setFieldPage((page) => Math.max(1, page - 1));
     } catch (error) {
-      console.error("Error loading custom fields:", error);
+      if (loadId === fieldLoadId.current) setFieldsError(error instanceof Error ? error.message : "Could not load custom attributes.");
+    } finally {
+      if (loadId === fieldLoadId.current) setFieldsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadFields();
-  }, [effectiveUserId]);
+    const timer = setTimeout(loadFields, fieldSearch ? 250 : 0);
+    return () => { clearTimeout(timer); fieldLoadId.current += 1; };
+  }, [effectiveUserId, fieldPage, fieldSearch]);
 
   const saveField = async () => {
     if (!name.trim()) return;
@@ -220,13 +242,103 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     setOptions(updated.length ? updated : [""]);
   };
 
-  const filteredFields = fields.filter((f) =>
-    f.field_name.toLowerCase().includes(fieldSearch.toLowerCase())
-  );
+  const filteredFields = fields;
+  const selectedGroupCount = editingGroup
+    ? editingGroup.attributeCount + Array.from(groupChanges.values()).filter(Boolean).length - Array.from(groupChanges.values()).filter((selected) => !selected).length
+    : Array.from(groupChanges.values()).filter(Boolean).length;
+
+  const cancelGroup = () => {
+    setGroupMode(false);
+    setEditingGroup(null);
+    setGroupChanges(new Map());
+    setGroupError("");
+  };
+
+  const createGroup = () => {
+    setActiveTab("fields");
+    setEditingGroup(null);
+    setGroupName("");
+    setGroupDescription("");
+    setGroupChanges(new Map());
+    setGroupError("");
+    setGroupMode(true);
+  };
+
+  const editGroup = (group: AttributeGroup) => {
+    setActiveTab("fields");
+    setEditingGroup(group);
+    setGroupName(group.name);
+    setGroupDescription(group.description || "");
+    setGroupChanges(new Map());
+    setGroupError("");
+    setGroupMode(true);
+  };
+
+  const toggleGroupField = (field: CustomField) => {
+    if (field.group_id && field.group_id !== editingGroup?.id) return;
+    setGroupChanges((current) => {
+      const next = new Map(current);
+      const initiallySelected = Boolean(editingGroup && field.group_id === editingGroup.id);
+      const newSelection = !(next.get(field.id) ?? initiallySelected);
+      if (newSelection === initiallySelected) next.delete(field.id);
+      else next.set(field.id, newSelection);
+      return next;
+    });
+  };
+
+  const saveGroup = async () => {
+    if (!groupName.trim() || groupSaving) {
+      if (!groupName.trim()) setGroupError("Enter a group name.");
+      return;
+    }
+    setGroupSaving(true);
+    setGroupError("");
+    try {
+      const groupId = editingGroup?.id ?? null;
+      await saveAttributeGroup(groupId, {
+        name: groupName.trim(),
+        description: groupDescription.trim(),
+        addAttributeIds: Array.from(groupChanges).filter(([, selected]) => selected).map(([id]) => id),
+        removeAttributeIds: Array.from(groupChanges).filter(([, selected]) => !selected).map(([id]) => id),
+      });
+      cancelGroup();
+      await loadFields();
+      setGroupRefreshKey((key) => key + 1);
+      setActiveTab("groups");
+    } catch (error: any) {
+      setGroupError(error.message || "Could not save group.");
+    } finally {
+      setGroupSaving(false);
+    }
+  };
 
   return (
     <div className="bp-list-wrap">
-      {fields.length === 0 ? (
+      <div className="cf-tabs-bar">
+        <div className="cf-tabs" role="tablist" aria-label="Custom attributes">
+          <button type="button" role="tab" aria-selected={activeTab === "fields"} className={activeTab === "fields" ? "is-active" : ""} onClick={() => setActiveTab("fields")}>Custom attributes</button>
+          <button type="button" role="tab" aria-selected={activeTab === "groups"} className={activeTab === "groups" ? "is-active" : ""} onClick={() => { cancelGroup(); setActiveTab("groups"); }}>Groups</button>
+        </div>
+      </div>
+      {activeTab === "fields" && groupMode && (
+        <div className="cf-group-editor">
+          <div><h2>{editingGroup ? "Edit group" : "Create group"}</h2><p>Select attributes below. An attribute can belong to one group only.</p></div>
+          <div className="cf-group-editor__inputs">
+            <label>Group name<input value={groupName} maxLength={120} onChange={(event) => setGroupName(event.target.value)} placeholder="Enter group name" /></label>
+            <label>Description (optional)<input value={groupDescription} maxLength={500} onChange={(event) => setGroupDescription(event.target.value)} placeholder="What is this group for?" /></label>
+          </div>
+          {groupError && <div className="cf-groups__error" role="alert">{groupError}</div>}
+          <div className="cf-group-editor__actions"><span>{selectedGroupCount} selected</span><button type="button" className="panel-cancel-btn" disabled={groupSaving} onClick={cancelGroup}>Cancel</button><button type="button" className="panel-create-btn" disabled={groupSaving || !groupName.trim()} onClick={saveGroup}>{groupSaving ? "Saving..." : editingGroup ? "Update group" : "Save group"}</button></div>
+        </div>
+      )}
+      {activeTab === "groups" ? (
+        <CustomAttributeGroupsTab
+          refreshKey={groupRefreshKey}
+          onCreate={createGroup}
+          onEdit={editGroup}
+          onChanged={() => { loadFields(); setGroupRefreshKey((key) => key + 1); }}
+        />
+      ) : fieldTotal === 0 && !fieldSearch && !fieldsLoading && !fieldsError ? (
         <div className="bp-empty-wrap">
           <div className="bp-empty-body">
             <div className="bp-empty-hero">
@@ -267,13 +379,17 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
               <div>
                 <h1 className="bp-page-title">
                   Custom fields
-                  <span className="bp-count-pill">{fields.length}</span>
+                  <span className="bp-count-pill">{fieldTotal}</span>
                 </h1>
                 <p className="bp-page-sub">
                   Define custom attributes to capture unique contact and company data beyond standard fields.
                 </p>
               </div>
               <div className="bp-header-actions">
+                {!groupMode && <button type="button" className="bp-btn-default" onClick={createGroup}>
+                  <Plus className="h-4 w-4" />
+                  Create group
+                </button>}
                 <button type="button" className="bp-btn-default" onClick={openCreatePanel}>
                   <Plus className="h-4 w-4" />
                   Add field
@@ -291,28 +407,29 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
                   type="text"
                   placeholder="Search fields"
                   value={fieldSearch}
-                  onChange={(e) => setFieldSearch(e.target.value)}
+                  onChange={(e) => { setFieldSearch(e.target.value); setFieldPage(1); }}
                 />
               </div>
             </div>
             <span style={{ fontSize: "12.5px", color: "var(--bp-ink-faint)" }}>
-              {filteredFields.length} field{filteredFields.length !== 1 ? "s" : ""}
+              {fieldTotal} field{fieldTotal !== 1 ? "s" : ""}
             </span>
           </div>
 
           <div className="bp-rows">
             <div
               className="bp-rows__head"
-              style={{ gridTemplateColumns: "14px 1.5fr 1fr 60px" }}
+              style={{ gridTemplateColumns: groupMode ? "36px 14px minmax(0,1.5fr) minmax(0,1fr) 60px" : "14px minmax(0,1.5fr) minmax(0,1fr) 60px" }}
             >
+              {groupMode && <div>✓</div>}
               <div />
               <div>Field name</div>
               <div>Type</div>
               <div />
             </div>
 
-            {filteredFields.length === 0 ? (
-              <div className="bp-rows__msg">No fields match your search.</div>
+            {fieldsLoading || fieldsError || filteredFields.length === 0 ? (
+              <div className="bp-rows__msg">{fieldsLoading ? "Loading attributes..." : fieldsError || "No fields match your search."}</div>
             ) : (
               filteredFields.map((f) => {
                 let parsedOptions: string[] = [];
@@ -322,9 +439,10 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
                 return (
                   <div
                     key={f.id}
-                    className="bp-row"
-                    style={{ gridTemplateColumns: "14px 1.5fr 1fr 60px" }}
+                    className={`bp-row${groupMode ? " cf-row--select" : ""}`}
+                    style={{ gridTemplateColumns: groupMode ? "36px 14px minmax(0,1.5fr) minmax(0,1fr) 60px" : "14px minmax(0,1.5fr) minmax(0,1fr) 60px" }}
                   >
+                    {groupMode && <div className="cf-row__checkbox"><input type="checkbox" checked={groupChanges.get(f.id) ?? Boolean(editingGroup && f.group_id === editingGroup.id)} disabled={Boolean(f.group_id && f.group_id !== editingGroup?.id)} onChange={() => toggleGroupField(f)} aria-label={`Add ${f.field_name} to group`} title={f.group_id && f.group_id !== editingGroup?.id ? "Already in another group" : undefined} /></div>}
                     <div className="bp-row__rail" />
                     <div className="bp-row__name">
                       <button
@@ -334,6 +452,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
                       >
                         {f.field_name}
                       </button>
+                      {f.group_id && groupMode && f.group_id !== editingGroup?.id && <span className="cf-row__group-note">In another group</span>}
                     </div>
                     <div className="bp-row__id">
                       <span className="cf-type-badge">{f.field_type}</span>
@@ -389,8 +508,9 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
           </div>
 
           <div className="bp-tip">
-            Showing {filteredFields.length} of {fields.length} field{fields.length !== 1 ? "s" : ""}.
+            Showing {fieldTotal === 0 ? 0 : (fieldPage - 1) * 20 + 1}–{Math.min(fieldPage * 20, fieldTotal)} of {fieldTotal} field{fieldTotal !== 1 ? "s" : ""}.
           </div>
+          {fieldTotal > 20 && <div className="cf-groups__pagination"><button type="button" disabled={fieldPage === 1 || fieldsLoading} onClick={() => setFieldPage((page) => page - 1)}>Previous</button><span>Page {fieldPage} of {Math.ceil(fieldTotal / 20)}</span><button type="button" disabled={fieldPage >= Math.ceil(fieldTotal / 20) || fieldsLoading} onClick={() => setFieldPage((page) => page + 1)}>Next</button></div>}
         </div>
         </>
       )}
