@@ -47,6 +47,7 @@ import { closePanel, openPanel } from '../../../slices/panelSlice';
 import { pinEmail } from '../inbox/inboxPin';
 import { repairAndParseJsonObject } from '../../../utils/jsonRepair';
 import ContactIdentityHeader from './ContactIdentityHeader';
+import { getCustomAttributeLayout, CustomAttributeLayout } from '../../../api/customAttributeGroups';
 
 interface Contact {
   id: number;
@@ -565,6 +566,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     activePanel === "show-linkedin-summary-modal";
 
   const [customFieldDefs, setCustomFieldDefs] = useState<any[]>([]);
+  const [customAttributeGroups, setCustomAttributeGroups] = useState<CustomAttributeLayout['groups']>([]);
 const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
 const effectiveUserId = React.useMemo(() => {
   const storedClientId =
@@ -582,6 +584,13 @@ const effectiveUserId = React.useMemo(() => {
 
 const loadCustomFieldDefinitions = async () => {
   try {
+    const layout = await getCustomAttributeLayout();
+    setCustomAttributeGroups(layout.groups);
+    setCustomFieldDefs(layout.attributes);
+  } catch (err) {
+    // Keep the contact editor usable until the group API and manual SQL are deployed.
+    setCustomAttributeGroups([]);
+    try {
     const res = await fetch(
       `${API_BASE_URL}/api/crm/custom-fields?clientId=${effectiveUserId}`
     );
@@ -589,9 +598,10 @@ const loadCustomFieldDefinitions = async () => {
     if (!res.ok) return;
 
     const data = await res.json();
-    setCustomFieldDefs(data || []);
-  } catch (err) {
-    console.error("Failed loading custom field defs", err);
+    setCustomFieldDefs(Array.isArray(data) ? data.map((field: any) => ({ ...field, group_id: null })) : []);
+    } catch (fallbackError) {
+      console.error("Failed loading custom field defs", fallbackError);
+    }
   }
 };
 useEffect(() => {
@@ -2586,24 +2596,22 @@ case "boolean":
     }
     title="Custom attributes"
   >
-  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-
-{customFieldDefs.map(field => (
-
-      <div
-        key={field.id}
-        className="flex flex-col gap-[5px] form-group !mb-[0]"
-      >
-        <label className={underlineLabel}>
-          {field.field_name}
-        </label>
-
-        {renderCustomField(field)}
-
-      </div>
-
-    ))}
-
+  <div className="flex flex-col gap-6">
+    {[...customAttributeGroups.map(group => ({ id: group.id, name: group.name })),
+      { id: null, name: customAttributeGroups.length ? "Ungrouped" : "" }]
+      .map(group => {
+        const fields = customFieldDefs.filter(field => (field.group_id ?? null) === group.id);
+        if (!fields.length) return null;
+        return <section key={group.id ?? "ungrouped"}>
+          {group.name && <h4 className="mb-3 text-sm font-semibold text-[#3f9f42]">{group.name}</h4>}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            {fields.map(field => <div key={field.id} className="flex flex-col gap-[5px] form-group !mb-[0]">
+              <label className={underlineLabel}>{field.field_name}</label>
+              {renderCustomField(field)}
+            </div>)}
+          </div>
+        </section>;
+      })}
   </div>
 </AccordionSection>
 
