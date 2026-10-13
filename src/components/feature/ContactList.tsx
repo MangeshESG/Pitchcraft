@@ -15,7 +15,7 @@ import ContactViews from "./ContactViews";
 import BulkUpdatePanel from "./BulkUpdatePanel";
 import PopupModal from "../common/PopupModal";
 import WebsiteGlobeIcon from "../common/WebsiteGlobeIcon";
-import { formatUserDate, formatUserDateTime, formatUserTime } from "../common/dateTimePreferences";
+import { formatIsoDate, formatUserDate, formatUserDateTime, formatUserTime } from "../common/dateTimePreferences";
 
 import { useAppData } from "../../contexts/AppDataContext";
 import { useToast } from "../../hooks/useToast";
@@ -1882,14 +1882,15 @@ const formatTimeIST = formatUserTime;
             value = value === true ? "Yes" : value === false ? "No" : "";
           }
 
-          // Format dates if it's a date column
+          // A download is read by other software, so the dates in it stay in
+          // the sortable ISO form rather than following the screen's format.
           if (
             (column.key === "created_at" ||
               column.key === "updated_at" ||
               column.key === "email_sent_at") &&
             value
           ) {
-            value = formatDate(value);
+            value = formatIsoDate(value);
           }
 
           // Convert to string

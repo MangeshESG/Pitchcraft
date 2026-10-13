@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API_BASE_URL from "../../config";
 import {
+  DateFormatPreference,
   DateTimePreferences,
   DEFAULT_DATE_TIME_PREFERENCES,
   getDateTimePreferences,
@@ -29,6 +30,14 @@ const selectableTimeZones = localTimeZoneOption
       },
       ...timezoneOptions,
     ];
+
+// Shown with a worked example, because "DD MMM YYYY" on its own tells you less
+// than "10 May 2027" does.
+const DATE_FORMAT_OPTIONS: ReadonlyArray<readonly [DateFormatPreference, string]> = [
+  ["DD MMM YYYY", "10 May 2027"],
+  ["DD-MM-YYYY", "10-05-2027"],
+  ["MM-DD-YYYY", "05-10-2027"],
+];
 
 const DateTimeSettings: React.FC<{ selectedClient: string }> = ({ selectedClient }) => {
   const [form, setForm] = useState<DateTimePreferences>(getDateTimePreferences());
@@ -112,10 +121,12 @@ const DateTimeSettings: React.FC<{ selectedClient: string }> = ({ selectedClient
 
           <fieldset>
             <legend className={labelClass}>Date format</legend>
-            {(["DD-MM-YYYY", "MM-DD-YYYY"] as const).map((value) => (
+            {DATE_FORMAT_OPTIONS.map(([value, example]) => (
               <label className="mr-6 inline-flex items-center gap-2 text-sm text-[#374151]" key={value}>
                 <input type="radio" className="accent-[#3f9f42]" checked={form.dateFormat === value}
-                  onChange={() => setForm({ ...form, dateFormat: value })} /> {value}
+                  onChange={() => setForm({ ...form, dateFormat: value })} />
+                {value}
+                <span className="text-[#6b7280]">({example})</span>
               </label>
             ))}
           </fieldset>

@@ -11,7 +11,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import duplicateIcon from "../../assets/images/icons/duplicate.png";
 import BulkUpdatePanel from "./BulkUpdatePanel";
 import SegmentModal from "../common/SegmentModal";
-import { formatUserDate } from "../common/dateTimePreferences";
+import { formatIsoDate, formatUserDate } from "../common/dateTimePreferences";
 import ToastMessage from "../common/ToastMessage";
 
 import {
@@ -989,13 +989,15 @@ const handleDeleteContacts = () => {
             value = value === true ? "Yes" : value === false ? "No" : "";
           }
 
+          // A download is read by other software, so the dates in it stay in
+          // the sortable ISO form rather than following the screen's format.
           if (
             (column.key === "created_at" ||
               column.key === "updated_at" ||
               column.key === "email_sent_at") &&
             value
           ) {
-            value = formatDate(value);
+            value = formatIsoDate(value);
           }
 
           const stringValue = String(value);

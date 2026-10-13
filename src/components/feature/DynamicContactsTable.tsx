@@ -144,6 +144,19 @@ const flattenObject = (obj: any) => {
   return flattened;
 };
 
+// Date columns out of an uploaded file are stored as the ISO day the importer
+// normalised them to. Only that exact shape is reformatted, so a reference like
+// "2024-0012" or a note that merely contains a date is left as it is.
+const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}):(\d{2}))?$/;
+
+const formatStoredDate = (value: string): string | null => {
+  const m = ISO_DAY.exec(value);
+  if (!m) return null;
+  const day = userDates.formatUserDateNumbers(Number(m[1]), Number(m[2]), Number(m[3]));
+  if (!m[4]) return day;
+  return `${day}, ${userDates.formatUserClock(Number(m[4]), Number(m[5]))}`;
+};
+
 const getSafeRenderableValue = (value: any): string => {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "object") {
@@ -151,7 +164,7 @@ const getSafeRenderableValue = (value: any): string => {
     const keys = Object.keys(value);
     return keys.length > 0 ? JSON.stringify(value) : "—";
   }
-  return String(value);
+  return typeof value === "string" ? formatStoredDate(value) ?? value : String(value);
 };
 
 // Avatar initials & palette
@@ -899,31 +912,40 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           </div>
 
           <div className="dt-toolbar__right">
-            {validationAction && (
-              <ValidateContactsButton
-                onClick={validationAction.onClick}
-                disabled={validationAction.selectedCount === 0}
-                title={validationAction.selectedCount === 0 ? "Please select contact" : "Validation check"}
-              />
-            )}
-            {/* Inline-detail switch */}
-            {showDetailToggle && (
-              <button
-                type="button"
-                className={`dt-btn-tertiary dt-detail-toggle${showDetails ? " is-on" : ""}`}
-                onClick={() => setShowDetails((on) => !on)}
-                aria-pressed={showDetails}
-                title={
-                  showDetails
-                    ? "Hide the comments, sources and corrections again — they stay available on hover."
-                    : "Show each score's comments, sources and suggested corrections in the column instead of on hover."
-                }
-              >
-                <span className="dt-switch" aria-hidden="true">
-                  <span className="dt-switch__knob" />
-                </span>
-                Details
-              </button>
+            {/* Validation + detail switch read as one control, so they share a frame. */}
+            {(validationAction || showDetailToggle) && (
+              <div className="dt-action-group">
+                {validationAction && (
+                  <ValidateContactsButton
+                    onClick={validationAction.onClick}
+                    disabled={validationAction.selectedCount === 0}
+                    title={
+                      validationAction.selectedCount === 0
+                        ? "Select contact(s) to use validation checks"
+                        : "Validation checks"
+                    }
+                  />
+                )}
+                {/* Inline-detail switch */}
+                {showDetailToggle && (
+                  <button
+                    type="button"
+                    className={`dt-btn-tertiary dt-detail-toggle${showDetails ? " is-on" : ""}`}
+                    onClick={() => setShowDetails((on) => !on)}
+                    aria-pressed={showDetails}
+                    title={
+                      showDetails
+                        ? "Hide the comments, sources and corrections again — they stay available on hover."
+                        : "Show each score's comments, sources and suggested corrections in the column instead of on hover."
+                    }
+                  >
+                    <span className="dt-switch" aria-hidden="true">
+                      <span className="dt-switch__knob" />
+                    </span>
+                    Details
+                  </button>
+                )}
+              </div>
             )}
 
             {/* Columns button */}

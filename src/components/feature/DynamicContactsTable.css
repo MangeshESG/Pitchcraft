@@ -115,6 +115,27 @@
 }
 .dt-btn-tertiary:hover { background: var(--dt-bg-2); }
 
+/* Validation + Details share one frame, split by a hairline divider. */
+.dt-action-group {
+  display: inline-flex; align-items: center;
+  height: 38px; border-radius: 8px;
+  background: #fff; border: 1px solid #dadde2;
+  overflow: hidden;
+}
+.dt-action-group > .dt-btn-tertiary {
+  border: 0; border-radius: 0; background: transparent; height: 100%;
+}
+.dt-action-group > .dt-btn-tertiary + .dt-btn-tertiary {
+  border-left: 1px solid #e5e7eb;
+}
+.dt-action-group > .dt-btn-tertiary:hover { background: var(--dt-bg-2); }
+.dt-action-group > .dt-btn-tertiary[aria-disabled="true"]:hover { background: transparent; }
+/* Inside the group the frame carries the outline, so the on-state is the switch alone. */
+.dt-action-group > .dt-detail-toggle.is-on {
+  background: transparent; border-color: #e5e7eb; color: var(--dt-ink-soft);
+}
+.dt-action-group > .dt-detail-toggle.is-on:hover { background: var(--dt-bg-2); }
+
 /* Inline-detail switch (sits beside the Columns button) */
 .dt-detail-toggle.is-on {
   border-color: var(--dt-brand);

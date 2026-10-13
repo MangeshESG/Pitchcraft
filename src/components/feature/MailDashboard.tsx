@@ -37,7 +37,9 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import {
   formatUserDateTime,
+  formatUserDateNumbers,
   getDateTimePreferences,
+  userDateFnsPattern,
   DateTimePreferences,
 } from "../common/dateTimePreferences";
 
@@ -1925,8 +1927,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   const toDateInputValue = (value: Date | null): string =>
     value ? toDateKeyValue(value) : "";
 
-  const pickerDateFormat =
-    dateTimePreferences.dateFormat === "MM-DD-YYYY" ? "MM-dd-yyyy" : "dd-MM-yyyy";
+  const pickerDateFormat = userDateFnsPattern();
 
   const handleDateChange = (type: "start" | "end", value: string) => {
     if (type === "start") {
@@ -1953,11 +1954,11 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   const formatRangeDate = (value: string) => {
     const parsed = parseDateInput(value);
     if (!parsed) return "";
-    const day = String(parsed.getDate()).padStart(2, "0");
-    const month = String(parsed.getMonth() + 1).padStart(2, "0");
-    return dateTimePreferences.dateFormat === "MM-DD-YYYY"
-      ? `${month}-${day}-${parsed.getFullYear()}`
-      : `${day}-${month}-${parsed.getFullYear()}`;
+    return formatUserDateNumbers(
+      parsed.getFullYear(),
+      parsed.getMonth() + 1,
+      parsed.getDate()
+    );
   };
 
   // Caption under the chart title spelling out the range the numbers cover.
@@ -2921,9 +2922,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
     if (dateMatch) {
       const [, year, month, day] = dateMatch;
-      return dateTimePreferences.dateFormat === "MM-DD-YYYY"
-        ? `${month}-${day}-${year}`
-        : `${day}-${month}-${year}`;
+      return formatUserDateNumbers(Number(year), Number(month), Number(day));
     }
 
     const timeMatch = /^(\d{2}):(\d{2})$/.exec(value);

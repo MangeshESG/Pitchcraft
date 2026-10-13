@@ -30,7 +30,7 @@ import { faAngleRight, faAngleLeft, faCircleRight, faDownload, faBullhorn } from
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus,faBell    } from "@fortawesome/free-regular-svg-icons";
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
-import { formatUserDateTime } from "../common/dateTimePreferences";
+import { formatIsoDateTime, formatUserDateTime } from "../common/dateTimePreferences";
 import { KraftEmailEmptyState, KraftLoadingState, KraftCampaignSelectState } from "./Output.new";
 import RichTextEditor from "../common/RTEEditor";
 import { repairAndParseJsonObject } from "../../utils/jsonRepair";
@@ -803,7 +803,8 @@ const Output: React.FC<OutputInterface> = ({
         Website: item.website || "N/A",
         LinkedIn: item.linkedin || item.linkedIn_URL || "N/A",
         Pitch: item.pitch || item.sample_email_body || "N/A",
-        Timestamp: formatUserDateTime(item.timestamp || new Date()),
+        // The spreadsheet is machine-read, so the timestamp stays sortable ISO.
+        Timestamp: formatIsoDateTime(item.timestamp || new Date()),
         Generated: item.generated ? "Yes" : "No",
         Subject: item.subject || "N/A",
       }));

@@ -15,7 +15,7 @@ const ValidateContactsButton: React.FC<{
 }> = ({ onClick, title = "Validate contacts", disabled = false }) => (
   <button
     type="button"
-    className="dt-btn-tertiary"
+    className="dt-btn-tertiary dt-validate-btn"
     onClick={disabled ? undefined : onClick}
     aria-disabled={disabled}
     title={title}
@@ -24,6 +24,22 @@ const ValidateContactsButton: React.FC<{
       opacity: disabled ? 0.5 : 1,
     }}
   >
+    {/* Shield with a tick. */}
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.9 7.5 10 4.3-1.1 7.5-5.4 7.5-10v-6L12 2.5Z"
+        stroke="#3f9f42"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="m8.75 11.75 2.3 2.3 4.2-4.6"
+        stroke="#3f9f42"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
     Validation checks
   </button>
 );

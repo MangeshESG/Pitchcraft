@@ -105,6 +105,138 @@ const Stat: React.FC<{ value: React.ReactNode; label: string; tone: "green" | "a
     </div>
   );
 };
+/* ===========================================================
+   Dates in an uploaded file
+   A spreadsheet does not store "15/03/2024"; Excel keeps the day as a
+   serial number (45366) and CSV keeps it as free text, so an unhelped
+   import lands a serial in the column and exports it right back out.
+   Every date cell is converted to ISO 8601 once, here, as the file is
+   read, so the rest of the wizard — and every later export — only ever
+   sees "2024-03-15".
+   =========================================================== */
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+const MONTH_NAMES: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
+const daysInMonth = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+
+// Two-digit years follow Excel's own rule: 00-29 is this century, 30-99 the last.
+const expandYear = (y: number) => (y >= 100 ? y : y < 30 ? 2000 + y : 1900 + y);
+
+const isoFromParts = (
+  y: number,
+  m: number,
+  d: number,
+  hh = 0,
+  mi = 0,
+  ss = 0
+): string | null => {
+  if (!y || m < 1 || m > 12 || d < 1 || d > daysInMonth(y, m)) return null;
+  const day = `${y}-${pad2(m)}-${pad2(d)}`;
+  // A midnight time is what a date-only cell looks like, so it is dropped.
+  return hh || mi || ss ? `${day} ${pad2(hh)}:${pad2(mi)}:${pad2(ss)}` : day;
+};
+
+// Excel serial -> ISO. SSF does the calendar arithmetic (1900 leap-year bug
+// included) without building a JS Date, so the result cannot slide a day
+// either side of midnight because of the browser's timezone.
+const isoFromSerial = (serial: number): string | null => {
+  if (!isFinite(serial) || serial < 1) return null;
+  const p = XLSX.SSF.parse_date_code(serial);
+  if (!p) return null;
+  return isoFromParts(p.y, p.m, p.d, p.H, p.M, Math.round(p.S));
+};
+
+// Pulls a trailing clock time off a text date: "2024-03-15 14:30",
+// "3/15/2024 2:30 PM", "2024-03-15T14:30:00Z".
+const splitTime = (text: string): { date: string; hh: number; mi: number; ss: number } => {
+  const m = text.match(
+    /^(.*?)[T,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?\s*(am|pm)?\s*(?:Z|[+-]\d{2}:?\d{2})?$/i
+  );
+  if (!m) return { date: text, hh: 0, mi: 0, ss: 0 };
+
+  let hh = Number(m[2]);
+  const meridiem = m[5]?.toLowerCase();
+  if (meridiem === "pm" && hh < 12) hh += 12;
+  if (meridiem === "am" && hh === 12) hh = 0;
+  if (hh > 23) return { date: text, hh: 0, mi: 0, ss: 0 };
+
+  return { date: m[1].trim(), hh, mi: Number(m[3]), ss: Number(m[4] || 0) };
+};
+
+// Text dates, in the layouts spreadsheets and exports actually produce.
+// Anything that matches none of them is left exactly as typed, and so is a
+// genuinely ambiguous day/month pair: reading "03/04/2024" as March or as
+// April is a coin flip, and a wrong date is worse than an unconverted one.
+const isoFromText = (raw: string): string | null => {
+  const trimmed = raw.trim();
+  if (!trimmed || !/\d/.test(trimmed)) return null;
+
+  const { date, hh, mi, ss } = splitTime(trimmed);
+  const parts = date.split(/[-/.\s,]+/).filter(Boolean);
+  if (parts.length !== 3) return null;
+
+  const named = parts.findIndex((p) => /^[A-Za-z]+$/.test(p));
+  if (named !== -1) {
+    const month = MONTH_NAMES[parts[named].slice(0, 3).toLowerCase()];
+    const rest = parts.filter((_, i) => i !== named).map(Number);
+    if (!month || rest.some(isNaN)) return null;
+    // The four-digit half is the year wherever it sits: "15 Mar 2024",
+    // "Mar 15, 2024", "2024-Mar-15".
+    const [day, year] = rest[0] > 31 ? [rest[1], rest[0]] : [rest[0], rest[1]];
+    return isoFromParts(expandYear(year), month, day, hh, mi, ss);
+  }
+
+  const [a, b, c] = parts.map(Number);
+  if ([a, b, c].some(isNaN)) return null;
+
+  if (parts[0].length === 4) return isoFromParts(a, b, c, hh, mi, ss); // yyyy-mm-dd
+  if (a > 12 && b <= 12) return isoFromParts(expandYear(c), b, a, hh, mi, ss); // dd/mm/yyyy
+  if (b > 12 && a <= 12) return isoFromParts(expandYear(c), a, b, hh, mi, ss); // mm/dd/yyyy
+  return null; // both halves could be the month — leave it alone
+};
+
+// Rewrites a sheet's date cells in place, before anything reads values out of
+// it. A number only counts as a date when the cell's own number format says so,
+// which is why the workbook is read with `cellNF`.
+const normalizeSheetDates = (sheet: XLSX.WorkSheet): XLSX.WorkSheet => {
+  if (!sheet || !sheet["!ref"]) return sheet;
+  const range = XLSX.utils.decode_range(sheet["!ref"]);
+
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = sheet[XLSX.utils.encode_cell({ r, c })];
+      if (!cell) continue;
+
+      let iso: string | null = null;
+      if (cell.t === "d" && cell.v instanceof Date) {
+        const d = cell.v as Date;
+        iso = isoFromParts(
+          d.getFullYear(), d.getMonth() + 1, d.getDate(),
+          d.getHours(), d.getMinutes(), d.getSeconds()
+        );
+      } else if (cell.t === "n" && typeof cell.v === "number" && XLSX.SSF.is_date(cell.z || "")) {
+        iso = isoFromSerial(cell.v);
+      } else if (cell.t === "s" && typeof cell.v === "string") {
+        iso = isoFromText(cell.v);
+      }
+
+      if (iso) {
+        cell.t = "s";
+        cell.v = iso;
+        cell.w = iso;
+        delete cell.z;
+      }
+    }
+  }
+
+  return sheet;
+};
+
 interface DataFileProps {
   selectedClient: string;
   onDataProcessed: (data: any[]) => void;
@@ -433,9 +565,20 @@ useEffect(() => {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
+        const isCsv = /\.csv$/i.test(file.name) || file.type === "text/csv";
+        const workbook = XLSX.read(data, {
+          type: "array",
+          // A CSV carries no cell types, and SheetJS's guesswork over the plain
+          // text costs more than it gives: it turns dates into timezone-shifted
+          // serials and strips the leading zeros off phone numbers and post
+          // codes. Taking the text as written leaves the dates to isoFromText.
+          raw: isCsv,
+          // Keeps each cell's number format, the only thing that distinguishes
+          // a date serial from an ordinary number.
+          cellNF: true,
+        });
         const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
+        const worksheet = normalizeSheetDates(workbook.Sheets[sheetName]);
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
         if (jsonData.length > 0) {
