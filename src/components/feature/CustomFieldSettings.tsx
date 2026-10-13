@@ -11,6 +11,8 @@ import { MoreVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import customFieldNewUserImage from "../../assets/images/Custom_field_new_user.png";
 import CustomAttributeGroupsTab from "./CustomAttributeGroupsTab";
 import { AttributeGroup, getGroupAttributes, saveAttributeGroup } from "../../api/customAttributeGroups";
+import ToastMessage from "../common/ToastMessage";
+import { useToast } from "../../hooks/useToast";
 
 interface CustomField {
   id: number;
@@ -27,6 +29,7 @@ interface Props {
 
 const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   const { triggerRefresh } = useAppData();
+  const { toast, showToast, hideToast } = useToast();
   const dispatch = useDispatch();
   const [fields, setFields] = useState<CustomField[]>([]);
   const [name, setName] = useState("");
@@ -83,7 +86,11 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       setFieldsError("");
       if (fieldPage > 1 && result.items.length === 0) setFieldPage((page) => Math.max(1, page - 1));
     } catch (error) {
-      if (loadId === fieldLoadId.current) setFieldsError(error instanceof Error ? error.message : "Could not load custom attributes.");
+      if (loadId === fieldLoadId.current) {
+        const message = error instanceof Error ? error.message : "Could not load custom attributes.";
+        setFieldsError(message);
+        showToast(message, "error");
+      }
     } finally {
       if (loadId === fieldLoadId.current) setFieldsLoading(false);
     }
@@ -305,8 +312,11 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       await loadFields();
       setGroupRefreshKey((key) => key + 1);
       setActiveTab("groups");
+      showToast(editingGroup ? "Group updated successfully." : "Group created successfully.", "success");
     } catch (error: any) {
-      setGroupError(error.message || "Could not save group.");
+      const message = error.message || "Could not save group.";
+      setGroupError(message);
+      showToast(message, "error");
     } finally {
       setGroupSaving(false);
     }
@@ -336,6 +346,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
           refreshKey={groupRefreshKey}
           onCreate={createGroup}
           onEdit={editGroup}
+          onToast={showToast}
           onChanged={() => { loadFields(); setGroupRefreshKey((key) => key + 1); }}
         />
       ) : fieldTotal === 0 && !fieldSearch && !fieldsLoading && !fieldsError ? (
@@ -586,6 +597,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
         </div>
       </CommonSidePanel>
 
+      <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={hideToast} duration={6} position="bottom-center" />
       {showDeleteModal && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]"
