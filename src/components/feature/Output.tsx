@@ -34,6 +34,9 @@ import { formatIsoDateTime, formatUserDateTime } from "../common/dateTimePrefere
 import { KraftEmailEmptyState, KraftLoadingState, KraftCampaignSelectState } from "./Output.new";
 import RichTextEditor from "../common/RTEEditor";
 import { repairAndParseJsonObject } from "../../utils/jsonRepair";
+import { toMailtoPlainText } from "../../utils/emailBody";
+
+const SUBJECT_CHARACTER_LIMIT = 50;
 
 // In Output.tsx
 interface ZohoClient {
@@ -905,6 +908,9 @@ useEffect(() => {
 const [isEditingSubject, setIsEditingSubject] = useState(false);
 const [editableSubject, setEditableSubject] = useState("");
 const [isSavingSubject, setIsSavingSubject] = useState(false);
+const subjectCharacterCount = (isEditingSubject
+  ? editableSubject
+  : combinedResponses[currentIndex]?.subject || "").length;
 
   useEffect(() => {
     const subject = combinedResponses[currentIndex]?.subject || "";
@@ -914,6 +920,10 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
 // Function to save the edited subject
   const saveEditedSubject = async () => {
+    if (editableSubject.length > SUBJECT_CHARACTER_LIMIT) {
+      toast.error(`Subject must be ${SUBJECT_CHARACTER_LIMIT} characters or fewer.`);
+      return;
+    }
     setIsSavingSubject(true);
 
     try {
@@ -2994,7 +3004,7 @@ const usageData = useMemo(() => {
                               }?subject=${encodeURIComponent(
                                 combinedResponses[currentIndex]?.subject || "",
                               )}&body=${encodeURIComponent(
-                                combinedResponses[currentIndex]?.pitch || "",
+                                toMailtoPlainText(editableContent),
                               )}`}
                             title="Open this email in your local email client"
                             className="ml-[3px]"
@@ -3148,6 +3158,9 @@ const usageData = useMemo(() => {
                                     backgroundColor: "#f9f9f9",
                                     overflowY: "auto",
                                     width: "100%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
                                     whiteSpace: "normal",
                                     wordWrap: "break-word",
                                     cursor: "pointer",
@@ -3160,29 +3173,36 @@ const usageData = useMemo(() => {
                                   }}
                                   title="Click to edit subject"
                                 >
-                                  {combinedResponses[currentIndex]?.subject || "Click to add subject"}
+                                  <span style={{ flex: 1, minWidth: 0 }}>
+                                    {combinedResponses[currentIndex]?.subject || "Click to add subject"}
+                                  </span>
+                                  <span style={{ flexShrink: 0, whiteSpace: "nowrap", color: subjectCharacterCount > SUBJECT_CHARACTER_LIMIT ? "#dc2626" : "#6b7280", fontSize: "12px" }}>
+                                    {subjectCharacterCount} used · {Math.max(0, SUBJECT_CHARACTER_LIMIT - subjectCharacterCount)} remaining
+                                  </span>
                                 </div>
                               ) : (
                                 /* EDIT MODE */
                                 <>
-                                  <input
-                                    type="text"
-                                    value={editableSubject}
-                                    onChange={(e) => setEditableSubject(e.target.value)}
-                                    autoFocus
-                                    className="form-control"
-                                    style={{
-                                      width: "100%",
-                                      padding: "8px",
-                                      fontSize: "14px",
-                                    }}
-                                  />
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <input
+                                      type="text"
+                                      value={editableSubject}
+                                      maxLength={SUBJECT_CHARACTER_LIMIT}
+                                      onChange={(e) => setEditableSubject(e.target.value)}
+                                      autoFocus
+                                      className="form-control"
+                                      style={{ flex: 1, minWidth: 0, padding: "8px", fontSize: "14px" }}
+                                    />
+                                    <span style={{ flexShrink: 0, whiteSpace: "nowrap", color: subjectCharacterCount > SUBJECT_CHARACTER_LIMIT ? "#dc2626" : "#6b7280", fontSize: "12px" }}>
+                                      {subjectCharacterCount} used · {Math.max(0, SUBJECT_CHARACTER_LIMIT - subjectCharacterCount)} remaining
+                                    </span>
+                                  </div>
 
                                   <div className="flex gap-2 mt-2">
                                     <button
                                       className="button save-button small"
                                       onClick={saveEditedSubject}
-                                      disabled={isSavingSubject}
+                                      disabled={isSavingSubject || editableSubject.length > SUBJECT_CHARACTER_LIMIT}
                                       style={{ borderRadius: "12px" }}
                                     >
                                       {isSavingSubject ? "Saving..." : "Save"}

@@ -537,7 +537,7 @@ const menuItemStyle = {
 
 
 const NOTE_MAX_LENGTH = 10000;
-const MAX_TOTAL_NOTES = 60000;
+const MAX_TOTAL_NOTES = 100000;
  const getPlainText = (html: string): string => {
     if (!html) return "";
     const temp = document.createElement("div");
@@ -583,7 +583,7 @@ const isSaveDisabled =
 
       return () => clearTimeout(timer);
     } else if (projectedTotalLength > MAX_TOTAL_NOTES) {
-      setToastMessage("Total notes limit exceeded (Maximum 60,000 characters allowed per contact).");
+      setToastMessage("Total notes limit exceeded (Maximum 100,000 characters allowed per contact).");
       setShowErrorToast(true);
 
       const timer = setTimeout(() => {
@@ -2931,10 +2931,10 @@ const handleDeleteContact = async () => {
 
   const finalTotalLength = adjustedTotalLength + newNoteLength;
 
-  // 🔹 4. Total limit validation (40000)
+  // 🔹 4. Total notes limit validation
   if (finalTotalLength > MAX_TOTAL_NOTES) {
     setToastMessage(
-      "Total notes limit exceeded (Maximum 60,000 characters allowed per contact)."
+      "Total notes limit exceeded (Maximum 100,000 characters allowed per contact)."
     );
     setShowErrorToast(true);
     const timer = setTimeout(() => {
