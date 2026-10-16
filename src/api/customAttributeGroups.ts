@@ -99,7 +99,7 @@ export function saveAttributeGroup(groupId: number | null, body: SaveAttributeGr
 }
 
 export function deleteAttributeGroup(groupId: number) {
-  return request<void>(`/${groupId}`, { method: "DELETE" });
+  return request<void>(`/${groupId}/delete`, { method: "POST" });
 }
 
 export function reorderAttributeGroups(page: number, pageSize: number, orderedIds: number[]) {
@@ -110,6 +110,10 @@ export function reorderGroupAttributes(groupId: number, page: number, pageSize: 
   return request<void>(`/${groupId}/attributes/order`, { method: "POST", body: JSON.stringify({ page, pageSize, orderedIds }) });
 }
 
+export function reorderMixedGroupAttributes(groupId: number, orderedKeys: string[]) {
+  return request<void>(`/${groupId}/mixed-order`, { method: "POST", body: JSON.stringify({ orderedKeys }) });
+}
+
 export interface CustomAttributeLayout {
   groups: Pick<AttributeGroup, "id" | "name" | "sort_order">[];
   attributes: Pick<GroupAttribute, "id" | "field_name" | "field_key" | "field_type" | "options_json" | "group_id" | "sort_order">[];
@@ -117,4 +121,43 @@ export interface CustomAttributeLayout {
 
 export function getCustomAttributeLayout() {
   return request<CustomAttributeLayout>("/layout");
+}
+
+export interface SystemAttributeGroup {
+  key: string;
+  name: string;
+  fields: { key: string; name: string; type: string; order: number; groupKey: string }[];
+}
+
+export async function getSystemAttributeGroups(): Promise<SystemAttributeGroup[]> {
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  const response = await fetch(`${basePath}/system`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+  if (!response.ok) throw new Error("Could not load system attribute groups.");
+  const result = await response.json();
+  return result.groups;
+}
+
+export async function reorderSystemAttributes(groupKey: string, orderedKeys: string[]): Promise<void> {
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  const response = await fetch(`${basePath}/system/${groupKey}/order`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ orderedKeys }),
+  });
+  if (!response.ok) throw new Error("Could not save system field order.");
+}
+
+export async function moveSystemAttributes(destinationGroupKey: string, fieldKeys: string[]): Promise<void> {
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  const response = await fetch(`${basePath}/system/move`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ destinationGroupKey, fieldKeys }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.message || "Could not move system fields.");
+  }
 }
