@@ -1,7 +1,11 @@
 import * as userDates from "../../common/dateTimePreferences";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { parseApiDate, type ValidationSource } from "../../../api/contactValidation";
+import {
+  parseApiDate,
+  type ManualScoreMark,
+  type ValidationSource,
+} from "../../../api/contactValidation";
 import { linkifyText } from "../../../utils/linkify";
 import { useGridDetailMode } from "../../common/GridDetailMode";
 
@@ -57,6 +61,19 @@ export interface ValidationCellProps {
    */
   overriddenFrom?: number | null;
   /**
+   * Set when this score was typed in by a person rather than produced by a
+   * run — from the bulk update panel, from the action panel beside the cell,
+   * or from "Mark as verified" on the contact.
+   *
+   * A hand-set 100 and an earned 100 are the same number in the same column,
+   * and the comments underneath still describe whatever the last run found —
+   * so a chip reading 100 above a paragraph about a missing job title is only
+   * confusing without the line saying a person overruled it. The note is
+   * shown in the popover rather than on the chip: the grid is scanned on the
+   * score, and a second badge in every cell would cost more than it says.
+   */
+  manualMark?: ManualScoreMark | null;
+  /**
    * Adds the spec's "Check LinkedIn" prompt below the comments whenever the
    * score is short of certain. Only the live contact check sets this — it is
    * the one whose answer a person can go and confirm in one click.
@@ -96,6 +113,7 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   checkedAt,
   label,
   overriddenFrom,
+  manualMark,
   showLinkedInHint = false,
   linkedInUrl,
   hasPendingSuggestion = false,
@@ -176,8 +194,13 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   const band = bandFor(score);
   const profileUrl = linkedInProfileUrl(linkedInUrl);
   const isOverridden = typeof overriddenFrom === "number";
+  const isManual = !!manualMark;
   const hasDetail =
-    !!comments?.trim() || sources.length > 0 || showLinkedInHint || isOverridden;
+    !!comments?.trim() ||
+    sources.length > 0 ||
+    showLinkedInHint ||
+    isOverridden ||
+    isManual;
 
   const positionAndOpen = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
@@ -245,6 +268,27 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
    */
   const detailBody = (
     <>
+      {isManual && (
+        <p
+          style={{
+            margin: "0 0 8px",
+            padding: "6px 8px",
+            borderRadius: 8,
+            background: "#f1f8f2",
+            border: "1px solid #d5f0da",
+            color: "#2d7a30",
+            fontSize: 12.5,
+          }}
+        >
+          <strong>Manually updated.</strong> This score was set to 100 by hand
+          {manualMark?.by ? ` by ${manualMark.by}` : ""}
+          {manualMark?.at
+            ? ` on ${userDates.formatUserDate(parseApiDate(manualMark.at))}`
+            : ""}
+          . Any comments below are from the last check that ran.
+        </p>
+      )}
+
       {isOverridden && (
         <p
           style={{
@@ -268,7 +312,14 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
           {linkifyText(comments.trim())}
         </p>
       ) : (
-        <p style={{ margin: 0, color: "#6b7280" }}>No issues were reported.</p>
+        <p style={{ margin: 0, color: "#6b7280" }}>
+          {/* A hand-set score with no date behind it is not a clean run — the
+              check has never been run on this contact at all, and saying
+              "no issues were reported" would credit it with one. */}
+          {isManual && !checkedAt
+            ? "This check has not been run on this contact."
+            : "No issues were reported."}
+        </p>
       )}
 
       {showLinkedInHint && (

@@ -151,6 +151,65 @@ export const VALIDATION_SCORE_KEYS: Record<ValidationCheckType, string> = {
   email_verification: "emailValidityConfidence",
 };
 
+/**
+ * A note that one check's score was set to 100 by a person rather than earned
+ * by a run.
+ */
+export interface ManualScoreMark {
+  /** When it was set. UTC, like every other stamp the API sends. */
+  at?: string | null;
+  /** Who set it, when the caller said. */
+  by?: string | null;
+}
+
+/** Where the hand-set marks sit on a grid row. */
+export const MANUAL_SCORES_ROW_KEY = "manualScores";
+
+/**
+ * Reads the hand-set marks off a row.
+ *
+ * Accepts both shapes for the same reason {@link parseSuggestions} does: the
+ * grid endpoints send the column as the JSON string it is stored as, so it
+ * cannot become a column of its own in the auto-generated table, while the
+ * results endpoint sends it already parsed through MVC. Malformed JSON yields
+ * no marks rather than taking the score cell down with it.
+ */
+export const parseManualScores = (
+  raw: unknown
+): Partial<Record<ValidationCheckType, ManualScoreMark>> => {
+  const asObject = (value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Partial<Record<ValidationCheckType, ManualScoreMark>>)
+      : {};
+
+  if (typeof raw !== "string") return asObject(raw);
+  if (!raw.trim()) return {};
+
+  try {
+    return asObject(JSON.parse(raw));
+  } catch {
+    return {};
+  }
+};
+
+/**
+ * The row's marks with one more check recorded, as the JSON string the row
+ * carries.
+ *
+ * This is what lets a grid patch the single row a user just overrode instead
+ * of refetching the list: the server has stored the same thing, so the note in
+ * the popover is right immediately rather than after the next reload.
+ */
+export const withManualScoreMark = (
+  raw: unknown,
+  checkType: ValidationCheckType,
+  by?: string
+): string =>
+  JSON.stringify({
+    ...parseManualScores(raw),
+    [checkType]: { at: new Date().toISOString(), by: by ?? null },
+  });
+
 export const SUGGESTION_ROW_KEYS: Record<ValidationCheckType, string> = {
   contact_fit: "contactFitSuggestions",
   data_integrity: "dataIntegritySuggestions",
@@ -201,6 +260,8 @@ export interface ContactValidationResult {
   isVerified: boolean;
   verifiedAt?: string | null;
   verifiedBy?: string | null;
+  /** Which of the four scores were set by hand rather than earned by a run. */
+  manualScores?: Partial<Record<ValidationCheckType, ManualScoreMark>>;
 }
 
 /**
@@ -526,6 +587,30 @@ export const verifyCheckScore = async (
     `${BASE}/score/verify`,
     { clientId: Number(clientId), contactId, checkType, verifiedBy },
     "The score could not be set"
+  );
+
+  return json?.message ?? "Done.";
+};
+
+/**
+ * Sets one check's score to 100 across many contacts at once.
+ *
+ * The bulk update panel's version of {@link verifyCheckScore}: one check, many
+ * contacts, where {@link markVerified} is the other axis — many checks, one
+ * contact at a time. A user working down a single column who can see that
+ * fifty rows are fine is making one judgement about one check, and should not
+ * have to claim the other three were checked to record it.
+ */
+export const verifyCheckScores = async (
+  clientId: string | number,
+  contactIds: number[],
+  checkType: ValidationCheckType,
+  verifiedBy?: string
+): Promise<string> => {
+  const json = await postJson(
+    `${BASE}/score/verify-bulk`,
+    { clientId: Number(clientId), contactIds, checkType, verifiedBy },
+    "The scores could not be set"
   );
 
   return json?.message ?? "Done.";

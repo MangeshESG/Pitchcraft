@@ -50,8 +50,10 @@ import {
   getValidationFieldValue,
 } from "./validation/validationColumns";
 import {
+  MANUAL_SCORES_ROW_KEY,
   SUGGESTION_ROW_KEYS,
   VALIDATION_SCORE_KEYS,
+  withManualScoreMark,
   type AppliedSuggestion,
   type ValidationCheckType,
   type ValidationJob,
@@ -561,7 +563,18 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           ? row
           : {
               ...row,
-              validation: { ...(row.validation ?? {}), [scoreKey]: 100 },
+              validation: {
+                ...(row.validation ?? {}),
+                [scoreKey]: 100,
+                // The server stored the same note. Writing it here too is what
+                // makes the cell say "manually updated" straight away rather
+                // than looking like a check that scored a perfect 100.
+                [MANUAL_SCORES_ROW_KEY]: withManualScoreMark(
+                  row.validation?.[MANUAL_SCORES_ROW_KEY] ??
+                    row[MANUAL_SCORES_ROW_KEY],
+                  checkType
+                ),
+              },
             };
 
       setViewContacts((prev) => prev.map(patchRow));

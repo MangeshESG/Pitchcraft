@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import CommonSidePanel from '../common/CommonSidePanel';
 import ToastMessage from '../common/ToastMessage';
 import { useToast } from '../../hooks/useToast';
 import API_BASE_URL from '../../config';
+import { RootState } from '../../Redux/store';
+import {
+  VALIDATION_BULK_UPDATE_FIELDS,
+  validationBulkCheckFor,
+} from './validation/validationColumns';
+import {
+  verifyCheckScores,
+  type ValidationCheckType,
+} from '../../api/contactValidation';
 
 interface BulkUpdatePanelProps {
   isOpen: boolean;
@@ -20,7 +30,17 @@ interface ContactColumn {
   fieldId?: number; // For custom fields
   fieldType?: string; // Field type for custom fields
   options?: string[]; // Options for dropdown fields
+  /**
+   * Set on the four Audience Assurance entries, which are not contact columns
+   * at all: picking one means "set this check to 100 for the selected
+   * contacts", so it posts to the validation API rather than to the CRM's
+   * field update.
+   */
+  checkType?: ValidationCheckType;
 }
+
+/** The only value a validation check can be bulk updated to. */
+const VERIFIED_SCORE = '100';
 
 const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
   isOpen,
@@ -36,6 +56,15 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   
   const { toast, showSuccess, showError, hideToast } = useToast();
+
+  /**
+   * Recorded against a hand-set score, so the note on the cell can say who
+   * set it rather than only that somebody did. Empty when the store has no
+   * name yet, which the API treats as "not stated".
+   */
+  const firstName = useSelector((state: RootState) => state.auth.firstName);
+  const lastName = useSelector((state: RootState) => state.auth.lastName);
+  const verifiedBy = [firstName, lastName].filter(Boolean).join(' ').trim();
 
   // Get selected column details
   const selectedColumnData = columns.find(col => col.key === selectedColumn);
@@ -68,9 +97,10 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
       // sentence case
       .replace(/^./, (str) => str.toUpperCase());
   };
-    // Reset value when column changes
+  // Reset value when column changes. A validation check has only one value it
+  // can be set to, so choosing one fills it in rather than asking for it.
   useEffect(() => {
-    setUpdateValue('');
+    setUpdateValue(validationBulkCheckFor(selectedColumn) ? VERIFIED_SCORE : '');
   }, [selectedColumn]);
 
   // Fetch contact columns when panel opens
@@ -130,11 +160,34 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
           })
           .sort((a: any, b: any) => a.label.localeCompare(b.label));
 
+        /**
+         * The four Audience Assurance checks, offered beside the contact's own
+         * fields.
+         *
+         * They sit in their own group at the end because they are a different
+         * kind of thing: the fields above take any value the user types, these
+         * take one action. Keeping them here rather than in a second panel is
+         * what the user already reaches for — the contacts are selected, the
+         * panel is open, and "these fifty are fine" is the same gesture as any
+         * other bulk edit.
+         */
+        const validationColumns: ContactColumn[] = VALIDATION_BULK_UPDATE_FIELDS.map(
+          (field) => ({
+            key: field.key,
+            label: field.label,
+            isCustomField: false,
+            fieldType: 'validation',
+            checkType: field.checkType,
+          })
+        );
+
         // Combine with separator
         const formattedColumns: ContactColumn[] = [
           ...systemColumns,
           ...(customColumns.length > 0 ? [{ key: 'separator', label: '--- Custom Fields ---', isCustomField: false, disabled: true }] : []),
-          ...customColumns
+          ...customColumns,
+          { key: 'validation-separator', label: '--- Validation checks ---', isCustomField: false, disabled: true },
+          ...validationColumns
         ];
         
         setColumns(formattedColumns);
@@ -167,6 +220,36 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
 
     setIsUpdating(true);
     try {
+      /**
+       * A validation check is not a contact column, so it does not go through
+       * the CRM's field update at all.
+       *
+       * It writes one score and a note saying a person put it there, which is
+       * a decision about a check rather than a value on a record — and the
+       * contact's three other checks keep whatever they found, because someone
+       * overruling an Employment Match verdict has not thereby confirmed the
+       * email address.
+       */
+      if (selectedColumnData.checkType) {
+        const message = await verifyCheckScores(
+          clientId,
+          selectedContactIds.map((id) => parseInt(id)),
+          selectedColumnData.checkType,
+          verifiedBy || undefined
+        );
+
+        showSuccess(message);
+
+        if (onUpdateComplete) {
+          onUpdateComplete();
+        }
+
+        setSelectedColumn('');
+        setUpdateValue('');
+        onClose();
+        return;
+      }
+
       // Prepare the API payload
       const payload: any = {
         contactIds: selectedContactIds.map(id => parseInt(id)),
@@ -203,9 +286,12 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
       setSelectedColumn('');
       setUpdateValue('');
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating contacts:', error);
-      showError('Failed to update contacts');
+      // The validation API refuses in prose — no contacts selected, unknown
+      // check — and that message is written for the user, so it is shown
+      // rather than replaced with a generic failure.
+      showError(error?.message || 'Failed to update contacts');
     } finally {
       setIsUpdating(false);
     }
@@ -233,6 +319,40 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
     const fieldType = selectedColumnData.fieldType;
 
     switch (fieldType) {
+      /**
+       * A check has one value worth setting in bulk, so there is nothing to
+       * type — the box says what the Update button will do instead of asking
+       * for a number.
+       *
+       * Deliberately not a free number field. A score means "a check found
+       * this", and letting someone write 73 into the column would put a
+       * verdict in the grid that nothing ever reached.
+       */
+      case 'validation':
+        return (
+          <div
+            style={{
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1px solid #d5f0da",
+              background: "#f1f8f2",
+              color: "#2d7a30",
+              fontSize: 13,
+              lineHeight: 1.55,
+            }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              ✓ Verified — set this score to 100
+            </div>
+            <div style={{ color: "#3f6b40" }}>
+              {selectedColumnData.label} is set to 100 for the selected
+              contact{selectedContactIds.length === 1 ? '' : 's'} and marked as
+              updated by hand, which the score says when you hover it. The other
+              three checks are left as they are.
+            </div>
+          </div>
+        );
+
       case 'longtext':
         return (
           <textarea
@@ -454,7 +574,13 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
         {/* Value Input */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
-            New value <span style={{ color: "red" }}>*</span>
+            {selectedColumnData?.checkType ? (
+              'What this will do'
+            ) : (
+              <>
+                New value <span style={{ color: "red" }}>*</span>
+              </>
+            )}
           </label>
           {renderValueInput()}
         </div>

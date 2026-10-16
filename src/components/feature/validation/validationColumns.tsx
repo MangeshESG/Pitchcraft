@@ -5,11 +5,14 @@ import {
   acceptSuggestion,
   deleteContact,
   dismissSuggestion,
+  MANUAL_SCORES_ROW_KEY,
   parseApiDate,
+  parseManualScores,
   parseSuggestions,
   SUGGESTION_ROW_KEYS,
   verifyCheckScore,
   type AppliedSuggestion,
+  type ManualScoreMark,
   type ValidationCheckType,
   type ValidationSuggestion,
 } from "../../../api/contactValidation";
@@ -80,6 +83,10 @@ export const getValidationScoreColumn = (checkType: ValidationCheckType): string
  */
 export const VALIDATION_EXCLUDED_FIELDS = [
   "validationSources",
+  // Which scores were set by hand. Read by the score cells to explain a 100,
+  // never a column: it is a JSON blob, and the auto-generated grid would turn
+  // it into one.
+  MANUAL_SCORES_ROW_KEY,
   // Read by the score cells, never shown as columns of their own: they are JSON
   // blobs, and the auto-generated grid would turn each into a column.
   "contactFitSuggestions",
@@ -283,6 +290,7 @@ const scoreCell =
         <ValidationCell
           score={score}
           overriddenFrom={score !== raw ? raw : undefined}
+          manualMark={manualMarkFor(row, check.checkType)}
           comments={row[check.commentKey]}
           checkedAt={row[check.dateKey]}
           sources={parseSources(row.validationSources)}
@@ -301,7 +309,16 @@ const scoreCell =
             checkLabel={CHECK_LABELS[check.checkType]}
             suggestions={actions.read(row, check.checkType)}
             onResolve={actions.resolverFor(row, check.checkType)}
-            onVerify={actions.verifierFor(row, check.checkType)}
+            // Nothing left to set once the score is 100, however it got there
+            // — so the button goes rather than sitting in the panel looking
+            // like an action still worth taking. The corrections and the
+            // delete stay: a perfect score is not a reason to stop offering a
+            // name fix the check itself suggested.
+            onVerify={
+              score !== null && score >= 100
+                ? undefined
+                : actions.verifierFor(row, check.checkType)
+            }
             onDelete={actions.deleterFor(row)}
           />
         )}
@@ -388,6 +405,7 @@ const checksCell = (actions?: CheckActionHandlers) => (value: any, row: any) => 
             label={check.short}
             score={score}
             overriddenFrom={score !== raw ? raw : undefined}
+            manualMark={manualMarkFor(row, check.checkType)}
             comments={row[check.commentKey]}
             checkedAt={row[check.dateKey]}
             sources={sources}
@@ -402,6 +420,20 @@ const checksCell = (actions?: CheckActionHandlers) => (value: any, row: any) => 
     </ChipStack>
   );
 };
+
+/**
+ * Whether this check's score on this row was typed in rather than earned.
+ *
+ * Read from the row for every cell rather than resolved once per grid,
+ * because the mark travels with the contact: a bulk update changes it for the
+ * fifty rows it touched and nothing else, and a re-run of that check clears it
+ * again on the server.
+ */
+const manualMarkFor = (
+  row: any,
+  checkType: ValidationCheckType
+): ManualScoreMark | null =>
+  parseManualScores(row?.[MANUAL_SCORES_ROW_KEY])[checkType] ?? null;
 
 /**
  * The row's LinkedIn profile, whichever casing the grid handed over — the
@@ -609,6 +641,35 @@ export const VALIDATION_FILTER_FIELDS: {
   { key: "isVerified", label: VALIDATION_COLUMN_LABELS.isVerified, type: "boolean" },
   { key: "lastChecked", label: VALIDATION_COLUMN_LABELS.lastChecked, type: "date" },
 ];
+
+/**
+ * The four checks as bulk-update targets.
+ *
+ * The bulk update panel otherwise lists the contact's own columns, which these
+ * are not — a score is not a field a user may type a value into, and offering
+ * one would let someone write 73 into a column that is supposed to mean a
+ * check said 73. The only bulk change that makes sense here is the one the
+ * action panel already offers per contact: "I have looked at these myself,
+ * this check passes" — so the panel offers exactly that, per check, and the
+ * list of what "per check" means lives here with the columns rather than being
+ * spelled out a fourth time in the panel.
+ */
+export const VALIDATION_BULK_UPDATE_FIELDS: {
+  /** The score column this stands for, so it reads like the grid's header. */
+  key: string;
+  label: string;
+  checkType: ValidationCheckType;
+}[] = CHECKS.map((check) => ({
+  key: check.scoreKey,
+  label: VALIDATION_COLUMN_LABELS[check.scoreKey] ?? check.scoreKey,
+  checkType: check.checkType,
+}));
+
+/** The check a bulk-update field key stands for, or undefined for a contact column. */
+export const validationBulkCheckFor = (
+  fieldKey: string
+): ValidationCheckType | undefined =>
+  VALIDATION_BULK_UPDATE_FIELDS.find((field) => field.key === fieldKey)?.checkType;
 
 /** Field keys the filter picker groups under Audience Assurance. */
 export const VALIDATION_FILTER_FIELD_KEYS = new Set(

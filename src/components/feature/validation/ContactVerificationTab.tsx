@@ -266,6 +266,10 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
                     <ValidationCell
                       score={score}
                       overriddenFrom={score !== raw ? raw : undefined}
+                      // The profile reads the same mark the grid does, so a
+                      // score set from the bulk panel explains itself here too
+                      // rather than only in the list it was set from.
+                      manualMark={result?.manualScores?.[check.checkType] ?? null}
                       comments={comments}
                       checkedAt={checkedAt}
                       sources={result?.sources ?? []}
