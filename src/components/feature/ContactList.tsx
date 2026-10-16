@@ -79,6 +79,7 @@ import {
  * starts hidden.
  */
 const DEFAULT_VISIBLE_COLUMNS = [
+  'id',
   'full_name',
   'job_title',
   'company_name',
@@ -311,8 +312,17 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const showRenameContactListModal =
       activePanel === "rename-contact-list-modal";
 
+  /**
+   * One panel key per grid. MainPage keeps a tab panel mounted once it has been
+   * visited, so the lists/segments grid, the views grid and the mail dashboard
+   * can each have a BulkUpdatePanel alive at the same time. On a shared key
+   * every one of them opened at once, stacked over each other, and the panel
+   * the user ended up clicking through was whichever mounted last — carrying
+   * the selection of a grid that was not on screen, which is where the
+   * "No contacts selected" on a full segment came from.
+   */
   const showBulkUpdatePanelModal =
-  activePanel === "bulk-update-panel-modal";
+  activePanel === "bulk-update-contacts-panel";
 
   const showValidateContactsPanel =
   activePanel === "validate-contacts-panel";
@@ -1837,6 +1847,9 @@ const formatTimeIST = formatUserTime;
     }
     // Define all possible columns
     const baseColumns: CsvColumn[] = [
+      // First column on purpose: this is the id the client keys their CRM
+      // records on when we hand updated records back.
+      { key: "id", header: "Contact ID" },
       { key: "full_name", header: "Full Name" },
       { key: "first_name", header: "First Name" },
       { key: "last_name", header: "Last Name" },
@@ -2094,7 +2107,7 @@ const formatTimeIST = formatUserTime;
   // const paginatedSegments = filteredSegments.slice(segmentStartIndex, segmentEndIndex)
 
   const columnNameMap: Record<string, string> = {
-    id: "ID",
+    id: "Contact ID",
     first_name: "First name",
     last_name: "Last name",
     full_name: "Full name",
@@ -2441,6 +2454,14 @@ const filterFields: any = useMemo(() => {
                   defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
                     ...validationFormatters,
+                    /**
+                     * The contact's own id, not the per-page row counter the
+                     * grid falls back to. It is the only stable handle a client
+                     * can store against the record in their CRM, so it travels
+                     * with every download as well.
+                     */
+                    id: (value: any) =>
+                      value === null || value === undefined ? "-" : String(value),
                     first_name: (value: any, row: any) => {
                       const { firstName, fullName } = getContactNameParts(row as Contact);
                       return firstName || fullName || "-";
@@ -2844,7 +2865,7 @@ const filterFields: any = useMemo(() => {
                               className="button secondary"
                               onClick={() => 
                                 //setShowBulkUpdatePanel(true)
-                                dispatch(openPanel("bulk-update-panel-modal"))
+                                dispatch(openPanel("bulk-update-contacts-panel"))
                               }
                               style={{
                                 background: "none",
@@ -3525,6 +3546,14 @@ const filterFields: any = useMemo(() => {
                   defaultVisibleColumns={defaultVisibleColumns}
                   customFormatters={{
                     ...validationFormatters,
+                    /**
+                     * The contact's own id, not the per-page row counter the
+                     * grid falls back to. It is the only stable handle a client
+                     * can store against the record in their CRM, so it travels
+                     * with every download as well.
+                     */
+                    id: (value: any) =>
+                      value === null || value === undefined ? "-" : String(value),
                     first_name: (value: any, row: any) => {
                       const { firstName, fullName } = getContactNameParts(row as Contact);
                       return firstName || fullName || "-";
@@ -3904,7 +3933,7 @@ const filterFields: any = useMemo(() => {
                             className="button secondary"
                             onClick={() => 
                               //setShowBulkUpdatePanel(true)
-                              dispatch(openPanel("bulk-update-panel-modal"))
+                              dispatch(openPanel("bulk-update-contacts-panel"))
                             }
                             style={{
                               background: "none",
@@ -4568,7 +4597,7 @@ const filterFields: any = useMemo(() => {
       />
       <BulkUpdatePanel
         //isOpen={showBulkUpdatePanel}
-        isOpen={showBulkUpdatePanelModal && activeSubTab !== "View"}
+        isOpen={showBulkUpdatePanelModal}
         onClose={() => 
           //setShowBulkUpdatePanel(false)
           dispatch(closePanel())

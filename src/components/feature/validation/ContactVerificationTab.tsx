@@ -5,6 +5,7 @@ import {
   dismissSuggestion,
   fetchValidationResults,
   markVerified,
+  parseApiDate,
   type AppliedSuggestion,
   type ValidationCheckType,
   type ValidationSuggestion,
@@ -166,7 +167,7 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
           </div>
           <div style={{ marginTop: 3, fontSize: 12.5, color: "#6b7280", lineHeight: 1.5 }}>
             {result?.isVerified && result.verifiedAt
-              ? `Checked by hand on ${formatUserDate(result.verifiedAt)}. Every check that had run was set to 100. Re-running a check will not clear this mark, but it will write its own score over the 100.`
+              ? `Checked by hand on ${formatUserDate(parseApiDate(result.verifiedAt))}. Every check that had run was set to 100. Re-running a check will not clear this mark, but it will write its own score over the 100.`
               : "Mark a contact verified when you have checked it yourself, or corrected something the AI got wrong. Every check that has already run will be set to 100 — checks that have never run stay empty, and the scores the AI gave are not kept."}
           </div>
         </div>
@@ -260,7 +261,7 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
                         trusting — a contact verified as current a year ago is
                         not evidence of anything today. */}
                     <span style={{ fontSize: 11.5, color: "#9ca3af", whiteSpace: "nowrap" }}>
-                      {checkedAt ? formatUserDate(checkedAt) : "Never run"}
+                      {checkedAt ? formatUserDate(parseApiDate(checkedAt)) : "Never run"}
                     </span>
                     <ValidationCell
                       score={score}

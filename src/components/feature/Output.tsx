@@ -30,7 +30,7 @@ import { faAngleRight, faAngleLeft, faCircleRight, faDownload, faBullhorn } from
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus,faBell    } from "@fortawesome/free-regular-svg-icons";
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
-import { formatIsoDateTime, formatUserDateTime } from "../common/dateTimePreferences";
+import { formatIsoDateTime, formatUserDateTime, formatUserDateTimeWithSeconds } from "../common/dateTimePreferences";
 import { KraftEmailEmptyState, KraftLoadingState, KraftCampaignSelectState } from "./Output.new";
 import RichTextEditor from "../common/RTEEditor";
 import { repairAndParseJsonObject } from "../../utils/jsonRepair";
@@ -1417,7 +1417,7 @@ const subjectCharacterCount = (isEditingSubject
     message: string,
     color: "green" | "red" | "orange" | "blue" = "green",
   ) => {
-    const stamp = formatUserDateTime(new Date());
+    const stamp = formatUserDateTimeWithSeconds(new Date());
     setOutputForm((prev: any) => ({
       ...prev,
       generatedContent:

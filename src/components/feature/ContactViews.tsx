@@ -627,8 +627,14 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     (state: RootState) => state.panel.activePanel
   );
 
+  /**
+   * A key of its own, for the same reason as the run panel above: views render
+   * inside ContactList, which keeps its own bulk update panel bound to its own
+   * selection, and the mail dashboard keeps a third. Sharing one key opened
+   * them all and left the user updating whichever stacked on top.
+   */
   const showBulkUpdatePanelModal =
-  activePanel === "bulk-update-panel-modal";
+  activePanel === "bulk-update-view-panel";
 
   const showSaveSegmentCommonModal =
   activePanel === "save-segment-modal";
@@ -946,6 +952,9 @@ const handleDeleteContacts = () => {
     }
 
     const baseColumns: CsvColumn[] = [
+      // First column on purpose: this is the id the client keys their CRM
+      // records on when we hand updated records back.
+      { key: "id", header: "Contact ID" },
       { key: "full_name", header: "Full Name" },
       { key: "first_name", header: "First Name" },
       { key: "last_name", header: "Last Name" },
@@ -2299,7 +2308,7 @@ const handleDeleteContacts = () => {
         className="button secondary"
         onClick={() => 
           //setShowBulkUpdatePanel(true)
-          dispatch(openPanel("bulk-update-panel-modal"))
+          dispatch(openPanel("bulk-update-view-panel"))
         }
         style={{
           background: "none",
@@ -2453,6 +2462,13 @@ const handleDeleteContacts = () => {
               defaultVisibleColumns={defaultVisibleColumns}
               customFormatters={{
                 ...validationFormatters,
+                /**
+                 * The contact's own id rather than the per-page row counter, so
+                 * the column means the same thing here as in a download and in
+                 * the client's CRM.
+                 */
+                id: (value: any) =>
+                  value === null || value === undefined ? "-" : String(value),
                 first_name: (value: any, row: any) => {
                   const { firstName, fullName } = getContactNameParts(row);
                   return firstName || fullName || "-";

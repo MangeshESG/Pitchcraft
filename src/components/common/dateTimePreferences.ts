@@ -50,7 +50,11 @@ const parseDate = (value?: string | Date | null) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
-const parts = (value?: string | Date | null, includeTime = false) => {
+const parts = (
+  value?: string | Date | null,
+  includeTime = false,
+  includeSeconds = false
+) => {
   const date = parseDate(value);
   if (!date) return null;
   const preference = getDateTimePreferences();
@@ -60,7 +64,12 @@ const parts = (value?: string | Date | null, includeTime = false) => {
     month: preference.dateFormat === "DD MMM YYYY" ? "short" : "2-digit",
     year: "numeric",
     ...(includeTime
-      ? { hour: "2-digit", minute: "2-digit", hour12: preference.timeFormat === "12" }
+      ? {
+          hour: "2-digit",
+          minute: "2-digit",
+          ...(includeSeconds ? { second: "2-digit" as const } : {}),
+          hour12: preference.timeFormat === "12",
+        }
       : {}),
   }).formatToParts(date);
   return { preference, values: Object.fromEntries(values.map((item) => [item.type, item.value])) };
@@ -134,6 +143,19 @@ export const formatUserDateTime = (value?: string | Date | null, fallback = "-")
   const { hour, minute, dayPeriod } = result.values;
   const date = datePart(result.preference, result.values);
   return `${date}, ${hour}:${minute}${dayPeriod ? ` ${dayPeriod}` : ""}`;
+};
+
+/* A run log is read line by line while the run is still going, and several
+   entries can land inside the same minute, so its stamps keep the seconds that
+   the screen formats elsewhere drop. The account's time zone, date layout and
+   12-/24-hour choice still apply. */
+
+export const formatUserDateTimeWithSeconds = (value?: string | Date | null, fallback = "-") => {
+  const result = parts(value, true, true);
+  if (!result) return fallback;
+  const { hour, minute, second, dayPeriod } = result.values;
+  const date = datePart(result.preference, result.values);
+  return `${date}, ${hour}:${minute}:${second}${dayPeriod ? ` ${dayPeriod}` : ""}`;
 };
 
 /* A download is read by other software — Excel, a CRM, a script — rather than

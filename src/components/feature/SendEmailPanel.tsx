@@ -144,10 +144,28 @@ setOverwriteDatabase,
   const isRunning = isBulkSending && bulkRemainingCount != null;
   const pendingCount = isRunning ? bulkRemainingCount! : emailCount;
 
-  // The delay sits *between* emails, so N emails have N-1 gaps. Each gap
-  // averages the midpoint of the randomized min/max range.
+  // How many addresses share the sending turn. A single mailbox is one; an
+  // outgoing group rotates through its members, so each address only comes
+  // round again every N emails.
+  const sendingAddressCount = React.useMemo(() => {
+    if (typeof selectedSmtpUser === "string" && selectedSmtpUser.startsWith("group:")) {
+      const groupId = selectedSmtpUser.slice("group:".length);
+      const group = outgoingGroups.find((g) => String(g?.id) === groupId);
+      return Math.max(1, (group?.members || []).length);
+    }
+    return 1;
+  }, [selectedSmtpUser, outgoingGroups]);
+
+  // Midpoint of the randomized min/max range — the gap one email waits on
+  // average.
+  const averageDelaySeconds = minDelay + (maxDelay - minDelay) / 2;
+
+  // The same gap as one sending address experiences it.
+  const averagePerAddressSeconds = averageDelaySeconds * sendingAddressCount;
+
+  // The delay sits *between* emails, so N emails have N-1 gaps.
   const estimatedTotalSeconds =
-    Math.max(0, pendingCount - 1) * ((minDelay + maxDelay) / 2) +
+    Math.max(0, pendingCount - 1) * averageDelaySeconds +
     (isRunning ? countdown ?? 0 : 0);
 
   const formatDuration = (totalSeconds: number) => {
@@ -158,6 +176,34 @@ setOverwriteDatabase,
     if (minutes > 0) return `${minutes}m ${secs % 60}s`;
     return `${secs}s`;
   };
+
+  // The three read-only delay figures share one look; only the label, the
+  // tooltip and the number differ.
+  const renderDelayReadout = (label: string, tooltip: string, seconds: number) => (
+    <div style={{ flex: "1 1 92px", minWidth: 0 }}>
+      <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
+        {label}
+      </label>
+      <div
+        title={tooltip}
+        style={{
+          width: "100%",
+          padding: "6px 8px",
+          fontSize: 13,
+          border: "1px solid #cccccc",
+          borderRadius: "4px",
+          background: "#f7f8f9",
+          color: "#333",
+          cursor: "help",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {formatDuration(seconds)}
+      </div>
+    </div>
+  );
 
   // Calculate current filter value for display
   const getCurrentFilterValue = () => {
@@ -576,7 +622,7 @@ setOverwriteDatabase,
                     </label>
                   </div>
                   {enableDelay && (
-                    <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }} className="mt-[15px]">
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }} className="mt-[15px]">
                       <div style={{ width: "80px" }}>
                         <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
                           Min
@@ -611,33 +657,21 @@ setOverwriteDatabase,
                           ))}
                         </select>
                       </div>
-                      <div style={{ width: "110px" }}>
-                        <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
-                          Total
-                        </label>
-                        <div
-                          title={
-                            isRunning
-                              ? `Estimated time left to send the remaining ${pendingCount} of ${emailCount} emails`
-                              : `The total estimated time to send ${emailCount} emails with the selected randomized delay`
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "6px 8px",
-                            fontSize: 13,
-                            border: "1px solid #cccccc",
-                            borderRadius: "4px",
-                            background: "#f7f8f9",
-                            color: "#333",
-                            cursor: "help",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
-                          {formatDuration(estimatedTotalSeconds)}
-                        </div>
-                      </div>
+                      {renderDelayReadout(
+                        "Av. time",
+                        "The average time to send each email.",
+                        averageDelaySeconds,
+                      )}
+                      {renderDelayReadout(
+                        "Av. time each",
+                        "The average time to send each email for each sending email address.",
+                        averagePerAddressSeconds,
+                      )}
+                      {renderDelayReadout(
+                        "Est. duration",
+                        "The estimated time it will take to complete sending with the selected 'delay' settings.",
+                        estimatedTotalSeconds,
+                      )}
                     </div>
                   )}
                 </div>

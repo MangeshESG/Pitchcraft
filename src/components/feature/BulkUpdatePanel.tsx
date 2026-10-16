@@ -39,6 +39,14 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
 
   // Get selected column details
   const selectedColumnData = columns.find(col => col.key === selectedColumn);
+  const hasContacts = selectedContactIds.length > 0;
+  /**
+   * An empty selection is never something the user can fix from in here, so the
+   * form stays closed for business rather than letting them pick a field and a
+   * value and only then refusing the update.
+   */
+  const canUpdate =
+    hasContacts && !!selectedColumn && !!updateValue.trim() && !isUpdating;
   const formatLabel = (text: string) => {
     return text
       // snake_case → space
@@ -140,13 +148,13 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
   };
 
   const handleBulkUpdate = async () => {
-    if (!selectedColumn || !updateValue.trim()) {
-      showError('Please select a column and enter a value');
+    if (!hasContacts) {
+      showError('No contacts selected');
       return;
     }
 
-    if (selectedContactIds.length === 0) {
-      showError('No contacts selected');
+    if (!selectedColumn || !updateValue.trim()) {
+      showError('Please select a column and enter a value');
       return;
     }
 
@@ -381,15 +389,15 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
             </button>
             <button
               onClick={handleBulkUpdate}
-              disabled={!selectedColumn || !updateValue.trim() || isUpdating}
+              disabled={!canUpdate}
               className="button primary"
               style={{
                 padding: "10px 32px",
-                background: selectedColumn && updateValue.trim() && !isUpdating ? "#3f9f42" : "#ccc",
+                background: canUpdate ? "#3f9f42" : "#ccc",
                 color: "#fff",
                 border: "none",
                 borderRadius: "24px",
-                cursor: selectedColumn && updateValue.trim() && !isUpdating ? "pointer" : "not-allowed",
+                cursor: canUpdate ? "pointer" : "not-allowed",
                 fontSize: "14px",
                 fontWeight: "500",
               }}
@@ -400,8 +408,10 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
         }
       >
         <div style={{ marginBottom: 16 }}>
-          <p style={{ marginBottom: 16, color: '#666' }}>
-            Update {selectedContactIds.length} selected contact{selectedContactIds.length > 1 ? 's' : ''}
+          <p style={{ marginBottom: 16, color: hasContacts ? '#666' : '#b42318' }}>
+            {hasContacts
+              ? `Update ${selectedContactIds.length} selected contact${selectedContactIds.length > 1 ? 's' : ''}`
+              : 'No contacts selected. Close this panel, tick the contacts to update and open it again.'}
           </p>
         </div>
 

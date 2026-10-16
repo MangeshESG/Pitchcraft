@@ -154,6 +154,18 @@ export const verifiedScore = (
 };
 
 /**
+ * A check's stamp, as a column.
+ *
+ * The API writes these as UTC with nothing on them to say so, which is what
+ * parseApiDate repairs — the same repair the hover cell and the job log already
+ * make, and the one the score comparison above makes. A column that went
+ * straight to the formatter read the stamp as local time instead, so for
+ * anything logged late in the day the column named one day and its own hover
+ * card named the next.
+ */
+const checkedAtCell = (value: any) => formatUserDate(parseApiDate(value));
+
+/**
  * The wrapper around one check's score and its actions.
  *
  * Collapsed, the two sit on one line and the row stays a single line high.
@@ -550,7 +562,7 @@ export const createValidationFormatters = (
 
   return {
   checks: checksCell(actions),
-  lastChecked: (value: any) => formatUserDate(value),
+  lastChecked: checkedAtCell,
 
   ...byCheck,
 
@@ -559,11 +571,11 @@ export const createValidationFormatters = (
   liveContactComments: commentCell,
   emailValidityComments: commentCell,
 
-  contactFitCheckedAt: (value: any) => formatUserDate(value),
-  dataIntegrityCheckedAt: (value: any) => formatUserDate(value),
-  liveContactCheckedAt: (value: any) => formatUserDate(value),
-  emailCheckedAt: (value: any) => formatUserDate(value),
-  verifiedAt: (value: any) => formatUserDate(value),
+  contactFitCheckedAt: checkedAtCell,
+  dataIntegrityCheckedAt: checkedAtCell,
+  liveContactCheckedAt: checkedAtCell,
+  emailCheckedAt: checkedAtCell,
+  verifiedAt: checkedAtCell,
 
   isVerified: verifiedCell,
   };

@@ -506,8 +506,11 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
    const activePanel = useSelector(
     (state: RootState) => state.panel.activePanel
     );
+  // A key of its own: the contacts tab keeps bulk update panels of its own
+  // alive while this dashboard stays mounted, and a shared key opened all of
+  // them at once over each other.
   const showBulkUpdatePanelModal =
-    activePanel === "bulk-update-panel-modal";
+    activePanel === "bulk-update-mail-panel";
 
   const showSaveSegmentCommonModal =
     activePanel === "save-segment-modal";
@@ -2863,7 +2866,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               className="button secondary"
               onClick={() => 
                 //setShowBulkUpdatePanel(true)
-                dispatch(openPanel("bulk-update-panel-modal"))
+                dispatch(openPanel("bulk-update-mail-panel"))
 
               }
               style={{

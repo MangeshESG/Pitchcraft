@@ -33,7 +33,7 @@ import Header from "./common/Header";
 import API_BASE_URL from "../config";
 import { extractGenerationInsights } from "../utils/generationInsights";
 import { EmailHighlight, parseEmailHighlights } from "../utils/emailHighlights";
-import { DEFAULT_DATE_TIME_PREFERENCES, setDateTimePreferences, formatUserDateTime } from "./common/dateTimePreferences";
+import { DEFAULT_DATE_TIME_PREFERENCES, setDateTimePreferences, formatUserDateTime, formatUserDateTimeWithSeconds } from "./common/dateTimePreferences";
 import { useDispatch } from "react-redux";
 import { useModel } from "../ModelContext";
 import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
@@ -1414,9 +1414,10 @@ const handleClientChange = async (
   var scrapfailedreq = 0;
   var totaltokensused = 0;
 
-  // Helper function to format date and time
+  // Helper function to format date and time. Only the output log uses this, and
+  // its lines need seconds to be tellable apart during a run.
   function formatDateTime(date: Date): string {
-    return formatUserDateTime(date);
+    return formatUserDateTimeWithSeconds(date);
   }
 
 
@@ -4047,7 +4048,9 @@ try {
                 <div
                   className="preserved-tab-panel"
                   style={getTabPanelStyle(
-                    tab === "DataCampaigns" && contactsSubTab === "CustomFields"
+                    tab === "DataCampaigns" &&
+                    contactsSubTab === "CustomFields" &&
+                    !showDataFileUpload
                   )}
                 >
                   <CustomFieldSettings

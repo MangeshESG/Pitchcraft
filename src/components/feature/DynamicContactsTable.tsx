@@ -401,6 +401,14 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         return (value: any) => {
           if (!value) return <span className="dt-muted">—</span>;
           try {
+            // A stored day — "2024-03-15", or that plus a wall clock — is already
+            // in the account's time zone, so it is laid out as it stands. Handing
+            // it to Date would read the bare day as UTC and give back the day
+            // before in a western zone, with a 00:00 the cell never carried.
+            if (typeof value === "string") {
+              const stored = formatStoredDate(value);
+              if (stored) return <span className="dt-num">{stored}</span>;
+            }
             const d = new Date(value);
             if (isNaN(d.getTime())) return <span>{value}</span>;
             return (
@@ -715,7 +723,10 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       );
     }
 
-    if (column.key === "id" && typeof index === "number") {
+    // "id" is a row counter by default. A grid that passes its own formatter
+    // for it means the real key instead — the contact grids show the contact
+    // id, which clients match against the records in their CRM.
+    if (column.key === "id" && typeof index === "number" && !customFormatters.id) {
       return pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1;
     }
 
