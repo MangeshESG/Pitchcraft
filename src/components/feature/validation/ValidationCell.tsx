@@ -280,12 +280,18 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
             fontSize: 12.5,
           }}
         >
-          <strong>Manually updated.</strong> This score was set to 100 by hand
-          {manualMark?.by ? ` by ${manualMark.by}` : ""}
+          <strong style={{ display: "block", marginBottom: 2 }}>
+            Manually checked and marked as verified
+          </strong>
+          {/* Who did it is stored against the mark, but not shown here: the
+              line is a warning about re-running the check, and a name in the
+              middle of it is one more thing to read past. */}
+          Checked by hand
           {manualMark?.at
             ? ` on ${userDates.formatUserDate(parseApiDate(manualMark.at))}`
             : ""}
-          . Any comments below are from the last check that ran.
+          . Do not re-run the check unless you wish to overwrite this manual
+          check override.
         </p>
       )}
 

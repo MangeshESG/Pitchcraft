@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
 import CommonSidePanel from '../common/CommonSidePanel';
 import ToastMessage from '../common/ToastMessage';
 import { useToast } from '../../hooks/useToast';
 import API_BASE_URL from '../../config';
-import { RootState } from '../../Redux/store';
 import {
   VALIDATION_BULK_UPDATE_FIELDS,
   validationBulkCheckFor,
@@ -56,15 +54,6 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   
   const { toast, showSuccess, showError, hideToast } = useToast();
-
-  /**
-   * Recorded against a hand-set score, so the note on the cell can say who
-   * set it rather than only that somebody did. Empty when the store has no
-   * name yet, which the API treats as "not stated".
-   */
-  const firstName = useSelector((state: RootState) => state.auth.firstName);
-  const lastName = useSelector((state: RootState) => state.auth.lastName);
-  const verifiedBy = [firstName, lastName].filter(Boolean).join(' ').trim();
 
   // Get selected column details
   const selectedColumnData = columns.find(col => col.key === selectedColumn);
@@ -234,8 +223,7 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
         const message = await verifyCheckScores(
           clientId,
           selectedContactIds.map((id) => parseInt(id)),
-          selectedColumnData.checkType,
-          verifiedBy || undefined
+          selectedColumnData.checkType
         );
 
         showSuccess(message);
