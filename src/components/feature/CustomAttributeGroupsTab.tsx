@@ -1,14 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { GripVertical, ListTree, MoreVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import {
   AttributeGroup,
   GroupAttribute,
   deleteAttributeGroup,
   getAttributeGroups,
   getGroupAttributes,
+  getSystemAttributeGroups,
+  moveSystemAttributes,
   reorderAttributeGroups,
   reorderGroupAttributes,
+  reorderMixedGroupAttributes,
+  reorderSystemAttributes,
+  SystemAttributeGroup,
 } from "../../api/customAttributeGroups";
 
 const PAGE_SIZE = 20;
@@ -22,6 +26,16 @@ function moveItem<T extends { id: number }>(items: T[], sourceId: number, target
   return reordered;
 }
 
+function getOptions(optionsJson: string | null): string[] {
+  if (!optionsJson) return [];
+  try {
+    const options = JSON.parse(optionsJson);
+    return Array.isArray(options) ? options.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
 interface Props {
   refreshKey: number;
   onCreate: () => void;
@@ -32,6 +46,8 @@ interface Props {
 
 const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdit, onChanged, onToast }) => {
   const [groups, setGroups] = useState<AttributeGroup[]>([]);
+  const [systemGroups, setSystemGroups] = useState<SystemAttributeGroup[]>([]);
+  const [openSystemGroup, setOpenSystemGroup] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -47,7 +63,7 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
   const [membersLoading, setMembersLoading] = useState(false);
   const [memberError, setMemberError] = useState("");
   const [actionMenu, setActionMenu] = useState<{ group: AttributeGroup; top: number; left: number } | null>(null);
-  const dragItem = useRef<{ type: "group" | "attribute"; id: number } | null>(null);
+  const dragItem = useRef<{ type: "group" | "attribute" | "system"; id: number; key?: string } | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
 
   const startDrag = (event: React.DragEvent, type: "group" | "attribute", id: number) => {
@@ -95,6 +111,62 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
       onToast(message, "error");
     } finally { setSavingOrder(false); }
   };
+
+  const dropSystemField = async (group: SystemAttributeGroup, targetKey: string) => {
+    const source = dragItem.current;
+    dragItem.current = null;
+    if (source?.type !== "system" || !source.key || source.key === targetKey || savingOrder) return;
+    const sourceIndex = group.fields.findIndex(field => field.key === source.key);
+    const targetIndex = group.fields.findIndex(field => field.key === targetKey);
+    if (sourceIndex < 0) {
+      try { await moveSystemAttributes(group.key, [source.key]); setSystemGroups(await getSystemAttributeGroups()); }
+      catch (err: any) { onToast(err.message || "Could not move system field.", "error"); }
+      return;
+    }
+    if (targetIndex < 0) return;
+    const fields = [...group.fields];
+    fields.splice(targetIndex, 0, fields.splice(sourceIndex, 1)[0]);
+    setSystemGroups(current => current.map(item => item.key === group.key ? { ...item, fields } : item));
+    setSavingOrder(true);
+    try {
+      await reorderSystemAttributes(group.key, fields.map(field => field.key));
+    } catch (err: any) {
+      setSystemGroups(current => current.map(item => item.key === group.key ? group : item));
+      onToast(err.message || "Could not save system field order.", "error");
+    } finally { setSavingOrder(false); }
+  };
+
+  const dropMixedAttribute = async (targetKey: string, orderedKeys: string[]) => {
+    const source = dragItem.current;
+    dragItem.current = null;
+    if (!viewGroup || !source || memberSearch || savingOrder) return;
+    const sourceKey = source.type === "system" ? `s:${source.key}` : source.type === "attribute" ? `c:${source.id}` : "";
+    const sourceIndex = orderedKeys.indexOf(sourceKey);
+    const targetIndex = orderedKeys.indexOf(targetKey);
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+    const next = [...orderedKeys];
+    next.splice(targetIndex, 0, next.splice(sourceIndex, 1)[0]);
+    setSavingOrder(true);
+    try {
+      await reorderMixedGroupAttributes(viewGroup.id, next);
+      onChanged();
+    } catch (err: any) {
+      onToast(err.message || "Could not save attribute order.", "error");
+    } finally { setSavingOrder(false); }
+  };
+
+  const dropSystemOnGroup = async (groupKey: string) => {
+    const source = dragItem.current;
+    dragItem.current = null;
+    if (source?.type !== "system" || !source.key || savingOrder) return;
+    if (systemGroups.find(group => group.key === groupKey)?.fields.some(field => field.key === source.key)) return;
+    try { await moveSystemAttributes(groupKey, [source.key]); setSystemGroups(await getSystemAttributeGroups()); }
+    catch (err: any) { onToast(err.message || "Could not move system field.", "error"); }
+  };
+
+  useEffect(() => {
+    getSystemAttributeGroups().then(setSystemGroups).catch((err) => onToast(err.message, "error"));
+  }, [refreshKey]);
 
   useEffect(() => {
     if (!actionMenu) return;
@@ -181,62 +253,104 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
     <div className="cf-groups">
       <div className="cf-groups__toolbar">
         <div className="cf-groups__search">
-          <Search size={16} aria-hidden="true" />
           <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search groups" aria-label="Search groups" />
         </div>
-        <div className="cf-groups__toolbar-actions"><span>{total} group{total === 1 ? "" : "s"}</span><button type="button" className="bp-btn-default" onClick={onCreate}><Plus size={16} /> Create group</button></div>
+        <div className="cf-groups__toolbar-actions"><span>{total + 2} groups</span><button type="button" className="bp-btn-default" onClick={onCreate}>Create group</button></div>
       </div>
       {error && <div className="cf-groups__error" role="alert">{error}</div>}
       <p className="cf-groups__sort-hint">{savingOrder ? "Saving order..." : search ? "Clear search to rearrange groups." : "Drag the handle to rearrange groups on this page."}</p>
-      <div className="cf-groups__table-wrap">
-        <table className="cf-groups__table">
-          <thead><tr><th aria-label="Order" /><th>Group name</th><th>Description</th><th>Attributes</th><th>Actions</th></tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={5} className="cf-groups__empty">Loading groups...</td></tr> :
-              groups.length === 0 ? <tr><td colSpan={5} className="cf-groups__empty">{search ? "No groups match your search." : "No groups created yet."}</td></tr> :
-              groups.map((group) => (
-                <tr key={group.id} onDragOver={(event) => { if (dragItem.current?.type === "group") event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); void dropGroup(group.id); }}>
-                  <td className="cf-groups__drag-cell"><span draggable={!search && !savingOrder} onDragStart={(event) => startDrag(event, "group", group.id)} onDragEnd={() => { dragItem.current = null; }} title={search ? "Clear search to reorder" : "Drag to reorder"} aria-label={`Drag ${group.name} to reorder`}><GripVertical size={17} /></span></td>
-                  <td className="cf-groups__name">{group.name}</td>
-                  <td className="cf-groups__description">{group.description || "—"}</td>
-                  <td>
-                    <button type="button" className="cf-groups__members-btn" title={`View attributes in ${group.name}`} aria-label={`View attributes in ${group.name}`} onClick={() => { setMemberError(""); setViewGroup(group); setMemberSearch(""); setMemberPage(1); }}>
-                      <ListTree size={18} aria-hidden="true" /> <span>{group.attributeCount}</span>
-                    </button>
-                  </td>
-                  <td>
-                    <div className="cf-groups__action-wrap">
-                      <button type="button" data-group-action-trigger className="cf-groups__action-button" aria-label={`Actions for ${group.name}`} aria-haspopup="menu" aria-expanded={actionMenu?.group.id === group.id} onClick={(event) => toggleActionMenu(group, event.currentTarget)}><MoreVertical size={18} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+      <div className="cf-groups__cards">
+        {systemGroups.filter(group => (group.key === "personal" || group.key === "company") && group.name.toLowerCase().includes(search.toLowerCase())).map(group => (
+          <section key={group.key} className={`cf-groups__card${openSystemGroup === group.key ? " is-expanded" : ""}`}
+            onDragOver={(event) => { if (dragItem.current?.type === "system") event.preventDefault(); }}
+            onDrop={(event) => { if (dragItem.current?.type === "system") { event.preventDefault(); void dropSystemOnGroup(group.key); } }}>
+            <div className="cf-groups__card-head">
+              <button type="button" className="cf-groups__expand" aria-expanded={openSystemGroup === group.key}
+                onClick={() => setOpenSystemGroup(openSystemGroup === group.key ? null : group.key)}>
+                <span className="cf-groups__chevron" aria-hidden="true">{openSystemGroup === group.key ? "▾" : "▸"}</span>
+                <span className="cf-groups__card-title"><strong>{group.name}</strong><span className="cf-groups__count">{group.fields.length} system fields</span><small>Default group · fields cannot be edited or deleted</small></span>
+              </button>
+            </div>
+            {openSystemGroup === group.key && <div className="cf-groups__card-body">
+              <p className="cf-groups__sort-hint">Drag fields to set their order in the contact profile.</p>
+              <div className="cf-groups__attribute-table-wrap"><table className="cf-groups__attribute-table">
+                <thead><tr><th>#</th><th aria-label="Order" /><th>Field name</th><th>Type</th><th>Options / rules</th></tr></thead>
+                <tbody>{group.fields.map((field, index) => <tr key={field.key}
+                  onDragOver={(event) => { if (dragItem.current?.type === "system") event.preventDefault(); }}
+                  onDrop={(event) => { event.preventDefault(); event.stopPropagation(); void dropSystemField(group, field.key); }}>
+                  <td>{index + 1}</td><td><span className="cf-groups__handle" draggable={!savingOrder}
+                    onDragStart={(event) => { dragItem.current = { type: "system", id: 0, key: field.key }; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", field.key); }}
+                    onDragEnd={() => { dragItem.current = null; }} aria-label={`Drag ${field.name} to reorder`}>⋮⋮</span></td>
+                  <td className="cf-groups__field-name">{field.name}</td><td><span className="cf-type-badge">{field.type}</span></td><td>—</td>
+                </tr>)}</tbody>
+              </table></div>
+            </div>}
+          </section>
+        ))}
+        {loading ? <div className="cf-groups__empty">Loading groups...</div> :
+          groups.length === 0 ? <div className="cf-groups__empty">{search ? "No groups match your search." : "No groups created yet."}</div> :
+          groups.map((group) => {
+            const expanded = viewGroup?.id === group.id;
+            const systemFields = memberPage === 1 ? (systemGroups.find(item => item.key === `custom:${group.id}`)?.fields || []) : [];
+            const mixedMembers = [
+              ...systemFields.filter(field => field.name.toLowerCase().includes(memberSearch.toLowerCase())).map(field => ({ key: `s:${field.key}`, name: field.name, type: field.type, options: "", order: field.order, id: 0, systemKey: field.key })),
+              ...members.map(member => ({ key: `c:${member.id}`, name: member.field_name, type: member.field_type, options: getOptions(member.options_json).join(", "), order: member.sort_order, id: member.id, systemKey: "" })),
+            ].sort((left, right) => left.order - right.order || left.key.localeCompare(right.key));
+            return <section key={group.id} className={`cf-groups__card${expanded ? " is-expanded" : ""}`}
+              onDragOver={(event) => { if (dragItem.current?.type === "group" || dragItem.current?.type === "system") event.preventDefault(); }}
+              onDrop={(event) => { if (dragItem.current?.type === "group") { event.preventDefault(); void dropGroup(group.id); } else if (dragItem.current?.type === "system") { event.preventDefault(); void dropSystemOnGroup(`custom:${group.id}`); } }}>
+              <div className="cf-groups__card-head">
+                <span className="cf-groups__handle" draggable={!search && !savingOrder}
+                  onDragStart={(event) => startDrag(event, "group", group.id)}
+                  onDragEnd={() => { dragItem.current = null; }}
+                  title={search ? "Clear search to reorder" : "Drag to reorder"}
+                  aria-label={`Drag ${group.name} to reorder`}>⋮⋮</span>
+                <button type="button" className="cf-groups__expand" aria-expanded={expanded}
+                  aria-label={`${expanded ? "Hide" : "Show"} attributes in ${group.name}`}
+                  onClick={() => { setMemberError(""); setViewGroup(expanded ? null : group); setMemberSearch(""); setMemberPage(1); }}>
+                  <span className="cf-groups__chevron" aria-hidden="true">{expanded ? "▾" : "▸"}</span>
+                  <span className="cf-groups__card-title"><strong>{group.name}</strong><span className="cf-groups__count">{group.attributeCount + (systemGroups.find(item => item.key === `custom:${group.id}`)?.fields.length || 0)} attributes</span><small>{group.description || "No description"}</small></span>
+                </button>
+                <button type="button" data-group-action-trigger className="cf-groups__action-button"
+                  aria-label={`Actions for ${group.name}`} aria-haspopup="menu" aria-expanded={actionMenu?.group.id === group.id}
+                  onClick={(event) => toggleActionMenu(group, event.currentTarget)}>⋮</button>
+              </div>
+              {expanded && <div className="cf-groups__card-body">
+                {memberError && <div className="cf-groups__error" role="alert">{memberError}</div>}
+                {memberTotal > PAGE_SIZE || memberSearch ? <div className="cf-groups__search cf-groups__member-search"><input value={memberSearch} onChange={(event) => { setMemberSearch(event.target.value); setMemberPage(1); }} placeholder="Search attributes" aria-label={`Search attributes in ${group.name}`} /></div> : null}
+                <p className="cf-groups__sort-hint">{savingOrder ? "Saving order..." : memberSearch ? "Clear search to rearrange attributes." : "Drag the handle to rearrange attributes on this page."}</p>
+                <div className="cf-groups__attribute-table-wrap"><table className="cf-groups__attribute-table">
+                  <thead><tr><th>#</th><th aria-label="Order" /><th>Field name</th><th>Type</th><th>Options / rules</th></tr></thead>
+                  <tbody>{membersLoading ? <tr><td colSpan={5} className="cf-groups__empty">Loading attributes...</td></tr> :
+                    mixedMembers.length === 0 ? <tr><td colSpan={5} className="cf-groups__empty">No attributes found.</td></tr> :
+                    mixedMembers.map((member, index) => <tr key={member.key}
+                      onDragOver={(event) => { if (dragItem.current?.type === "attribute" || dragItem.current?.type === "system") event.preventDefault(); }}
+                      onDrop={(event) => { event.preventDefault(); event.stopPropagation(); if (memberPage === 1) void dropMixedAttribute(member.key, mixedMembers.map(item => item.key)); else if (member.id) void dropAttribute(member.id); }}>
+                      <td>{(memberPage - 1) * PAGE_SIZE + index + 1}</td>
+                      <td><span className="cf-groups__handle" draggable={!memberSearch && !savingOrder}
+                        onDragStart={(event) => { if (member.systemKey) { dragItem.current = { type: "system", id: 0, key: member.systemKey }; event.dataTransfer.setData("text/plain", member.key); } else startDrag(event, "attribute", member.id); }}
+                        onDragEnd={() => { dragItem.current = null; }} title={memberSearch ? "Clear search to reorder" : "Drag to reorder"}
+                        aria-label={`Drag ${member.name} to reorder`}>⋮⋮</span></td>
+                      <td className="cf-groups__field-name">{member.name}{member.systemKey && <span className="cf-row__group-note">System</span>}</td>
+                      <td><span className="cf-type-badge">{member.type}</span></td>
+                      <td className="cf-groups__options">{member.options || "—"}</td>
+                    </tr>)}</tbody>
+                </table></div>
+                {memberTotal > PAGE_SIZE && <div className="cf-groups__pager"><span>{memberTotal} attributes</span><div><button type="button" disabled={memberPage === 1 || membersLoading} onClick={() => setMemberPage(memberPage - 1)}>Previous</button><span>Page {memberPage} of {Math.max(1, Math.ceil(memberTotal / PAGE_SIZE))}</span><button type="button" disabled={memberPage * PAGE_SIZE >= memberTotal || membersLoading} onClick={() => setMemberPage(memberPage + 1)}>Next</button></div></div>}
+              </div>}
+            </section>;
+          })}
       </div>
       {actionMenu && createPortal(
         <div data-group-action-menu role="menu" aria-label={`Actions for ${actionMenu.group.name}`} className="cf-groups__action-menu" style={{ top: actionMenu.top, left: actionMenu.left }}>
-          <button type="button" role="menuitem" onClick={() => { const group = actionMenu.group; setActionMenu(null); onEdit(group); }}><Pencil size={16} /> Edit</button>
-          <button type="button" role="menuitem" className="cf-groups__action-menu-delete" onClick={() => { setDeleteTarget(actionMenu.group); setActionMenu(null); }}><Trash2 size={16} /> Delete</button>
+          <button type="button" role="menuitem" onClick={() => { const group = actionMenu.group; setActionMenu(null); onEdit(group); }}>Edit group</button>
+          <button type="button" role="menuitem" className="cf-groups__action-menu-delete" onClick={() => { setDeleteTarget(actionMenu.group); setActionMenu(null); }}>Delete group</button>
         </div>, document.body
       )}
       <div className="cf-groups__pager">
         <span>Showing {total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}</span>
         <div><button type="button" disabled={page === 1 || loading} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page} of {Math.max(1, Math.ceil(total / PAGE_SIZE))}</span><button type="button" disabled={page * PAGE_SIZE >= total || loading} onClick={() => setPage(page + 1)}>Next</button></div>
       </div>
-
-      {viewGroup && <div className="cf-groups__overlay" onMouseDown={() => setViewGroup(null)}>
-        <div className="cf-groups__dialog" role="dialog" aria-modal="true" aria-label={`${viewGroup.name} attributes`} onMouseDown={(event) => event.stopPropagation()}>
-          <div className="cf-groups__dialog-head"><div><h3>{viewGroup.name}</h3><p>Attributes in this group</p></div><button type="button" onClick={() => setViewGroup(null)} aria-label="Close">×</button></div>
-          {memberError && <div className="cf-groups__error" role="alert">{memberError}</div>}
-          <p className="cf-groups__sort-hint">{savingOrder ? "Saving order..." : memberSearch ? "Clear search to rearrange attributes." : "Drag the handle to rearrange attributes on this page."}</p>
-          <div className="cf-groups__search"><Search size={16} aria-hidden="true" /><input value={memberSearch} onChange={(event) => { setMemberSearch(event.target.value); setMemberPage(1); }} placeholder="Search attributes" aria-label="Search attributes" /></div>
-          <div className="cf-groups__members-list">
-            {membersLoading ? <div className="cf-groups__empty">Loading attributes...</div> : members.length === 0 ? <div className="cf-groups__empty">No attributes found.</div> : members.map((member) => <div className="cf-groups__member" key={member.id} onDragOver={(event) => { if (dragItem.current?.type === "attribute") event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); void dropAttribute(member.id); }}><span className="cf-groups__drag-cell" draggable={!memberSearch && !savingOrder} onDragStart={(event) => startDrag(event, "attribute", member.id)} onDragEnd={() => { dragItem.current = null; }} title={memberSearch ? "Clear search to reorder" : "Drag to reorder"} aria-label={`Drag ${member.field_name} to reorder`}><GripVertical size={17} /></span><span className="cf-groups__member-name">{member.field_name}</span><span className="cf-type-badge">{member.field_type}</span></div>)}
-          </div>
-          <div className="cf-groups__pager"><span>{memberTotal} attribute{memberTotal === 1 ? "" : "s"}</span><div><button type="button" disabled={memberPage === 1 || membersLoading} onClick={() => setMemberPage(memberPage - 1)}>Previous</button><span>Page {memberPage} of {Math.max(1, Math.ceil(memberTotal / PAGE_SIZE))}</span><button type="button" disabled={memberPage * PAGE_SIZE >= memberTotal || membersLoading} onClick={() => setMemberPage(memberPage + 1)}>Next</button></div></div>
-        </div>
-      </div>}
 
       {deleteTarget && <div className="cf-groups__overlay" onMouseDown={() => !deleting && setDeleteTarget(null)}>
         <div className="cf-groups__dialog cf-groups__dialog--small" role="dialog" aria-modal="true" aria-label="Delete group" onMouseDown={(event) => event.stopPropagation()}>

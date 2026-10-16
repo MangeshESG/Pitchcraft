@@ -10,7 +10,7 @@ import { closePanel, openPanel } from "../../slices/panelSlice";
 import { MoreVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import customFieldNewUserImage from "../../assets/images/Custom_field_new_user.png";
 import CustomAttributeGroupsTab from "./CustomAttributeGroupsTab";
-import { AttributeGroup, getGroupAttributes, saveAttributeGroup } from "../../api/customAttributeGroups";
+import { AttributeGroup, SystemAttributeGroup, getGroupAttributes, getSystemAttributeGroups, moveSystemAttributes, saveAttributeGroup } from "../../api/customAttributeGroups";
 import ToastMessage from "../common/ToastMessage";
 import { useToast } from "../../hooks/useToast";
 
@@ -54,6 +54,9 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [groupChanges, setGroupChanges] = useState<Map<number, boolean>>(new Map());
+  const [systemGroups, setSystemGroups] = useState<SystemAttributeGroup[]>([]);
+  const [selectedSystemKeys, setSelectedSystemKeys] = useState<string[]>([]);
+  const [showMoveConfirmation, setShowMoveConfirmation] = useState(false);
   const [groupSaving, setGroupSaving] = useState(false);
   const [groupError, setGroupError] = useState("");
   const [groupRefreshKey, setGroupRefreshKey] = useState(0);
@@ -100,6 +103,9 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     const timer = setTimeout(loadFields, fieldSearch ? 250 : 0);
     return () => { clearTimeout(timer); fieldLoadId.current += 1; };
   }, [effectiveUserId, fieldPage, fieldSearch]);
+  useEffect(() => {
+    getSystemAttributeGroups().then(setSystemGroups).catch((error) => showToast(error.message, "error"));
+  }, [effectiveUserId, groupRefreshKey]);
 
   const saveField = async () => {
     if (!name.trim()) return;
@@ -250,14 +256,17 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   };
 
   const filteredFields = fields;
+  const systemFields = systemGroups.flatMap(group => group.fields.map(field => ({ ...field, groupName: group.name })));
   const selectedGroupCount = editingGroup
-    ? editingGroup.attributeCount + Array.from(groupChanges.values()).filter(Boolean).length - Array.from(groupChanges.values()).filter((selected) => !selected).length
-    : Array.from(groupChanges.values()).filter(Boolean).length;
+    ? editingGroup.attributeCount + Array.from(groupChanges.values()).filter(Boolean).length - Array.from(groupChanges.values()).filter((selected) => !selected).length + selectedSystemKeys.length
+    : Array.from(groupChanges.values()).filter(Boolean).length + selectedSystemKeys.length;
 
   const cancelGroup = () => {
     setGroupMode(false);
+    setShowMoveConfirmation(false);
     setEditingGroup(null);
     setGroupChanges(new Map());
+    setSelectedSystemKeys([]);
     setGroupError("");
   };
 
@@ -267,6 +276,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     setGroupName("");
     setGroupDescription("");
     setGroupChanges(new Map());
+    setSelectedSystemKeys([]);
     setGroupError("");
     setGroupMode(true);
   };
@@ -277,6 +287,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     setGroupName(group.name);
     setGroupDescription(group.description || "");
     setGroupChanges(new Map());
+    setSelectedSystemKeys([]);
     setGroupError("");
     setGroupMode(true);
   };
@@ -293,6 +304,21 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     });
   };
 
+  const toggleSystemField = (field: typeof systemFields[number]) => {
+    if (field.groupKey === `custom:${editingGroup?.id}`) return;
+    if (selectedSystemKeys.includes(field.key)) {
+      setSelectedSystemKeys(current => current.filter(key => key !== field.key));
+      return;
+    }
+    setSelectedSystemKeys(current => [...current, field.key]);
+  };
+
+  const requestSaveGroup = () => {
+    if (!groupName.trim()) { setGroupError("Enter a group name."); return; }
+    if (selectedSystemKeys.length) setShowMoveConfirmation(true);
+    else void saveGroup();
+  };
+
   const saveGroup = async () => {
     if (!groupName.trim() || groupSaving) {
       if (!groupName.trim()) setGroupError("Enter a group name.");
@@ -300,20 +326,27 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     }
     setGroupSaving(true);
     setGroupError("");
+    let savedGroupId: number | null = null;
     try {
       const groupId = editingGroup?.id ?? null;
-      await saveAttributeGroup(groupId, {
+      const saved = await saveAttributeGroup(groupId, {
         name: groupName.trim(),
         description: groupDescription.trim(),
         addAttributeIds: Array.from(groupChanges).filter(([, selected]) => selected).map(([id]) => id),
         removeAttributeIds: Array.from(groupChanges).filter(([, selected]) => !selected).map(([id]) => id),
       });
+      savedGroupId = saved.id;
+      if (selectedSystemKeys.length) await moveSystemAttributes(`custom:${saved.id}`, selectedSystemKeys);
       cancelGroup();
       await loadFields();
       setGroupRefreshKey((key) => key + 1);
       setActiveTab("groups");
       showToast(editingGroup ? "Group updated successfully." : "Group created successfully.", "success");
     } catch (error: any) {
+      if (savedGroupId && !editingGroup) {
+        setEditingGroup({ id: savedGroupId, name: groupName.trim(), description: groupDescription.trim(),
+          created_at: new Date().toISOString(), attributeCount: 0, sort_order: 0 });
+      }
       const message = error.message || "Could not save group.";
       setGroupError(message);
       showToast(message, "error");
@@ -332,15 +365,32 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       </div>
       {activeTab === "fields" && groupMode && (
         <div className="cf-group-editor">
-          <div><h2>{editingGroup ? "Edit group" : "Create group"}</h2><p>Select attributes below. An attribute can belong to one group only.</p></div>
+          <div><h2>{editingGroup ? "Edit group" : "Create group"}</h2><p>Select attributes below. Fields already in another group can be moved after confirmation.</p></div>
           <div className="cf-group-editor__inputs">
             <label>Group name<input value={groupName} maxLength={120} onChange={(event) => setGroupName(event.target.value)} placeholder="Enter group name" /></label>
             <label>Description (optional)<input value={groupDescription} maxLength={500} onChange={(event) => setGroupDescription(event.target.value)} placeholder="What is this group for?" /></label>
           </div>
           {groupError && <div className="cf-groups__error" role="alert">{groupError}</div>}
-          <div className="cf-group-editor__actions"><span>{selectedGroupCount} selected</span><button type="button" className="panel-cancel-btn" disabled={groupSaving} onClick={cancelGroup}>Cancel</button><button type="button" className="panel-create-btn" disabled={groupSaving || !groupName.trim()} onClick={saveGroup}>{groupSaving ? "Saving..." : editingGroup ? "Update group" : "Save group"}</button></div>
+          <div className="cf-group-editor__actions"><span>{selectedGroupCount} selected</span><button type="button" className="panel-cancel-btn" disabled={groupSaving} onClick={cancelGroup}>Cancel</button><button type="button" className="panel-create-btn" disabled={groupSaving || !groupName.trim()} onClick={requestSaveGroup}>{groupSaving ? "Saving..." : editingGroup ? "Update group" : "Save group"}</button></div>
         </div>
       )}
+
+      {showMoveConfirmation && <div className="cf-groups__overlay" onMouseDown={() => setShowMoveConfirmation(false)}>
+        <div className="cf-groups__dialog" role="alertdialog" aria-modal="true" aria-labelledby="cf-move-title" onMouseDown={(event) => event.stopPropagation()}>
+          <h3 id="cf-move-title">Move attributes to {groupName.trim()}?</h3>
+          <p>These system attributes already exist in other groups. Creating or updating this group will move them here.</p>
+          <div className="cf-groups__members-list">
+            {selectedSystemKeys.map(key => {
+              const field = systemFields.find(item => item.key === key);
+              return field && <div className="cf-groups__member" key={key}><span className="cf-groups__member-name">{field.name}</span><span>From {field.groupName}</span></div>;
+            })}
+          </div>
+          <div className="cf-groups__dialog-actions" style={{ marginTop: 18 }}>
+            <button type="button" onClick={() => setShowMoveConfirmation(false)}>Cancel</button>
+            <button type="button" className="panel-create-btn" onClick={() => { setShowMoveConfirmation(false); void saveGroup(); }}>Confirm and save</button>
+          </div>
+        </div>
+      </div>}
       {activeTab === "groups" ? (
         <CustomAttributeGroupsTab
           refreshKey={groupRefreshKey}
@@ -349,7 +399,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
           onToast={showToast}
           onChanged={() => { loadFields(); setGroupRefreshKey((key) => key + 1); }}
         />
-      ) : fieldTotal === 0 && !fieldSearch && !fieldsLoading && !fieldsError ? (
+      ) : fieldTotal === 0 && systemFields.length === 0 && !fieldSearch && !fieldsLoading && !fieldsError ? (
         <div className="bp-empty-wrap">
           <div className="bp-empty-body">
             <div className="bp-empty-hero">
@@ -390,7 +440,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
               <div>
                 <h1 className="bp-page-title">
                   Custom fields
-                  <span className="bp-count-pill">{fieldTotal}</span>
+                  <span className="bp-count-pill">{fieldTotal + systemFields.length}</span>
                 </h1>
                 <p className="bp-page-sub">
                   Define custom attributes to capture unique contact and company data beyond standard fields.
@@ -423,7 +473,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
               </div>
             </div>
             <span style={{ fontSize: "12.5px", color: "var(--bp-ink-faint)" }}>
-              {fieldTotal} field{fieldTotal !== 1 ? "s" : ""}
+              {fieldTotal + systemFields.length} field{fieldTotal + systemFields.length !== 1 ? "s" : ""}
             </span>
           </div>
 
@@ -438,6 +488,20 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
               <div>Type</div>
               <div />
             </div>
+
+            {fieldPage === 1 && systemFields.filter(field => field.name.toLowerCase().includes(fieldSearch.toLowerCase())).map(field => (
+              <div key={`system-${field.key}`} className={`bp-row${groupMode ? " cf-row--select" : ""}`}
+                style={{ gridTemplateColumns: groupMode ? "36px 14px minmax(0,1.5fr) minmax(0,1fr) 60px" : "14px minmax(0,1.5fr) minmax(0,1fr) 60px" }}>
+                {groupMode && <div className="cf-row__checkbox"><input type="checkbox"
+                  checked={selectedSystemKeys.includes(field.key) || field.groupKey === `custom:${editingGroup?.id}`}
+                  disabled={field.groupKey === `custom:${editingGroup?.id}`}
+                  onChange={() => toggleSystemField(field)} aria-label={`Move ${field.name} to group`} /></div>}
+                <div className="bp-row__rail" />
+                <div className="bp-row__name"><span className="bp-row__link">{field.name}</span><span className="cf-row__group-note">System · {field.groupName}</span></div>
+                <div className="bp-row__id"><span className="cf-type-badge">{field.type}</span></div>
+                <div />
+              </div>
+            ))}
 
             {fieldsLoading || fieldsError || filteredFields.length === 0 ? (
               <div className="bp-rows__msg">{fieldsLoading ? "Loading attributes..." : fieldsError || "No fields match your search."}</div>
