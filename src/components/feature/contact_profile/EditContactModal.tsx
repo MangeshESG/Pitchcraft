@@ -49,10 +49,15 @@ import { repairAndParseJsonObject } from '../../../utils/jsonRepair';
 import ContactIdentityHeader from './ContactIdentityHeader';
 import { getCustomAttributeLayout, getSystemAttributeGroups, CustomAttributeLayout, SystemAttributeGroup } from '../../../api/customAttributeGroups';
 
-const OrderedSystemFields: React.FC<{ fields?: SystemAttributeGroup['fields']; children?: React.ReactNode; renderFallback: (field: SystemAttributeGroup['fields'][number]) => React.ReactElement }> = ({ fields: assignedFields, children, renderFallback }) => {
+const OrderedSystemFields: React.FC<{ fields?: SystemAttributeGroup['fields']; customFields?: any[]; children?: React.ReactNode; renderFallback: (field: SystemAttributeGroup['fields'][number]) => React.ReactElement; renderCustom: (field: any) => React.ReactElement }> = ({ fields: assignedFields, customFields = [], children, renderFallback, renderCustom }) => {
   const fields = React.Children.toArray(children).filter(React.isValidElement) as React.ReactElement<{ 'data-field-key'?: string }>[];
   const byKey = new Map(fields.map(field => [field.props['data-field-key'], field]));
-  const ordered = assignedFields ? assignedFields.map(field => byKey.get(field.key) || renderFallback(field)) : fields;
+  const ordered = assignedFields
+    ? [
+        ...assignedFields.map(field => ({ key: `s:${field.key}`, order: field.order, element: byKey.get(field.key) || renderFallback(field) })),
+        ...customFields.map(field => ({ key: `c:${field.id}`, order: field.sort_order, element: renderCustom(field) })),
+      ].sort((left, right) => Number(left.order) - Number(right.order) || left.key.localeCompare(right.key)).map(item => item.element)
+    : [...fields, ...customFields.map(renderCustom)];
   return <div className="grid grid-cols-1 gap-5 md:grid-cols-2">{ordered}</div>;
 };
 
@@ -996,6 +1001,13 @@ case "boolean":
       <input type={field.type === "email" ? "email" : "text"} name={field.key}
         value={String((formData as Record<string, any>)[field.key] ?? "")}
         onChange={handleInputChange} className={underlineInput} />
+    </div>
+  );
+
+  const renderAssignedCustomField = (field: any) => (
+    <div key={`custom:${field.id}`} className="flex flex-col gap-[5px] form-group !mb-[0]">
+      <label className={underlineLabel}>{field.field_name}</label>
+      {renderCustomField(field)}
     </div>
   );
 
@@ -2287,7 +2299,7 @@ case "boolean":
 
                 {/* INFORMATION TAB */}
                 {personalTab === "information" && (
-                  <OrderedSystemFields fields={systemGroups.find(group => group.key === "personal")?.fields} renderFallback={renderMovedSystemField}>
+                  <OrderedSystemFields fields={systemGroups.find(group => group.key === "personal")?.fields} customFields={customFieldDefs.filter(field => field.assigned_system_group_key === "personal")} renderFallback={renderMovedSystemField} renderCustom={renderAssignedCustomField}>
                     <div data-field-key="firstName" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                       <label className={underlineLabel}>First name</label>
                       <input
@@ -2430,7 +2442,7 @@ case "boolean":
 
                 {/* INFORMATION TAB */}
                 {companyTab === "information" && (
-                <OrderedSystemFields fields={systemGroups.find(group => group.key === "company")?.fields} renderFallback={renderMovedSystemField}>
+                <OrderedSystemFields fields={systemGroups.find(group => group.key === "company")?.fields} customFields={customFieldDefs.filter(field => field.assigned_system_group_key === "company")} renderFallback={renderMovedSystemField} renderCustom={renderAssignedCustomField}>
                   <div data-field-key="jobTitle" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                     <label className={underlineLabel}>Job title</label>
                     <input
@@ -2621,7 +2633,7 @@ case "boolean":
       { id: null, name: customAttributeGroups.length ? "Ungrouped" : "" }]
       .map(group => {
         const systemFields = group.id === null ? [] : (systemGroups.find(item => item.key === `custom:${group.id}`)?.fields || []);
-        const customFields = customFieldDefs.filter(field => (field.group_id ?? null) === group.id);
+        const customFields = customFieldDefs.filter(field => (field.group_id ?? null) === group.id && !field.assigned_system_group_key);
         const fields = [
           ...systemFields.map(field => ({ key: `s:${field.key}`, order: field.order, system: field, custom: null as any })),
           ...customFields.map(field => ({ key: `c:${field.id}`, order: field.sort_order, system: null as any, custom: field })),
