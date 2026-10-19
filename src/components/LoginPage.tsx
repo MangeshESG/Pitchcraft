@@ -1207,12 +1207,25 @@ const LoginPage: React.FC = () => {
   usePageTitle(view === "login" ? "Login" : view === "register" ? "Register" : view === "forgot" ? "Forgot Password" : "OTP Verification");
 
   return (
-    <div className="page login-container">
-      <div className={`login-boxx ${view === 'register' ? 'register-offset' : ''}`}>
-        {view === "login" && <LoginForm setView={setView} />}
-        {view === "register" && <RegisterForm setView={setView} />}
-        {view === "forgot" && <ForgotPasswordForm setView={setView} />}
-        {view === "otp" && <OtpVerification setView={setView} />}
+    <div className="page login-container login-fullbleed">
+      <div className="login-split">
+        <div className="login-split-form">
+          <div className={`login-boxx ${view === 'register' ? 'register-offset' : ''}`}>
+            {view === "login" && <LoginForm setView={setView} />}
+            {view === "register" && <RegisterForm setView={setView} />}
+            {view === "forgot" && <ForgotPasswordForm setView={setView} />}
+            {view === "otp" && <OtpVerification setView={setView} />}
+          </div>
+        </div>
+
+        <aside className="login-split-promo" aria-hidden="true">
+          <iframe
+            src="https://www.pitchkraft.ai/iframe-page"
+            title="PitchKraft slider"
+            scrolling="no"
+            className="login-promo-frame"
+          />
+        </aside>
       </div>
     </div>
   );
