@@ -678,20 +678,11 @@ useEffect(() => {
         mappedRow.full_name = combinedName;
       }
 
-      // A row without an address is imported: Audience Assurance can discover
-      // one from a LinkedIn profile or a company domain. Only a row with
-      // nothing to identify the person by is rejected.
-      if (!mappedRow.email) {
-        if (!combinedName && !mappedRow.linkedin) {
-          detailedErrors.push({
-            row: rowIndex + 2,
-            field: 'email',
-            value: '',
-            message: 'The row has no email, name or LinkedIn URL'
-          });
-          isValid = false;
-        }
-      } else if (!isValidEmail(mappedRow.email)) {
+      // Nothing has to identify the person: a row with no email, name or
+      // LinkedIn URL is imported as it stands, and Audience Assurance can
+      // discover an address later from a LinkedIn profile or a company domain.
+      // Only an address that is present and malformed is rejected.
+      if (mappedRow.email && !isValidEmail(mappedRow.email)) {
         detailedErrors.push({
           row: rowIndex + 2,
           field: 'email',
@@ -928,17 +919,12 @@ useEffect(() => {
       .replace(/^\w/, (c) => c.toUpperCase());
   };
 
-  // An Email column is no longer required to continue: Audience Assurance can
-  // discover addresses from a LinkedIn profile or a company domain. What the
-  // import cannot do without is some way to tell the people apart, so one of
-  // these four has to be mapped.
+  // No particular column is required to continue: rows with no email, name or
+  // LinkedIn URL import as they stand. One mapped column is still needed, or
+  // there would be nothing to import.
   const mappedFields = Object.values(columnMappings);
 
-  const canContinueMapping =
-    mappedFields.includes("email") ||
-    mappedFields.includes("first_name") ||
-    mappedFields.includes("full_name") ||
-    mappedFields.includes("linkedin");
+  const canContinueMapping = mappedFields.some(Boolean);
 
   return (
     <div className="w-full" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -1029,19 +1015,20 @@ useEffect(() => {
                 <div className="text-[14px] font-bold text-[#111827]">Before you upload</div>
                 <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: TEXT_MUTED }}>
                   Make sure the first row of your file holds column headers. We’ll match
-                  them automatically in the next step.
+                  them automatically in the next step. No column is required — map
+                  whatever your file has.
                 </p>
                 <div className="h-px my-5" style={{ background: BORDER }} />
                 <div
                   className="text-[12px] font-semibold uppercase tracking-wide mb-3"
                   style={{ color: "#9aa3a0" }}
                 >
-                  Required fields
+                  Most useful fields
                 </div>
                 <div className="flex flex-col gap-2.5">
                   {([
                     { label: "Full name", hint: "or ‘First name’ and ‘Surname’", Ic: FI.user },
-                    { label: "Email address", hint: "", Ic: FI.mail },
+                    { label: "Email address", hint: "optional — can be discovered later", Ic: FI.mail },
                   ] as const).map(({ label, hint, Ic }) => (
                     <div
                       key={label}
@@ -1248,12 +1235,11 @@ useEffect(() => {
                   </span>
                   <div className="text-[13.5px]">
                     <span className="font-bold" style={{ color: G }}>
-                      Required:{" "}
+                      Tip:{" "}
                     </span>
                     <span style={{ color: TEXT_MUTED }}>
-                      map at least one of <b>Email address</b>, <b>Full name</b>,{" "}
-                      <b>First name</b> or <b>LinkedIn URL</b> to continue. Contacts
-                      with no address can have one discovered later.
+                      map whichever columns your file has — none of them is required.
+                      Contacts with no address can have one discovered later.
                     </span>
                   </div>
                 </div>
@@ -1418,8 +1404,7 @@ useEffect(() => {
                     <span className="flex items-center gap-2">
                       <FI.info className="w-4 h-4" /> {validationErrors.length} row
                       {validationErrors.length > 1 ? "s" : ""} will be skipped: the
-                      address is malformed, or there is no name, email or LinkedIn URL
-                      to identify the person by.
+                      email address is malformed.
                     </span>
                     <button
                       onClick={() => setShowValidationModal(true)}

@@ -312,11 +312,30 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
       )}
 
       {comments?.trim() ? (
-        // The model writes its evidence into the sentence, so any URL in
-        // the comments is made clickable rather than left as dead text.
-        <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-          {linkifyText(comments.trim())}
-        </p>
+        <>
+          {/* Whose verdict this is. Once a person has overruled the score, the
+              paragraph underneath is the losing argument, not the current
+              state of the contact — without the line saying so, a 100 sits
+              directly above a list of everything wrong with the record and
+              reads as if the two were describing the same conclusion. */}
+          {(isManual || isOverridden) && (
+            <p
+              style={{
+                margin: "0 0 4px",
+                fontWeight: 600,
+                color: "#6b7280",
+              }}
+            >
+              Previous check which has now been checked and overruled:
+            </p>
+          )}
+
+          {/* The model writes its evidence into the sentence, so any URL in
+              the comments is made clickable rather than left as dead text. */}
+          <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+            {linkifyText(comments.trim())}
+          </p>
+        </>
       ) : (
         <p style={{ margin: 0, color: "#6b7280" }}>
           {/* A hand-set score with no date behind it is not a clean run — the
