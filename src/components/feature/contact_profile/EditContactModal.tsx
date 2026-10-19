@@ -47,7 +47,19 @@ import { closePanel, openPanel } from '../../../slices/panelSlice';
 import { pinEmail } from '../inbox/inboxPin';
 import { repairAndParseJsonObject } from '../../../utils/jsonRepair';
 import ContactIdentityHeader from './ContactIdentityHeader';
-import { getCustomAttributeLayout, CustomAttributeLayout } from '../../../api/customAttributeGroups';
+import { getCustomAttributeLayout, getSystemAttributeGroups, CustomAttributeLayout, SystemAttributeGroup } from '../../../api/customAttributeGroups';
+
+const OrderedSystemFields: React.FC<{ fields?: SystemAttributeGroup['fields']; customFields?: any[]; children?: React.ReactNode; renderFallback: (field: SystemAttributeGroup['fields'][number]) => React.ReactElement; renderCustom: (field: any) => React.ReactElement }> = ({ fields: assignedFields, customFields = [], children, renderFallback, renderCustom }) => {
+  const fields = React.Children.toArray(children).filter(React.isValidElement) as React.ReactElement<{ 'data-field-key'?: string }>[];
+  const byKey = new Map(fields.map(field => [field.props['data-field-key'], field]));
+  const ordered = assignedFields
+    ? [
+        ...assignedFields.map(field => ({ key: `s:${field.key}`, order: field.order, element: byKey.get(field.key) || renderFallback(field) })),
+        ...customFields.map(field => ({ key: `c:${field.id}`, order: field.sort_order, element: renderCustom(field) })),
+      ].sort((left, right) => Number(left.order) - Number(right.order) || left.key.localeCompare(right.key)).map(item => item.element)
+    : [...fields, ...customFields.map(renderCustom)];
+  return <div className="grid grid-cols-1 gap-5 md:grid-cols-2">{ordered}</div>;
+};
 
 interface Contact {
   id: number;
@@ -567,6 +579,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
 
   const [customFieldDefs, setCustomFieldDefs] = useState<any[]>([]);
   const [customAttributeGroups, setCustomAttributeGroups] = useState<CustomAttributeLayout['groups']>([]);
+  const [systemGroups, setSystemGroups] = useState<SystemAttributeGroup[]>([]);
 const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
 const effectiveUserId = React.useMemo(() => {
   const storedClientId =
@@ -606,6 +619,9 @@ const loadCustomFieldDefinitions = async () => {
 };
 useEffect(() => {
   loadCustomFieldDefinitions();
+}, [effectiveUserId]);
+useEffect(() => {
+  getSystemAttributeGroups().then(setSystemGroups).catch(() => setSystemGroups([]));
 }, [effectiveUserId]);
   
   const getLinkedInPlainTextLength = (html: string) => {
@@ -978,6 +994,22 @@ case "boolean":
 
   const underlineLabel =
     "mb-1.5 block text-xs font-semibold text-muted-foreground";
+
+  const renderMovedSystemField = (field: SystemAttributeGroup['fields'][number]) => (
+    <div key={field.key} className="flex flex-col gap-[5px] form-group !mb-[0]">
+      <label className={underlineLabel}>{field.name}</label>
+      <input type={field.type === "email" ? "email" : "text"} name={field.key}
+        value={String((formData as Record<string, any>)[field.key] ?? "")}
+        onChange={handleInputChange} className={underlineInput} />
+    </div>
+  );
+
+  const renderAssignedCustomField = (field: any) => (
+    <div key={`custom:${field.id}`} className="flex flex-col gap-[5px] form-group !mb-[0]">
+      <label className={underlineLabel}>{field.field_name}</label>
+      {renderCustomField(field)}
+    </div>
+  );
 
   const infoCard =
     "w-full max-w-sm bg-white rounded-xl border border-gray-200 p-5";
@@ -2267,8 +2299,8 @@ case "boolean":
 
                 {/* INFORMATION TAB */}
                 {personalTab === "information" && (
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                  <OrderedSystemFields fields={systemGroups.find(group => group.key === "personal")?.fields} customFields={customFieldDefs.filter(field => field.assigned_system_group_key === "personal")} renderFallback={renderMovedSystemField} renderCustom={renderAssignedCustomField}>
+                    <div data-field-key="firstName" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                       <label className={underlineLabel}>First name</label>
                       <input
                         type="text"
@@ -2279,7 +2311,7 @@ case "boolean":
                         placeholder="First name"
                       />
                     </div>
-                    <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <div data-field-key="lastName" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                       <label className={underlineLabel}>Last name</label>
                       <input
                         type="text"
@@ -2291,7 +2323,7 @@ case "boolean":
                       />
                     </div>
                     {!hideFullName && (
-                      <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                      <div data-field-key="fullName" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                         <label className={underlineLabel}>Full name (optional)</label>
                         <input
                           type="text"
@@ -2303,7 +2335,7 @@ case "boolean":
                         />
                       </div>
                     )}
-                    <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <div data-field-key="email" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                       <label className={underlineLabel}>Email</label>
                       <input
                         type="email"
@@ -2314,7 +2346,7 @@ case "boolean":
                         placeholder="Email"
                       />
                     </div>
-                    <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <div data-field-key="linkedInUrl" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                       <label className={underlineLabel}>LinkedIn URL</label>
                       <div className="flex items-center gap-2">
                         {/* LinkedIn Icon - Outside and to the left */}
@@ -2360,7 +2392,7 @@ case "boolean":
                         />
                       </div>
                     </div>
-                  </div>
+                  </OrderedSystemFields>
                 )}
 
                 {/* PROFESSIONAL SUMMARY TAB */}
@@ -2410,8 +2442,8 @@ case "boolean":
 
                 {/* INFORMATION TAB */}
                 {companyTab === "information" && (
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                <OrderedSystemFields fields={systemGroups.find(group => group.key === "company")?.fields} customFields={customFieldDefs.filter(field => field.assigned_system_group_key === "company")} renderFallback={renderMovedSystemField} renderCustom={renderAssignedCustomField}>
+                  <div data-field-key="jobTitle" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                     <label className={underlineLabel}>Job title</label>
                     <input
                       type="text"
@@ -2422,7 +2454,7 @@ case "boolean":
                       className={underlineInput}
                     />
                   </div>
-                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                  <div data-field-key="companyName" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                     <label className={underlineLabel}>Company name</label>
                     <input
                       type="text"
@@ -2433,7 +2465,7 @@ case "boolean":
                       className={underlineInput}
                     />
                   </div>
-                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                  <div data-field-key="companyIndustry" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                     <label className={underlineLabel}>Company industry</label>
                     <input
                       type="text"
@@ -2444,7 +2476,7 @@ case "boolean":
                       className={underlineInput}
                     />
                   </div>
-                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                  <div data-field-key="companyEmployeeCount" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                     <label className={underlineLabel}>Company employee count</label>
                     <input
                       type="text"
@@ -2455,7 +2487,7 @@ case "boolean":
                       className={underlineInput}
                     />
                   </div>
-                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                  <div data-field-key="companyTelephone" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                     <label className={underlineLabel}>Company telephone</label>
                     <input
                       type="text"
@@ -2466,7 +2498,7 @@ case "boolean":
                       className={underlineInput}
                     />
                   </div>
-                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                  <div data-field-key="countryOrAddress" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                     <label className={underlineLabel}>Country/address</label>
                     <input
                       type="text"
@@ -2477,7 +2509,7 @@ case "boolean":
                       className={underlineInput}
                     />
                   </div>
-                  <div className="flex flex-col gap-[5px] form-group !mb-[0]">
+                  <div data-field-key="website" className="flex flex-col gap-[5px] form-group !mb-[0]">
                     <label className={underlineLabel}>Website</label>
                     <div className="flex items-center gap-2">
                       {/* Globe Icon - Outside and to the left */}
@@ -2518,7 +2550,7 @@ case "boolean":
                       />
                     </div>
                   </div>
-                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                  <div data-field-key="companyLinkedInURL" className='flex flex-col gap-[5px] form-group !mb-[0]'>
                     <label className={underlineLabel}>Company LinkedIn URL</label>
                     <div className="flex items-center gap-2">
                       {/* LinkedIn Icon - Outside and to the left */}
@@ -2570,7 +2602,7 @@ case "boolean":
                       />
                     </div>
                   </div>
-                </div>
+                </OrderedSystemFields>
                 )}
 
                 {/* INSIGHTS TAB */}
@@ -2600,15 +2632,21 @@ case "boolean":
     {[...customAttributeGroups.map(group => ({ id: group.id, name: group.name })),
       { id: null, name: customAttributeGroups.length ? "Ungrouped" : "" }]
       .map(group => {
-        const fields = customFieldDefs.filter(field => (field.group_id ?? null) === group.id);
+        const systemFields = group.id === null ? [] : (systemGroups.find(item => item.key === `custom:${group.id}`)?.fields || []);
+        const customFields = customFieldDefs.filter(field => (field.group_id ?? null) === group.id && !field.assigned_system_group_key);
+        const fields = [
+          ...systemFields.map(field => ({ key: `s:${field.key}`, order: field.order, system: field, custom: null as any })),
+          ...customFields.map(field => ({ key: `c:${field.id}`, order: field.sort_order, system: null as any, custom: field })),
+        ].sort((left, right) => Number(left.order) - Number(right.order) || left.key.localeCompare(right.key));
         if (!fields.length) return null;
         return <section key={group.id ?? "ungrouped"}>
           {group.name && <h4 className="mb-3 text-sm font-semibold text-[#3f9f42]">{group.name}</h4>}
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {fields.map(field => <div key={field.id} className="flex flex-col gap-[5px] form-group !mb-[0]">
-              <label className={underlineLabel}>{field.field_name}</label>
-              {renderCustomField(field)}
-            </div>)}
+            {fields.map(field => field.system ? renderMovedSystemField(field.system) :
+              <div key={field.key} className="flex flex-col gap-[5px] form-group !mb-[0]">
+                <label className={underlineLabel}>{field.custom.field_name}</label>
+                {renderCustomField(field.custom)}
+              </div>)}
           </div>
         </section>;
       })}
