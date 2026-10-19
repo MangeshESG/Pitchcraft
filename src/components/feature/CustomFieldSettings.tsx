@@ -8,7 +8,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import { MoreVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import customFieldNewUserImage from "../../assets/images/Custom_field_new_user.png";
 import CustomAttributeGroupsTab from "./CustomAttributeGroupsTab";
 import { AttributeGroup, SystemAttributeGroup, getGroupAttributes, getSystemAttributeGroups, moveSystemAttributes, saveAttributeGroup } from "../../api/customAttributeGroups";
 import ToastMessage from "../common/ToastMessage";
@@ -21,6 +20,7 @@ interface CustomField {
   field_type: string;
   options_json?: string | null;
   group_id?: number | null;
+  assigned_system_group_key?: string | null;
 }
 
 interface Props {
@@ -37,6 +37,8 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   const [options, setOptions] = useState<string[]>([""]);
   const [originalOptions, setOriginalOptions] = useState<string[]>([]);
   const [editingField, setEditingField] = useState<CustomField | null>(null);
+  const [createInGroupId, setCreateInGroupId] = useState<number | null>(null);
+  const [createInSystemGroupKey, setCreateInSystemGroupKey] = useState<"personal" | "company" | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [fieldActionsAnchor, setFieldActionsAnchor] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -48,9 +50,9 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   const [fieldsLoading, setFieldsLoading] = useState(true);
   const [fieldsError, setFieldsError] = useState("");
   const fieldLoadId = useRef(0);
-  const [activeTab, setActiveTab] = useState<"fields" | "groups">("fields");
   const [editingGroup, setEditingGroup] = useState<AttributeGroup | null>(null);
   const [groupMode, setGroupMode] = useState(false);
+  const groupEditorRef = useRef<HTMLDivElement>(null);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [groupChanges, setGroupChanges] = useState<Map<number, boolean>>(new Map());
@@ -77,12 +79,13 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       ? storedSelectedClientId
       : reduxUserId
   );
+  const previousClientId = useRef(effectiveUserId);
 
   const loadFields = async () => {
     const loadId = ++fieldLoadId.current;
     setFieldsLoading(true);
     try {
-      const result = await getGroupAttributes(fieldPage, 20, fieldSearch);
+      const result = await getGroupAttributes(fieldPage, 20, fieldSearch, undefined, !groupMode);
       if (loadId !== fieldLoadId.current) return;
       setFields(result.items);
       setFieldTotal(result.total);
@@ -102,10 +105,30 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   useEffect(() => {
     const timer = setTimeout(loadFields, fieldSearch ? 250 : 0);
     return () => { clearTimeout(timer); fieldLoadId.current += 1; };
-  }, [effectiveUserId, fieldPage, fieldSearch]);
+  }, [effectiveUserId, fieldPage, fieldSearch, groupMode, groupRefreshKey]);
   useEffect(() => {
-    getSystemAttributeGroups().then(setSystemGroups).catch((error) => showToast(error.message, "error"));
+    let active = true;
+    getSystemAttributeGroups().then((groups) => { if (active) setSystemGroups(groups); })
+      .catch((error) => { if (active) showToast(error.message, "error"); });
+    return () => { active = false; };
   }, [effectiveUserId, groupRefreshKey]);
+  useEffect(() => {
+    if (previousClientId.current === effectiveUserId) return;
+    previousClientId.current = effectiveUserId;
+    setGroupMode(false);
+    setEditingGroup(null);
+    setGroupChanges(new Map());
+    setSelectedSystemKeys([]);
+    setShowMoveConfirmation(false);
+    setFieldPage(1);
+    setFieldSearch("");
+    setFieldToDelete(null);
+    setShowDeleteModal(false);
+    dispatch(closePanel());
+  }, [effectiveUserId]);
+  useEffect(() => {
+    if (groupMode) groupEditorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [groupMode, editingGroup?.id]);
 
   const saveField = async () => {
     if (!name.trim()) return;
@@ -163,6 +186,8 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
             .replace(/\s+/g, "_"),
           fieldType: type,
           optionsJson,
+          groupId: createInGroupId,
+          systemGroupKey: createInSystemGroupKey,
         };
 
     const url = isEditMode
@@ -182,8 +207,11 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       setOriginalOptions([]);
       setIsEditMode(false);
       setEditingField(null);
+      setCreateInGroupId(null);
+      setCreateInSystemGroupKey(null);
       dispatch(closePanel());
       loadFields();
+      setGroupRefreshKey((key) => key + 1);
     } else {
       try {
         const errorData = await res.json();
@@ -203,19 +231,27 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
 
   const confirmDeleteField = async () => {
     if (!fieldToDelete) return;
-    const res = await fetch(
-      `${API_BASE_URL}/api/crm/custom-field-delete/${fieldToDelete.id}`,
-      { method: "POST" }
-    );
-    if (res.ok) loadFields();
-    setShowDeleteModal(false);
-    setFieldToDelete(null);
-    setDeleteConfirmText("");
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/crm/custom-field-delete/${fieldToDelete.id}`,
+        { method: "POST" }
+      );
+      if (!res.ok) throw new Error("Could not delete the attribute. Please try again.");
+      loadFields();
+      setGroupRefreshKey((key) => key + 1);
+      setShowDeleteModal(false);
+      setFieldToDelete(null);
+      setDeleteConfirmText("");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not delete the attribute.", "error");
+    }
   };
 
-  const openCreatePanel = () => {
+  const openCreatePanel = (groupId: number | null = null) => {
     setIsEditMode(false);
     setEditingField(null);
+    setCreateInGroupId(groupId);
+    setCreateInSystemGroupKey(null);
     setName("");
     setOptions([""]);
     setOriginalOptions([]);
@@ -223,9 +259,16 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     dispatch(openPanel("custom-crm-field-modal"));
   };
 
+  const openCreateInSystemGroup = (groupKey: "personal" | "company") => {
+    openCreatePanel();
+    setCreateInSystemGroupKey(groupKey);
+  };
+
   const openEditPanel = (field: CustomField) => {
     setIsEditMode(true);
     setEditingField(field);
+    setCreateInGroupId(null);
+    setCreateInSystemGroupKey(null);
     setName(field.field_name);
     setType(field.field_type);
     setOptions([""]);
@@ -257,12 +300,16 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
 
   const filteredFields = fields;
   const systemFields = systemGroups.flatMap(group => group.fields.map(field => ({ ...field, groupName: group.name })));
+  const matchingSystemFields = groupMode ? systemFields.filter(field => field.name.toLowerCase().includes(fieldSearch.toLowerCase())) : [];
+  const visibleSystemFields = fieldPage === 1 ? matchingSystemFields : [];
   const selectedGroupCount = editingGroup
-    ? editingGroup.attributeCount + Array.from(groupChanges.values()).filter(Boolean).length - Array.from(groupChanges.values()).filter((selected) => !selected).length + selectedSystemKeys.length
+    ? editingGroup.attributeCount + (systemGroups.find(group => group.key === `custom:${editingGroup.id}`)?.fields.length || 0) + Array.from(groupChanges.values()).filter(Boolean).length - Array.from(groupChanges.values()).filter((selected) => !selected).length + selectedSystemKeys.length
     : Array.from(groupChanges.values()).filter(Boolean).length + selectedSystemKeys.length;
 
   const cancelGroup = () => {
     setGroupMode(false);
+    setFieldPage(1);
+    setFieldSearch("");
     setShowMoveConfirmation(false);
     setEditingGroup(null);
     setGroupChanges(new Map());
@@ -271,7 +318,8 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   };
 
   const createGroup = () => {
-    setActiveTab("fields");
+    setFieldPage(1);
+    setFieldSearch("");
     setEditingGroup(null);
     setGroupName("");
     setGroupDescription("");
@@ -282,7 +330,8 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   };
 
   const editGroup = (group: AttributeGroup) => {
-    setActiveTab("fields");
+    setFieldPage(1);
+    setFieldSearch("");
     setEditingGroup(group);
     setGroupName(group.name);
     setGroupDescription(group.description || "");
@@ -293,7 +342,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   };
 
   const toggleGroupField = (field: CustomField) => {
-    if (field.group_id && field.group_id !== editingGroup?.id) return;
+    if (field.assigned_system_group_key || (field.group_id && field.group_id !== editingGroup?.id)) return;
     setGroupChanges((current) => {
       const next = new Map(current);
       const initiallySelected = Boolean(editingGroup && field.group_id === editingGroup.id);
@@ -338,9 +387,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       savedGroupId = saved.id;
       if (selectedSystemKeys.length) await moveSystemAttributes(`custom:${saved.id}`, selectedSystemKeys);
       cancelGroup();
-      await loadFields();
       setGroupRefreshKey((key) => key + 1);
-      setActiveTab("groups");
       showToast(editingGroup ? "Group updated successfully." : "Group created successfully.", "success");
     } catch (error: any) {
       if (savedGroupId && !editingGroup) {
@@ -357,14 +404,21 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
 
   return (
     <div className="bp-list-wrap">
-      <div className="cf-tabs-bar">
-        <div className="cf-tabs" role="tablist" aria-label="Custom attributes">
-          <button type="button" role="tab" aria-selected={activeTab === "fields"} className={activeTab === "fields" ? "is-active" : ""} onClick={() => setActiveTab("fields")}>Custom attributes</button>
-          <button type="button" role="tab" aria-selected={activeTab === "groups"} className={activeTab === "groups" ? "is-active" : ""} onClick={() => { cancelGroup(); setActiveTab("groups"); }}>Groups</button>
-        </div>
-      </div>
-      {activeTab === "fields" && groupMode && (
-        <div className="cf-group-editor">
+      <CustomAttributeGroupsTab
+        key={effectiveUserId}
+        refreshKey={groupRefreshKey}
+        onCreate={createGroup}
+        onEdit={editGroup}
+        onEditField={openEditPanel}
+        onCreateField={() => openCreatePanel()}
+        onAddFieldToGroup={(groupId) => openCreatePanel(groupId)}
+        onAddFieldToSystemGroup={openCreateInSystemGroup}
+        onDeleteField={(field) => { setFieldToDelete(field); setDeleteConfirmText(""); setShowDeleteModal(true); }}
+        onToast={showToast}
+        onChanged={() => { setGroupRefreshKey((key) => key + 1); }}
+      />
+      {groupMode && (
+        <div className="cf-group-editor" ref={groupEditorRef}>
           <div><h2>{editingGroup ? "Edit group" : "Create group"}</h2><p>Select attributes below. Fields already in another group can be moved after confirmation.</p></div>
           <div className="cf-group-editor__inputs">
             <label>Group name<input value={groupName} maxLength={120} onChange={(event) => setGroupName(event.target.value)} placeholder="Enter group name" /></label>
@@ -391,67 +445,20 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
           </div>
         </div>
       </div>}
-      {activeTab === "groups" ? (
-        <CustomAttributeGroupsTab
-          refreshKey={groupRefreshKey}
-          onCreate={createGroup}
-          onEdit={editGroup}
-          onToast={showToast}
-          onChanged={() => { loadFields(); setGroupRefreshKey((key) => key + 1); }}
-        />
-      ) : fieldTotal === 0 && systemFields.length === 0 && !fieldSearch && !fieldsLoading && !fieldsError ? (
-        <div className="bp-empty-wrap">
-          <div className="bp-empty-body">
-            <div className="bp-empty-hero">
-              <div className="bp-empty-hero__bg" />
-              <div className="bp-empty-hero__content">
-                <div className="bp-empty-hero__copy">
-                  <span className="bp-start-pill">Start here</span>
-                  <h2 className="bp-empty-headline">Create your first custom field.</h2>
-                  <p className="bp-empty-body-text">
-                    Custom fields let you store any extra information about contacts — industry, deal size, lead source, or anything your team tracks.
-                  </p>
-                  <div className="bp-empty-actions">
-                    <button className="bp-btn-default" onClick={openCreatePanel}>
-                      <Plus className="h-4 w-4" />
-                      Add your first field
-                    </button>
-                  </div>
-                  <div className="bp-empty-meta">
-                     Custom attributes are available on every contact record and can be used to create views
-                  </div>
-                </div>
-                <div className="bp-empty-hero__art">
-                  <img
-                    src={customFieldNewUserImage}
-                    alt=""
-                    style={{ width: 460, height: "auto", maxWidth: "100%" }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
+      {groupMode && <section className="cf-ungrouped-section" aria-label="Select attributes">
           <div className="bp-page-header">
             <div className="bp-page-header__inner">
               <div>
-                <h1 className="bp-page-title">
-                  Custom fields
-                  <span className="bp-count-pill">{fieldTotal + systemFields.length}</span>
-                </h1>
+                <h2 className="bp-page-title">
+                  {groupMode ? "Select attributes" : "Ungrouped attributes"}
+                  <span className="bp-count-pill">{fieldTotal + matchingSystemFields.length}</span>
+                </h2>
                 <p className="bp-page-sub">
-                  Define custom attributes to capture unique contact and company data beyond standard fields.
+                  {groupMode ? "Choose fields for this group. Existing group assignments stay visible below." : "Attributes not assigned to any group appear here."}
                 </p>
               </div>
               <div className="bp-header-actions">
-                {!groupMode && <button type="button" className="bp-btn-default" onClick={createGroup}>
-                  <Plus className="h-4 w-4" />
-                  Create group
-                </button>}
-                <button type="button" className="bp-btn-default" onClick={openCreatePanel}>
+                <button type="button" className="bp-btn-default" onClick={() => openCreatePanel()}>
                   <Plus className="h-4 w-4" />
                   Add field
                 </button>
@@ -473,7 +480,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
               </div>
             </div>
             <span style={{ fontSize: "12.5px", color: "var(--bp-ink-faint)" }}>
-              {fieldTotal + systemFields.length} field{fieldTotal + systemFields.length !== 1 ? "s" : ""}
+              {fieldTotal + matchingSystemFields.length} field{fieldTotal + matchingSystemFields.length !== 1 ? "s" : ""}
             </span>
           </div>
 
@@ -489,7 +496,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
               <div />
             </div>
 
-            {fieldPage === 1 && systemFields.filter(field => field.name.toLowerCase().includes(fieldSearch.toLowerCase())).map(field => (
+            {visibleSystemFields.map(field => (
               <div key={`system-${field.key}`} className={`bp-row${groupMode ? " cf-row--select" : ""}`}
                 style={{ gridTemplateColumns: groupMode ? "36px 14px minmax(0,1.5fr) minmax(0,1fr) 60px" : "14px minmax(0,1.5fr) minmax(0,1fr) 60px" }}>
                 {groupMode && <div className="cf-row__checkbox"><input type="checkbox"
@@ -503,8 +510,8 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
               </div>
             ))}
 
-            {fieldsLoading || fieldsError || filteredFields.length === 0 ? (
-              <div className="bp-rows__msg">{fieldsLoading ? "Loading attributes..." : fieldsError || "No fields match your search."}</div>
+            {fieldsLoading || fieldsError || (filteredFields.length === 0 && visibleSystemFields.length === 0) ? (
+              <div className="bp-rows__msg">{fieldsLoading ? "Loading attributes..." : fieldsError || (groupMode || fieldSearch ? "No fields match your search." : "No ungrouped attributes yet.")}</div>
             ) : (
               filteredFields.map((f) => {
                 let parsedOptions: string[] = [];
@@ -517,7 +524,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
                     className={`bp-row${groupMode ? " cf-row--select" : ""}`}
                     style={{ gridTemplateColumns: groupMode ? "36px 14px minmax(0,1.5fr) minmax(0,1fr) 60px" : "14px minmax(0,1.5fr) minmax(0,1fr) 60px" }}
                   >
-                    {groupMode && <div className="cf-row__checkbox"><input type="checkbox" checked={groupChanges.get(f.id) ?? Boolean(editingGroup && f.group_id === editingGroup.id)} disabled={Boolean(f.group_id && f.group_id !== editingGroup?.id)} onChange={() => toggleGroupField(f)} aria-label={`Add ${f.field_name} to group`} title={f.group_id && f.group_id !== editingGroup?.id ? "Already in another group" : undefined} /></div>}
+                    {groupMode && <div className="cf-row__checkbox"><input type="checkbox" checked={groupChanges.get(f.id) ?? Boolean(editingGroup && f.group_id === editingGroup.id)} disabled={Boolean(f.assigned_system_group_key || (f.group_id && f.group_id !== editingGroup?.id))} onChange={() => toggleGroupField(f)} aria-label={`Add ${f.field_name} to group`} title={f.assigned_system_group_key || (f.group_id && f.group_id !== editingGroup?.id) ? "Already in another group; drag it between groups to move it" : undefined} /></div>}
                     <div className="bp-row__rail" />
                     <div className="bp-row__name">
                       <button
@@ -527,7 +534,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
                       >
                         {f.field_name}
                       </button>
-                      {f.group_id && groupMode && f.group_id !== editingGroup?.id && <span className="cf-row__group-note">In another group</span>}
+                      {groupMode && (f.assigned_system_group_key || (f.group_id && f.group_id !== editingGroup?.id)) && <span className="cf-row__group-note">In another group</span>}
                     </div>
                     <div className="bp-row__id">
                       <span className="cf-type-badge">{f.field_type}</span>
@@ -587,13 +594,12 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
           </div>
           {fieldTotal > 20 && <div className="cf-groups__pagination"><button type="button" disabled={fieldPage === 1 || fieldsLoading} onClick={() => setFieldPage((page) => page - 1)}>Previous</button><span>Page {fieldPage} of {Math.ceil(fieldTotal / 20)}</span><button type="button" disabled={fieldPage >= Math.ceil(fieldTotal / 20) || fieldsLoading} onClick={() => setFieldPage((page) => page + 1)}>Next</button></div>}
         </div>
-        </>
-      )}
+      </section>}
 
       <CommonSidePanel
         isOpen={showCustomCRMFieldModal}
         onClose={() => dispatch(closePanel())}
-        title={isEditMode ? "Edit custom field" : "Create custom field"}
+        title={isEditMode ? "Edit custom field" : createInGroupId || createInSystemGroupKey ? "Add attribute to group" : "Create custom field"}
         footerContent={
           <>
             <button
@@ -602,6 +608,12 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
             >
               Cancel
             </button>
+            {isEditMode && editingField && <button type="button" className="panel-cancel-btn" style={{ color: "var(--btn-danger-bg)" }} onClick={() => {
+              setFieldToDelete(editingField);
+              setDeleteConfirmText("");
+              setShowDeleteModal(true);
+              dispatch(closePanel());
+            }}>Delete</button>}
             <button className="panel-create-btn" onClick={saveField}>
               {isEditMode ? "Update" : "Create"}
             </button>
