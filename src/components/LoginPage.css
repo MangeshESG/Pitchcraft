@@ -462,29 +462,34 @@
   margin-top: 0;
 }
 
-/* Right column — promo slider.
-   The remote slider is locked to a 945:535 ratio internally, so it can never
-   be stretched to a different shape. It is given the panel's full width and
-   centred vertically, so the whole artwork is visible and uncropped; the
-   panel is white, matching the frame's own document background, so the bands
-   above and below read as part of the page rather than as empty space. */
+/* Right column — promo slider, stretched to fill the panel exactly.
+   The remote slider is locked to a 945:535 ratio internally, so it cannot be
+   reshaped by sizing the frame: at the panel's width it comes up short and
+   leaves a band. Instead the frame is laid out at its native 945x535 and
+   scaled non-uniformly to the panel. Nothing is cropped; the artwork is
+   simply taller than designed by whatever the panel's ratio demands.
+   The two scale factors are measured in LoginPage.tsx and set as custom
+   properties on this element, because CSS cannot divide one length by
+   another to derive a unitless scale. */
 .login-fullbleed .login-split-promo {
   flex: 1 1 auto;
   min-width: 0;
   position: relative;
   overflow: hidden;
   background: #ffffff;
+  --promo-scale-x: 1;
+  --promo-scale-y: 1;
 }
 
 .login-fullbleed .login-promo-frame {
   display: block;
   position: absolute;
-  top: 50%;
+  top: 0;
   left: 0;
-  transform: translateY(-50%);
-  width: 100%;
-  height: auto;
-  aspect-ratio: 945 / 535;
+  width: 945px;
+  height: 535px;
+  transform-origin: top left;
+  transform: scale(var(--promo-scale-x), var(--promo-scale-y));
   border: 0;
   border-radius: 0;
   box-shadow: none;

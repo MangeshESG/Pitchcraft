@@ -1,4 +1,4 @@
-import React, { CSSProperties, useEffect, useState } from "react";
+import React, { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -1201,9 +1201,41 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
 };
 
 /* ---------------- MAIN LOGIN PAGE COMPONENT ---------------- */
+/* The promo slider is a cross-origin iframe whose document is locked to a
+   945x535 ratio, so it cannot be reshaped by sizing the frame. The frame is
+   laid out at that native size and stretched onto the panel with a
+   non-uniform scale; the two factors have to be measured here because CSS
+   cannot divide one length by another to produce a unitless scale. */
+const PROMO_WIDTH = 945;
+const PROMO_HEIGHT = 535;
+
 const LoginPage: React.FC = () => {
   const [view, setView] = useState<ViewMode>("login");
-  
+  const promoRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const panel = promoRef.current;
+    if (!panel) return;
+
+    const fit = () => {
+      const { clientWidth, clientHeight } = panel;
+      if (!clientWidth || !clientHeight) return;
+      panel.style.setProperty("--promo-scale-x", String(clientWidth / PROMO_WIDTH));
+      panel.style.setProperty("--promo-scale-y", String(clientHeight / PROMO_HEIGHT));
+    };
+
+    fit();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", fit);
+      return () => window.removeEventListener("resize", fit);
+    }
+
+    const observer = new ResizeObserver(fit);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
+
   usePageTitle(view === "login" ? "Login" : view === "register" ? "Register" : view === "forgot" ? "Forgot Password" : "OTP Verification");
 
   return (
@@ -1218,14 +1250,14 @@ const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        <aside className="login-split-promo" aria-hidden="true">
+        <div className="login-split-promo" ref={promoRef} aria-hidden="true">
           <iframe
             src="https://www.pitchkraft.ai/iframe-page"
             title="PitchKraft slider"
             scrolling="no"
             className="login-promo-frame"
           />
-        </aside>
+        </div>
       </div>
     </div>
   );
