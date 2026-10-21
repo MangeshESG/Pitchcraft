@@ -486,8 +486,8 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 945px;
-  height: 535px;
+  width: var(--promo-w, 945px);
+  height: var(--promo-h, 535px);
   transform-origin: top left;
   transform: scale(var(--promo-scale-x), var(--promo-scale-y));
   border: 0;

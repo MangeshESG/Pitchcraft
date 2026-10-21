@@ -15,6 +15,7 @@ import {
 import { useOtpTimer } from "../hooks/useOtpTimer";
 import { usePageTitle } from "../hooks/usePageTitle";
 import API_BASE_URL from "../config";
+import siteConfig from "../config/site";
 import "./LoginPage.css";
 import { RootState } from "../Redux/store";
 import pitchLogo from "../assets/images/pitch_logo.png";
@@ -1201,13 +1202,13 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
 };
 
 /* ---------------- MAIN LOGIN PAGE COMPONENT ---------------- */
-/* The promo slider is a cross-origin iframe whose document is locked to a
-   945x535 ratio, so it cannot be reshaped by sizing the frame. The frame is
+/* The promo slider is a cross-origin iframe whose document is locked to its
+   native ratio, so it cannot be reshaped by sizing the frame. The frame is
    laid out at that native size and stretched onto the panel with a
    non-uniform scale; the two factors have to be measured here because CSS
-   cannot divide one length by another to produce a unitless scale. */
-const PROMO_WIDTH = 945;
-const PROMO_HEIGHT = 535;
+   cannot divide one length by another to produce a unitless scale. The page
+   itself differs per host, so its url and native size come from siteConfig. */
+const { url: PROMO_URL, width: PROMO_WIDTH, height: PROMO_HEIGHT } = siteConfig.promo;
 
 const LoginPage: React.FC = () => {
   const [view, setView] = useState<ViewMode>("login");
@@ -1220,6 +1221,8 @@ const LoginPage: React.FC = () => {
     const fit = () => {
       const { clientWidth, clientHeight } = panel;
       if (!clientWidth || !clientHeight) return;
+      panel.style.setProperty("--promo-w", `${PROMO_WIDTH}px`);
+      panel.style.setProperty("--promo-h", `${PROMO_HEIGHT}px`);
       panel.style.setProperty("--promo-scale-x", String(clientWidth / PROMO_WIDTH));
       panel.style.setProperty("--promo-scale-y", String(clientHeight / PROMO_HEIGHT));
     };
@@ -1252,7 +1255,7 @@ const LoginPage: React.FC = () => {
 
         <div className="login-split-promo" ref={promoRef} aria-hidden="true">
           <iframe
-            src="https://www.pitchkraft.ai/iframe-product-updates"
+            src={PROMO_URL}
             title="PitchKraft slider"
             scrolling="no"
             className="login-promo-frame"
