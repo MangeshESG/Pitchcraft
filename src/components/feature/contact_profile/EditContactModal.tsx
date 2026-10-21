@@ -40,7 +40,7 @@ import deleteIcon from "../../../assets/images/deleteiconn.png";
 import gpsPin from "../../../assets/images/Unpin.png";
 import pinimage from "../../../assets/images/pin.png";
 import { Slash } from "lucide-react";
-import { Pin, PinOff } from 'lucide-react';
+import { Link2, Pin, PinOff } from 'lucide-react';
 import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
 import CommonSidePanel from '../../common/CommonSidePanel';
 import { closePanel, openPanel } from '../../../slices/panelSlice';
@@ -809,12 +809,40 @@ const menuIconStyle = {
 
   switch (field.field_type) {
 
-    case "hyperlink":
+    case "hyperlink": {
+      const rawUrl = String(value).trim();
+      let href: string | undefined;
+      if (rawUrl) {
+        try {
+          const parsedUrl = new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`);
+          if (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") {
+            href = parsedUrl.href;
+          }
+        } catch {
+          // Keep the value editable without opening an invalid URL.
+        }
+      }
+      return (
+        <div className="flex items-center gap-2">
+          {href && (
+            <a href={href} target="_blank" rel="noopener noreferrer" title="Open link" aria-label={`Open ${field.field_name} link`} className="flex-shrink-0 text-[#3f9f42] hover:text-[#2f8033]">
+              <Link2 size={20} />
+            </a>
+          )}
+          <input
+            type="text"
+            inputMode="url"
+            className={underlineInput}
+            value={value}
+            onChange={(e) => handleCustomFieldChange(field.field_name, e.target.value)}
+          />
+        </div>
+      );
+    }
     case "text":
       return (
         <input
           type="text"
-          inputMode={field.field_type === "hyperlink" ? "url" : "text"}
           className={underlineInput}
           value={value}
           onChange={(e) =>

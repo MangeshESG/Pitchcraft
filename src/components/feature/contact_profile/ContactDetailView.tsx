@@ -5006,6 +5006,8 @@ dispatch(closePanel());
                       .join(" ")
                       .trim() || editingContact.full_name
                   }
+                  jobTitle={editingContact.job_title}
+                  companyName={editingContact.company_name}
                   linkedInInformation={editingContact.linkedIninformation}
                   onShowMessage={(msg, type) =>
                     type === "success" ? appModal.showSuccess(msg) : appModal.showError(msg)
@@ -5134,24 +5136,22 @@ dispatch(closePanel());
                     Add attachment
                   </button>
 
-                  {/* Compose — only on the Emails tab */}
-                  {activeTab === "emails" && (
-                    <button
-                      type="button"
-                      className="contact-compose-trigger"
-                      onClick={() => setIsComposePopupOpen(true)}
-                      style={{
-                        ...defaultButtonStyle,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 7,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faPen} />
-                      Compose
-                    </button>
-                  )}
+                  {/* Compose is available from every contact tab. */}
+                  <button
+                    type="button"
+                    className="contact-compose-trigger"
+                    onClick={() => setIsComposePopupOpen(true)}
+                    style={{
+                      ...defaultButtonStyle,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 7,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faPen} />
+                    Compose
+                  </button>
 
                   {/* Campaign-driven web-search insights generation */}
                   <div

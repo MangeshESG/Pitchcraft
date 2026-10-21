@@ -48,6 +48,8 @@ interface ContactIdentityHeaderProps {
   clientId: number;
   /** Display name; falls back to "Edit contact" when empty. */
   name?: string;
+  jobTitle?: string | null;
+  companyName?: string | null;
   /** Raw LinkedIn information — the name badge and pronunciation come from it. */
   linkedInInformation?: string | null;
   onShowMessage: (message: string, type: "success" | "error") => void;
@@ -66,6 +68,8 @@ const ContactIdentityHeader: React.FC<ContactIdentityHeaderProps> = ({
   contactId,
   clientId,
   name,
+  jobTitle,
+  companyName,
   linkedInInformation,
   onShowMessage,
   onProfileImageUploaded,
@@ -332,7 +336,11 @@ const ContactIdentityHeader: React.FC<ContactIdentityHeaderProps> = ({
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5">
-        <h1 className="text-xl font-[600] text-gray-900">{cleanText(name) || "Contact"}</h1>
+        <h1 className="text-xl font-[600] text-gray-900">
+          {[cleanText(name) || "Contact", cleanText(jobTitle), cleanText(companyName)]
+            .filter(Boolean)
+            .join(" - ")}
+        </h1>
         {/* How the first name is usually used, then how the name sounds —
             both come from the structured profile summary. */}
         <GenderAvatar value={profileSummary?.nameUsuallyAssociatedWith} />
