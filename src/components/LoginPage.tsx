@@ -1252,7 +1252,7 @@ const LoginPage: React.FC = () => {
 
         <div className="login-split-promo" ref={promoRef} aria-hidden="true">
           <iframe
-            src="https://www.pitchkraft.ai/iframe-page"
+            src="https://www.pitchkraft.ai/iframe-product-updates"
             title="PitchKraft slider"
             scrolling="no"
             className="login-promo-frame"
