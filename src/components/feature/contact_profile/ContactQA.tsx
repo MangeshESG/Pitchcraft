@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  ArrowDown,
   ArrowUp,
   Check,
   ChevronDown,
@@ -593,22 +592,16 @@ const ContactQA: React.FC<ContactQAProps> = ({
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [isSourcesOpen, setIsSourcesOpen] = useState(false);
   const [isUsageOpen, setIsUsageOpen] = useState(false);
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  // The chat owns a viewport-tall pane with its own scrollbar, so the composer
-  // stays put instead of riding the page scroll. Measured, because the profile
-  // header above it is not a fixed height.
-  const [paneHeight, setPaneHeight] = useState<number | null>(null);
-  const qaShellRef = useRef<HTMLDivElement | null>(null);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  // The pane has no scroller of its own: it grows with the thread and the page
+  // scroll is the only one, so the composer sits after the last answer.
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const sourcesMenuRef = useRef<HTMLDivElement | null>(null);
   const usageMenuRef = useRef<HTMLDivElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const latestAssistantMessageRef = useRef<HTMLDivElement | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const dockRef = useRef<HTMLDivElement | null>(null);
   const previousMessageCountRef = useRef(messages.length);
   const questionInFlightRef = useRef(false);
-  const didInitialScrollRef = useRef(false);
 
   const contactContext = useMemo(() => {
     const resolvedContact = contact || {};
@@ -993,83 +986,30 @@ const ContactQA: React.FC<ContactQAProps> = ({
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
 
-  // The pane runs from wherever it sits on the page to the bottom of the
-  // viewport, clamped so a short window still leaves room for the composer.
-  useEffect(() => {
-    const measure = () => {
-      const shell = qaShellRef.current;
-      if (!shell) return;
-
-      const top = Math.max(shell.getBoundingClientRect().top, 0);
-      const available = window.innerHeight - top - 24;
-      const ceiling = Math.max(window.innerHeight - 120, 420);
-
-      setPaneHeight(Math.round(Math.max(520, Math.min(available, ceiling))));
-    };
-
-    measure();
-    window.addEventListener("resize", measure);
-
-    return () => {
-      window.removeEventListener("resize", measure);
-    };
-    // Remeasured once the parent stops loading: the profile header above grows
-    // when its data lands, which moves the top of this pane.
-  }, [loading]);
-
-  const syncScrollPosition = () => {
-    const container = scrollRef.current;
-    if (!container) return;
-
-    const distanceFromBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight;
-    setIsAtBottom(distanceFromBottom < 80);
-  };
-
-  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
-    const container = scrollRef.current;
-    if (!container) return;
-
-    container.scrollTo({ top: container.scrollHeight, behavior });
+  // Scrolling now moves whichever ancestor actually scrolls, since the pane
+  // itself no longer does.
+  const scrollToComposer = (behavior: ScrollBehavior = "smooth") => {
+    dockRef.current?.scrollIntoView({ behavior, block: "end" });
   };
 
   useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-
     const previousMessageCount = previousMessageCountRef.current;
     const hasNewMessage = messages.length > previousMessageCount;
     const lastMessage = messages[messages.length - 1];
 
-    // A fresh answer is parked at the top of the pane so it reads from its first
-    // line; anything else just follows the bottom of the thread.
+    // A fresh answer is parked at the top of the viewport so it reads from its
+    // first line; anything else just follows the bottom of the thread.
     if (hasNewMessage && lastMessage?.role === "assistant" && latestAssistantMessageRef.current) {
-      container.scrollTo({
-        top: Math.max(latestAssistantMessageRef.current.offsetTop - 16, 0),
+      latestAssistantMessageRef.current.scrollIntoView({
         behavior: "smooth",
+        block: "start",
       });
     } else if (hasNewMessage || isSending) {
-      scrollToBottom();
+      scrollToComposer();
     }
 
     previousMessageCountRef.current = messages.length;
   }, [isSending, messages]);
-
-  // A short thread has nothing to scroll, so the jump button must not appear.
-  useEffect(() => {
-    syncScrollPosition();
-  }, [messages, paneHeight, isSending]);
-
-  // A chat restored from session storage opens where it was left: at the newest
-  // answer, not at the top of the history. Once only, and without animating.
-  useEffect(() => {
-    if (didInitialScrollRef.current || paneHeight === null) return;
-
-    didInitialScrollRef.current = true;
-    if (messages.length > 0) {
-      scrollToBottom("auto");
-    }
-  }, [messages.length, paneHeight]);
 
   // Keep the composer sized to its content, including after a send clears it.
   useEffect(() => {
@@ -1379,11 +1319,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
   const isAdmin = userRole === "ADMIN";
 
   return (
-    <div
-      ref={qaShellRef}
-      className="contact-qa-shell"
-      style={paneHeight ? { height: `${paneHeight}px` } : undefined}
-    >
+    <div className="contact-qa-shell">
       <header className="contact-qa-topbar">
         <div className="contact-qa-identity">
           <img src={witchLogo} alt="" className="contact-qa-identity-logo" />
@@ -1448,7 +1384,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
         </div>
       </header>
 
-      <div className="contact-qa-scroll" ref={scrollRef} onScroll={syncScrollPosition}>
+      <div className="contact-qa-scroll">
         <div className="contact-qa-thread">
           {messages.length === 0 ? (
             <div className="contact-qa-welcome">
@@ -1567,22 +1503,10 @@ const ContactQA: React.FC<ContactQAProps> = ({
             </div>
           )}
 
-          <div ref={messagesEndRef} />
         </div>
       </div>
 
-      <div className="contact-qa-dock">
-        {!isAtBottom && messages.length > 0 && (
-          <button
-            type="button"
-            className="contact-qa-jump"
-            onClick={() => scrollToBottom()}
-            aria-label="Jump to the latest message"
-          >
-            <ArrowDown size={16} aria-hidden="true" />
-          </button>
-        )}
-
+      <div className="contact-qa-dock" ref={dockRef}>
         {error && <div className="contact-qa-error">{error}</div>}
 
         <div className="contact-qa-form">
