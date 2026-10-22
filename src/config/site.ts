@@ -26,7 +26,7 @@ const SITES: Record<SiteVariant, SiteConfig> = {
   data: {
     variant: "data",
     promo: {
-      url: "https://www.dataji.co/iframe-page",
+      url: "https://www.dataji.co/iframe-product-updates",
       width: 945,
       height: 535,
     },

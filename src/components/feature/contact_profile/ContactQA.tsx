@@ -2,9 +2,21 @@ import * as userDates from "../../common/dateTimePreferences";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Plus, Mic, ArrowUp } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ChevronDown,
+  Copy,
+  Globe,
+  MessageSquarePlus,
+  Mic,
+  RotateCcw,
+  SlidersHorizontal,
+  Square,
+} from "lucide-react";
 import API_BASE_URL from "../../../config";
-import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
+import { lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import witchLogo from "../../../assets/images/Witch_logo_AI.png";
 import "./ContactQA.css";
 
@@ -64,6 +76,15 @@ interface ContactQAEmail {
   replies: ContactQAEmailReply[];
 }
 
+interface ContactQALinkedInMessage {
+  id: string | number;
+  direction: string;
+  messageType: string;
+  sentAt: string;
+  isSent: boolean;
+  body: string;
+}
+
 interface ContactQACustomField {
   key: string;
   label: string;
@@ -76,6 +97,7 @@ interface ContactQAProps {
   contact: any | null;
   notesHistory?: any[];
   emailTimeline?: any[];
+  linkedInMessages?: any[];
   loading?: boolean;
   onBeforeQuestion?: () => Promise<boolean>;
   onQuestionSuccess?: () => Promise<void>;
@@ -83,16 +105,125 @@ interface ContactQAProps {
 
 const CONTACT_QA_STORAGE_PREFIX = "contact_qa_messages";
 const CONTACT_QA_USAGE_STORAGE_PREFIX = "contact_qa_usage";
+const CONTACT_QA_SOURCES_STORAGE_PREFIX = "contact_qa_sources";
 
 // The model is not chosen here — an admin sets it in Settings > AI models and
 // the API resolves it server-side.
 
-const SUGGESTED_QUESTIONS = [
-  "What questions has this contact already been asked in previous emails?",
-  "Summarize this contact's profile, notes, and outreach history.",
-  "What would be the best follow-up question to ask next?",
-  "List any signals of interest, objections, or gaps in the conversation so far.",
+interface ContactQASuggestion {
+  /** The card heading. The prompt itself is too long to read at a glance. */
+  title: string;
+  prompt: string;
+}
+
+const SUGGESTED_QUESTIONS: ContactQASuggestion[] = [
+  {
+    title: "Questions already asked",
+    prompt: "What questions has this contact already been asked in previous emails?",
+  },
+  {
+    title: "Catch me up",
+    prompt: "Summarize this contact's profile, notes, and outreach history.",
+  },
+  {
+    title: "What to ask next",
+    prompt: "What would be the best follow-up question to ask next?",
+  },
+  {
+    title: "Signals & objections",
+    prompt:
+      "List any signals of interest, objections, or gaps in the conversation so far.",
+  },
 ];
+
+// Only worth offering once the live web is in play, so it sits in front of the
+// CRM suggestions rather than replacing one of them.
+const INTERNET_RESEARCH_SUGGESTION: ContactQASuggestion = {
+  title: "Research online",
+  prompt:
+    "Research this company online and summarize anything recent that is not already in the CRM.",
+};
+
+type ContactQASourceKey =
+  | "profile"
+  | "notes"
+  | "emails"
+  | "linkedinProfile"
+  | "linkedinMessages"
+  | "savedResearch"
+  | "internet";
+
+interface ContactQASourceOption {
+  key: ContactQASourceKey;
+  label: string;
+  hint: string;
+  /** The live web, rather than something the CRM already holds. */
+  isResearch?: boolean;
+}
+
+const CONTACT_QA_SOURCE_OPTIONS: ContactQASourceOption[] = [
+  {
+    key: "profile",
+    label: "Profile & fields",
+    hint: "Contact and company profile fields, plus every custom field on the record",
+  },
+  {
+    key: "notes",
+    label: "Notes",
+    hint: "Internal notes saved against this contact",
+  },
+  {
+    key: "emails",
+    label: "Emails",
+    hint: "Emails sent to this contact, their replies, and open/click activity",
+  },
+  {
+    key: "linkedinProfile",
+    label: "LinkedIn info",
+    hint: "The stored LinkedIn profile summary and profile URL",
+  },
+  {
+    key: "linkedinMessages",
+    label: "LinkedIn messages",
+    hint: "LinkedIn messages sent to this contact and replies pasted back in",
+  },
+  {
+    key: "savedResearch",
+    label: "Saved insights",
+    hint: "Web research already gathered and stored on this contact",
+  },
+  {
+    key: "internet",
+    label: "Internet research",
+    hint: "Let the model search the live web for anything the CRM cannot answer",
+    isResearch: true,
+  },
+];
+
+// The record sources live behind the composer's Sources menu; internet research
+// gets its own visible toggle, the way a chat UI surfaces web search.
+const RECORD_SOURCE_OPTIONS = CONTACT_QA_SOURCE_OPTIONS.filter(
+  (option) => !option.isResearch,
+);
+
+const INTERNET_SOURCE_OPTION = CONTACT_QA_SOURCE_OPTIONS.find(
+  (option) => option.isResearch,
+) as ContactQASourceOption;
+
+type ContactQASourceSelection = Record<ContactQASourceKey, boolean>;
+
+// Everything the CRM already holds is on by default. Live web search is the one
+// opt-in: it is slower and it costs more, and most questions asked here are
+// about what we already know.
+const DEFAULT_SOURCE_SELECTION: ContactQASourceSelection = {
+  profile: true,
+  notes: true,
+  emails: true,
+  linkedinProfile: true,
+  linkedinMessages: true,
+  savedResearch: true,
+  internet: false,
+};
 
 const STANDARD_CONTACT_KEYS = new Set([
   "id",
@@ -211,6 +342,38 @@ const buildStorageKey = (clientId: number, contactId: number | string) =>
 
 const buildUsageStorageKey = (clientId: number, contactId: number | string) =>
   `${CONTACT_QA_USAGE_STORAGE_PREFIX}:${clientId}:${contactId}`;
+
+const plural = (count: number, singular: string, plural_: string) =>
+  `${count} ${count === 1 ? singular : plural_}`;
+
+const buildSourcesStorageKey = (clientId: number, contactId: number | string) =>
+  `${CONTACT_QA_SOURCES_STORAGE_PREFIX}:${clientId}:${contactId}`;
+
+// Unknown or missing keys fall back to the default, so a source added later
+// isn't left switched off for anyone holding a stored selection.
+const readStoredSources = (storageKey: string): ContactQASourceSelection => {
+  try {
+    const raw = sessionStorage.getItem(storageKey);
+    if (!raw) return { ...DEFAULT_SOURCE_SELECTION };
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return { ...DEFAULT_SOURCE_SELECTION };
+    }
+
+    const restored = { ...DEFAULT_SOURCE_SELECTION };
+    CONTACT_QA_SOURCE_OPTIONS.forEach((option) => {
+      if (typeof parsed[option.key] === "boolean") {
+        restored[option.key] = parsed[option.key];
+      }
+    });
+
+    return restored;
+  } catch (error) {
+    console.warn("Failed to restore contact Q&A source selection:", error);
+    return { ...DEFAULT_SOURCE_SELECTION };
+  }
+};
 
 const createEmptyUsageState = (): ContactQAUsageState => ({
   last: {
@@ -396,6 +559,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
   contact,
   notesHistory = [],
   emailTimeline = [],
+  linkedInMessages = [],
   loading = false,
   onBeforeQuestion,
   onQuestionSuccess,
@@ -408,6 +572,10 @@ const ContactQA: React.FC<ContactQAProps> = ({
     () => buildUsageStorageKey(clientId, contactId),
     [clientId, contactId],
   );
+  const sourcesStorageKey = useMemo(
+    () => buildSourcesStorageKey(clientId, contactId),
+    [clientId, contactId],
+  );
 
   const [messages, setMessages] = useState<ContactQAMessage[]>(() =>
     readStoredMessages(storageKey),
@@ -415,20 +583,35 @@ const ContactQA: React.FC<ContactQAProps> = ({
   const [usageState, setUsageState] = useState<ContactQAUsageState>(() =>
     readStoredUsage(usageStorageKey),
   );
+  const [selectedSources, setSelectedSources] = useState<ContactQASourceSelection>(
+    () => readStoredSources(sourcesStorageKey),
+  );
   const [userRole, setUserRole] = useState<string>("");
   const [question, setQuestion] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState("");
-  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [isSourcesOpen, setIsSourcesOpen] = useState(false);
+  const [isUsageOpen, setIsUsageOpen] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  // The chat owns a viewport-tall pane with its own scrollbar, so the composer
+  // stays put instead of riding the page scroll. Measured, because the profile
+  // header above it is not a fixed height.
+  const [paneHeight, setPaneHeight] = useState<number | null>(null);
   const qaShellRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const sourcesMenuRef = useRef<HTMLDivElement | null>(null);
+  const usageMenuRef = useRef<HTMLDivElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const latestAssistantMessageRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const previousMessageCountRef = useRef(messages.length);
   const questionInFlightRef = useRef(false);
+  const didInitialScrollRef = useRef(false);
 
   const contactContext = useMemo(() => {
     const resolvedContact = contact || {};
-    const webResearch = parseWebResearch(resolvedContact.web_search_data);
     const fullName =
       resolvedContact.full_name ||
       [resolvedContact.first_name, resolvedContact.last_name]
@@ -436,7 +619,11 @@ const ContactQA: React.FC<ContactQAProps> = ({
         .join(" ")
         .trim();
 
-    const notes: ContactQANote[] = sortByDate(
+    // Everything is normalized first and gated second, because the Sources menu
+    // has to show how much each source holds even while it is switched off.
+    const availableWebResearch = parseWebResearch(resolvedContact.web_search_data);
+
+    const allNotes: ContactQANote[] = sortByDate(
       (notesHistory || []).map((note: any) => ({
         id: note.id,
         createdAt: note.createdAt || note.date || "",
@@ -447,7 +634,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
       (note) => note.createdAt,
     );
 
-    const emails: ContactQAEmail[] = sortByDate(
+    const allEmails: ContactQAEmail[] = sortByDate(
       (emailTimeline || []).map((email: any) => ({
         trackingId: email.trackingId,
         source: email.source || "",
@@ -479,6 +666,23 @@ const ContactQA: React.FC<ContactQAProps> = ({
         ),
       })),
       (email) => email.sentAt,
+    );
+
+    // Both directions of the LinkedIn thread, oldest first: outbound is what we
+    // sent, inbound is a reply someone pasted back in. Drafts never reach here —
+    // the parent asks the API for sent rows only.
+    const allLinkedInMessages: ContactQALinkedInMessage[] = sortByDate(
+      (linkedInMessages || [])
+        .map((message: any) => ({
+          id: message.id ?? message.msgUid ?? "",
+          direction: String(message.direction || "outbound").toLowerCase(),
+          messageType: message.messageType || "message",
+          sentAt: message.sentAt || message.activityAt || message.generatedAt || "",
+          isSent: Boolean(message.isSent),
+          body: htmlToText(message.body),
+        }))
+        .filter((message: ContactQALinkedInMessage) => message.body.length > 0),
+      (message) => message.sentAt,
     );
 
     const customFields: ContactQACustomField[] = Object.entries(resolvedContact)
@@ -523,15 +727,61 @@ const ContactQA: React.FC<ContactQAProps> = ({
       customFields,
     };
 
+    // One checkbox, one source. An unticked source is dropped from the packet
+    // entirely rather than flagged, so the model cannot quote something the user
+    // chose not to share with it.
+    const notes = selectedSources.notes ? allNotes : [];
+    const emails = selectedSources.emails ? allEmails : [];
+    const linkedInConversation = selectedSources.linkedinMessages
+      ? allLinkedInMessages
+      : [];
+    const selectedCustomFields = selectedSources.profile ? customFields : [];
+    const webResearch = selectedSources.savedResearch ? availableWebResearch : null;
+    const includeLinkedInProfile = Boolean(selectedSources.linkedinProfile);
+    const linkedInSummaryIncluded = Boolean(
+      includeLinkedInProfile && normalizedContact.linkedinSummary,
+    );
+
+    // With the profile unticked only the name survives, because an answer still
+    // has to say who it is about.
+    const packetContact = {
+      ...(selectedSources.profile
+        ? normalizedContact
+        : {
+            id: normalizedContact.id,
+            firstName: normalizedContact.firstName,
+            lastName: normalizedContact.lastName,
+            fullName: normalizedContact.fullName,
+          }),
+      customFields: selectedCustomFields,
+      linkedinUrl: includeLinkedInProfile ? normalizedContact.linkedinUrl : "",
+      linkedinSummary: includeLinkedInProfile ? normalizedContact.linkedinSummary : "",
+    };
+
+    const enabledSourceLabels = RECORD_SOURCE_OPTIONS.filter(
+      (option) => selectedSources[option.key],
+    ).map((option) => option.label);
+
+    const excludedSourceLabels = RECORD_SOURCE_OPTIONS.filter(
+      (option) => !selectedSources[option.key],
+    ).map((option) => option.label);
+
     const contextPacket = {
-      schemaVersion: "contact_qa_v2",
+      schemaVersion: "contact_qa_v3",
       entityType: "prospect",
+      selectedSources: {
+        enabled: enabledSourceLabels,
+        excluded: excludedSourceLabels,
+        internetResearch: Boolean(selectedSources.internet),
+      },
       answeringHints: [
         "Use the JSON structure as the source of truth.",
-        "A single question may require evidence from multiple notes, emails, replies, or profile fields.",
-        "Treat every note, email, reply, and activity event as a separate source record.",
+        "A single question may require evidence from multiple notes, emails, replies, LinkedIn messages, or profile fields.",
+        "Treat every note, email, reply, activity event, and LinkedIn message as a separate source record.",
         "When two records support the same answer, keep both records in mind together instead of choosing only one.",
         "The webResearch record holds insights gathered from public web sources (company overview, recent news, hiring signals, key findings, etc.). Use it for company/market context.",
+        "linkedinMessages is the LinkedIn conversation. direction=outbound means we sent it; direction=inbound means the contact replied and it was pasted in. Read it as one chronological thread alongside the emails.",
+        "The user chose which sources to include. Anything listed in selectedSources.excluded was deliberately left out of this packet: do not guess at it, and say it was excluded if the question depends on it.",
       ],
       sourceCounts: {
         notes: notes.length,
@@ -540,10 +790,11 @@ const ContactQA: React.FC<ContactQAProps> = ({
           (total, email) => total + (email.replies?.length || 0),
           0,
         ),
-        customFields: customFields.length,
+        linkedinMessages: linkedInConversation.length,
+        customFields: selectedCustomFields.length,
         webResearch: webResearch ? 1 : 0,
       },
-      contact: normalizedContact,
+      contact: packetContact,
       webResearch: webResearch
         ? {
             sourceType: "WebResearch",
@@ -553,12 +804,25 @@ const ContactQA: React.FC<ContactQAProps> = ({
             data: webResearch,
           }
         : null,
-      linkedin: {
-        sourceType: "LinkedIn",
-        sourceId: "LINKEDIN-1",
-        url: resolvedContact.linkedin_url || "",
-        summary: normalizedContact.linkedinSummary,
-      },
+      linkedin: includeLinkedInProfile
+        ? {
+            sourceType: "LinkedIn",
+            sourceId: "LINKEDIN-1",
+            url: resolvedContact.linkedin_url || "",
+            summary: normalizedContact.linkedinSummary,
+          }
+        : null,
+      linkedinMessages: linkedInConversation.map((message, index) => ({
+        sourceType: "LinkedInMessage",
+        sourceId: `LIMSG-${index + 1}`,
+        messageId: message.id ?? "",
+        direction: message.direction,
+        sender: message.direction === "inbound" ? "contact" : "us",
+        messageType: message.messageType,
+        sentAt: message.sentAt || "",
+        sentAtIso: toIsoDate(message.sentAt),
+        body: message.body || "",
+      })),
       notes: notes.map((note, index) => ({
         sourceType: "Note",
         sourceId: `NOTE-${index + 1}`,
@@ -602,15 +866,52 @@ const ContactQA: React.FC<ContactQAProps> = ({
       })),
     };
 
+    // "Is there anything to answer from?" has to be judged on the selected
+    // sources, not on everything the contact happens to have.
+    const hasSelectedContext = Boolean(
+      normalizedContact.fullName ||
+        (selectedSources.profile &&
+          (normalizedContact.email ||
+            normalizedContact.companyName ||
+            normalizedContact.jobTitle)) ||
+        selectedCustomFields.length ||
+        linkedInSummaryIncluded ||
+        (includeLinkedInProfile && normalizedContact.linkedinUrl) ||
+        notes.length ||
+        emails.length ||
+        linkedInConversation.length ||
+        webResearch,
+    );
+
     return {
       contact: normalizedContact,
       notes,
       emails,
+      linkedInConversation,
+      customFieldCount: selectedCustomFields.length,
       hasWebResearch: Boolean(webResearch),
+      hasLinkedInSummary: linkedInSummaryIncluded,
+      hasSelectedContext,
+      // Counted before the checkboxes are applied — this is what each source
+      // could contribute, which is what the Sources menu needs to show.
+      available: {
+        notes: allNotes.length,
+        emails: allEmails.length,
+        replies: allEmails.reduce(
+          (total, email) => total + (email.replies?.length || 0),
+          0,
+        ),
+        linkedinMessages: allLinkedInMessages.length,
+        customFields: customFields.length,
+        hasLinkedInProfile: Boolean(
+          normalizedContact.linkedinSummary || normalizedContact.linkedinUrl,
+        ),
+        hasSavedResearch: Boolean(availableWebResearch),
+      },
       contextPacket,
       contextSummary: buildContextSummary(contextPacket),
     };
-  }, [contact, contactId, emailTimeline, notesHistory]);
+  }, [contact, contactId, emailTimeline, linkedInMessages, notesHistory, selectedSources]);
 
   const contextStats = useMemo(() => {
     const replyCount = contactContext.emails.reduce(
@@ -622,11 +923,47 @@ const ContactQA: React.FC<ContactQAProps> = ({
       noteCount: contactContext.notes.length,
       emailCount: contactContext.emails.length,
       replyCount,
-      customFieldCount: contactContext.contact.customFields.length,
-      hasLinkedInSummary: Boolean(contactContext.contact.linkedinSummary),
+      linkedInMessageCount: contactContext.linkedInConversation.length,
+      customFieldCount: contactContext.customFieldCount,
+      hasLinkedInSummary: contactContext.hasLinkedInSummary,
       hasWebResearch: contactContext.hasWebResearch,
     };
   }, [contactContext]);
+
+  // One short line per source row, so the menu answers "is it worth ticking?"
+  const sourceSummaries = useMemo<Record<ContactQASourceKey, string>>(() => {
+    const available = contactContext.available;
+
+    return {
+      profile:
+        available.customFields > 0
+          ? `Standard fields + ${plural(available.customFields, "custom field", "custom fields")}`
+          : "Standard profile fields",
+      notes: plural(available.notes, "note", "notes"),
+      emails:
+        available.replies > 0
+          ? `${plural(available.emails, "email", "emails")} · ${plural(available.replies, "reply", "replies")}`
+          : plural(available.emails, "email", "emails"),
+      linkedinProfile: available.hasLinkedInProfile ? "Stored on the record" : "Nothing stored",
+      linkedinMessages: plural(available.linkedinMessages, "message", "messages"),
+      savedResearch: available.hasSavedResearch ? "Stored on the record" : "Nothing stored",
+      internet: "Live web search",
+    };
+  }, [contactContext.available]);
+
+  const emptySources = useMemo<Record<ContactQASourceKey, boolean>>(() => {
+    const available = contactContext.available;
+
+    return {
+      profile: false,
+      notes: available.notes === 0,
+      emails: available.emails === 0,
+      linkedinProfile: !available.hasLinkedInProfile,
+      linkedinMessages: available.linkedinMessages === 0,
+      savedResearch: !available.hasSavedResearch,
+      internet: false,
+    };
+  }, [contactContext.available]);
 
   const latestAssistantMessageId = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -647,56 +984,212 @@ const ContactQA: React.FC<ContactQAProps> = ({
   }, [usageState, usageStorageKey]);
 
   useEffect(() => {
+    sessionStorage.setItem(sourcesStorageKey, JSON.stringify(selectedSources));
+  }, [selectedSources, sourcesStorageKey]);
+
+  useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");
     const isAdmin = isAdminString === "true";
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
 
+  // The pane runs from wherever it sits on the page to the bottom of the
+  // viewport, clamped so a short window still leaves room for the composer.
   useEffect(() => {
+    const measure = () => {
+      const shell = qaShellRef.current;
+      if (!shell) return;
+
+      const top = Math.max(shell.getBoundingClientRect().top, 0);
+      const available = window.innerHeight - top - 24;
+      const ceiling = Math.max(window.innerHeight - 120, 420);
+
+      setPaneHeight(Math.round(Math.max(520, Math.min(available, ceiling))));
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+
+    return () => {
+      window.removeEventListener("resize", measure);
+    };
+    // Remeasured once the parent stops loading: the profile header above grows
+    // when its data lands, which moves the top of this pane.
+  }, [loading]);
+
+  const syncScrollPosition = () => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    setIsAtBottom(distanceFromBottom < 80);
+  };
+
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    container.scrollTo({ top: container.scrollHeight, behavior });
+  };
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
     const previousMessageCount = previousMessageCountRef.current;
     const hasNewMessage = messages.length > previousMessageCount;
     const lastMessage = messages[messages.length - 1];
 
-    if (hasNewMessage && lastMessage?.role === "assistant") {
-      latestAssistantMessageRef.current?.scrollIntoView({
+    // A fresh answer is parked at the top of the pane so it reads from its first
+    // line; anything else just follows the bottom of the thread.
+    if (hasNewMessage && lastMessage?.role === "assistant" && latestAssistantMessageRef.current) {
+      container.scrollTo({
+        top: Math.max(latestAssistantMessageRef.current.offsetTop - 16, 0),
         behavior: "smooth",
-        block: "start",
       });
     } else if (hasNewMessage || isSending) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      scrollToBottom();
     }
 
     previousMessageCountRef.current = messages.length;
   }, [isSending, messages]);
 
+  // A short thread has nothing to scroll, so the jump button must not appear.
   useEffect(() => {
-    const handleWindowScroll = () => {
-      if (!qaShellRef.current) {
-        setShowScrollTop(false);
-        return;
+    syncScrollPosition();
+  }, [messages, paneHeight, isSending]);
+
+  // A chat restored from session storage opens where it was left: at the newest
+  // answer, not at the top of the history. Once only, and without animating.
+  useEffect(() => {
+    if (didInitialScrollRef.current || paneHeight === null) return;
+
+    didInitialScrollRef.current = true;
+    if (messages.length > 0) {
+      scrollToBottom("auto");
+    }
+  }, [messages.length, paneHeight]);
+
+  // Keep the composer sized to its content, including after a send clears it.
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+  }, [question]);
+
+  useEffect(() => {
+    if (!isSourcesOpen && !isUsageOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      if (isSourcesOpen && !sourcesMenuRef.current?.contains(target)) {
+        setIsSourcesOpen(false);
       }
 
-      const shellTop = qaShellRef.current.getBoundingClientRect().top + window.scrollY;
-      setShowScrollTop(window.scrollY > shellTop + 280);
+      if (isUsageOpen && !usageMenuRef.current?.contains(target)) {
+        setIsUsageOpen(false);
+      }
     };
 
-    handleWindowScroll();
-    window.addEventListener("scroll", handleWindowScroll, { passive: true });
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+
+      setIsSourcesOpen(false);
+      setIsUsageOpen(false);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.removeEventListener("scroll", handleWindowScroll);
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [isSourcesOpen, isUsageOpen]);
 
-  const hasContext = Boolean(
-    contactContext.contact.fullName ||
-      contactContext.contact.email ||
-      contactContext.notes.length ||
-      contactContext.emails.length ||
-      contactContext.contact.linkedinSummary ||
-      contactContext.contact.customFields.length ||
-      contactContext.hasWebResearch,
+  const hasAnySourceSelected = useMemo(
+    () => CONTACT_QA_SOURCE_OPTIONS.some((option) => selectedSources[option.key]),
+    [selectedSources],
   );
+
+  // Internet research on its own is enough to ask a question: the answer then
+  // comes from the live web rather than the CRM. Nothing ticked at all is not,
+  // so the composer stays closed until the user picks something.
+  const hasContext =
+    hasAnySourceSelected &&
+    (contactContext.hasSelectedContext || selectedSources.internet);
+
+  const suggestedQuestions = useMemo(
+    () =>
+      selectedSources.internet
+        ? [INTERNET_RESEARCH_SUGGESTION, ...SUGGESTED_QUESTIONS]
+        : SUGGESTED_QUESTIONS,
+    [selectedSources.internet],
+  );
+
+  const selectedRecordSourceCount = useMemo(
+    () => RECORD_SOURCE_OPTIONS.filter((option) => selectedSources[option.key]).length,
+    [selectedSources],
+  );
+
+  const toggleSource = (key: ContactQASourceKey) => {
+    setSelectedSources((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const setAllRecordSources = (value: boolean) => {
+    setSelectedSources((prev) => {
+      const next = { ...prev };
+      RECORD_SOURCE_OPTIONS.forEach((option) => {
+        next[option.key] = value;
+      });
+
+      return next;
+    });
+  };
+
+  const contactFirstName =
+    contactContext.contact.firstName ||
+    (contactContext.contact.fullName || "").split(" ")[0] ||
+    "this contact";
+
+  // The old badge wall, condensed to the one line that answers "what is it
+  // reading?". Counts follow the checkboxes, not the record.
+  const contextSummaryLine = useMemo(() => {
+    const parts: string[] = [];
+
+    if (contextStats.emailCount) {
+      parts.push(plural(contextStats.emailCount, "email", "emails"));
+    }
+    if (contextStats.replyCount) {
+      parts.push(plural(contextStats.replyCount, "reply", "replies"));
+    }
+    if (contextStats.noteCount) {
+      parts.push(plural(contextStats.noteCount, "note", "notes"));
+    }
+    if (contextStats.linkedInMessageCount) {
+      parts.push(
+        `${plural(contextStats.linkedInMessageCount, "LinkedIn message", "LinkedIn messages")}`,
+      );
+    }
+    if (contextStats.hasLinkedInSummary) {
+      parts.push("LinkedIn profile");
+    }
+    if (contextStats.customFieldCount) {
+      parts.push(plural(contextStats.customFieldCount, "custom field", "custom fields"));
+    }
+    if (contextStats.hasWebResearch) {
+      parts.push("saved insights");
+    }
+    if (selectedSources.internet) {
+      parts.push("live web");
+    }
+
+    return parts.length ? `Reading ${parts.join(" · ")}` : "No sources selected";
+  }, [contextStats, selectedSources.internet]);
 
   const handleReset = () => {
     setMessages([]);
@@ -707,7 +1200,10 @@ const ContactQA: React.FC<ContactQAProps> = ({
     sessionStorage.removeItem(usageStorageKey);
   };
 
-  const sendQuestion = async (overrideQuestion?: string) => {
+  const sendQuestion = async (
+    overrideQuestion?: string,
+    historyOverride?: ContactQAMessage[],
+  ) => {
     const prompt = (overrideQuestion ?? question).trim();
     if (!prompt || isSending || !hasContext || questionInFlightRef.current) return;
     questionInFlightRef.current = true;
@@ -733,11 +1229,20 @@ const ContactQA: React.FC<ContactQAProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    const nextMessages = [...messages, userMessage];
-    setMessages(nextMessages);
+    // Regenerating replays an earlier turn, so the history it sends stops short
+    // of the answer being replaced. `messages` stays the restore point if the
+    // request then fails.
+    const history = historyOverride ?? messages;
+    const restorePoint = messages;
+
+    setMessages([...history, userMessage]);
     setQuestion("");
     setError("");
     setIsSending(true);
+    setIsSourcesOpen(false);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/contact-qa/chat`, {
@@ -746,14 +1251,19 @@ const ContactQA: React.FC<ContactQAProps> = ({
           "Content-Type": "application/json",
           accept: "application/json",
         },
+        signal: controller.signal,
         body: JSON.stringify({
           clientId,
           contactId: Number(contactId),
           question: prompt,
-          messages: messages.map(({ role, content }) => ({ role, content })),
+          messages: history.map(({ role, content }) => ({ role, content })),
 
           context: contactContext.contextPacket,
           contextSummary: contactContext.contextSummary,
+          // The packet is already filtered; these tell the API how to talk about
+          // what is missing, and whether it may reach for the web at all.
+          sources: selectedSources,
+          allowWebSearch: selectedSources.internet,
         }),
       });
 
@@ -798,16 +1308,62 @@ const ContactQA: React.FC<ContactQAProps> = ({
 
       await onQuestionSuccess?.();
     } catch (requestError: any) {
-      console.error("Contact Q&A request failed:", requestError);
-      setError(
-        requestError?.message ||
-          "Something went wrong while asking about this contact.",
-      );
-      setMessages((prev) => prev.filter((message) => message.id !== userMessage.id));
+      // Stopping is the user's own doing, so it puts the question back in the
+      // box without an error banner.
+      const wasAborted = requestError?.name === "AbortError";
+
+      if (!wasAborted) {
+        console.error("Contact Q&A request failed:", requestError);
+        setError(
+          requestError?.message ||
+            "Something went wrong while asking about this contact.",
+        );
+      }
+
+      setMessages(restorePoint);
       setQuestion(prompt);
     } finally {
+      abortControllerRef.current = null;
       questionInFlightRef.current = false;
       setIsSending(false);
+    }
+  };
+
+  const handleStop = () => {
+    abortControllerRef.current?.abort();
+  };
+
+  // Replays the last question against the current source selection, which is
+  // the point: tick Internet research, regenerate, get a researched answer.
+  const handleRegenerate = () => {
+    if (isSending) return;
+
+    let lastUserIndex = -1;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index]?.role === "user") {
+        lastUserIndex = index;
+        break;
+      }
+    }
+
+    if (lastUserIndex < 0) return;
+
+    void sendQuestion(messages[lastUserIndex].content, messages.slice(0, lastUserIndex));
+  };
+
+  const handleCopy = async (message: ContactQAMessage) => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopiedMessageId(message.id);
+      window.setTimeout(
+        () =>
+          setCopiedMessageId((current) =>
+            current === message.id ? null : current,
+          ),
+        1600,
+      );
+    } catch (copyError) {
+      console.warn("Copying the answer failed:", copyError);
     }
   };
 
@@ -820,213 +1376,344 @@ const ContactQA: React.FC<ContactQAProps> = ({
     }
   };
 
-  const handleScrollToTop = () => {
-    qaShellRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
   const isAdmin = userRole === "ADMIN";
 
   return (
-    <div ref={qaShellRef} className="contact-qa-shell">
-      <div className="contact-qa-header">
-        <div>
-          <p className="contact-qa-subtitle">
-            Interrogate the CRM to quickly find information about this contact from the contact profile, all internal notes, all email communications, stored contact career details, and all activity stored in the CRM.          </p>
-          <div className="contact-qa-badges">
-            <span className="contact-qa-badge">
-              Contact: {contactContext.contact.fullName || "Unknown contact"}
-            </span>
-            <span className="contact-qa-badge">
-              Company: {contactContext.contact.companyName || "Unknown company"}
-            </span>
-            <span className="contact-qa-badge">
-              Notes: {contextStats.noteCount}
-            </span>
-            <span className="contact-qa-badge">
-              Emails: {contextStats.emailCount}
-            </span>
-            <span className="contact-qa-badge">
-              Replies: {contextStats.replyCount}
-            </span>
-            <span className="contact-qa-badge">
-              Custom fields: {contextStats.customFieldCount}
-            </span>
-            <span className="contact-qa-badge">
-              LinkedIn: {contextStats.hasLinkedInSummary ? "Included" : "Not available"}
-            </span>
-            <span className="contact-qa-badge">
-              Insights: {contextStats.hasWebResearch ? "Included" : "Not available"}
-            </span>
+    <div
+      ref={qaShellRef}
+      className="contact-qa-shell"
+      style={paneHeight ? { height: `${paneHeight}px` } : undefined}
+    >
+      <header className="contact-qa-topbar">
+        <div className="contact-qa-identity">
+          <img src={witchLogo} alt="" className="contact-qa-identity-logo" />
+          <div className="contact-qa-identity-text">
+            <h3 className="contact-qa-identity-title">Ask about {contactFirstName}</h3>
+            <p className="contact-qa-identity-meta">{contextSummaryLine}</p>
           </div>
         </div>
 
-        <div className="contact-qa-header-actions">
+        <div className="contact-qa-topbar-actions">
           {isAdmin && (
-            <div className="contact-qa-usage-panel">
-              <div className="contact-qa-usage-row">
-                <strong>Last:</strong>
-                <span>In {usageState.last.promptTokens}</span>
-                <span>Out {usageState.last.completionTokens}</span>
-                <span>Tokens {usageState.last.totalTokens}</span>
-                <span>💲{usageState.last.cost.toFixed(6)}</span>
-              </div>
-              <div className="contact-qa-usage-row">
-                <strong>Total:</strong>
-                <span>Q {usageState.total.questions}</span>
-                <span>In {usageState.total.promptTokens}</span>
-                <span>Out {usageState.total.completionTokens}</span>
-                <span>Tokens {usageState.total.totalTokens}</span>
-                <span>💲{usageState.total.cost.toFixed(6)}</span>
-              </div>
+            <div className="contact-qa-usage" ref={usageMenuRef}>
+              <button
+                type="button"
+                className={`contact-qa-chip${isUsageOpen ? " open" : ""}`}
+                onClick={() => setIsUsageOpen((open) => !open)}
+                aria-expanded={isUsageOpen}
+                title="Token usage and cost for this chat"
+              >
+                {usageState.total.questions} Q · ${usageState.total.cost.toFixed(4)}
+                <ChevronDown size={14} aria-hidden="true" />
+              </button>
+
+              {isUsageOpen && (
+                <div className="contact-qa-usage-menu">
+                  <div className="contact-qa-usage-row">
+                    <strong>Last</strong>
+                    <span>In {usageState.last.promptTokens}</span>
+                    <span>Out {usageState.last.completionTokens}</span>
+                    <span>Tokens {usageState.last.totalTokens}</span>
+                    <span>${usageState.last.cost.toFixed(6)}</span>
+                  </div>
+                  <div className="contact-qa-usage-row">
+                    <strong>Total</strong>
+                    <span>Q {usageState.total.questions}</span>
+                    <span>In {usageState.total.promptTokens}</span>
+                    <span>Out {usageState.total.completionTokens}</span>
+                    <span>Tokens {usageState.total.totalTokens}</span>
+                    <span>${usageState.total.cost.toFixed(6)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           <button
             type="button"
-            className="contact-qa-reset"
-            style={lessPriorityButtonStyle}
+            className="contact-qa-newchat"
+            style={{
+              ...lessPriorityButtonStyle,
+              padding: "7px 13px",
+              borderRadius: 999,
+              fontSize: 12.5,
+              fontWeight: 600,
+            }}
             onClick={handleReset}
-            disabled={isSending}
+            disabled={isSending || messages.length === 0}
           >
-            Reset chat
+            <MessageSquarePlus size={15} aria-hidden="true" />
+            New chat
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="contact-qa-board">
-
-
-        <div className="contact-qa-messages">
+      <div className="contact-qa-scroll" ref={scrollRef} onScroll={syncScrollPosition}>
+        <div className="contact-qa-thread">
           {messages.length === 0 ? (
-            <div className="contact-qa-empty">
-              <div className="contact-qa-empty-card">
+            <div className="contact-qa-welcome">
+              <img src={witchLogo} alt="" className="contact-qa-welcome-logo" />
+              <h4 className="contact-qa-welcome-title">
+                Ask anything about {contactFirstName}
+              </h4>
+              <p className="contact-qa-welcome-text">
+                Answers are grounded in the contact's profile, notes, emails and
+                LinkedIn history — you pick which of those count, and whether the
+                live web is allowed in.
+              </p>
 
-
-                <div className="contact-qa-suggestions">
-                  {SUGGESTED_QUESTIONS.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      className="contact-qa-suggestion"
-                      style={{
-                        ...defaultButtonStyle,
-                        textAlign: "left",
-                        opacity: loading || isSending || !hasContext ? 0.6 : 1,
-                      }}
-                      onClick={() => sendQuestion(suggestion)}
-                      disabled={loading || isSending || !hasContext}
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
+              <div className="contact-qa-cards">
+                {suggestedQuestions.map((suggestion) => (
+                  <button
+                    key={suggestion.prompt}
+                    type="button"
+                    className="contact-qa-card"
+                    onClick={() => sendQuestion(suggestion.prompt)}
+                    disabled={loading || isSending || !hasContext}
+                  >
+                    <span className="contact-qa-card-title">{suggestion.title}</span>
+                    <span className="contact-qa-card-text">{suggestion.prompt}</span>
+                  </button>
+                ))}
               </div>
             </div>
           ) : (
-            messages.map((message) => (
-              <div
-                key={message.id}
-                ref={
-                  message.role === "assistant" &&
-                  message.id === latestAssistantMessageId
-                    ? latestAssistantMessageRef
-                    : null
-                }
-                className={`contact-qa-row ${message.role}`}
-              >
-                {message.role === "assistant" && (
+            messages.map((message) =>
+              message.role === "user" ? (
+                <div key={message.id} className="contact-qa-turn user">
+                  <div className="contact-qa-user-bubble">{message.content}</div>
+                  <div className="contact-qa-turn-time">
+                    {formatDateLabel(message.createdAt)}
+                  </div>
+                </div>
+              ) : (
+                <div
+                  key={message.id}
+                  ref={
+                    message.id === latestAssistantMessageId
+                      ? latestAssistantMessageRef
+                      : null
+                  }
+                  className={`contact-qa-turn assistant${
+                    message.id === latestAssistantMessageId ? " latest" : ""
+                  }`}
+                >
                   <img src={witchLogo} alt="" className="contact-qa-avatar" />
-                )}
-                <div className={`contact-qa-bubble ${message.role}`}>
-                  {message.role === "assistant" ? (
+
+                  <div className="contact-qa-answer">
                     <div className="contact-qa-markdown">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.content}
                       </ReactMarkdown>
                     </div>
-                  ) : (
-                    message.content
-                  )}
-                  <div className="contact-qa-meta">
-                    {message.role === "user" ? "You" : "Contact Q&A"} ·{" "}
-                    {formatDateLabel(message.createdAt)}
+
+                    <div className="contact-qa-turn-actions">
+                      <button
+                        type="button"
+                        className="contact-qa-turn-action"
+                        onClick={() => handleCopy(message)}
+                      >
+                        {copiedMessageId === message.id ? (
+                          <>
+                            <Check size={13} aria-hidden="true" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={13} aria-hidden="true" />
+                            Copy
+                          </>
+                        )}
+                      </button>
+
+                      {message.id === latestAssistantMessageId && (
+                        <button
+                          type="button"
+                          className="contact-qa-turn-action"
+                          onClick={handleRegenerate}
+                          disabled={isSending || !hasContext}
+                          title="Ask the same question again with the sources ticked right now"
+                        >
+                          <RotateCcw size={13} aria-hidden="true" />
+                          Regenerate
+                        </button>
+                      )}
+
+                      <span className="contact-qa-turn-time">
+                        {formatDateLabel(message.createdAt)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ),
+            )
           )}
 
           {isSending && (
-            <div className="contact-qa-row assistant">
+            <div className="contact-qa-turn assistant">
               <img src={witchLogo} alt="" className="contact-qa-avatar" />
-              <div className="contact-qa-bubble assistant">
-                Looking through the contact profile, notes, and email history...
-                <div className="contact-qa-meta">Generating answer</div>
+              <div className="contact-qa-answer">
+                <div className="contact-qa-thinking">
+                  <span className="contact-qa-typing" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  {selectedSources.internet
+                    ? "Reading the selected sources and searching the web"
+                    : "Reading the selected sources"}
+                </div>
               </div>
             </div>
           )}
 
           <div ref={messagesEndRef} />
         </div>
+      </div>
+
+      <div className="contact-qa-dock">
+        {!isAtBottom && messages.length > 0 && (
+          <button
+            type="button"
+            className="contact-qa-jump"
+            onClick={() => scrollToBottom()}
+            aria-label="Jump to the latest message"
+          >
+            <ArrowDown size={16} aria-hidden="true" />
+          </button>
+        )}
 
         {error && <div className="contact-qa-error">{error}</div>}
 
-        <div className="contact-qa-composer">
-          <div className="contact-qa-form">
-            <textarea
-              className="contact-qa-textarea"
-              value={question}
-              rows={1}
-              onChange={(event) => {
-                setQuestion(event.target.value);
-                event.target.style.height = "auto";
-                event.target.style.height = `${Math.min(event.target.scrollHeight, 200)}px`;
-              }}
-              onKeyDown={handleQuestionKeyDown}
-              placeholder={
-                hasContext
-                  ? "Ask about previous questions, objections, intent, or anything else grounded in this contact's history..."
+        <div className="contact-qa-form">
+          <textarea
+            ref={textareaRef}
+            className="contact-qa-textarea"
+            value={question}
+            rows={1}
+            onChange={(event) => setQuestion(event.target.value)}
+            onKeyDown={handleQuestionKeyDown}
+            placeholder={
+              !hasAnySourceSelected
+                ? "Tick at least one source to ask about this contact..."
+                : hasContext
+                  ? `Ask anything about ${contactFirstName}...`
                   : "Contact context is still loading..."
-              }
-              disabled={loading || isSending || !hasContext}
-            />
+            }
+            disabled={loading || isSending || !hasContext}
+          />
 
-            <div className="contact-qa-actions">
-              {/* + attach (visual, matches the Blueprint composer) */}
-              <span className="contact-qa-attach" title="Attach file" aria-hidden="true">
-                <Plus size={18} />
+          <div className="contact-qa-actions">
+            <div className="contact-qa-actions-left">
+              <div className="contact-qa-sources" ref={sourcesMenuRef}>
+                <button
+                  type="button"
+                  className={`contact-qa-tool${isSourcesOpen ? " open" : ""}`}
+                  onClick={() => setIsSourcesOpen((open) => !open)}
+                  aria-expanded={isSourcesOpen}
+                  title="Choose which records the answer may use"
+                >
+                  <SlidersHorizontal size={15} aria-hidden="true" />
+                  Sources
+                  <span className="contact-qa-tool-count">
+                    {selectedRecordSourceCount}/{RECORD_SOURCE_OPTIONS.length}
+                  </span>
+                </button>
+
+                {isSourcesOpen && (
+                  <div className="contact-qa-source-menu" aria-label="Answer from">
+                    <div className="contact-qa-source-menu-head">
+                      <span>Answer from</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAllRecordSources(
+                            selectedRecordSourceCount < RECORD_SOURCE_OPTIONS.length,
+                          )
+                        }
+                      >
+                        {selectedRecordSourceCount < RECORD_SOURCE_OPTIONS.length
+                          ? "Select all"
+                          : "Clear all"}
+                      </button>
+                    </div>
+
+                    {RECORD_SOURCE_OPTIONS.map((option) => (
+                      <label
+                        key={option.key}
+                        className={`contact-qa-source-row${
+                          emptySources[option.key] ? " empty" : ""
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSources[option.key]}
+                          onChange={() => toggleSource(option.key)}
+                          disabled={isSending}
+                        />
+                        <span className="contact-qa-source-text">
+                          <span className="contact-qa-source-label">
+                            {option.label}
+                            <span className="contact-qa-source-count">
+                              {sourceSummaries[option.key]}
+                            </span>
+                          </span>
+                          <span className="contact-qa-source-hint">{option.hint}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className={`contact-qa-tool${selectedSources.internet ? " active" : ""}`}
+                onClick={() => toggleSource("internet")}
+                aria-pressed={selectedSources.internet}
+                title={INTERNET_SOURCE_OPTION.hint}
+              >
+                <Globe size={15} aria-hidden="true" />
+                Search web
+              </button>
+            </div>
+
+            <div className="contact-qa-actions-right">
+              <span className="contact-qa-mic" title="Voice">
+                <Mic size={18} />
               </span>
 
-              <div className="contact-qa-actions-right">
-                <span className="contact-qa-mic" title="Voice">
-                  <Mic size={18} />
-                </span>
+              {isSending ? (
+                <button
+                  type="button"
+                  className="contact-qa-send stop"
+                  onClick={handleStop}
+                  title="Stop generating"
+                  aria-label="Stop generating"
+                >
+                  <Square size={13} aria-hidden="true" />
+                </button>
+              ) : (
                 <button
                   type="button"
                   className="contact-qa-send"
                   onClick={() => sendQuestion()}
-                  disabled={loading || isSending || !question.trim() || !hasContext}
+                  disabled={loading || !question.trim() || !hasContext}
                   title="Send"
                   aria-label="Send"
                 >
-                  {isSending ? <span className="contact-qa-loader" /> : <ArrowUp size={18} />}
+                  <ArrowUp size={18} aria-hidden="true" />
                 </button>
-              </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
 
-      {showScrollTop && (
-        <button
-          type="button"
-          className="contact-qa-scroll-top"
-          onClick={handleScrollToTop}
-          aria-label="Scroll to top of Q&A"
-        >
-          ↑
-        </button>
-      )}
+        <p className="contact-qa-disclaimer">
+          Enter to send · Shift + Enter for a new line
+          {selectedSources.internet ? " · internet research is on" : ""}
+        </p>
+      </div>
     </div>
   );
 };
