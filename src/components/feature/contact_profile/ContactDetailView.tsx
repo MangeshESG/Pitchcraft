@@ -6654,6 +6654,7 @@ dispatch(closePanel());
                   contact={editingContact || contact}
                   notesHistory={notesHistory}
                   emailTimeline={emailTimeline}
+                  linkedInMessages={linkedInMessages}
                   loading={loading || isLoadingHistory}
                   onBeforeQuestion={ensureCanDeductCredit}
                   onQuestionSuccess={refreshCreditsAfterDeduction}

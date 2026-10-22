@@ -1,4 +1,4 @@
-import React, { CSSProperties, useEffect, useState } from "react";
+import React, { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -15,6 +15,7 @@ import {
 import { useOtpTimer } from "../hooks/useOtpTimer";
 import { usePageTitle } from "../hooks/usePageTitle";
 import API_BASE_URL from "../config";
+import siteConfig from "../config/site";
 import "./LoginPage.css";
 import { RootState } from "../Redux/store";
 import pitchLogo from "../assets/images/pitch_logo.png";
@@ -1201,18 +1202,65 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
 };
 
 /* ---------------- MAIN LOGIN PAGE COMPONENT ---------------- */
+/* The promo slider is a cross-origin iframe whose document is locked to its
+   native ratio, so it cannot be reshaped by sizing the frame. The frame is
+   laid out at that native size and stretched onto the panel with a
+   non-uniform scale; the two factors have to be measured here because CSS
+   cannot divide one length by another to produce a unitless scale. The page
+   itself differs per host, so its url and native size come from siteConfig. */
+const { url: PROMO_URL, width: PROMO_WIDTH, height: PROMO_HEIGHT } = siteConfig.promo;
+
 const LoginPage: React.FC = () => {
   const [view, setView] = useState<ViewMode>("login");
-  
+  const promoRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const panel = promoRef.current;
+    if (!panel) return;
+
+    const fit = () => {
+      const { clientWidth, clientHeight } = panel;
+      if (!clientWidth || !clientHeight) return;
+      panel.style.setProperty("--promo-w", `${PROMO_WIDTH}px`);
+      panel.style.setProperty("--promo-h", `${PROMO_HEIGHT}px`);
+      panel.style.setProperty("--promo-scale-x", String(clientWidth / PROMO_WIDTH));
+      panel.style.setProperty("--promo-scale-y", String(clientHeight / PROMO_HEIGHT));
+    };
+
+    fit();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", fit);
+      return () => window.removeEventListener("resize", fit);
+    }
+
+    const observer = new ResizeObserver(fit);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
+
   usePageTitle(view === "login" ? "Login" : view === "register" ? "Register" : view === "forgot" ? "Forgot Password" : "OTP Verification");
 
   return (
-    <div className="page login-container">
-      <div className={`login-boxx ${view === 'register' ? 'register-offset' : ''}`}>
-        {view === "login" && <LoginForm setView={setView} />}
-        {view === "register" && <RegisterForm setView={setView} />}
-        {view === "forgot" && <ForgotPasswordForm setView={setView} />}
-        {view === "otp" && <OtpVerification setView={setView} />}
+    <div className="page login-container login-fullbleed">
+      <div className="login-split">
+        <div className="login-split-form">
+          <div className={`login-boxx ${view === 'register' ? 'register-offset' : ''}`}>
+            {view === "login" && <LoginForm setView={setView} />}
+            {view === "register" && <RegisterForm setView={setView} />}
+            {view === "forgot" && <ForgotPasswordForm setView={setView} />}
+            {view === "otp" && <OtpVerification setView={setView} />}
+          </div>
+        </div>
+
+        <div className="login-split-promo" ref={promoRef} aria-hidden="true">
+          <iframe
+            src={PROMO_URL}
+            title="PitchKraft slider"
+            scrolling="no"
+            className="login-promo-frame"
+          />
+        </div>
       </div>
     </div>
   );

@@ -281,10 +281,11 @@
 .login-logo {
   display: flex;
   justify-content: center;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.25rem;
 }
 .login-logo img {
-  height: 90px;
+  height: 100px;
+  max-width: 100%;
   width: auto;
   object-fit: contain;
 }
@@ -296,7 +297,7 @@
 }
 .login-view .input-icon {
   position: absolute;
-  left: 14px;
+  left: 11px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -306,13 +307,13 @@
 }
 .login-view .input-group input {
   width: 100%;
-  height: 48px;
+  height: 40px;
   box-sizing: border-box;
-  padding: 0 44px;
+  padding: 0 34px;
   margin: 0;
   border: 1.5px solid #e2e5e9;
-  border-radius: 10px;
-  font-size: 14px;
+  border-radius: 8px;
+  font-size: 13px;
   color: #1f2937;
   background: #fafbfc;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
@@ -330,7 +331,7 @@
 /* Password show/hide toggle */
 .login-view .password-eye {
   position: absolute;
-  right: 12px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -348,8 +349,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0.25rem 0 1.5rem;
-  font-size: 13px;
+  margin: 0.25rem 0 1rem;
+  font-size: 12px;
 }
 .remember-me {
   display: flex;
@@ -380,9 +381,9 @@
 /* Full-width Log in button */
 .login-view .login-button {
   width: 100%;
-  height: 48px;
-  border-radius: 10px;
-  font-size: 15px;
+  height: 40px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
   margin-top: 0;
 }
@@ -401,4 +402,135 @@
   justify-content: center;
   margin: 16px 0;
   min-height: 78px;
+}
+
+/* The reCAPTCHA widget is a fixed 304x78 box that Google renders into this
+   element, so on the narrowed login panel it has to be scaled to fit; the
+   container height is pulled back to what the scaled widget actually draws,
+   since the transform leaves the laid-out box at its native size. */
+.login-fullbleed .login-captcha {
+  align-items: flex-start;
+  margin: 12px 0;
+  min-height: 0;
+  height: 72px;
+  overflow: hidden;
+}
+.login-fullbleed .login-captcha > div {
+  transform: scale(0.92);
+  transform-origin: top center;
+}
+
+/* ============ SPLIT LAYOUT: form left, promo iframe right ============ */
+/* Scoped to .login-fullbleed so /register and /forgot-password keep the
+   original card-on-background look. */
+.page.login-container.login-fullbleed {
+  background: #ffffff;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.login-fullbleed .login-split {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  gap: 0;
+}
+
+/* Left column — login form, vertically centred on a plain white panel */
+.login-fullbleed .login-split-form {
+  flex: 0 0 332px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  box-sizing: border-box;
+  background: #ffffff;
+  overflow-y: auto;
+}
+
+/* The card itself goes flat — the white panel is the surface now */
+.login-fullbleed .login-boxx {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  width: 284px;
+}
+
+/* h2 was absolutely positioned in white over the dark background image;
+   on the white panel it needs to sit in flow in dark text. */
+.login-fullbleed .login-boxx h2 {
+  position: static;
+  transform: none;
+  color: #111827;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: left;
+  margin: 0 0 1.5rem;
+}
+
+.login-fullbleed .register-offset {
+  margin-top: 0;
+}
+
+/* The narrower panel leaves the two name fields short, so they share a
+   tighter gutter here than on the old card. */
+.login-fullbleed .name-fields {
+  gap: 12px;
+}
+
+/* Right column — promo slider, stretched to fill the panel exactly.
+   The remote slider is locked to a 945:535 ratio internally, so it cannot be
+   reshaped by sizing the frame: at the panel's width it comes up short and
+   leaves a band. Instead the frame is laid out at its native 945x535 and
+   scaled non-uniformly to the panel. Nothing is cropped; the artwork is
+   simply taller than designed by whatever the panel's ratio demands.
+   The two scale factors are measured in LoginPage.tsx and set as custom
+   properties on this element, because CSS cannot divide one length by
+   another to derive a unitless scale. */
+.login-fullbleed .login-split-promo {
+  flex: 1 1 auto;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+  --promo-scale-x: 1;
+  --promo-scale-y: 1;
+}
+
+.login-fullbleed .login-promo-frame {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--promo-w, 945px);
+  height: var(--promo-h, 535px);
+  transform-origin: top left;
+  transform: scale(var(--promo-scale-x), var(--promo-scale-y));
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Below desktop: drop the iframe entirely, keep only the login form centred */
+@media (max-width: 1024px) {
+  .login-fullbleed .login-split-promo {
+    display: none;
+  }
+  .login-fullbleed .login-split-form {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .page.login-container.login-fullbleed,
+  .login-fullbleed .login-split {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
 }
