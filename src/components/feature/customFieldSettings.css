@@ -201,6 +201,9 @@
 
 .cf-groups__cards { display: grid; gap: 14px; }
 .cf-groups__card { overflow: hidden; border: 1px solid #dcebe3; border-radius: 11px; background: #fff; box-shadow: 0 2px 8px rgba(15, 23, 42, .04); }
+.cf-groups__card.is-dragging { outline: 2px solid #3f9f42; outline-offset: 2px; }
+.cf-groups__card.is-drop-target { outline: 2px dashed #238143; outline-offset: 2px; background: #f7fcf8; }
+.cf-groups__card.is-dragging.is-drop-target { outline-style: solid; }
 .cf-groups__card-head { display: flex; align-items: center; gap: 12px; min-height: 66px; padding: 11px 16px; background: linear-gradient(90deg, #f3faf6, #fff); }
 .cf-groups__handle { display: inline-flex; flex: 0 0 20px; align-items: center; justify-content: center; color: #94a3b8; font-size: 16px; letter-spacing: -4px; user-select: none; }
 .cf-groups__handle[draggable="true"] { cursor: grab; }
@@ -221,6 +224,12 @@
 .cf-groups__attribute-table { width: 100%; min-width: 540px; border-collapse: collapse; text-align: left; }
 .cf-groups__attribute-table th { padding: 10px 16px; border-block: 1px solid #e9eef0; background: #f8fafb; color: #8a94a5; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .cf-groups__attribute-table td { padding: 10px 16px; border-bottom: 1px solid #eef0f3; color: #475569; font-size: 13px; vertical-align: middle; }
+.cf-groups__attribute-table tr.is-dragging td { box-shadow: inset 0 2px #3f9f42, inset 0 -2px #3f9f42; background: #f3faf6; }
+.cf-groups__attribute-table tr.is-dragging td:first-child { border-left: 2px solid #3f9f42; }
+.cf-groups__attribute-table tr.is-dragging td:last-child { border-right: 2px solid #3f9f42; }
+.cf-groups__attribute-table tr.is-drop-target td { box-shadow: inset 0 2px #238143, inset 0 -2px #238143; background: #eaf7ee; }
+.cf-groups__attribute-table tr.is-drop-target td:first-child { border-left: 2px dashed #238143; }
+.cf-groups__attribute-table tr.is-drop-target td:last-child { border-right: 2px dashed #238143; }
 .cf-groups__attribute-table tr:last-child td { border-bottom: 0; }
 .cf-groups__attribute-table th:first-child, .cf-groups__attribute-table td:first-child { width: 42px; text-align: center; }
 .cf-groups__attribute-table th:nth-child(2), .cf-groups__attribute-table td:nth-child(2) { width: 48px; text-align: center; }

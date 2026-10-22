@@ -86,12 +86,34 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
   const [ungroupedError, setUngroupedError] = useState("");
   const [actionMenu, setActionMenu] = useState<{ group: AttributeGroup; top: number; left: number } | null>(null);
   const dragItem = useRef<{ type: "group" | "attribute" | "system"; id: number; key?: string } | null>(null);
+  const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ group: string; row?: string } | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
 
   const startDrag = (event: React.DragEvent, type: "group" | "attribute", id: number) => {
     dragItem.current = { type, id };
+    setDraggedItem(`${type}:${id}`);
+    setDropTarget(null);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", String(id));
+  };
+
+  const startSystemDrag = (event: React.DragEvent, key: string) => {
+    dragItem.current = { type: "system", id: 0, key };
+    setDraggedItem(`system:${key}`);
+    setDropTarget(null);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", key);
+  };
+
+  const finishDrag = () => {
+    dragItem.current = null;
+    setDraggedItem(null);
+    setDropTarget(null);
+  };
+
+  const markDropTarget = (group: string, row?: string) => {
+    setDropTarget(current => current?.group === group && current.row === row ? current : { group, row });
   };
 
   const dropGroup = async (targetId: number) => {
@@ -382,9 +404,10 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
           const groupKey = group.key as "personal" | "company";
           const customMembers = systemMembersByGroup[group.key] ?? emptyGroupMembers();
           return (
-          <section key={group.key} className={`cf-groups__card${openSystemGroups.includes(group.key) ? " is-expanded" : ""}`}
-            onDragOver={(event) => { if (dragItem.current?.type === "system" || dragItem.current?.type === "attribute") event.preventDefault(); }}
-            onDrop={(event) => { if (dragItem.current?.type === "system") { event.preventDefault(); void dropSystemOnGroup(group.key); } else if (dragItem.current?.type === "attribute") { event.preventDefault(); void dropAttributeOnSystemGroup(groupKey); } }}>
+          <section key={group.key} className={`cf-groups__card${openSystemGroups.includes(group.key) ? " is-expanded" : ""}${dropTarget?.group === group.key ? " is-drop-target" : ""}`}
+            onDragOver={(event) => { if (dragItem.current?.type === "system" || dragItem.current?.type === "attribute") { event.preventDefault(); markDropTarget(group.key); } }}
+            onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(current => current?.group === group.key ? null : current); }}
+            onDrop={(event) => { setDraggedItem(null); setDropTarget(null); if (dragItem.current?.type === "system") { event.preventDefault(); void dropSystemOnGroup(group.key); } else if (dragItem.current?.type === "attribute") { event.preventDefault(); void dropAttributeOnSystemGroup(groupKey); } }}>
             <div className="cf-groups__card-head">
               <button type="button" className="cf-groups__expand" aria-expanded={openSystemGroups.includes(group.key)}
                 onClick={() => setOpenSystemGroups(current => current.includes(group.key) ? current.filter(key => key !== group.key) : [...current, group.key])}>
@@ -398,19 +421,21 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
               <div className="cf-groups__attribute-table-wrap"><table className="cf-groups__attribute-table cf-groups__attribute-table--actions">
                 <thead><tr><th>#</th><th aria-label="Order" /><th>Field name</th><th>Type</th><th>Options / rules</th><th>Actions</th></tr></thead>
                 <tbody>{group.fields.map((field, index) => <tr key={field.key} draggable={!savingOrder}
-                  onDragStart={(event) => { dragItem.current = { type: "system", id: 0, key: field.key }; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", field.key); }}
-                  onDragEnd={() => { dragItem.current = null; }}
-                  onDragOver={(event) => { if (dragItem.current?.type === "system") event.preventDefault(); }}
-                  onDrop={(event) => { event.preventDefault(); event.stopPropagation(); if (dragItem.current?.type === "attribute") void dropAttributeOnSystemGroup(groupKey); else void dropSystemField(group, field.key); }}>
+                  className={`${draggedItem === `system:${field.key}` ? "is-dragging" : ""}${dropTarget?.row === `system:${group.key}:${field.key}` ? " is-drop-target" : ""}`}
+                  onDragStart={(event) => startSystemDrag(event, field.key)}
+                  onDragEnd={finishDrag}
+                  onDragOver={(event) => { if (dragItem.current?.type === "system" || dragItem.current?.type === "attribute") { event.preventDefault(); event.stopPropagation(); markDropTarget(group.key, `system:${group.key}:${field.key}`); } }}
+                  onDrop={(event) => { event.preventDefault(); event.stopPropagation(); setDraggedItem(null); setDropTarget(null); if (dragItem.current?.type === "attribute") void dropAttributeOnSystemGroup(groupKey); else void dropSystemField(group, field.key); }}>
                   <td>{index + 1}</td><td><span className="cf-groups__handle" aria-hidden="true">⋮⋮</span></td>
                   <td className="cf-groups__field-name">{field.name}</td><td><span className="cf-type-badge">{field.type}</span></td><td>—</td><td />
                 </tr>)}
                 {customMembers.loading ? <tr><td colSpan={6} className="cf-groups__empty">Loading attributes...</td></tr> :
                   customMembers.items.map((field, index) => <tr key={`c:${field.id}`} draggable={!savingOrder}
+                    className={`${draggedItem === `attribute:${field.id}` ? "is-dragging" : ""}${dropTarget?.row === `system:${group.key}:c:${field.id}` ? " is-drop-target" : ""}`}
                     onDragStart={(event) => startDrag(event, "attribute", field.id)}
-                    onDragEnd={() => { dragItem.current = null; }}
-                    onDragOver={(event) => { if (dragItem.current?.type === "system" || dragItem.current?.type === "attribute") event.preventDefault(); }}
-                    onDrop={(event) => { event.preventDefault(); event.stopPropagation(); if (dragItem.current?.type === "system") void dropSystemOnGroup(groupKey); else if (dragItem.current?.type === "attribute") void dropAttributeOnSystemGroup(groupKey); }}>
+                    onDragEnd={finishDrag}
+                    onDragOver={(event) => { if (dragItem.current?.type === "system" || dragItem.current?.type === "attribute") { event.preventDefault(); event.stopPropagation(); markDropTarget(group.key, `system:${group.key}:c:${field.id}`); } }}
+                    onDrop={(event) => { event.preventDefault(); event.stopPropagation(); setDraggedItem(null); setDropTarget(null); if (dragItem.current?.type === "system") void dropSystemOnGroup(groupKey); else if (dragItem.current?.type === "attribute") void dropAttributeOnSystemGroup(groupKey); }}>
                     <td>{group.fields.length + (customMembers.page - 1) * PAGE_SIZE + index + 1}</td>
                     <td><span className="cf-groups__handle" aria-hidden="true">⋮⋮</span></td>
                     <td className="cf-groups__field-name">{field.field_name}</td>
@@ -443,12 +468,13 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
               ...systemFields.filter(field => field.name.toLowerCase().includes(memberSearch.toLowerCase())).map(field => ({ key: `s:${field.key}`, name: field.name, type: field.type, options: "", order: field.order, id: 0, systemKey: field.key, customField: null as GroupAttribute | null })),
               ...members.map(member => ({ key: `c:${member.id}`, name: member.field_name, type: member.field_type, options: getOptions(member.options_json).join(", "), order: member.sort_order, id: member.id, systemKey: "", customField: member as GroupAttribute | null })),
             ].sort((left, right) => left.order - right.order || left.key.localeCompare(right.key));
-            return <section key={group.id} className={`cf-groups__card${expanded ? " is-expanded" : ""}`}
-              onDragOver={(event) => { if (dragItem.current) event.preventDefault(); }}
-              onDrop={(event) => { event.preventDefault(); if (dragItem.current?.type === "group") void dropGroup(group.id); else if (dragItem.current?.type === "system") void dropSystemOnGroup(`custom:${group.id}`); else if (dragItem.current?.type === "attribute") void dropAttributeOnGroup(group.id); }}>
+            return <section key={group.id} className={`cf-groups__card${expanded ? " is-expanded" : ""}${draggedItem === `group:${group.id}` ? " is-dragging" : ""}${dropTarget?.group === `custom:${group.id}` ? " is-drop-target" : ""}`}
+              onDragOver={(event) => { if (dragItem.current) { event.preventDefault(); markDropTarget(`custom:${group.id}`); } }}
+              onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(current => current?.group === `custom:${group.id}` ? null : current); }}
+              onDrop={(event) => { event.preventDefault(); setDraggedItem(null); setDropTarget(null); if (dragItem.current?.type === "group") void dropGroup(group.id); else if (dragItem.current?.type === "system") void dropSystemOnGroup(`custom:${group.id}`); else if (dragItem.current?.type === "attribute") void dropAttributeOnGroup(group.id); }}>
               <div className="cf-groups__card-head" draggable={!search && !savingOrder}
                 onDragStart={(event) => startDrag(event, "group", group.id)}
-                onDragEnd={() => { dragItem.current = null; }}
+                onDragEnd={finishDrag}
                 title={search ? "Clear search to reorder" : "Drag row to reorder"}>
                 <span className="cf-groups__handle" aria-hidden="true">⋮⋮</span>
                 <button type="button" className="cf-groups__expand" aria-expanded={expanded}
@@ -473,10 +499,11 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
                   <tbody>{membersLoading ? <tr><td colSpan={6} className="cf-groups__empty">Loading attributes...</td></tr> :
                     mixedMembers.length === 0 ? <tr><td colSpan={6} className="cf-groups__empty">No attributes found.</td></tr> :
                     mixedMembers.map((member, index) => <tr key={member.key} draggable={!memberSearch && !savingOrder}
-                      onDragStart={(event) => { if (member.systemKey) { dragItem.current = { type: "system", id: 0, key: member.systemKey }; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", member.key); } else startDrag(event, "attribute", member.id); }}
-                      onDragEnd={() => { dragItem.current = null; }}
-                      onDragOver={(event) => { if (dragItem.current?.type === "attribute" || dragItem.current?.type === "system") event.preventDefault(); }}
-                      onDrop={(event) => { event.preventDefault(); event.stopPropagation(); const source = dragItem.current; const sourceKey = source?.type === "attribute" ? `c:${source.id}` : source?.type === "system" ? `s:${source.key}` : ""; if (source?.type === "attribute" && !mixedMembers.some(item => item.key === sourceKey)) void dropAttributeOnGroup(group.id); else if (source?.type === "system" && !mixedMembers.some(item => item.key === sourceKey)) void dropSystemOnGroup(`custom:${group.id}`); else if (memberPage === 1) void dropMixedAttribute(group.id, member.key, mixedMembers.map(item => item.key)); else if (member.id) void dropAttribute(group.id, member.id); }}>
+                      className={`${draggedItem === (member.systemKey ? `system:${member.systemKey}` : `attribute:${member.id}`) ? "is-dragging" : ""}${dropTarget?.row === `custom:${group.id}:${member.key}` ? " is-drop-target" : ""}`}
+                      onDragStart={(event) => { if (member.systemKey) startSystemDrag(event, member.systemKey); else startDrag(event, "attribute", member.id); }}
+                      onDragEnd={finishDrag}
+                      onDragOver={(event) => { if (dragItem.current?.type === "attribute" || dragItem.current?.type === "system") { event.preventDefault(); event.stopPropagation(); markDropTarget(`custom:${group.id}`, `custom:${group.id}:${member.key}`); } }}
+                      onDrop={(event) => { event.preventDefault(); event.stopPropagation(); setDraggedItem(null); setDropTarget(null); const source = dragItem.current; const sourceKey = source?.type === "attribute" ? `c:${source.id}` : source?.type === "system" ? `s:${source.key}` : ""; if (source?.type === "attribute" && !mixedMembers.some(item => item.key === sourceKey)) void dropAttributeOnGroup(group.id); else if (source?.type === "system" && !mixedMembers.some(item => item.key === sourceKey)) void dropSystemOnGroup(`custom:${group.id}`); else if (memberPage === 1) void dropMixedAttribute(group.id, member.key, mixedMembers.map(item => item.key)); else if (member.id) void dropAttribute(group.id, member.id); }}>
                       <td>{(memberPage - 1) * PAGE_SIZE + index + 1}</td>
                       <td><span className="cf-groups__handle" aria-hidden="true">⋮⋮</span></td>
                       <td className="cf-groups__field-name">{member.customField ? <button type="button" className="cf-groups__field-link" onClick={() => onEditField(member.customField!)}>{member.name}</button> : <>{member.name}<span className="cf-row__group-note">System</span></>}</td>
@@ -493,9 +520,10 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
               </div>}
             </section>;
           })}
-        {"Ungrouped attributes".toLowerCase().includes(search.toLowerCase()) && <section className={`cf-groups__card${ungroupedOpen ? " is-expanded" : ""}`}
-          onDragOver={(event) => { if (dragItem.current?.type === "attribute") event.preventDefault(); }}
-          onDrop={(event) => { if (dragItem.current?.type === "attribute") { event.preventDefault(); void dropAttributeOnGroup(null); } }}>
+        {"Ungrouped attributes".toLowerCase().includes(search.toLowerCase()) && <section className={`cf-groups__card${ungroupedOpen ? " is-expanded" : ""}${dropTarget?.group === "ungrouped" ? " is-drop-target" : ""}`}
+          onDragOver={(event) => { if (dragItem.current?.type === "attribute") { event.preventDefault(); markDropTarget("ungrouped"); } }}
+          onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(current => current?.group === "ungrouped" ? null : current); }}
+          onDrop={(event) => { if (dragItem.current?.type === "attribute") { event.preventDefault(); setDraggedItem(null); setDropTarget(null); void dropAttributeOnGroup(null); } }}>
           <div className="cf-groups__card-head">
             <button type="button" className="cf-groups__expand" aria-expanded={ungroupedOpen}
               aria-label={`${ungroupedOpen ? "Hide" : "Show"} ungrouped attributes`} onClick={() => setUngroupedOpen(open => !open)}>
@@ -513,8 +541,9 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
               <tbody>{ungroupedLoading ? <tr><td colSpan={6} className="cf-groups__empty">Loading attributes...</td></tr> :
                 ungroupedFields.length === 0 ? <tr><td colSpan={6} className="cf-groups__empty">No ungrouped attributes found.</td></tr> :
                 ungroupedFields.map((field, index) => <tr key={field.id} draggable={!savingOrder}
+                  className={draggedItem === `attribute:${field.id}` ? "is-dragging" : ""}
                   onDragStart={(event) => startDrag(event, "attribute", field.id)}
-                  onDragEnd={() => { dragItem.current = null; }}>
+                  onDragEnd={finishDrag}>
                   <td>{(ungroupedPage - 1) * PAGE_SIZE + index + 1}</td><td><span className="cf-groups__handle" aria-hidden="true">⋮⋮</span></td>
                   <td className="cf-groups__field-name"><button type="button" className="cf-groups__field-link" onClick={() => onEditField(field)}>{field.field_name}</button></td>
                   <td><span className="cf-type-badge">{field.field_type}</span></td>

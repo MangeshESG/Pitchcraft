@@ -505,8 +505,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   // "insights" is the Overview tab (shown by default when the Company section opens)
   const [companyTab, setCompanyTab] = useState<"information" | "insights">("insights");
   // Only one accordion section open at a time; opening one closes the others.
-  const [openSection, setOpenSection] = useState<"personal" | "company" | "custom" | null>("personal");
-  const toggleSection = (section: "personal" | "company" | "custom") =>
+  const [openSection, setOpenSection] = useState<string | null>("personal");
+  const toggleSection = (section: string) =>
     setOpenSection((prev) => (prev === section ? null : section));
 
   // Whenever the Company section is opened, default it to the Overview tab.
@@ -2637,28 +2637,9 @@ case "boolean":
                 {companyTab === "insights" && companyInsightsBlock}
               </AccordionSection>
 
-              {/* CUSTOM FIELDS */}
-  <AccordionSection
-    open={openSection === "custom"}
-    onToggle={() => toggleSection("custom")}
-    icon={
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="#3f9f42"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M9 12h6M9 16h6M9 8h6M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
-      </svg>
-    }
-    title="Custom attributes"
-  >
-  <div className="flex flex-col gap-6">
+              {/* Custom groups appear beside Personal and Company. */}
     {[...customAttributeGroups.map(group => ({ id: group.id, name: group.name })),
-      { id: null, name: customAttributeGroups.length ? "Ungrouped" : "" }]
+      { id: null, name: "Ungrouped attributes" }]
       .map(group => {
         const systemFields = group.id === null ? [] : (systemGroups.find(item => item.key === `custom:${group.id}`)?.fields || []);
         const customFields = customFieldDefs.filter(field => (field.group_id ?? null) === group.id && !field.assigned_system_group_key);
@@ -2666,20 +2647,30 @@ case "boolean":
           ...systemFields.map(field => ({ key: `s:${field.key}`, order: field.order, system: field, custom: null as any })),
           ...customFields.map(field => ({ key: `c:${field.id}`, order: field.sort_order, system: null as any, custom: field })),
         ].sort((left, right) => Number(left.order) - Number(right.order) || left.key.localeCompare(right.key));
-        if (!fields.length) return null;
-        return <section key={group.id ?? "ungrouped"}>
-          {group.name && <h4 className="mb-3 text-sm font-semibold text-[#3f9f42]">{group.name}</h4>}
+        if (!fields.length && group.id === null) return null;
+        const sectionKey = group.id === null ? "ungrouped" : `custom:${group.id}`;
+        return <AccordionSection
+          key={sectionKey}
+          open={openSection === sectionKey}
+          onToggle={() => toggleSection(sectionKey)}
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M9 12h6M9 16h6M9 8h6M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2V6a2 2 0 012-2z" />
+            </svg>
+          }
+          title={group.name}
+        >
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            {fields.length === 0 && <p className="text-sm text-gray-500">No attributes in this group.</p>}
             {fields.map(field => field.system ? renderMovedSystemField(field.system) :
               <div key={field.key} className="flex flex-col gap-[5px] form-group !mb-[0]">
                 <label className={underlineLabel}>{field.custom.field_name}</label>
                 {renderCustomField(field.custom)}
               </div>)}
           </div>
-        </section>;
+        </AccordionSection>;
       })}
-  </div>
-</AccordionSection>
 
               
 

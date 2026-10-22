@@ -390,7 +390,7 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const popupRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [showSupportPopup, setShowSupportPopup] = useState(false);
-  const [historyFilter, setHistoryFilter] = useState<"all" | "notes" | "emails" | "attachments" | "linkedin">("all");
+  const [historyFilter, setHistoryFilter] = useState<"all" | "notes" | "emails" | "attachments" | "linkedin" | "pinned">("all");
   const labelStyle: React.CSSProperties = {
     fontSize: "13px",
     fontWeight: 600,
@@ -532,6 +532,7 @@ const menuItemStyle = {
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [attachmentsHistory, setAttachmentsHistory] = useState<any[]>([]);
   const [linkedInMessages, setLinkedInMessages] = useState<any[]>([]);
+  const [pinningLinkedInId, setPinningLinkedInId] = useState<number | null>(null);
   const [isLoadingLinkedIn, setIsLoadingLinkedIn] = useState(false);
   const [expandedLinkedInIds, setExpandedLinkedInIds] = useState<string[]>([]);
 
@@ -1265,6 +1266,7 @@ const handleDeleteContact = async () => {
       blueprintId: raw.blueprintId ?? raw.BlueprintId ?? null,
       body,
       isSent: raw.isSent ?? raw.IsSent ?? false,
+      isPinned: raw.isPinned ?? raw.IsPinned ?? false,
       sentAt,
       markedFrom: raw.markedFrom ?? raw.MarkedFrom ?? null,
       generatedAt,
@@ -2622,6 +2624,30 @@ const handleDeleteContact = async () => {
     );
   };
 
+  const handleToggleLinkedInPin = async (message: any) => {
+    const messageId = Number(message.id);
+    if (!effectiveUserId || !contactId || !messageId || pinningLinkedInId !== null) return;
+    const nextPinned = !message.isPinned;
+    setPinningLinkedInId(messageId);
+    try {
+      await axios.post(`${API_BASE_URL}/api/Crm/linkedin-messages/set-pin`, {
+        clientId: Number(effectiveUserId),
+        contactId: Number(contactId),
+        messageId,
+        isPinned: nextPinned,
+      });
+      setLinkedInMessages(current => current.map(item =>
+        Number(item.id) === messageId ? { ...item, isPinned: nextPinned } : item
+      ));
+      appModal.showSuccess(nextPinned ? "LinkedIn message pinned." : "LinkedIn message unpinned.");
+    } catch (error) {
+      console.error("Failed to update LinkedIn message pin", error);
+      appModal.showError("Could not update LinkedIn message pin.");
+    } finally {
+      setPinningLinkedInId(null);
+    }
+  };
+
   const renderLinkedInTimelineItem = (message: any, index: number) => {
     const itemKey = String(message.msgUid || message.id || index);
     const isExpanded = expandedLinkedInIds.includes(itemKey);
@@ -2674,16 +2700,19 @@ const handleDeleteContact = async () => {
               </div>
             )}
 
-            <div
-              style={{
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <Linkedin size={16} color="#0a66c2" />
-              {linkedInMessageTitle(message)}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                <Linkedin size={16} color="#0a66c2" />
+                {linkedInMessageTitle(message)}
+              </div>
+              <button type="button" onClick={() => void handleToggleLinkedInPin(message)}
+                disabled={pinningLinkedInId !== null}
+                title={message.isPinned ? "Unpin LinkedIn message" : "Pin LinkedIn message"}
+                aria-label={message.isPinned ? "Unpin LinkedIn message" : "Pin LinkedIn message"}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, border: 0, background: "transparent", color: "#3f9f42", cursor: "pointer" }}>
+                {message.isPinned ? <PinOff size={17} /> : <Pin size={17} />}
+                {message.isPinned ? "Unpin" : "Pin"}
+              </button>
             </div>
             <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
               {formatDateTimeIST(message.sentAt || message.generatedAt)}
@@ -3354,6 +3383,12 @@ dispatch(closePanel());
     // newest → oldest
     return items.sort((a, b) => b.time - a.time);
   }, [editingContact, notesHistory, attachmentsHistory, emailTimeline, linkedInMessages]);
+
+  const pinnedHistory = React.useMemo(() => mergedHistory.filter(item =>
+    (item.type === "note" && item.data.isPin) ||
+    (item.type === "email" && isEmailPinned(item.data)) ||
+    (item.type === "linkedin" && item.data.isPinned)
+  ), [mergedHistory]);
 
   const extractEmailAddress = (emailString?: string): string => {
     if (!emailString) return "";
@@ -5306,13 +5341,18 @@ dispatch(closePanel());
                       { key: "attachments", label: "Attachments" },
                       { key: "emails", label: "Emails" },
                       { key: "linkedin", label: "LinkedIn" },
+                      { key: "pinned", label: "Pinned" },
                     ].map(item => (
                     <button
                       key={item.key}
                       onClick={() => {
                         setHistoryFilter(item.key as any);
-                        if (item.key === "notes") {
+                        if (item.key === "notes" || item.key === "pinned") {
                           fetchNotesHistory();
+                        }
+                        if (item.key === "pinned" && contactId) {
+                          fetchEmailTimeline(Number(contactId));
+                          fetchLinkedInMessages(Number(contactId));
                         }
                         if (item.key === "emails" && emailTimeline.length === 0) {
                           fetchEmailTimeline(Number(contactId));
@@ -6045,6 +6085,43 @@ dispatch(closePanel());
                             linkedInMessages.map((message: any, index: number) =>
                               renderLinkedInTimelineItem(message, index)
                             )}
+                        </>
+                      )}
+
+                      {historyFilter === "pinned" && (
+                        <>
+                          {pinnedHistory.length === 0 && <p style={{ color: "#666" }}>No pinned activity found.</p>}
+                          {pinnedHistory.map((item, index) => {
+                            if (item.type === "linkedin") return renderLinkedInTimelineItem(item.data, index);
+                            const data = item.data;
+                            const isNote = item.type === "note";
+                            const key = isNote ? `pinned-note-${data.id}` : `pinned-email-${data.trackingId || index}`;
+                            return <div key={key} style={{ display: "flex", gap: 16, marginBottom: 24 }}>
+                              <div style={{ width: 10, height: 10, marginTop: 6, borderRadius: "50%", background: "#3f9f42", flexShrink: 0 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                                  <strong>{isNote ? "Pinned note" : "Pinned email"}</strong>
+                                  <button type="button" onClick={() => isNote ? void handleTogglePin(data.id) : void handleToggleEmailPin(data)}
+                                    disabled={!isNote && pinningEmailId === data.trackingId}
+                                    title={isNote ? "Unpin note" : "Unpin email"}
+                                    style={{ border: 0, background: "transparent", color: "#3f9f42", cursor: "pointer", display: "inline-flex", gap: 5, alignItems: "center" }}>
+                                    <PinOff size={17} /> Unpin
+                                  </button>
+                                </div>
+                                <div style={{ color: "#666", fontSize: 13, margin: "3px 0 8px" }}>
+                                  {formatDateTimeIST(isNote ? data.createdAt : data.lastMessageDate || data.sentAt || data.receiveAt || data.date)}
+                                </div>
+                                <div style={{ padding: 12, borderRadius: 8, background: "#f9fafb", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                                  {isNote ? getPlainText(data.note || "") : data.subject || "No subject"}
+                                </div>
+                                {!isNote && <button type="button" onClick={() => toggleEmailBody(data.trackingId)}
+                                  style={{ border: 0, padding: "8px 0", background: "transparent", color: "#3f9f42", cursor: "pointer" }}>
+                                  {expandedEmailId === data.trackingId ? "Hide email preview" : "Show email preview"}
+                                </button>}
+                                {!isNote && expandedEmailId === data.trackingId && renderEmailPreview(data)}
+                              </div>
+                            </div>;
+                          })}
                         </>
                       )}
 
