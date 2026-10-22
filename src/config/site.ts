@@ -37,8 +37,11 @@ const resolveVariant = (): SiteVariant => {
   const forced = process.env.REACT_APP_SITE as SiteVariant | undefined;
   if (forced && SITES[forced]) return forced;
 
+  /* Plesk is www-canonical and 301s the bare host, so visitors land on
+     www.data.pitchkraft.ai, not data.pitchkraft.ai -- strip the prefix before
+     matching or every real visitor falls through to the app variant. */
   const host = typeof window === "undefined" ? "" : window.location.hostname.toLowerCase();
-  return host.startsWith("data.") ? "data" : "app";
+  return host.replace(/^www\./, "").startsWith("data.") ? "data" : "app";
 };
 
 const siteConfig: SiteConfig = SITES[resolveVariant()];

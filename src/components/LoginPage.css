@@ -281,10 +281,11 @@
 .login-logo {
   display: flex;
   justify-content: center;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.25rem;
 }
 .login-logo img {
-  height: 90px;
+  height: 100px;
+  max-width: 100%;
   width: auto;
   object-fit: contain;
 }
@@ -296,7 +297,7 @@
 }
 .login-view .input-icon {
   position: absolute;
-  left: 14px;
+  left: 11px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -306,13 +307,13 @@
 }
 .login-view .input-group input {
   width: 100%;
-  height: 48px;
+  height: 40px;
   box-sizing: border-box;
-  padding: 0 44px;
+  padding: 0 34px;
   margin: 0;
   border: 1.5px solid #e2e5e9;
-  border-radius: 10px;
-  font-size: 14px;
+  border-radius: 8px;
+  font-size: 13px;
   color: #1f2937;
   background: #fafbfc;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
@@ -330,7 +331,7 @@
 /* Password show/hide toggle */
 .login-view .password-eye {
   position: absolute;
-  right: 12px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -348,8 +349,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0.25rem 0 1.5rem;
-  font-size: 13px;
+  margin: 0.25rem 0 1rem;
+  font-size: 12px;
 }
 .remember-me {
   display: flex;
@@ -380,9 +381,9 @@
 /* Full-width Log in button */
 .login-view .login-button {
   width: 100%;
-  height: 48px;
-  border-radius: 10px;
-  font-size: 15px;
+  height: 40px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
   margin-top: 0;
 }
@@ -401,6 +402,22 @@
   justify-content: center;
   margin: 16px 0;
   min-height: 78px;
+}
+
+/* The reCAPTCHA widget is a fixed 304x78 box that Google renders into this
+   element, so on the narrowed login panel it has to be scaled to fit; the
+   container height is pulled back to what the scaled widget actually draws,
+   since the transform leaves the laid-out box at its native size. */
+.login-fullbleed .login-captcha {
+  align-items: flex-start;
+  margin: 12px 0;
+  min-height: 0;
+  height: 72px;
+  overflow: hidden;
+}
+.login-fullbleed .login-captcha > div {
+  transform: scale(0.92);
+  transform-origin: top center;
 }
 
 /* ============ SPLIT LAYOUT: form left, promo iframe right ============ */
@@ -426,12 +443,12 @@
 
 /* Left column — login form, vertically centred on a plain white panel */
 .login-fullbleed .login-split-form {
-  flex: 0 0 464px;
+  flex: 0 0 332px;
   min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 32px;
+  padding: 32px 24px;
   box-sizing: border-box;
   background: #ffffff;
   overflow-y: auto;
@@ -443,7 +460,7 @@
   box-shadow: none;
   border-radius: 0;
   padding: 0;
-  width: 400px;
+  width: 284px;
 }
 
 /* h2 was absolutely positioned in white over the dark background image;
@@ -452,7 +469,7 @@
   position: static;
   transform: none;
   color: #111827;
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 700;
   text-align: left;
   margin: 0 0 1.5rem;
@@ -460,6 +477,12 @@
 
 .login-fullbleed .register-offset {
   margin-top: 0;
+}
+
+/* The narrower panel leaves the two name fields short, so they share a
+   tighter gutter here than on the old card. */
+.login-fullbleed .name-fields {
+  gap: 12px;
 }
 
 /* Right column — promo slider, stretched to fill the panel exactly.
