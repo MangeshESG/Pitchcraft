@@ -1293,6 +1293,15 @@ const formatTimeIST = formatUserTime;
 
   // Add detail view states
   const [allDetailContacts, setAllDetailContacts] = useState<Contact[]>([]);
+  /**
+   * The filter panel's conditions, once applied.
+   *
+   * The server pages these screens, so the rows on screen are a slice of the
+   * list - matching them in the browser hid every contact the filter matches
+   * further down it. The applied filter is sent to the server instead, which
+   * matches the whole list with the same engine a saved view uses.
+   */
+  const [detailFiltersJson, setDetailFiltersJson] = useState<string | null>(null);
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
 
   /**
@@ -1444,7 +1453,11 @@ const formatTimeIST = formatUserTime;
   >(null);
 
   // Add after your other fetch functions
-  const fetchDetailContacts = async (type: "list" | "segment", item: any) => {
+  const fetchDetailContacts = async (
+    type: "list" | "segment",
+    item: any,
+    filtersJsonOverride: string | null = detailFiltersJson
+  ) => {
     if (!item?.id || !effectiveUserId) return;
 
     const requestId = ++detailRequestIdRef.current;
@@ -1462,6 +1475,9 @@ const formatTimeIST = formatUserTime;
       }
 
       if (detailSort.key) url += `&sortBy=${encodeURIComponent(detailSort.key)}&sortDirection=${detailSort.direction}`;
+      if (filtersJsonOverride) {
+        url += `&filtersJson=${encodeURIComponent(filtersJsonOverride)}`;
+      }
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch contacts");
 
@@ -1517,6 +1533,17 @@ const formatTimeIST = formatUserTime;
       }
     });
   };
+  // A filter is built against the list it is open on, so opening another list
+  // or segment - or going back out of the detail screen - starts over.
+  useEffect(() => {
+    setDetailFiltersJson(null);
+  }, [
+    viewMode,
+    segmentViewMode,
+    selectedDataFileForView?.id,
+    selectedSegmentForView?.id,
+  ]);
+
   // Effect to fetch contacts when viewing detail
   useEffect(() => {
     if (viewMode === "detail" && selectedDataFileForView) {
@@ -1526,7 +1553,7 @@ const formatTimeIST = formatUserTime;
 
       return () => window.clearTimeout(timeoutId);
     }
-  }, [viewMode, selectedDataFileForView?.id, detailCurrentPage, detailPageSize, detailSearchQuery, detailSort]);
+  }, [viewMode, selectedDataFileForView?.id, detailCurrentPage, detailPageSize, detailSearchQuery, detailSort, detailFiltersJson]);
 
   useEffect(() => {
     if (segmentViewMode === "detail" && selectedSegmentForView) {
@@ -1536,7 +1563,7 @@ const formatTimeIST = formatUserTime;
 
       return () => window.clearTimeout(timeoutId);
     }
-  }, [segmentViewMode, selectedSegmentForView?.id, detailCurrentPage, detailPageSize, detailSearchQuery, detailSort]);
+  }, [segmentViewMode, selectedSegmentForView?.id, detailCurrentPage, detailPageSize, detailSearchQuery, detailSort, detailFiltersJson]);
 
   const [renamingListDescription, setRenamingListDescription] = useState("");
 
@@ -2671,6 +2698,14 @@ const filterFields: any = useMemo(() => {
                             setDetailCurrentPage(1);
                             setDetailSelectedContacts(new Set());
                           }}
+                          // The rows on screen are one page of the list, so the
+                          // filter goes to the server and the whole list is
+                          // matched against it.
+                          onApplyFilters={(appliedFiltersJson) => {
+                            setDetailFiltersJson(appliedFiltersJson);
+                            setDetailCurrentPage(1);
+                            setDetailSelectedContacts(new Set());
+                          }}
                           clientId={effectiveUserId}
                           saveViewConfig={{
                             clientId: effectiveUserId,
@@ -3751,6 +3786,14 @@ const filterFields: any = useMemo(() => {
                           onFiltered={(data) => {
                             setDetailContacts(data);
                             setDetailTotalContacts(data.length);
+                            setDetailCurrentPage(1);
+                            setDetailSelectedContacts(new Set());
+                          }}
+                          // The rows on screen are one page of the list, so the
+                          // filter goes to the server and the whole list is
+                          // matched against it.
+                          onApplyFilters={(appliedFiltersJson) => {
+                            setDetailFiltersJson(appliedFiltersJson);
                             setDetailCurrentPage(1);
                             setDetailSelectedContacts(new Set());
                           }}

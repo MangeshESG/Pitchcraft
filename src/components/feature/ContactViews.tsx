@@ -493,6 +493,16 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [viewContacts, setViewContacts] = useState<any[]>([]);
   /** Per-view totals the pager prefers over the loaded row count. */
   const [viewContactCounts, setViewContactCounts] = useState<Record<number, number>>({});
+  /**
+   * The filter the editor's "Apply filters" built but the view has not saved.
+   * Non-null means the server filters by this instead of the view's saved
+   * filters, so the preview covers every contact in the view - the rows the
+   * browser holds are one page of it, and filtering those locally hid matches
+   * sitting on the other pages.
+   */
+  const [draftFiltersJson, setDraftFiltersJson] = useState<string | null>(null);
+  /** How many rows the applied draft matches, for the pager. */
+  const [draftFilteredTotal, setDraftFilteredTotal] = useState<number | null>(null);
 
   /**
    * Writes the outcome of an accepted or dismissed Data Integrity suggestion
@@ -1617,7 +1627,8 @@ const handleDeleteContacts = () => {
     page: number = viewCurrentPage,
     pageSize: number | "All" = viewPageSize,
     search: string = viewSearchQuery,
-    includeEmailContent: boolean = false
+    includeEmailContent: boolean = false,
+    filtersJsonOverride: string | null = null
   ): Promise<{ contacts: any[]; metaMissing: boolean; contactCount: number }> => {
     const allDataFileIds = availableDataFiles.map((file) => file.id);
     const excludedDataFileIds = view.excludedDataFileIds || [];
@@ -1629,7 +1640,9 @@ const handleDeleteContacts = () => {
         ? effectiveAllDataFileIds
         : view.dataFileIds || [];
     const segmentIds = view.segmentIds || [];
-    const hasLocalFilters = !!view.filtersJson;
+    // An applied-but-unsaved filter stands in for the view's saved one.
+    const effectiveFiltersJson = filtersJsonOverride ?? view.filtersJson;
+    const hasLocalFilters = !!effectiveFiltersJson;
     const hasLocalSources = dataFileIds.length > 0 || segmentIds.length > 0;
 
     // View contacts are always paged by the backend. The local fallback below
@@ -1648,6 +1661,11 @@ const handleDeleteContacts = () => {
             sortDirection: contactSort.direction,
             search: search.trim(),
             includeEmailContent,
+            // Omitted unless the editor has an unsaved filter applied, so the
+            // server keeps using the view's own filters_json.
+            ...(filtersJsonOverride == null
+              ? {}
+              : { filtersJson: filtersJsonOverride }),
           }),
         });
 
@@ -1658,7 +1676,7 @@ const handleDeleteContacts = () => {
         const data = await response.json();
         const contacts = await decorateContactsWithTrackingState(
           data.contacts || [],
-          view.filtersJson
+          effectiveFiltersJson
         );
         return {
           contacts,
@@ -1766,10 +1784,10 @@ const handleDeleteContacts = () => {
             return email.length === 0 || !unsubscribedEmails.has(email);
           });
 
-    const filtered = await applySavedFilters(subscribedList, view.filtersJson);
+    const filtered = await applySavedFilters(subscribedList, effectiveFiltersJson);
     const decorated = await decorateContactsWithTrackingState(
       filtered,
-      view.filtersJson
+      effectiveFiltersJson
     );
 
     return {
@@ -1788,8 +1806,13 @@ const handleDeleteContacts = () => {
     );
   };
 
-  const fetchContactsForView = async (view: ViewItem) => {
-    const fetchKey = `${view.id}|${viewCurrentPage}|${viewPageSize}|${viewSearchQuery.trim()}|${contactSort.key}|${contactSort.direction}`;
+  const fetchContactsForView = async (
+    view: ViewItem,
+    // Passed explicitly rather than read from state, so a caller that has just
+    // cleared the draft is not served from a stale closure.
+    filtersJsonOverride: string | null = draftFiltersJson
+  ) => {
+    const fetchKey = `${view.id}|${viewCurrentPage}|${viewPageSize}|${viewSearchQuery.trim()}|${contactSort.key}|${contactSort.direction}|${filtersJsonOverride ?? ""}`;
     if (activeViewFetchKeyRef.current === fetchKey) {
       return;
     }
@@ -1813,7 +1836,9 @@ const handleDeleteContacts = () => {
         view,
         viewCurrentPage,
         viewPageSize,
-        viewSearchQuery
+        viewSearchQuery,
+        false,
+        filtersJsonOverride
       );
 
       if (!isLatestRequest()) {
@@ -1825,7 +1850,15 @@ const handleDeleteContacts = () => {
       setViewContacts(contacts);
       setViewMetaMissing(metaMissing);
       if (!metaMissing) {
-        updateViewCountCache(view.id, contactCount);
+        // An unsaved filter's count belongs to the pager only - writing it to
+        // the cache would relabel the view in the list with a count its saved
+        // filters do not produce.
+        if (filtersJsonOverride == null) {
+          setDraftFilteredTotal(null);
+          updateViewCountCache(view.id, contactCount);
+        } else {
+          setDraftFilteredTotal(contactCount);
+        }
       }
     } catch (error) {
       if (!isLatestRequest()) {
@@ -1836,6 +1869,7 @@ const handleDeleteContacts = () => {
       setBaseViewContacts([]);
       setViewContacts([]);
       setViewMetaMissing(false);
+      setDraftFilteredTotal(null);
       showContactMessage("Failed to load view contacts.", "error");
     } finally {
       if (activeViewFetchKeyRef.current === fetchKey) {
@@ -1918,6 +1952,7 @@ const handleDeleteContacts = () => {
     viewPageSize,
     contactSort,
     viewSearchQuery,
+    draftFiltersJson,
   ]);
 
   const handleDeleteView = async (view: ViewItem) => {
@@ -1966,6 +2001,8 @@ const handleDeleteContacts = () => {
     setSelectedContacts(new Set());
     setViewSearchQuery("");
     setViewCurrentPage(1);
+    setDraftFiltersJson(null);
+    setDraftFilteredTotal(null);
 
     // Always refresh the source list so "all lists" views immediately reflect
     // newly added lists.
@@ -2048,7 +2085,9 @@ const handleDeleteContacts = () => {
       saveViewMetaMap(clientId, metaMap);
 
       triggerRefresh();
-      await fetchContactsForView(updatedView);
+      setDraftFiltersJson(null);
+      setDraftFilteredTotal(null);
+      await fetchContactsForView(updatedView, null);
       showContactMessage("View updated successfully.", "success");
     } catch (error) {
       console.error("Error updating view:", error);
@@ -2140,6 +2179,15 @@ const handleDeleteContacts = () => {
           initialFiltersJson={selectedView.filtersJson}
           onFiltered={(filteredData) => {
             setViewContacts(filteredData);
+            setSelectedContacts(new Set());
+          }}
+          // The rows on screen are one page of the view, so the filter goes to
+          // the server and the whole view is matched against it - same engine
+          // the view uses once the filter is saved.
+          onApplyFilters={(appliedFiltersJson) => {
+            setDraftFiltersJson(appliedFiltersJson);
+            setDraftFilteredTotal(null);
+            setViewCurrentPage(1);
             setSelectedContacts(new Set());
           }}
           viewEditor={{
@@ -2456,7 +2504,13 @@ const handleDeleteContacts = () => {
                   />
                 ),
               }}
-              totalItems={selectedView ? (viewContactCounts[selectedView.id] ?? viewContacts.length) : viewContacts.length}
+              totalItems={
+                draftFiltersJson != null
+                  ? draftFilteredTotal ?? viewContacts.length
+                  : selectedView
+                  ? viewContactCounts[selectedView.id] ?? viewContacts.length
+                  : viewContacts.length
+              }
               autoGenerateColumns={true}
               selectedItems={selectedContacts}
               onSelectItem={handleSelectContact}

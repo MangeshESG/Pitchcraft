@@ -75,6 +75,13 @@ export interface Props<T> {
   onFiltered: (data: T[]) => void;
   initialFiltersJson?: string;
   onFiltersJsonChange?: (filtersJson: string, conditions: FilterCondition[]) => void;
+  /**
+   * Set by a surface whose rows are paged by the server. "Apply filters" then
+   * hands the built filter up so the parent can re-query the whole set,
+   * instead of filtering `data` - which holds only the page on screen, so a
+   * local pass hides every matching row that sits on another page.
+   */
+  onApplyFilters?: (filtersJson: string) => void | Promise<void>;
   hideApplyButton?: boolean;
   clientId?: string | number;
   viewEditor?: ViewEditorConfig;
@@ -134,6 +141,8 @@ const isValueOptionalOperator = (operator?: string) =>
 
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
+/** What "no conditions" serialises to, for a cleared server-side filter. */
+const EMPTY_FILTERS_JSON = JSON.stringify({ logic: "GROUPS", groups: [] });
 const viewMetaKey = (clientId: string | number) =>
   `crm_view_meta_${clientId}`;
 
@@ -349,6 +358,7 @@ function FilterBuilder<T extends Record<string, any>>({
   onFiltered,
   initialFiltersJson,
   onFiltersJsonChange,
+  onApplyFilters,
   hideApplyButton = false,
   clientId,
   viewEditor,
@@ -833,6 +843,13 @@ function FilterBuilder<T extends Record<string, any>>({
     setIsApplyingFilters(true);
 
     try {
+      // Server-side surfaces re-query from the filter itself; `data` is one
+      // page of the set here, so filtering it locally would be wrong.
+      if (onApplyFilters) {
+        await onApplyFilters(filtersJson);
+        return;
+      }
+
       const campaignIndexes =
         resolvedClientId && completeGroups.length > 0
           ? await buildTrackingIndexesForGroups(resolvedClientId, completeGroups)
@@ -880,6 +897,14 @@ function FilterBuilder<T extends Record<string, any>>({
 
   const clearFilters = () => {
     setGroups([createGroup()]);
+
+    if (onApplyFilters) {
+      // An empty filter, so the parent re-queries the unfiltered set rather
+      // than keeping the rows the last apply left on screen.
+      void onApplyFilters(EMPTY_FILTERS_JSON);
+      return;
+    }
+
     onFiltered(data);
   };
 
