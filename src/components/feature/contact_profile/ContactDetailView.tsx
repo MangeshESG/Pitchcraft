@@ -235,6 +235,13 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  useEffect(() => {
+    const name = [editingContact?.first_name, editingContact?.last_name]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || editingContact?.full_name?.trim() || editingContact?.email?.trim();
+    document.title = `${name || "Contact Details"} - PitchKraft`;
+  }, [editingContact?.first_name, editingContact?.last_name, editingContact?.full_name, editingContact?.email, contactId]);
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
   const [emailActionsAnchor, setEmailActionsAnchor] = useState<string | null>(null);
   const [emailToDelete, setEmailToDelete] = useState<any | null>(null);
@@ -390,7 +397,7 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const popupRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [showSupportPopup, setShowSupportPopup] = useState(false);
-  const [historyFilter, setHistoryFilter] = useState<"all" | "notes" | "emails" | "attachments" | "linkedin" | "pinned">("all");
+  const [historyFilter, setHistoryFilter] = useState<"all" | "notes" | "emails" | "attachments" | "linkedin">("all");
   const labelStyle: React.CSSProperties = {
     fontSize: "13px",
     fontWeight: 600,
@@ -3384,12 +3391,6 @@ dispatch(closePanel());
     return items.sort((a, b) => b.time - a.time);
   }, [editingContact, notesHistory, attachmentsHistory, emailTimeline, linkedInMessages]);
 
-  const pinnedHistory = React.useMemo(() => mergedHistory.filter(item =>
-    (item.type === "note" && item.data.isPin) ||
-    (item.type === "email" && isEmailPinned(item.data)) ||
-    (item.type === "linkedin" && item.data.isPinned)
-  ), [mergedHistory]);
-
   const extractEmailAddress = (emailString?: string): string => {
     if (!emailString) return "";
     const match = emailString.match(/<(.+?)>/);
@@ -5341,18 +5342,13 @@ dispatch(closePanel());
                       { key: "attachments", label: "Attachments" },
                       { key: "emails", label: "Emails" },
                       { key: "linkedin", label: "LinkedIn" },
-                      { key: "pinned", label: "Pinned" },
                     ].map(item => (
                     <button
                       key={item.key}
                       onClick={() => {
                         setHistoryFilter(item.key as any);
-                        if (item.key === "notes" || item.key === "pinned") {
+                        if (item.key === "notes") {
                           fetchNotesHistory();
-                        }
-                        if (item.key === "pinned" && contactId) {
-                          fetchEmailTimeline(Number(contactId));
-                          fetchLinkedInMessages(Number(contactId));
                         }
                         if (item.key === "emails" && emailTimeline.length === 0) {
                           fetchEmailTimeline(Number(contactId));
@@ -5410,6 +5406,8 @@ dispatch(closePanel());
                           : appModal.showError(msg);
                       }}
                       notesHistory={notesHistory} 
+                      linkedInMessages={linkedInMessages}
+                      onToggleLinkedInPin={handleToggleLinkedInPin}
                       onEditNote={handleEditNote}
                       onDeleteNote={handleDeleteNote}
                       onTogglePin={handleTogglePin}
@@ -6085,43 +6083,6 @@ dispatch(closePanel());
                             linkedInMessages.map((message: any, index: number) =>
                               renderLinkedInTimelineItem(message, index)
                             )}
-                        </>
-                      )}
-
-                      {historyFilter === "pinned" && (
-                        <>
-                          {pinnedHistory.length === 0 && <p style={{ color: "#666" }}>No pinned activity found.</p>}
-                          {pinnedHistory.map((item, index) => {
-                            if (item.type === "linkedin") return renderLinkedInTimelineItem(item.data, index);
-                            const data = item.data;
-                            const isNote = item.type === "note";
-                            const key = isNote ? `pinned-note-${data.id}` : `pinned-email-${data.trackingId || index}`;
-                            return <div key={key} style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-                              <div style={{ width: 10, height: 10, marginTop: 6, borderRadius: "50%", background: "#3f9f42", flexShrink: 0 }} />
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-                                  <strong>{isNote ? "Pinned note" : "Pinned email"}</strong>
-                                  <button type="button" onClick={() => isNote ? void handleTogglePin(data.id) : void handleToggleEmailPin(data)}
-                                    disabled={!isNote && pinningEmailId === data.trackingId}
-                                    title={isNote ? "Unpin note" : "Unpin email"}
-                                    style={{ border: 0, background: "transparent", color: "#3f9f42", cursor: "pointer", display: "inline-flex", gap: 5, alignItems: "center" }}>
-                                    <PinOff size={17} /> Unpin
-                                  </button>
-                                </div>
-                                <div style={{ color: "#666", fontSize: 13, margin: "3px 0 8px" }}>
-                                  {formatDateTimeIST(isNote ? data.createdAt : data.lastMessageDate || data.sentAt || data.receiveAt || data.date)}
-                                </div>
-                                <div style={{ padding: 12, borderRadius: 8, background: "#f9fafb", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                                  {isNote ? getPlainText(data.note || "") : data.subject || "No subject"}
-                                </div>
-                                {!isNote && <button type="button" onClick={() => toggleEmailBody(data.trackingId)}
-                                  style={{ border: 0, padding: "8px 0", background: "transparent", color: "#3f9f42", cursor: "pointer" }}>
-                                  {expandedEmailId === data.trackingId ? "Hide email preview" : "Show email preview"}
-                                </button>}
-                                {!isNote && expandedEmailId === data.trackingId && renderEmailPreview(data)}
-                              </div>
-                            </div>;
-                          })}
                         </>
                       )}
 

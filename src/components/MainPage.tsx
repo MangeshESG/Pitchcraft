@@ -490,11 +490,9 @@ const MainPage: React.FC = () => {
 
   // Update page title when tab changes
   useEffect(() => {
+    // The contact detail page sets its title after loading the contact's name.
+    if (isContactDetailPage) return;
     const getPageTitle = () => {
-      if (isContactDetailPage) {
-        return "Contact Details";
-      }
-
       switch (tab) {
         case "Dashboard":
           return "Dashboard - View progress and help videos";
