@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>PitchKraft verification</title>
+  <style>
+    html, body { margin: 0; background: transparent; }
+    body { font-family: Arial, sans-serif; }
+    #captcha { min-height: 78px; }
+  </style>
+</head>
+<body>
+  <div id="captcha"></div>
+  <script>
+    const parentOrigin = new URLSearchParams(location.search).get('parentOrigin');
+    const allowedParent = /^chrome-extension:\/\/[a-p]{32}$/.test(parentOrigin || '');
+    if (allowedParent && window.parent !== window) {
+      let lastHeight = 0;
+      function reportHeight() {
+        const challenge = document.querySelector('iframe[src*="/recaptcha/api2/bframe"]');
+        const visible = challenge && challenge.parentElement &&
+          getComputedStyle(challenge.parentElement).visibility !== 'hidden';
+        const height = visible ? 520 : 82;
+        if (height !== lastHeight) {
+          lastHeight = height;
+          window.parent.postMessage({ type: 'PK_CAPTCHA_HEIGHT', height: height }, parentOrigin);
+        }
+      }
+      new MutationObserver(reportHeight).observe(document.body, {
+        childList: true, subtree: true, attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+      window.onCaptchaReady = function () {
+        grecaptcha.render('captcha', {
+          sitekey: '6LcAEuAtAAAAAMLtDQcgUeyvDoxTCWn9aVGgIiXu',
+          callback: function (token) {
+            window.parent.postMessage({ type: 'PK_CAPTCHA_TOKEN', token: token }, parentOrigin);
+            reportHeight();
+          },
+          'expired-callback': function () {
+            window.parent.postMessage({ type: 'PK_CAPTCHA_TOKEN', token: null }, parentOrigin);
+          },
+          'error-callback': function () {
+            window.parent.postMessage({ type: 'PK_CAPTCHA_TOKEN', token: null }, parentOrigin);
+          }
+        });
+        reportHeight();
+      };
+      window.addEventListener('message', function (event) {
+        if (event.source === window.parent && event.origin === parentOrigin &&
+            event.data && event.data.type === 'PK_CAPTCHA_RESET') {
+          grecaptcha.reset();
+        }
+      });
+    }
+  </script>
+  <script src="https://www.google.com/recaptcha/api.js?onload=onCaptchaReady&render=explicit" async defer></script>
+</body>
+</html>
