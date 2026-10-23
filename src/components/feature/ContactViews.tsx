@@ -42,6 +42,10 @@ import { RootState } from "../../Redux/store";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import ValidationRunPanel from "./validation/ValidationRunPanel";
 import {
+  isRelativeDateToken,
+  matchesDayCondition,
+} from "../common/relativeDateFilters";
+import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
   createValidationFormatters,
@@ -1424,6 +1428,22 @@ const handleDeleteContacts = () => {
     }
 
     const value = getRowValue(row, condition.field);
+
+    // Dates are compared by calendar day, in the account's time zone, so that
+    // Today / Yesterday / Tomorrow mean the day the view is opened on.
+    const fieldType = normalizedFilterFields.find(
+      (field) => field.key === condition.field
+    )?.type;
+    if (fieldType === "date" || isRelativeDateToken(condition.value)) {
+      const dayResult = matchesDayCondition(
+        value,
+        condition.operator,
+        condition.value
+      );
+      if (dayResult !== null) {
+        return dayResult;
+      }
+    }
 
     switch (condition.operator) {
       case "contains":

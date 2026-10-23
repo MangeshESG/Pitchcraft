@@ -1,5 +1,6 @@
 import API_BASE_URL from "../config";
 import type { FilterCondition, FilterConditionContext, FilterGroup } from "../components/common/filterTypes";
+import { matchesDayCondition } from "../components/common/relativeDateFilters";
 
 export const TRACKING_OPEN_FIELD = "tracking_open";
 export const TRACKING_CLICK_FIELD = "tracking_click";
@@ -408,6 +409,18 @@ export const evaluateTrackingCondition = (
     }
 
     const latestSentDate = matchedDates[0];
+
+    // The send date is a timestamp and the condition names a day - its own, or
+    // the one Today / Yesterday / Tomorrow stands for when the view is opened.
+    const dayResult = matchesDayCondition(
+      latestSentDate.toISOString(),
+      condition.operator,
+      condition.value
+    );
+    if (dayResult !== null) {
+      return dayResult;
+    }
+
     const targetDate = new Date(String(condition.value));
 
     if (Number.isNaN(targetDate.getTime())) {

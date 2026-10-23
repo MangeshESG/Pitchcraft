@@ -20,6 +20,11 @@ import {
   VALIDATION_FILTER_FIELD_KEYS,
   getValidationFieldValue,
 } from "../feature/validation/validationColumns";
+import {
+  RELATIVE_DATE_OPTIONS,
+  isRelativeDateToken,
+  matchesDayCondition,
+} from "./relativeDateFilters";
 
 interface FieldOption {
   key: string;
@@ -765,6 +770,20 @@ function FilterBuilder<T extends Record<string, any>>({
     const normalizedFieldType = normalizeFieldType(
       getField(condition.field)?.type
     );
+
+    // A date is compared by the calendar day it falls on - see
+    // matchesDayCondition. A relative day takes this path whatever the field
+    // is typed as, since nothing else it could mean.
+    if (normalizedFieldType === "date" || isRelativeDateToken(condition.value)) {
+      const dayResult = matchesDayCondition(
+        value,
+        condition.operator,
+        condition.value
+      );
+      if (dayResult !== null) {
+        return dayResult;
+      }
+    }
 
     switch (condition.operator) {
       case "contains":
@@ -1547,9 +1566,48 @@ function FilterBuilder<T extends Record<string, any>>({
                           <option value="false">False</option>
                           <option value="true">True</option>
                         </select>
+                      ) : normalizedFieldType === "date" ? (
+                        <div className="fb-date-value">
+                          <select
+                            value={
+                              isRelativeDateToken(condition.value)
+                                ? String(condition.value).trim().toLowerCase()
+                                : "specific"
+                            }
+                            onChange={(e) =>
+                              updateCondition(
+                                group.id,
+                                condition.id,
+                                "value",
+                                // Back to a specific date clears the day, so the
+                                // condition stays incomplete until one is picked.
+                                e.target.value === "specific" ? "" : e.target.value
+                              )
+                            }
+                            className="fb-control"
+                            aria-label="Date to compare against"
+                          >
+                            <option value="specific">Specific date…</option>
+                            {RELATIVE_DATE_OPTIONS.map((option) => (
+                              <option key={option.token} value={option.token}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          {!isRelativeDateToken(condition.value) && (
+                            <input
+                              type="date"
+                              value={String(condition.value ?? "")}
+                              onChange={(e) =>
+                                updateCondition(group.id, condition.id, "value", e.target.value)
+                              }
+                              className="fb-control"
+                            />
+                          )}
+                        </div>
                       ) : (
                         <input
-                          type={normalizedFieldType === "number" ? "number" : normalizedFieldType === "date" ? "date" : "text"}
+                          type={normalizedFieldType === "number" ? "number" : "text"}
                           value={condition.value}
                           onChange={(e) => updateCondition(group.id, condition.id, "value", e.target.value)}
                           placeholder="Enter value"
