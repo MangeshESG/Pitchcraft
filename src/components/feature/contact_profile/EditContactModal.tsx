@@ -40,7 +40,7 @@ import deleteIcon from "../../../assets/images/deleteiconn.png";
 import gpsPin from "../../../assets/images/Unpin.png";
 import pinimage from "../../../assets/images/pin.png";
 import { Slash } from "lucide-react";
-import { Pin, PinOff } from 'lucide-react';
+import { Link2, Pin, PinOff } from 'lucide-react';
 import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
 import CommonSidePanel from '../../common/CommonSidePanel';
 import { closePanel, openPanel } from '../../../slices/panelSlice';
@@ -99,6 +99,8 @@ interface EditContactModalProps {
   // pinnedNotes: Note[];
   // ✅ Note management callbacks - moved from contact-detail-view
   notesHistory: any[];
+  linkedInMessages?: any[];
+  onToggleLinkedInPin?: (message: any) => void;
   onEditNote?: (note: any) => void;
   onDeleteNote?: (noteId: number) => void;
   onTogglePin?: (noteId: number) => void;
@@ -433,6 +435,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   //pinnedNotes,
   // ✅ Line 66-71: Destructure note management callbacks
   notesHistory,
+  linkedInMessages,
+  onToggleLinkedInPin,
   onEditNote,
   onDeleteNote,
   onTogglePin,
@@ -505,8 +509,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   // "insights" is the Overview tab (shown by default when the Company section opens)
   const [companyTab, setCompanyTab] = useState<"information" | "insights">("insights");
   // Only one accordion section open at a time; opening one closes the others.
-  const [openSection, setOpenSection] = useState<"personal" | "company" | "custom" | null>("personal");
-  const toggleSection = (section: "personal" | "company" | "custom") =>
+  const [openSection, setOpenSection] = useState<string | null>("personal");
+  const toggleSection = (section: string) =>
     setOpenSection((prev) => (prev === section ? null : section));
 
   // Whenever the Company section is opened, default it to the Overview tab.
@@ -809,12 +813,40 @@ const menuIconStyle = {
 
   switch (field.field_type) {
 
-    case "hyperlink":
+    case "hyperlink": {
+      const rawUrl = String(value).trim();
+      let href: string | undefined;
+      if (rawUrl) {
+        try {
+          const parsedUrl = new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`);
+          if (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") {
+            href = parsedUrl.href;
+          }
+        } catch {
+          // Keep the value editable without opening an invalid URL.
+        }
+      }
+      return (
+        <div className="flex items-center gap-2">
+          {href && (
+            <a href={href} target="_blank" rel="noopener noreferrer" title="Open link" aria-label={`Open ${field.field_name} link`} className="flex-shrink-0 text-[#3f9f42] hover:text-[#2f8033]">
+              <Link2 size={20} />
+            </a>
+          )}
+          <input
+            type="text"
+            inputMode="url"
+            className={underlineInput}
+            value={value}
+            onChange={(e) => handleCustomFieldChange(field.field_name, e.target.value)}
+          />
+        </div>
+      );
+    }
     case "text":
       return (
         <input
           type="text"
-          inputMode={field.field_type === "hyperlink" ? "url" : "text"}
           className={underlineInput}
           value={value}
           onChange={(e) =>
@@ -1328,6 +1360,19 @@ case "boolean":
     () => (notesHistory || []).filter(n => n.isPin),
     [notesHistory]
   );
+
+  const pinnedItems = React.useMemo(() => {
+    const items = [
+      ...pinnedNotes.map(note => ({ type: "note" as const, date: note.createdAt, note })),
+      ...pinnedEmails.map(email => ({ type: "email" as const, date: email.lastMessageDate, email })),
+      ...(linkedInMessages || []).filter(message => message.isPinned).map(message => ({
+        type: "linkedin" as const,
+        date: message.activityAt || message.sentAt || message.generatedAt,
+        message,
+      })),
+    ];
+    return items.sort((a, b) => (Date.parse(b.date || "") || 0) - (Date.parse(a.date || "") || 0));
+  }, [pinnedNotes, pinnedEmails, linkedInMessages]);
 
   const togglePinnedEmailExpand = (trackingId: string) => {
     setExpandedPinnedEmailIds((prev) => {
@@ -2609,28 +2654,9 @@ case "boolean":
                 {companyTab === "insights" && companyInsightsBlock}
               </AccordionSection>
 
-              {/* CUSTOM FIELDS */}
-  <AccordionSection
-    open={openSection === "custom"}
-    onToggle={() => toggleSection("custom")}
-    icon={
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="#3f9f42"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M9 12h6M9 16h6M9 8h6M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
-      </svg>
-    }
-    title="Custom attributes"
-  >
-  <div className="flex flex-col gap-6">
+              {/* Custom groups appear beside Personal and Company. */}
     {[...customAttributeGroups.map(group => ({ id: group.id, name: group.name })),
-      { id: null, name: customAttributeGroups.length ? "Ungrouped" : "" }]
+      { id: null, name: "Ungrouped attributes" }]
       .map(group => {
         const systemFields = group.id === null ? [] : (systemGroups.find(item => item.key === `custom:${group.id}`)?.fields || []);
         const customFields = customFieldDefs.filter(field => (field.group_id ?? null) === group.id && !field.assigned_system_group_key);
@@ -2638,20 +2664,30 @@ case "boolean":
           ...systemFields.map(field => ({ key: `s:${field.key}`, order: field.order, system: field, custom: null as any })),
           ...customFields.map(field => ({ key: `c:${field.id}`, order: field.sort_order, system: null as any, custom: field })),
         ].sort((left, right) => Number(left.order) - Number(right.order) || left.key.localeCompare(right.key));
-        if (!fields.length) return null;
-        return <section key={group.id ?? "ungrouped"}>
-          {group.name && <h4 className="mb-3 text-sm font-semibold text-[#3f9f42]">{group.name}</h4>}
+        if (!fields.length && group.id === null) return null;
+        const sectionKey = group.id === null ? "ungrouped" : `custom:${group.id}`;
+        return <AccordionSection
+          key={sectionKey}
+          open={openSection === sectionKey}
+          onToggle={() => toggleSection(sectionKey)}
+          icon={
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M9 12h6M9 16h6M9 8h6M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2V6a2 2 0 012-2z" />
+            </svg>
+          }
+          title={group.name}
+        >
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            {fields.length === 0 && <p className="text-sm text-gray-500">No attributes in this group.</p>}
             {fields.map(field => field.system ? renderMovedSystemField(field.system) :
               <div key={field.key} className="flex flex-col gap-[5px] form-group !mb-[0]">
                 <label className={underlineLabel}>{field.custom.field_name}</label>
                 {renderCustomField(field.custom)}
               </div>)}
           </div>
-        </section>;
+        </AccordionSection>;
       })}
-  </div>
-</AccordionSection>
 
               
 
@@ -2712,392 +2748,114 @@ case "boolean":
 
           </div>
 
-          {/* Outreach opportunities / Key findings & events (from web_search_data) */}
-          {researchOpportunitiesBlock}
-
-          {/* Pinned Notes */}
-          {pinnedNotes.length > 0 && (
-          <div className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <span className='text-[#3f9f42]'>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 -0.5 25 25" fill="none">
-                      <path fill-rule="evenodd" clip-rule="evenodd" d="M9.808 4.00001H15.329C15.3863 4.00001 15.4433 4.00367 15.5 4.01101C17.7473 4.16817 19.4924 6.0332 19.5 8.28601V14.715C19.4917 17.0871 17.5641 19.0044 15.192 19H9.808C7.43551 19.0044 5.50772 17.0865 5.5 14.714V8.28601C5.50772 5.91353 7.43551 3.99558 9.808 4.00001Z" stroke="#3f9f42" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
-                      <path d="M19.5 9.03599C19.9142 9.03599 20.25 8.7002 20.25 8.28599C20.25 7.87177 19.9142 7.53599 19.5 7.53599V9.03599ZM15.5 8.28599H14.75C14.75 8.7002 15.0858 9.03599 15.5 9.03599V8.28599ZM16.25 4.01099C16.25 3.59677 15.9142 3.26099 15.5 3.26099C15.0858 3.26099 14.75 3.59677 14.75 4.01099H16.25ZM14.5 12.75C14.9142 12.75 15.25 12.4142 15.25 12C15.25 11.5858 14.9142 11.25 14.5 11.25V12.75ZM8.5 11.25C8.08579 11.25 7.75 11.5858 7.75 12C7.75 12.4142 8.08579 12.75 8.5 12.75V11.25ZM11.5 9.74999C11.9142 9.74999 12.25 9.4142 12.25 8.99999C12.25 8.58577 11.9142 8.24999 11.5 8.24999V9.74999ZM8.5 8.24999C8.08579 8.24999 7.75 8.58577 7.75 8.99999C7.75 9.4142 8.08579 9.74999 8.5 9.74999V8.24999ZM15.5 15.75C15.9142 15.75 16.25 15.4142 16.25 15C16.25 14.5858 15.9142 14.25 15.5 14.25V15.75ZM8.5 14.25C8.08579 14.25 7.75 14.5858 7.75 15C7.75 15.4142 8.08579 15.75 8.5 15.75V14.25ZM19.5 7.53599H15.5V9.03599H19.5V7.53599ZM16.25 8.28599V4.01099H14.75V8.28599H16.25ZM14.5 11.25H8.5V12.75H14.5V11.25ZM11.5 8.24999H8.5V9.74999H11.5V8.24999ZM15.5 14.25H8.5V15.75H15.5V14.25Z" fill="#3f9f42"></path>
-                    </svg>
-                  </span>
-                  <h3 className="text-lg font-semibold text-foreground">Pinned notes ({pinnedNotes.length})</h3>
-                </div>
-                {pinnedNotes.map((note: any, index: number) => (
-                  <div key={note.id} style={{ display: "flex", gap: 16, paddingBottom: index !== pinnedNotes.length - 1 ? 24 : 0, }} >
-                    {/* Note content */}
-                    <div style={{ flex: 1 }}>
-                      <div className='relative rounded-[5px] border border-solid border-[#e5e7eb] border-l-[3px] border-l-[#cccccc] bg-[#fefcf9] p-4' >
-                        <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}> {formatDateTimeIST(note.createdAt)} </div>
-                        {/* 3-dot menu */}
-                        <button onClick={(e) => {
-                          e.stopPropagation(); setNoteActionsAnchor(noteActionsAnchor === note.id ? null : note.id);
-                        }} style={{ position: "absolute", top: 12, right: 12, border: "none", background: "#ebebeb", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", }} >
-                          <FontAwesomeIcon icon={faEllipsisV} />
-                        </button>
-                        {/* Action menu */}
-                        {noteActionsAnchor === note.id && (
-                          <div style={{ position: "absolute", right: 0, top: 48, background: "#fff", border: "1px solid #eee", borderRadius: 6, boxShadow: "0 2px 16px rgba(0,0,0,0.12)", zIndex: 101, minWidth: 160, }}
-                            onClick={(e) => e.stopPropagation()} >
-                            <button
-                              onClick={async () => {
-                                await onEditNote?.(note);
-                                setNoteActionsAnchor(null);
-                                //  await fetchNotesHistory();
-                              }}
-                              style={menuBtnStyle}
-                              className="flex gap-2 items-center"
-                            >
-                               <div style={menuIconStyle}>
-                                  <FontAwesomeIcon
-                                  icon={faEdit}
-                                  style={{ color: "#3f9f42", fontSize: 19 }}
-                                  />
-                                </div>
-                              <span className="font-[600]">Edit</span>
-                            </button>
-
-                            {/* 📌 PIN / UNPIN */}
-                            <button
-                              onClick={async () => {
-                                await onTogglePin?.(note.id);
-                                setNoteActionsAnchor(null);
-                                // await fetchNotesHistory();
-                              }}
-                              style={menuBtnStyle}
-                              className="flex gap-2 items-center"
-                            >
-                              <div style={menuIconStyle}>
-                               {note.isPin ? (
-                               <PinOff size={19} color="#3f9f42" strokeWidth={2.5} />
-                               ) : (
-                              <Pin size={21} color="#3f9f42" strokeWidth={2} />
-                              )}
-                              </div>
-                              <span className="font-[600]">
-                                {note.isPin ? "Unpin" : "Pin"}
-                              </span>
-                            </button>
-
-                            {/* 🗑️ DELETE */}
-                            <button
-                              onClick={async () => {
-                                await onDeleteNote?.(note.id);
-                                setNoteActionsAnchor(null);
-                                // await fetchNotesHistory();
-                              }}
-                              style={menuBtnStyle}
-                              className="flex gap-2 items-center "
-                            >
-                               <div style={menuIconStyle}>
-                                      <FontAwesomeIcon
-                                        icon={faTrashAlt}
-                                        style={{ color: "#3f9f42", fontSize: 18 }}
-                                      />
-                                    </div>
-                              <span className="font-[600]">Delete</span>
-                            </button>
-                          </div>)}
-                        {/* NOTE TEXT — ✅ NO <p> TAG */}
-                        <div
-                          className="rendered-note-content"
-                          style={{
-                            fontSize: 14,
-                            lineHeight: "1.5",
-                            whiteSpace: "normal",
-                          }}
-                          dangerouslySetInnerHTML={{
-                            __html: expandedNoteIds.has(note.id) 
-                              ? (note.note || "<p>No note content</p>")
-                              : `<p>${getTruncatedNote(note.note || "")}</p>`,
-                          }}
-                        />
-                        {/* EXPAND BUTTON */}
-                        {getPlainText(note.note || "").length > TRUNCATE_LENGTH && (
-                          <button
-                            onClick={() => toggleNoteExpand(note.id)}
-                            style={{
-                              marginTop: 12,
-                              background: "none",
-                              border: "none",
-                              color: "#3f9f42",
-                              cursor: "pointer",
-                              fontSize: 13,
-                              fontWeight: 600,
-                              padding: 0,
-                            }}
-                          >
-                            {expandedNoteIds.has(note.id) ? "Show less" : "Expand"}
+          {/* All pinned contact activity, newest first */}
+          <div className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border-[#cccccc]">
+            <div className="mb-4 flex items-center gap-2 text-[#3f9f42]">
+              <Pin size={21} />
+              <h3 className="text-lg font-semibold text-foreground">Pinned ({pinnedItems.length})</h3>
+            </div>
+            {isLoadingPinnedEmails && <p className="text-sm text-gray-500">Loading pinned emails...</p>}
+            {!isLoadingPinnedEmails && pinnedItems.length === 0 && (
+              <p className="text-sm text-gray-500">No pinned notes, emails or LinkedIn messages.</p>
+            )}
+            <div className="flex flex-col gap-3">
+              {pinnedItems.map(item => {
+                const isNote = item.type === "note";
+                const isEmail = item.type === "email";
+                const note = isNote ? item.note : null;
+                const email = isEmail ? item.email : null;
+                const linkedIn = item.type === "linkedin" ? item.message : null;
+                const emailMessages = email?.messages || [];
+                const latestEmail = emailMessages[emailMessages.length - 1];
+                const emailExpanded = Boolean(email && expandedPinnedEmailIds.has(email.trackingId));
+                const noteExpanded = Boolean(note && expandedNoteIds.has(note.id));
+                const noteText = note ? getPlainText(note.note || "") : "";
+                return (
+                  <div
+                    key={note ? "note-" + note.id : email ? "email-" + email.trackingId : "linkedin-" + linkedIn?.id}
+                    className="rounded-md border border-[#e5e7eb] border-l-[3px] border-l-[#3f9f42] bg-[#f8fff8] p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-[#3f9f42]">
+                          {isNote ? "Note" : isEmail ? "Email" : "LinkedIn message"}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500">{item.date ? formatDateTimeIST(item.date) : ""}</div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {note && onEditNote && (
+                          <button type="button" title="Edit note" onClick={() => onEditNote(note)} className="text-[#3f9f42]">
+                            <FontAwesomeIcon icon={faEdit} />
                           </button>
                         )}
-
+                        {note && onDeleteNote && (
+                          <button type="button" title="Delete note" onClick={() => onDeleteNote(note.id)} className="text-red-500">
+                            <FontAwesomeIcon icon={faTrashAlt} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          title={isNote ? "Unpin note" : isEmail ? "Unpin email" : "Unpin LinkedIn message"}
+                          onClick={() => {
+                            if (note) onTogglePin?.(note.id);
+                            else if (email) void handlePinnedEmailUnpin(email);
+                            else if (linkedIn) onToggleLinkedInPin?.(linkedIn);
+                          }}
+                          className="text-[#3f9f42]"
+                        >
+                          <PinOff size={18} />
+                        </button>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-          </div>
-          )}
-
-          {(isLoadingPinnedEmails || pinnedEmails.length > 0) && (
-            <div className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
-              <div className="mb-4 flex items-center gap-2">
-                <span className="text-[#3f9f42]">
-                  <svg className="h-5 w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8-4H8m12 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h8l4 3v-3h0a2 2 0 002-2z" />
-                  </svg>
-                </span>
-                <h3 className="text-lg font-semibold text-foreground">Pinned emails ({pinnedEmails.length})</h3>
-              </div>
-
-              {isLoadingPinnedEmails ? (
-                <div style={{ fontSize: 13, color: "#6b7280" }}>Loading pinned emails...</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  {pinnedEmails.map((email) => {
-                    const conversationMessages = email.messages || [];
-                    const latestMessage = email.messages?.[email.messages.length - 1];
-                    const isExpandedEmail = expandedPinnedEmailIds.has(email.trackingId);
-                    const hasEmailBody = conversationMessages.some((message) => Boolean(message.body));
-                    const hasAttachments = conversationMessages.some((message) => (message.attachments || []).length > 0);
-
-                    return (
-                      <div
-                        key={email.trackingId}
-                        className="relative rounded-[5px] border border-solid border-[#e5e7eb] border-l-[3px] border-l-[#3f9f42] bg-[#f8fff8] p-4"
-                      >
-                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 13, color: "#666", marginBottom: 6 }}>
-                              {formatDateTimeIST(email.lastMessageDate)}
-                            </div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", wordBreak: "break-word" }}>
-                              {email.subject || latestMessage?.subject || "No subject"}
-                            </div>
-                          </div>
-                          <div style={{ position: "relative", flexShrink: 0 }}>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                const nextAnchor = pinnedEmailActionsAnchor === email.trackingId ? null : email.trackingId;
-                                setPinnedEmailActionsAnchor(nextAnchor);
-                                setPinnedEmailDeleteOptionsAnchor(null);
-                              }}
-                              style={{
-                                border: "none",
-                                background: "#ebebeb",
-                                borderRadius: "50%",
-                                width: 32,
-                                height: 32,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                              title="Email actions"
-                            >
-                              <FontAwesomeIcon icon={faEllipsisV} />
-                            </button>
-
-                            {pinnedEmailActionsAnchor === email.trackingId && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  right: 0,
-                                  top: 38,
-                                  background: "#fff",
-                                  border: "1px solid #eee",
-                                  borderRadius: 6,
-                                  boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                                  zIndex: 101,
-                                  minWidth: 150,
-                                }}
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => handlePinnedEmailUnpin(email)}
-                                  style={menuBtnStyle}
-                                  className="flex gap-2 items-center"
-                                >
-                                  <div style={menuIconStyle}>
-                                    <PinOff size={19} color="#3f9f42" strokeWidth={2.5} />
-                                  </div>
-                                  <span className="font-[600]">Unpin</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setPinnedEmailDeleteOptionsAnchor(
-                                      pinnedEmailDeleteOptionsAnchor === email.trackingId ? null : email.trackingId
-                                    );
-                                  }}
-                                  style={menuBtnStyle}
-                                  className="flex gap-2 items-center"
-                                >
-                                  <div style={menuIconStyle}>
-                                    <FontAwesomeIcon
-                                      icon={faTrashAlt}
-                                      style={{ color: "#3f9f42", fontSize: 18 }}
-                                    />
-                                  </div>
-                                  <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete</span>
-                                </button>
-
-                                {pinnedEmailDeleteOptionsAnchor === email.trackingId && (
-                                  <div
-                                    style={{
-                                      borderTop: "1px solid #e5e7eb",
-                                      background: "#fff",
-                                    }}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        handlePinnedEmailDelete(email, "soft");
-                                      }}
-                                      style={{ ...menuBtnStyle, paddingLeft: 42 }}
-                                      className="flex gap-2 items-center"
-                                    >
-                                      <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete from Inbox</span>
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        handlePinnedEmailDelete(email, "Permanent");
-                                      }}
-                                      style={{ ...menuBtnStyle, paddingLeft: 42 }}
-                                      className="flex gap-2 items-center"
-                                    >
-                                      <span className="font-[600]" style={{ color: "#3f9f42" }}>Delete permanently</span>
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                    {note && (
+                      <>
+                        <div className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-700">
+                          {noteExpanded ? noteText : getTruncatedNote(note.note || "")}
                         </div>
-
-                        {(latestMessage?.fromEmail || email.contactEmail) && (
-                          <div style={{ marginTop: 8, fontSize: 13, color: "#4b5563", wordBreak: "break-word" }}>
-                            From: {latestMessage?.fromEmail || email.contactEmail}
+                        {noteText.length > TRUNCATE_LENGTH && (
+                          <button type="button" onClick={() => toggleNoteExpand(note.id)} className="mt-2 text-sm font-semibold text-[#3f9f42]">
+                            {noteExpanded ? "Show less" : "Expand"}
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {email && (
+                      <>
+                        <div className="mt-2 break-words text-sm font-semibold">{email.subject || latestEmail?.subject || "No subject"}</div>
+                        {(latestEmail?.fromEmail || email.contactEmail) && (
+                          <div className="mt-1 break-words text-xs text-gray-600">From: {latestEmail?.fromEmail || email.contactEmail}</div>
+                        )}
+                        {latestEmail?.body && (
+                          <div className="mt-2 max-h-48 overflow-auto break-words rounded border bg-white p-3 text-sm"
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(latestEmail.body) }} />
+                        )}
+                        {renderMessageAttachments(latestEmail?.attachments)}
+                        {emailExpanded && emailMessages.slice(0, -1).map((message, index) => (
+                          <div key={message.messageId || index} className="mt-2 rounded border bg-white p-3 text-sm">
+                            <div className="max-h-48 overflow-auto break-words"
+                              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message.body || "") }} />
+                            {renderMessageAttachments(message.attachments)}
                           </div>
+                        ))}
+                        {emailMessages.length > 1 && (
+                          <button type="button" onClick={() => togglePinnedEmailExpand(email.trackingId)} className="mt-2 text-sm font-semibold text-[#3f9f42]">
+                            {emailExpanded ? "Show less" : "View conversation"}
+                          </button>
                         )}
-
-                        {(hasEmailBody || hasAttachments) && (
-                          <>
-                            {isExpandedEmail ? (
-                              <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12 }}>
-                                {conversationMessages.map((message, messageIndex) => (
-                                  <div
-                                    key={message.messageId || `${email.trackingId}-${messageIndex}`}
-                                    style={{
-                                      border: "1px solid #e5e7eb",
-                                      borderRadius: 6,
-                                      background: "#fff",
-                                      maxWidth: "100%",
-                                      overflow: "hidden",
-                                    }}
-                                  >
-                                    <div
-                                      style={{
-                                        padding: "10px 12px",
-                                        borderBottom: "1px solid #e5e7eb",
-                                        background: "#f9fafb",
-                                        color: "#374151",
-                                        fontSize: 13,
-                                      }}
-                                    >
-                                      <div style={{ fontWeight: 700, color: "#111827", wordBreak: "break-word" }}>
-                                        {message.subject || email.subject || "No subject"}
-                                      </div>
-                                      <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
-                                        {message.fromEmail && <span>From: {message.fromEmail}</span>}
-                                        {message.toEmail && <span>To: {message.toEmail}</span>}
-                                        {message.date && <span>{formatDateTimeIST(message.date)}</span>}
-                                      </div>
-                                    </div>
-                                    <div
-                                      style={{
-                                        padding: 12,
-                                        maxWidth: "100%",
-                                        overflowX: "auto",
-                                        fontSize: 14,
-                                        lineHeight: 1.5,
-                                        color: "#374151",
-                                      }}
-                                      dangerouslySetInnerHTML={{
-                                        __html: DOMPurify.sanitize(message.body || "<p>No email body available</p>"),
-                                      }}
-                                    />
-                                    <div style={{ padding: "0 12px 12px" }}>
-                                      {renderMessageAttachments(message.attachments)}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div
-                                style={{
-                                  marginTop: 12,
-                                  padding: 12,
-                                  border: "1px solid #e5e7eb",
-                                  borderRadius: 6,
-                                  background: "#fff",
-                                  maxWidth: "100%",
-                                  maxHeight: 180,
-                                  overflow: "hidden",
-                                  fontSize: 14,
-                                  lineHeight: 1.5,
-                                  color: "#374151",
-                                }}
-                                dangerouslySetInnerHTML={{
-                                  __html: DOMPurify.sanitize(latestMessage?.body || "<p>No preview available</p>"),
-                                }}
-                              />
-                            )}
-
-                            {!isExpandedEmail && renderMessageAttachments(latestMessage?.attachments)}
-
-                            {(hasEmailBody || hasAttachments) && (
-                              <button
-                                type="button"
-                                onClick={() => togglePinnedEmailExpand(email.trackingId)}
-                                style={{
-                                  marginTop: 12,
-                                  background: "none",
-                                  border: "none",
-                                  color: "#3f9f42",
-                                  cursor: "pointer",
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                  padding: 0,
-                                }}
-                              >
-                                {isExpandedEmail ? "Show less" : "View conversation"}
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                        <button type="button" onClick={() => handlePinnedEmailDelete(email, "soft")} className="ml-3 mt-2 text-sm text-red-500">
+                          Delete from Inbox
+                        </button>
+                      </>
+                    )}
+                    {linkedIn && <div className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-700">{linkedIn.body || "No message content"}</div>}
+                  </div>
+                );
+              })}
             </div>
-          )}
+          </div>
 
+          {/* Outreach opportunities / Key findings & events (from web_search_data) */}
+          {researchOpportunitiesBlock}
           {/* LinkedIn summary moved into Personal > Professional summary tab */}
 
         </div>

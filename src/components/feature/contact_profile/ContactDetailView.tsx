@@ -235,6 +235,13 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  useEffect(() => {
+    const name = [editingContact?.first_name, editingContact?.last_name]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || editingContact?.full_name?.trim() || editingContact?.email?.trim();
+    document.title = `${name || "Contact Details"} - PitchKraft`;
+  }, [editingContact?.first_name, editingContact?.last_name, editingContact?.full_name, editingContact?.email, contactId]);
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
   const [emailActionsAnchor, setEmailActionsAnchor] = useState<string | null>(null);
   const [emailToDelete, setEmailToDelete] = useState<any | null>(null);
@@ -532,6 +539,7 @@ const menuItemStyle = {
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [attachmentsHistory, setAttachmentsHistory] = useState<any[]>([]);
   const [linkedInMessages, setLinkedInMessages] = useState<any[]>([]);
+  const [pinningLinkedInId, setPinningLinkedInId] = useState<number | null>(null);
   const [isLoadingLinkedIn, setIsLoadingLinkedIn] = useState(false);
   const [expandedLinkedInIds, setExpandedLinkedInIds] = useState<string[]>([]);
 
@@ -1265,6 +1273,7 @@ const handleDeleteContact = async () => {
       blueprintId: raw.blueprintId ?? raw.BlueprintId ?? null,
       body,
       isSent: raw.isSent ?? raw.IsSent ?? false,
+      isPinned: raw.isPinned ?? raw.IsPinned ?? false,
       sentAt,
       markedFrom: raw.markedFrom ?? raw.MarkedFrom ?? null,
       generatedAt,
@@ -2622,6 +2631,30 @@ const handleDeleteContact = async () => {
     );
   };
 
+  const handleToggleLinkedInPin = async (message: any) => {
+    const messageId = Number(message.id);
+    if (!effectiveUserId || !contactId || !messageId || pinningLinkedInId !== null) return;
+    const nextPinned = !message.isPinned;
+    setPinningLinkedInId(messageId);
+    try {
+      await axios.post(`${API_BASE_URL}/api/Crm/linkedin-messages/set-pin`, {
+        clientId: Number(effectiveUserId),
+        contactId: Number(contactId),
+        messageId,
+        isPinned: nextPinned,
+      });
+      setLinkedInMessages(current => current.map(item =>
+        Number(item.id) === messageId ? { ...item, isPinned: nextPinned } : item
+      ));
+      appModal.showSuccess(nextPinned ? "LinkedIn message pinned." : "LinkedIn message unpinned.");
+    } catch (error) {
+      console.error("Failed to update LinkedIn message pin", error);
+      appModal.showError("Could not update LinkedIn message pin.");
+    } finally {
+      setPinningLinkedInId(null);
+    }
+  };
+
   const renderLinkedInTimelineItem = (message: any, index: number) => {
     const itemKey = String(message.msgUid || message.id || index);
     const isExpanded = expandedLinkedInIds.includes(itemKey);
@@ -2674,16 +2707,19 @@ const handleDeleteContact = async () => {
               </div>
             )}
 
-            <div
-              style={{
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <Linkedin size={16} color="#0a66c2" />
-              {linkedInMessageTitle(message)}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                <Linkedin size={16} color="#0a66c2" />
+                {linkedInMessageTitle(message)}
+              </div>
+              <button type="button" onClick={() => void handleToggleLinkedInPin(message)}
+                disabled={pinningLinkedInId !== null}
+                title={message.isPinned ? "Unpin LinkedIn message" : "Pin LinkedIn message"}
+                aria-label={message.isPinned ? "Unpin LinkedIn message" : "Pin LinkedIn message"}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, border: 0, background: "transparent", color: "#3f9f42", cursor: "pointer" }}>
+                {message.isPinned ? <PinOff size={17} /> : <Pin size={17} />}
+                {message.isPinned ? "Unpin" : "Pin"}
+              </button>
             </div>
             <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
               {formatDateTimeIST(message.sentAt || message.generatedAt)}
@@ -5006,6 +5042,8 @@ dispatch(closePanel());
                       .join(" ")
                       .trim() || editingContact.full_name
                   }
+                  jobTitle={editingContact.job_title}
+                  companyName={editingContact.company_name}
                   linkedInInformation={editingContact.linkedIninformation}
                   onShowMessage={(msg, type) =>
                     type === "success" ? appModal.showSuccess(msg) : appModal.showError(msg)
@@ -5134,24 +5172,22 @@ dispatch(closePanel());
                     Add attachment
                   </button>
 
-                  {/* Compose — only on the Emails tab */}
-                  {activeTab === "emails" && (
-                    <button
-                      type="button"
-                      className="contact-compose-trigger"
-                      onClick={() => setIsComposePopupOpen(true)}
-                      style={{
-                        ...defaultButtonStyle,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 7,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faPen} />
-                      Compose
-                    </button>
-                  )}
+                  {/* Compose is available from every contact tab. */}
+                  <button
+                    type="button"
+                    className="contact-compose-trigger"
+                    onClick={() => setIsComposePopupOpen(true)}
+                    style={{
+                      ...defaultButtonStyle,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 7,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faPen} />
+                    Compose
+                  </button>
 
                   {/* Campaign-driven web-search insights generation */}
                   <div
@@ -5370,6 +5406,8 @@ dispatch(closePanel());
                           : appModal.showError(msg);
                       }}
                       notesHistory={notesHistory} 
+                      linkedInMessages={linkedInMessages}
+                      onToggleLinkedInPin={handleToggleLinkedInPin}
                       onEditNote={handleEditNote}
                       onDeleteNote={handleDeleteNote}
                       onTogglePin={handleTogglePin}
