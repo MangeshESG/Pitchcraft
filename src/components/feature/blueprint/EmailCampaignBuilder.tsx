@@ -2458,6 +2458,45 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     return (div.textContent || "").replace(/\s+/g, " ").trim();
   };
 
+  // A signature is not an instruction. Every other rich-text element tells the
+  // model what to write, so cleanRichHtml below keeps only the emphasis that
+  // changes the meaning of a sentence. The signature is the one element that
+  // is reproduced in the mail as it stands, so its colours, sizes, alignment,
+  // logo and link styling are the content - sanitising them away is what left
+  // saved signatures as a flat run of text.
+  //
+  // Everything an attacker could use still goes: DOMPurify drops any tag or
+  // attribute not listed, so there is no script, iframe, form, object or
+  // on* handler, and javascript: URLs are refused by its own URI check.
+  const SIGNATURE_ALLOWED_TAGS = [
+    "b", "strong", "i", "em", "u", "s", "strike", "br", "hr",
+    "p", "div", "span", "font", "small", "sub", "sup",
+    "ul", "ol", "li", "blockquote",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "a", "img",
+    "table", "thead", "tbody", "tfoot", "tr", "td", "th",
+  ];
+
+  const SIGNATURE_ALLOWED_ATTR = [
+    "href", "target", "rel", "src", "alt", "title",
+    "style", "align", "valign", "width", "height",
+    "color", "face", "size", "border", "cellpadding", "cellspacing", "colspan", "rowspan",
+  ];
+
+  const cleanSignatureHtml = (html: string) =>
+    DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: SIGNATURE_ALLOWED_TAGS,
+      ALLOWED_ATTR: SIGNATURE_ALLOWED_ATTR,
+      ALLOW_DATA_ATTR: false,
+      KEEP_CONTENT: true,
+    });
+
+  // True for the signature element whatever the blueprint's author named its
+  // key - "signature", "email_signature" and "signature_block" are all in use.
+  // Must match PlaceholderEngine.IsSignatureKey on the API, which decides the
+  // same thing again when it builds the generation prompt.
+  const isSignatureKey = (key: string) => /signature/i.test(key);
+
   const cleanRichHtml = (html: string) => {
     return DOMPurify.sanitize(html, {
       // 🚫 DO NOT use USE_PROFILES here
@@ -2508,9 +2547,11 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
         meta?.inputType === "richtext" ||
         /signature|body|testimony|html/i.test(key);
 
-      cleaned[key] = isRich
-        ? cleanRichHtml(raw)
-        : stripToText(raw);
+      cleaned[key] = isSignatureKey(key)
+        ? cleanSignatureHtml(raw)
+        : isRich
+          ? cleanRichHtml(raw)
+          : stripToText(raw);
     });
 
     return cleaned;

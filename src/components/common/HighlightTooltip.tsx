@@ -47,17 +47,31 @@ const TITLE_KEYED = /^([A-Za-z][A-Za-z /&'-]{0,40}):\s*([\s\S]*)$/;
 const emptyGroup = (): TipGroup => ({ label: "", role: "", urls: [], lines: [] });
 
 /**
+ * A citation that says no more than "this came off the web". Under a card
+ * already headed "Internet Search" it is a second word for the heading rather
+ * than the part that says *which* source the wording came from.
+ */
+const SAYS_WEB_SEARCH = /^(internet|online|web)\b|\bweb[- ]?search|\bsearched data\b/i;
+
+/**
  * Drops the owner from a citation's source: "Notes — Note 1" becomes
  * "Note 1". The card is already headed with the owner and coloured by it, so
  * repeating it on every citation only pushed the part that says *which* note
  * or message this was towards the end of the line.
+ *
+ * A citation left saying no more than the heading does is dropped with it.
  */
 const stripOwner = (source: string, title: string): string => {
   const parts = source.split(/\s+[—–-]\s+/);
-  if (parts.length > 1) return parts.slice(1).join(" — ").trim();
+  const bare = (parts.length > 1 ? parts.slice(1).join(" — ") : source).trim();
+  const heading = title.trim();
 
-  const bare = source.trim();
-  return bare.toLowerCase() === title.trim().toLowerCase() ? "" : bare;
+  if (bare.toLowerCase() === heading.toLowerCase()) return "";
+  // Only against a heading that already names the search — elsewhere the
+  // citation is the only line saying where the wording came from.
+  if (SAYS_WEB_SEARCH.test(bare) && SAYS_WEB_SEARCH.test(heading)) return "";
+
+  return bare;
 };
 
 /**

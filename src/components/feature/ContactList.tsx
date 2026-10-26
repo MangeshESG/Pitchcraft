@@ -1475,10 +1475,18 @@ const formatTimeIST = formatUserTime;
       }
 
       if (detailSort.key) url += `&sortBy=${encodeURIComponent(detailSort.key)}&sortDirection=${detailSort.direction}`;
-      if (filtersJsonOverride) {
-        url += `&filtersJson=${encodeURIComponent(filtersJsonOverride)}`;
-      }
-      const response = await fetch(url);
+
+      // The filter goes in the body, not the URL: the live server's firewall
+      // rejects a query string carrying JSON outright (403 before the request
+      // ever reaches the API). The endpoints answer the same POST, and a saved
+      // view posts the same payload to view-contacts.
+      const response = filtersJsonOverride
+        ? await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filtersJson: filtersJsonOverride }),
+          })
+        : await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch contacts");
 
       const data = await response.json();
