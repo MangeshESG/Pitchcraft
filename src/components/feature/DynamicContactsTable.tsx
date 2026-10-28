@@ -73,6 +73,22 @@ interface DynamicContactsTableProps {
   excludeFields?: string[];
   includeFields?: string[];
   customFormatters?: { [key: string]: (value: any, item: any) => React.ReactNode | string };
+  /**
+   * Keys whose cell is a bare icon — a globe for the website, the LinkedIn
+   * mark for a profile. Their headers shrink to the initials of the column
+   * name ("LinkedIn URL" becomes "LU") with the full name on hover, so a
+   * column one icon wide stops reserving the width of its own title.
+   *
+   * Hyperlink custom attributes are included automatically; this is for the
+   * fixed columns a grid formats itself.
+   */
+  iconColumns?: string[];
+  /**
+   * Keys that are icon columns only while "Show details" is off — the
+   * validation scores, whose cells are a bare number and an info dot until the
+   * switch expands them into readable text.
+   */
+  compactIconColumns?: string[];
   searchFields?: string[];
   primaryKey?: string;
 
@@ -185,6 +201,20 @@ const initialsFor = (row: any): string => {
   const full = (row.full_name || row.fullName || row.email || "").trim();
   return full.slice(0, 2).toUpperCase() || "?";
 };
+/**
+ * "Website" -> "W", "LinkedIn URL" -> "LU". Only for icon columns, where the
+ * written-out heading is the widest thing in the column by far.
+ */
+const abbreviateLabel = (label: string): string => {
+  const initials = label
+    .split(/[\s/_-]+/)
+    .filter(Boolean)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+  return initials || label;
+};
+
 const paletteFor = (id: any): [string, string] => {
   const n = Number(id) || 0;
   return AVATAR_PALETTE[Math.abs(n) % AVATAR_PALETTE.length];
@@ -241,6 +271,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   excludeFields = [],
   includeFields = [],
   customFormatters = {},
+  iconColumns,
+  compactIconColumns,
   searchFields = [],
   primaryKey = "id",
   viewMode = "table",
@@ -299,6 +331,23 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
    * hover. Off by default, and reset per tab like the column panel.
    */
   const [showDetails, setShowDetails] = useState(false);
+
+  /**
+   * Every column whose heading may be shortened to initials. A hyperlink
+   * attribute is always drawn as a link icon, so it joins whatever the grid
+   * declared; the compact set drops out as soon as details are switched on and
+   * those cells start carrying text.
+   */
+  const iconColumnsKey = (iconColumns || []).join("|");
+  const compactIconColumnsKey = (compactIconColumns || []).join("|");
+  const iconColumnKeys = useMemo(() => {
+    const keys = new Set<string>(hyperlinkAttributeKeys);
+    const add = (list: string) =>
+      list.split("|").filter(Boolean).forEach((key) => keys.add(normalizeAttributeKey(key)));
+    add(iconColumnsKey);
+    if (!showDetails) add(compactIconColumnsKey);
+    return keys;
+  }, [hyperlinkAttributeKeys, iconColumnsKey, compactIconColumnsKey, showDetails]);
   const [pageSize, setPageSize]         = useState<PageSize>(pageSizeProp);
   const [localSortConfig, setSortConfig]     = useState<SortConfig>({ key: null, direction: "asc" });
   const isInitializedRef                = useRef(false);
@@ -644,6 +693,75 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     : sortedData.slice((currentPage - 1) * (pageSize as number), currentPage * (pageSize as number));
 
   const visibleColumns = columns.filter((c) => c.visible);
+
+  // ---------- Twin horizontal scrollbars ----------
+  // A wide column set is otherwise only scrollable from the bottom of the
+  // grid, which on a full page of rows is off screen. The strip above the
+  // header scrolls the same box, and is left out entirely when the table fits.
+  const topScrollRef  = useRef<HTMLDivElement | null>(null);
+  const bodyScrollRef = useRef<HTMLDivElement | null>(null);
+  const tableRef      = useRef<HTMLTableElement | null>(null);
+  const scrollSourceRef = useRef<"top" | "body" | null>(null);
+  const [topScrollWidth, setTopScrollWidth] = useState(0);
+  /**
+   * Icon headings are only worth shortening when the grid has run out of room.
+   * With columns to spare the full name reads better, so it stays.
+   */
+  const [abbreviateIcons, setAbbreviateIcons] = useState(false);
+
+  useEffect(() => {
+    const body = bodyScrollRef.current;
+    const table = tableRef.current;
+    if (!body || !table) { setTopScrollWidth(0); return; }
+
+    const measure = () => {
+      /**
+       * Whether to shorten the icon headings is decided from the width the
+       * grid wants with every heading written out — never from the width it
+       * has while already shortened. Measuring the shortened grid would find
+       * that it now fits, write the headings back out, overflow again, and
+       * flip between the two on every frame.
+       */
+      const previousWidth = table.style.width;
+      table.classList.add("dt-table--measuring");
+      table.style.width = "max-content";
+      const naturalWidth = table.offsetWidth;
+      table.style.width = previousWidth;
+      table.classList.remove("dt-table--measuring");
+
+      // The extra pixel keeps sub-pixel table widths from flickering either in.
+      setAbbreviateIcons(naturalWidth > body.clientWidth + 1);
+
+      const width = table.scrollWidth;
+      setTopScrollWidth(width > body.clientWidth + 1 ? width : 0);
+    };
+    measure();
+
+    if (typeof ResizeObserver === "undefined") return;
+    // Only the scroll box is watched: measuring resizes the table itself, and
+    // an observer on it would report that as a change and loop.
+    const observer = new ResizeObserver(measure);
+    observer.observe(body);
+    return () => observer.disconnect();
+    // abbreviateIcons is a dependency so the bar's width is re-read once the
+    // headings have actually changed length.
+  }, [visibleColumns.length, displayData.length, showDetails, viewMode, isLoading, abbreviateIcons]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Each bar drives the other. The source flag stops the mirrored scroll from
+   * echoing back and fighting a drag mid-flight.
+   */
+  const syncScroll = (source: "top" | "body") => () => {
+    const from = source === "top" ? topScrollRef.current : bodyScrollRef.current;
+    const to   = source === "top" ? bodyScrollRef.current : topScrollRef.current;
+    if (!from || !to) return;
+    if (scrollSourceRef.current && scrollSourceRef.current !== source) {
+      scrollSourceRef.current = null;
+      return;
+    }
+    scrollSourceRef.current = source;
+    to.scrollLeft = from.scrollLeft;
+  };
   const columnSearchTerm = columnSearch.trim().toLocaleLowerCase();
   const panelColumns = [
     ...columns.filter((c) => c.key !== "checkbox" && c.visible),
@@ -1001,8 +1119,25 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
       {/* Table card */}
       <div className="dt-card">
-        <div className="dt-scroll">
-          <table className={`dt-table${showDetails ? " dt-table--details" : ""}`}>
+        {topScrollWidth > 0 && (
+          <div
+            className="dt-scroll-top"
+            ref={(node) => {
+              topScrollRef.current = node;
+              // The bar appears mid-session; start it where the grid already is.
+              if (node && bodyScrollRef.current) node.scrollLeft = bodyScrollRef.current.scrollLeft;
+            }}
+            onScroll={syncScroll("top")}
+            aria-hidden="true"
+          >
+            <div className="dt-scroll-top__spacer" style={{ width: topScrollWidth }} />
+          </div>
+        )}
+        <div className="dt-scroll" ref={bodyScrollRef} onScroll={syncScroll("body")}>
+          <table
+            ref={tableRef}
+            className={`dt-table${showDetails ? " dt-table--details" : ""}${abbreviateIcons ? " dt-table--abbr" : ""}`}
+          >
             <thead>
               <tr>
                 {leadingColumn && !showCheckboxes && leadingHeaderCell}
@@ -1010,6 +1145,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                 {visibleColumns.map((column) => {
                   const isSorted = sortConfig.key === column.key;
                   const sortable = column.key !== "checkbox" && column.sortable !== false;
+                  const fullLabel = columnNameMap?.[column.key] || column.label;
+                  const isIconColumn = iconColumnKeys.has(normalizeAttributeKey(column.key));
                   const headerCell = (
                     <th
                       key={column.key}
@@ -1027,7 +1164,14 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                         />
                       ) : (
                         <span className="dt-th-label">
-                          {columnNameMap?.[column.key] || column.label}
+                          {isIconColumn ? (
+                            <abbr className="dt-th-abbr" title={fullLabel}>
+                              <span className="dt-th-abbr__short">{abbreviateLabel(fullLabel)}</span>
+                              <span className="dt-th-abbr__full">{fullLabel}</span>
+                            </abbr>
+                          ) : (
+                            fullLabel
+                          )}
                           {sortable && (
                             <svg viewBox="0 0 24 24" className={`dt-sort-icon${isSorted ? " is-active" : ""}`}>
                               {isSorted && sortConfig.direction === "asc" ? (

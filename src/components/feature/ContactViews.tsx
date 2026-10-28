@@ -2547,6 +2547,8 @@ const handleDeleteContacts = () => {
               currentTab={currentTab}
               persistedColumnLayout={persistedColumnLayout}
               defaultVisibleColumns={defaultVisibleColumns}
+              iconColumns={["website", "linkedin_url"]}
+              compactIconColumns={Object.values(VALIDATION_SCORE_KEYS)}
               customFormatters={{
                 ...validationFormatters,
                 /**

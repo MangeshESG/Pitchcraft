@@ -94,6 +94,28 @@ const DEFAULT_VISIBLE_COLUMNS = [
   'companyIndustry',
 ];
 
+/**
+ * Columns whose cell is only an icon — a globe, the LinkedIn mark, a tick or a
+ * cross. When the grid runs out of room their headings drop to initials, so a
+ * column one icon wide stops reserving the width of its own title; the full
+ * name stays on hover.
+ *
+ * "Notes" is left out on purpose: its heading is already as short as its
+ * initial would be.
+ */
+const ICON_COLUMNS = [
+  'website',
+  'linkedin_url',
+  'hasLinkedInInfo',
+  'hasWebSearchData',
+];
+
+/**
+ * The validation scores read as icon columns too — a number and an info dot —
+ * but only until "Show details" spells the result out in the cell.
+ */
+const COMPACT_ICON_COLUMNS = Object.values(VALIDATION_SCORE_KEYS);
+
 const menuBtnStyle = {
   width: "100%",
   padding: "8px 18px",
@@ -2500,6 +2522,8 @@ const filterFields: any = useMemo(() => {
                   onResetColumns={listColumnPreferences.resetLayout}
                   persistedColumnLayout={listColumnPreferences.layout}
                   defaultVisibleColumns={defaultVisibleColumns}
+                  iconColumns={ICON_COLUMNS}
+                  compactIconColumns={COMPACT_ICON_COLUMNS}
                   customFormatters={{
                     ...validationFormatters,
                     /**
@@ -3600,6 +3624,8 @@ const filterFields: any = useMemo(() => {
                   onResetColumns={segmentColumnPreferences.resetLayout}
                   persistedColumnLayout={segmentColumnPreferences.layout}
                   defaultVisibleColumns={defaultVisibleColumns}
+                  iconColumns={ICON_COLUMNS}
+                  compactIconColumns={COMPACT_ICON_COLUMNS}
                   customFormatters={{
                     ...validationFormatters,
                     /**

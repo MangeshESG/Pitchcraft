@@ -3550,6 +3550,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                 ? missingLogsColumns
                 : emailColumns
             }
+            iconColumns={["website", "linkedin_url", "linkedIn"]}
             customFormatters={{
               // Date formatting
               timestamp: (value: any) => formatMailTimestamp(value),

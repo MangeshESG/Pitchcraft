@@ -260,6 +260,29 @@
   scrollbar-width: thin;
 }
 
+/* Twin of the grid's own scrollbar, sitting above the header row. */
+.dt-scroll-top {
+  /* The strip holds nothing but the scrollbar, so it has to be given the
+     height the scrollbar needs — an auto height collapses onto the spacer. */
+  height: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  border-bottom: 1px solid var(--dt-line);
+  background: var(--dt-bg);
+}
+.dt-scroll-top__spacer { height: 1px; }
+
+/* Chrome hides an empty scrollbar track unless it is given a height. */
+.dt-scroll-top::-webkit-scrollbar { height: 10px; }
+.dt-scroll-top::-webkit-scrollbar-track { background: transparent; }
+.dt-scroll-top::-webkit-scrollbar-thumb {
+  background: #cdd2da;
+  border-radius: 999px;
+  border: 2px solid var(--dt-bg);
+}
+.dt-scroll-top::-webkit-scrollbar-thumb:hover { background: #b4bac4; }
+
 .dt-table {
   width: 100%;
   min-width: 100%;
@@ -286,6 +309,19 @@
 .dt-th-label {
   display: inline-flex; align-items: center; gap: 6px;
 }
+/* Icon columns carry their name in the tooltip when shown as initials. */
+.dt-th-abbr {
+  text-decoration: none;
+  cursor: inherit;
+  letter-spacing: 0.05em;
+}
+/* Both forms are in the markup; the grid's width decides which one shows. */
+.dt-th-abbr__short { display: none; }
+.dt-table--abbr .dt-th-abbr__short { display: inline; }
+.dt-table--abbr .dt-th-abbr__full { display: none; }
+/* Must stay last: the measuring pass lays every heading out written out. */
+.dt-table--measuring .dt-th-abbr__short { display: none; }
+.dt-table--measuring .dt-th-abbr__full { display: inline; }
 .dt-sort-icon { width: 11px; height: 11px; color: #cdd2da; flex-shrink: 0; }
 .dt-sort-icon.is-active { color: var(--dt-brand); }
 
