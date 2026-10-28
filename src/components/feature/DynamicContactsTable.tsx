@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import PaginationControls from "./PaginationControls";
 import CommonSidePanel from "../common/CommonSidePanel";
 import ValidateContactsButton, { ValidationRunProgress } from "./validation/ValidateContactsButton";
-import { GridDetailModeProvider } from "../common/GridDetailMode";
+import { GridDetailModeProvider, type GridDetailMode } from "../common/GridDetailMode";
 import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import type { ColumnPreference } from "../../api/columnPreferences";
 import "./DynamicContactsTable.css";
@@ -178,6 +178,41 @@ const formatStoredDate = (value: string): string | null => {
   return `${day}, ${userDates.formatUserClock(Number(m[4]), Number(m[5]))}`;
 };
 
+/**
+ * How much of a cell's text is shown before the rest moves into its tooltip.
+ * Long free text — notes, addresses, a pasted comment — otherwise sets the
+ * width of its whole column and pushes everything else off screen.
+ */
+const MAX_CELL_CHARS = 50;
+
+const clampText = (text: string): React.ReactNode => {
+  if (text.length <= MAX_CELL_CHARS) return text;
+  return <span title={text}>{text.slice(0, MAX_CELL_CHARS).trimEnd()}…</span>;
+};
+
+/**
+ * Clamps whatever a formatter returned. Plain text is clamped outright; an
+ * element — a link, a styled name — is clamped through its own text, keeping
+ * the element's behaviour and any tooltip it set for itself.
+ *
+ * Only the element's immediate text is reached. A formatter that builds a
+ * nested tree is left alone rather than rebuilt blind.
+ */
+const clampNode = (node: React.ReactNode): React.ReactNode => {
+  if (typeof node === "string") return clampText(node);
+  if (!React.isValidElement(node)) return node;
+
+  const text = (node.props as { children?: React.ReactNode }).children;
+  if (typeof text !== "string" || text.length <= MAX_CELL_CHARS) return node;
+
+  const hasOwnTooltip = Boolean((node.props as { title?: string }).title);
+  return React.cloneElement(
+    node,
+    hasOwnTooltip ? {} : ({ title: text } as any),
+    text.slice(0, MAX_CELL_CHARS).trimEnd() + "…",
+  );
+};
+
 const getSafeRenderableValue = (value: any): string => {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "object") {
@@ -327,10 +362,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [columnSearch, setColumnSearch] = useState("");
   /**
-   * Expands every cell's detail into the column instead of leaving it on
+   * Which cells write their detail into the column instead of leaving it on
    * hover. Off by default, and reset per tab like the column panel.
    */
-  const [showDetails, setShowDetails] = useState(false);
+  const [detailMode, setDetailMode] = useState<GridDetailMode>("off");
+  const showDetails = detailMode !== "off";
 
   /**
    * Every column whose heading may be shortened to initials. A hyperlink
@@ -594,7 +630,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     setColumns((prev) => (prev.length > 0 ? applyLayout(prev, persistedColumnLayout) : prev));
   }, [persistedColumnLayout]); // eslint-disable-line
 
-  useEffect(() => { setShowColumnPanel(false); setShowDetails(false); }, [currentTab]);
+  useEffect(() => { setShowColumnPanel(false); setDetailMode("off"); }, [currentTab]);
 
   // ---------- Search ----------
   const filteredData = useMemo(() => {
@@ -861,10 +897,10 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         </a>
       );
     }
-    if (customFormatters[column.key]) return customFormatters[column.key](rawValue, item);
-    if (column.formatter) return column.formatter(rawValue, item);
+    if (customFormatters[column.key]) return clampNode(customFormatters[column.key](rawValue, item));
+    if (column.formatter) return clampNode(column.formatter(rawValue, item));
     const v = getSafeRenderableValue(rawValue);
-    return v === "—" ? <span className="dt-muted">—</span> : v;
+    return v === "—" ? <span className="dt-muted">—</span> : clampText(v);
   };
 
   // Avatar name cell (used only when no customFormatter overrides the column)
@@ -956,7 +992,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
   // ---------- Render ----------
   return (
-    <GridDetailModeProvider value={showDetails}>
+    <GridDetailModeProvider value={detailMode}>
       {/* Detail view header */}
       {viewMode === "detail" && (
         <div className="dt-detail-header">
@@ -1061,24 +1097,24 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                     }
                   />
                 )}
-                {/* Inline-detail switch */}
+                {/* Inline-detail picker */}
                 {showDetailToggle && (
-                  <button
-                    type="button"
-                    className={`dt-btn-tertiary dt-detail-toggle${showDetails ? " is-on" : ""}`}
-                    onClick={() => setShowDetails((on) => !on)}
-                    aria-pressed={showDetails}
-                    title={
-                      showDetails
-                        ? "Hide the comments, sources and corrections again — they stay available on hover."
-                        : "Show each score's comments, sources and suggested corrections in the column instead of on hover."
-                    }
+                  <label
+                    className={`dt-btn-tertiary dt-detail-select${showDetails ? " is-on" : ""}`}
+                    title="Write each score's comments, sources and suggested corrections into the column instead of leaving them on hover."
                   >
-                    <span className="dt-switch" aria-hidden="true">
-                      <span className="dt-switch__knob" />
-                    </span>
                     Details
-                  </button>
+                    <select
+                      value={detailMode}
+                      onChange={(e) => setDetailMode(e.target.value as GridDetailMode)}
+                      aria-label="Which scores show their detail in the column"
+                    >
+                      <option value="off">Off</option>
+                      <option value="all">All</option>
+                      <option value="updated">Updated</option>
+                      <option value="incomplete">Not 100%</option>
+                    </select>
+                  </label>
                 )}
               </div>
             )}

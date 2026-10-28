@@ -17,7 +17,7 @@ import {
   type ValidationSuggestion,
 } from "../../../api/contactValidation";
 import { formatUserDate } from "../../common/dateTimePreferences";
-import { useGridDetailMode } from "../../common/GridDetailMode";
+import { useGridDetailOn } from "../../common/GridDetailMode";
 
 /**
  * The Audience Assurance columns, shared by every contact grid.
@@ -181,7 +181,7 @@ const checkedAtCell = (value: any) => formatUserDate(parseApiDate(value));
  * cell would run a paragraph off the side of the table.
  */
 const CellStack: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const expanded = useGridDetailMode();
+  const expanded = useGridDetailOn();
 
   return (
     <span
@@ -201,7 +201,7 @@ const CellStack: React.FC<{ children: React.ReactNode }> = ({ children }) => {
  * chips, one under another once each carries its own comments.
  */
 const ChipStack: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const expanded = useGridDetailMode();
+  const expanded = useGridDetailOn();
 
   return (
     <div

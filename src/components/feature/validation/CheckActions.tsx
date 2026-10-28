@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import SuggestionList from "./SuggestionList";
 import type { ValidationSuggestion } from "../../../api/contactValidation";
-import { useGridDetailMode } from "../../common/GridDetailMode";
+import { useGridDetailOn } from "../../common/GridDetailMode";
 
 interface CheckActionsProps {
   /** The check this panel belongs to, e.g. "Live contact". */
@@ -58,7 +58,7 @@ const CheckActions: React.FC<CheckActionsProps> = ({
    * written into the column instead of hiding behind the icon — the icon is
    * for scanning a long list, this is for working through one.
    */
-  const expanded = useGridDetailMode();
+  const expanded = useGridDetailOn();
   const [isOpen, setIsOpen] = useState(false);
   /**
    * Where the panel is pinned, as one vertical edge and a left.

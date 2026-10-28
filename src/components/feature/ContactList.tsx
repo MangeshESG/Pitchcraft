@@ -56,6 +56,7 @@ import { closePanel, openPanel } from "../../slices/panelSlice";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../styles/buttonStyles";
 import useColumnPreferences from "../../hooks/useColumnPreferences";
 import ValidationRunPanel from "./validation/ValidationRunPanel";
+import ValidateContactsButton from "./validation/ValidateContactsButton";
 import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
@@ -2967,6 +2968,12 @@ const filterFields: any = useMemo(() => {
                                 style={{ fontSize: 20, color: "#3f9f42" }}
                               />
                             </button>
+                            <ValidateContactsButton
+                              variant="icon"
+                              title="Validation checks"
+                              progress={validationProgress}
+                              onClick={() => dispatch(openPanel("validate-contacts-panel"))}
+                            />
                           </div>
                         </div>
                       )}
@@ -4045,6 +4052,12 @@ const filterFields: any = useMemo(() => {
                               style={{ fontSize: 20, color: "#3f9f42" }}
                             />
                           </button>
+                          <ValidateContactsButton
+                            variant="icon"
+                            title="Validation checks"
+                            progress={validationProgress}
+                            onClick={() => dispatch(openPanel("validate-contacts-panel"))}
+                          />
                         </div>
                       </div>
                       )}

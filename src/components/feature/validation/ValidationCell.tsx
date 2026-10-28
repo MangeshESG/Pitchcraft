@@ -119,12 +119,14 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
   hasPendingSuggestion = false,
 }) => {
   /**
-   * The grid's "Details" switch. On, the comments, the evidence and the
-   * override note are written into the column underneath the chip instead of
-   * waiting behind a hover — which is what makes a column of scores readable
-   * when the user is working through them rather than scanning past them.
+   * The grid's "Details" setting. In a detail mode the comments, the evidence
+   * and the override note are written into the column underneath the chip
+   * instead of waiting behind a hover — which is what makes a column of
+   * scores readable when the user is working through them rather than
+   * scanning past them. Whether this particular cell is one of the expanded
+   * ones is settled below, once its score is known.
    */
-  const expanded = useGridDetailMode();
+  const detailMode = useGridDetailMode();
   const [isOpen, setIsOpen] = useState(false);
   const [anchor, setAnchor] =
     useState<{ top?: number; bottom?: number; left: number; maxHeight: number } | null>(null);
@@ -201,6 +203,16 @@ const ValidationCell: React.FC<ValidationCellProps> = ({
     showLinkedInHint ||
     isOverridden ||
     isManual;
+
+  /**
+   * Whether this cell is one the chosen detail mode opens. The others fall
+   * back to the collapsed chip, detail and all still a hover away — so a
+   * filter narrows what is written out, it never hides anything.
+   */
+  const expanded =
+    detailMode === "all" ||
+    (detailMode === "updated" && (isManual || isOverridden)) ||
+    (detailMode === "incomplete" && score < 100);
 
   const positionAndOpen = () => {
     const rect = buttonRef.current?.getBoundingClientRect();

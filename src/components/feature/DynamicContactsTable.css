@@ -130,11 +130,12 @@
 }
 .dt-action-group > .dt-btn-tertiary:hover { background: var(--dt-bg-2); }
 .dt-action-group > .dt-btn-tertiary[aria-disabled="true"]:hover { background: transparent; }
-/* Inside the group the frame carries the outline, so the on-state is the switch alone. */
-.dt-action-group > .dt-detail-toggle.is-on {
+/* Inside the group the frame carries the outline, so the on-state is the
+   chosen mode showing in the picker rather than a second border. */
+.dt-action-group > .dt-detail-select.is-on {
   background: transparent; border-color: #e5e7eb; color: var(--dt-ink-soft);
 }
-.dt-action-group > .dt-detail-toggle.is-on:hover { background: var(--dt-bg-2); }
+.dt-action-group > .dt-detail-select.is-on:hover { background: var(--dt-bg-2); }
 
 /* The validation button becomes its own progress bar while a run is in flight. */
 .dt-validate-btn.is-running { cursor: pointer; min-width: 168px; }
@@ -161,24 +162,27 @@
 }
 @keyframes dt-spin { to { transform: rotate(360deg); } }
 
-/* Inline-detail switch (sits beside the Columns button) */
-.dt-detail-toggle.is-on {
+/* Inline-detail picker (sits beside the Columns button) */
+.dt-detail-select {
+  gap: 8px;
+  cursor: pointer;
+}
+.dt-detail-select.is-on {
   border-color: var(--dt-brand);
   background: var(--dt-brand-50);
   color: var(--dt-brand-d);
 }
-.dt-switch {
-  width: 28px; height: 16px; border-radius: 999px;
-  background: #cdd2da; position: relative; flex-shrink: 0;
-  transition: background 0.15s;
+/* The frame is the button's; the select is only the value and its caret. */
+.dt-detail-select select {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px 0 0;
+  outline: none;
 }
-.dt-detail-toggle.is-on .dt-switch { background: var(--dt-brand); }
-.dt-switch__knob {
-  position: absolute; top: 2px; left: 2px;
-  width: 12px; height: 12px; border-radius: 50%;
-  background: #fff; transition: transform 0.15s;
-}
-.dt-detail-toggle.is-on .dt-switch__knob { transform: translateX(12px); }
+.dt-detail-select select:focus-visible { outline: 2px solid var(--dt-brand); outline-offset: 2px; }
 
 /* ============ TOOLBAR ============ */
 .dt-toolbar {

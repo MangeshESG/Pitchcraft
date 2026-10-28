@@ -35,6 +35,9 @@ interface OnboardingStep {
   body: string;
   cta: string;
   ctaPath?: string;
+  /** CTA shown instead of `cta` once the step is complete. */
+  doneCta?: string;
+  doneCtaPath?: string;
   illustration?: string;
   videoSrc?: string;
   tipsUrl?: string;
@@ -121,6 +124,8 @@ const buildSteps = (
       body: "Add your contacts. Import from a spreadsheet, and the columns will be mapped automatically. You can also add them individually. You'll need contacts to send your beautifully personalized emails to.",
       cta: "Import contacts",
       ctaPath: "/main?tab=DataCampaigns&subtab=List",
+      doneCta: "View contacts",
+      doneCtaPath: "/main?tab=DataCampaigns&subtab=List&dataFileId=-1",
       illustration: ImportContact,
       videoSrc: "https://www.youtube.com/embed/tO7r20HDjUo",
       tipsUrl: "https://www.pitchkraft.ai/contacts",
@@ -268,6 +273,9 @@ const StepDetail: React.FC<{
   step: OnboardingStep;
 }> = ({ step }) => {
   const navigate = useNavigate();
+  const isDone = step.status === "done";
+  const ctaLabel = isDone && step.doneCta ? step.doneCta : step.cta;
+  const ctaPath = isDone && step.doneCta ? step.doneCtaPath : step.ctaPath;
   return (
     <div className="h-full rounded-2xl border border-gray-200 bg-white p-7 flex items-center gap-6 relative overflow-hidden max-lg:flex-col max-lg:items-stretch max-sm:p-4 max-sm:gap-5">
       <div aria-hidden className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-[#f1f8f2]" />
@@ -287,17 +295,17 @@ const StepDetail: React.FC<{
         <div className="flex items-center gap-4 mt-6 max-sm:flex-wrap max-sm:gap-y-3">
           <button
             type="button"
-            onClick={() => step.ctaPath && navigate(step.ctaPath)}
-            disabled={!step.ctaPath}
+            onClick={() => ctaPath && navigate(ctaPath)}
+            disabled={!ctaPath}
             className={`h-11 px-5 rounded-lg text-[15px] font-semibold border transition
-              ${step.ctaPath ? "hover:bg-[var(--btn-default-bg-hover)]" : "opacity-60 cursor-not-allowed"}`}
+              ${ctaPath ? "hover:bg-[var(--btn-default-bg-hover)]" : "opacity-60 cursor-not-allowed"}`}
             style={{
               background: "var(--btn-default-bg)",
               color: "var(--btn-default-fg)",
               borderColor: "var(--btn-default-border)",
             }}
           >
-            {step.cta}
+            {ctaLabel}
           </button>
           {step.videoSrc && (
             <a

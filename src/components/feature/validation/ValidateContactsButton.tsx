@@ -20,17 +20,73 @@ export interface ValidationRunProgress {
  * can be closed and the grid used meanwhile, so without this the run would
  * disappear from the screen entirely until it finished.
  */
+/** Shield with a tick. */
+const ShieldTickIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.9 7.5 10 4.3-1.1 7.5-5.4 7.5-10v-6L12 2.5Z"
+      stroke="#3f9f42"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+    />
+    <path
+      d="m8.75 11.75 2.3 2.3 4.2-4.6"
+      stroke="#3f9f42"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const ValidateContactsButton: React.FC<{
   onClick: () => void;
   title?: string;
   disabled?: boolean;
   progress?: ValidationRunProgress | null;
-}> = ({ onClick, title = "Validate contacts", disabled = false, progress = null }) => {
+  /**
+   * "toolbar" is the grid's own labelled button. "icon" is the square the
+   * bulk-action bar uses, where every action is an icon and a tooltip.
+   */
+  variant?: "toolbar" | "icon";
+}> = ({ onClick, title = "Validate contacts", disabled = false, progress = null, variant = "toolbar" }) => {
   const isRunning = !!progress && !progress.isFinished;
   const percent =
     progress && progress.total > 0
       ? Math.min(100, Math.round((progress.processed / progress.total) * 100))
       : 0;
+
+  if (variant === "icon") {
+    return (
+      <button
+        type="button"
+        className="button secondary"
+        onClick={disabled ? undefined : onClick}
+        aria-disabled={disabled}
+        title={
+          isRunning
+            ? `Validating ${progress!.processed} of ${progress!.total} contacts — click to reopen`
+            : title
+        }
+        style={{
+          background: "none",
+          color: "#3f9f42",
+          border: "none",
+          borderRadius: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "40px",
+          height: "40px",
+          padding: "0",
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.5 : 1,
+        }}
+      >
+        {isRunning ? <span className="dt-spinner" aria-hidden="true" /> : <ShieldTickIcon size={22} />}
+      </button>
+    );
+  }
 
   if (isRunning) {
     return (
@@ -71,22 +127,7 @@ const ValidateContactsButton: React.FC<{
         opacity: disabled ? 0.5 : 1,
       }}
     >
-      {/* Shield with a tick. */}
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path
-          d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.9 7.5 10 4.3-1.1 7.5-5.4 7.5-10v-6L12 2.5Z"
-          stroke="#3f9f42"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="m8.75 11.75 2.3 2.3 4.2-4.6"
-          stroke="#3f9f42"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+      <ShieldTickIcon />
       Validation checks
     </button>
   );
