@@ -395,7 +395,11 @@ const CustomAttributeGroupsTab: React.FC<Props> = ({ refreshKey, onCreate, onEdi
         <div className="cf-groups__search">
           <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search groups" aria-label="Search groups" />
         </div>
-        <div className="cf-groups__toolbar-actions"><span>{total + 3} groups</span><button type="button" className="bp-btn-default" onClick={onCreate}>Create group</button></div>
+        <div className="cf-groups__toolbar-actions">
+          <span>{total + 3} groups</span>
+          <button type="button" className="bp-btn-default" onClick={onCreateField}>Add attribute</button>
+          <button type="button" className="bp-btn-default" onClick={onCreate}>Create group</button>
+        </div>
       </div>
       {error && <div className="cf-groups__error" role="alert">{error}</div>}
       <p className="cf-groups__sort-hint">{savingOrder ? "Saving order..." : search ? "Clear search to rearrange groups." : "Drag a group row to rearrange groups on this page."}</p>

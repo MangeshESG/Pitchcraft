@@ -76,6 +76,7 @@ interface ContactFieldOption {
 
 interface ViewSummary {
   id: number;
+  isSystem?: boolean;
   name: string;
   description?: string;
   created_at?: string;
@@ -1089,6 +1090,7 @@ const handleDeleteContacts = () => {
   };
 
   const normalizeViewFromApi = (view: any, meta?: ViewMeta): ViewItem => {
+    if (view.isSystem) meta = undefined;
     const serverFiltersJson = getFirstDefined(
       view.filtersJson,
       view.filters_json,
@@ -1152,6 +1154,13 @@ const handleDeleteContacts = () => {
         })
       );
       setViews(merged);
+      setViewContactCounts((previous) => {
+        const next = { ...previous };
+        merged.filter((view) => view.isSystem).forEach((view) => {
+          if (view.contactCount !== undefined) next[view.id] = view.contactCount;
+        });
+        return next;
+      });
     } catch (error) {
       console.error("Error fetching views:", error);
       setViews([]);
@@ -1393,7 +1402,10 @@ const handleDeleteContacts = () => {
         })
       );
     }
-    return filtered;
+    return [
+      ...filtered.filter((view) => view.isSystem && view.id === -2),
+      ...filtered.filter((view) => !(view.isSystem && view.id === -2)),
+    ];
   }, [views, viewSearch, viewSortKey, viewSortDirection]);
 
   useEffect(() => {
@@ -1616,11 +1628,7 @@ const handleDeleteContacts = () => {
     }));
   };
 
-  // Fetch the set of unsubscribed emails for this client so the client-side
-  // view path can exclude them exactly like the backend `view-contacts`
-  // endpoint does (the backend filters against the UnsubscribedContacts table
-  // by email). Best-effort: if the endpoint is unavailable we return an empty
-  // set and fall back to the previous behaviour rather than breaking the view.
+  // Match the backend's email-based unsubscribe status in the fallback view path.
   const fetchUnsubscribedEmails = async (): Promise<Set<string>> => {
     try {
       const response = await fetch(
@@ -1667,7 +1675,7 @@ const handleDeleteContacts = () => {
 
     // View contacts are always paged by the backend. The local fallback below
     // remains only for invalid/legacy view ids.
-    if (Number(view.id) > 0) {
+    if (Number(view.id) > 0 || view.isSystem) {
       try {
         const response = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
           method: "POST",
@@ -1794,15 +1802,18 @@ const handleDeleteContacts = () => {
 
     const mergedList = Array.from(mergedMap.values());
 
-    // Exclude unsubscribed contacts to match the backend view-contacts logic.
+    const hasUnsubscribeFilter = parseFiltersJson(effectiveFiltersJson).groups.some(
+      (group) => group.conditions.some((condition) =>
+        condition.field?.toLowerCase() === "unsubscribe" && isCompleteCondition(condition))
+    );
     const unsubscribedEmails = await fetchUnsubscribedEmails();
-    const subscribedList =
-      unsubscribedEmails.size === 0
-        ? mergedList
-        : mergedList.filter((contact) => {
-            const email = String(contact.email ?? "").trim().toLowerCase();
-            return email.length === 0 || !unsubscribedEmails.has(email);
-          });
+    const contactsWithStatus = mergedList.map((contact) => ({
+      ...contact,
+      unsubscribe: unsubscribedEmails.has(String(contact.email ?? "").trim().toLowerCase()) ? "Yes" : "No",
+    }));
+    const subscribedList = hasUnsubscribeFilter
+      ? contactsWithStatus
+      : contactsWithStatus.filter((contact) => contact.unsubscribe === "No");
 
     const filtered = await applySavedFilters(subscribedList, effectiveFiltersJson);
     const decorated = await decorateContactsWithTrackingState(
@@ -1830,7 +1841,8 @@ const handleDeleteContacts = () => {
     view: ViewItem,
     // Passed explicitly rather than read from state, so a caller that has just
     // cleared the draft is not served from a stale closure.
-    filtersJsonOverride: string | null = draftFiltersJson
+    filtersJsonOverride: string | null = draftFiltersJson,
+    background = false
   ) => {
     const fetchKey = `${view.id}|${viewCurrentPage}|${viewPageSize}|${viewSearchQuery.trim()}|${contactSort.key}|${contactSort.direction}|${filtersJsonOverride ?? ""}`;
     if (activeViewFetchKeyRef.current === fetchKey) {
@@ -1845,10 +1857,11 @@ const handleDeleteContacts = () => {
       viewContactsRequestRef.current === requestId &&
       selectedViewIdRef.current === view.id;
 
-    // Force clear all previous data FIRST
-    setBaseViewContacts([]);
-    setViewContacts([]);
-    setIsLoadingViewContacts(true);
+    if (!background) {
+      setBaseViewContacts([]);
+      setViewContacts([]);
+      setIsLoadingViewContacts(true);
+    }
     setViewMetaMissing(false);
     
     try {
@@ -1976,6 +1989,7 @@ const handleDeleteContacts = () => {
   ]);
 
   const handleDeleteView = async (view: ViewItem) => {
+    if (view.isSystem) return;
     appModal.showConfirm(
       `Are you sure you want to delete view "${view.name}"?`,
       async () => {
@@ -2046,11 +2060,12 @@ const handleDeleteContacts = () => {
   // Opening "Edit" from the list now opens the view detail with the inline
   // editor expanded (the side panel has been replaced by the inline editor).
   const openEditPanel = (view: ViewItem) => {
+    if (view.isSystem) return;
     openView(view, true);
   };
 
   const handleSaveViewChanges = async (payload: ViewEditorPayload) => {
-    if (!selectedView) return;
+    if (!selectedView || selectedView.isSystem) return;
     setIsUpdatingView(true);
     try {
       const useAllDataFiles = payload.useAllDataFiles;
@@ -2172,6 +2187,25 @@ const handleDeleteContacts = () => {
     }
   };
 
+  useEffect(() => {
+    if (!isActive) return;
+    const refreshSystemView = () => {
+      if (document.visibilityState !== "visible") return;
+      if (viewMode === "detail" && selectedView?.isSystem) {
+        void fetchContactsForView(selectedView, null, true);
+      } else if (viewMode === "list") {
+        void fetchViews();
+      }
+    };
+    const timer = window.setInterval(refreshSystemView, 30000);
+    window.addEventListener("focus", refreshSystemView);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshSystemView);
+    };
+  }, [isActive, clientId, viewMode, selectedView, viewCurrentPage, viewPageSize,
+    viewSearchQuery, contactSort.key, contactSort.direction]);
+
   const detailHeader = viewMetaMissing ? (
     <div
       style={{
@@ -2189,7 +2223,7 @@ const handleDeleteContacts = () => {
     </div>
   ) : (
   <>
-    {selectedView && (
+    {selectedView && !selectedView.isSystem && (
       <div style={{ marginBottom: 20 }}>
         <FilterBuilder
           key={`${selectedView.id}-${selectedView.filtersJson || ""}`}
@@ -2441,6 +2475,7 @@ const handleDeleteContacts = () => {
             <ContactsListsRows
               data={paginatedViews.map((v) => ({
                 id: v.id,
+                isSystem: v.isSystem,
                 name: v.name,
                 description: v.description,
                 created_at: v.created_at,
@@ -2680,7 +2715,7 @@ const handleDeleteContacts = () => {
               ]}
               primaryKey="id"
               viewMode="detail"
-              detailTitle={`${selectedView?.name} (#${selectedView?.id})`}
+              detailTitle={`${selectedView?.name} (${selectedView?.isSystem ? "System view" : `#${selectedView?.id}`})`}
               detailDescription={
                 selectedView?.description || "No description available"
               }

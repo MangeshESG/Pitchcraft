@@ -355,6 +355,7 @@ export const ContactsToolbar: React.FC<ToolbarProps> = (p) => {
 // ------------------------------------------------------------
 interface DataFile {
   id: number;
+  isSystem?: boolean;
   name: string;
   description?: string;
   contactCount?: number;
@@ -392,6 +393,7 @@ const SYSTEM_LIST_NAMES = [
 ];
 
 const isSystemFile = (file: DataFile): boolean =>
+  !!file.isSystem ||
   file.id === -1 ||
   SYSTEM_LIST_NAMES.includes((file.name || "").trim().toLowerCase());
 
@@ -436,7 +438,7 @@ export const ContactsListsRows: React.FC<RowsProps> = (p) => (
           <a className="ct-row__link" onClick={() => p.onRowClick(file)}>
             {file.name}
           </a>
-          <div className="ct-row__id">#{file.id === -1 ? "ALL" : file.id}</div>
+          <div className="ct-row__id">{file.isSystem ? "System" : `#${file.id === -1 ? "ALL" : file.id}`}</div>
           <div className="ct-row__count">
             {(file.contactCount || file.contacts?.length || 0).toLocaleString()}
           </div>
@@ -457,7 +459,7 @@ export const ContactsListsRows: React.FC<RowsProps> = (p) => (
             )}
             {p.actionsAnchor === file.id.toString() && (
               <div className="ct-row__menu">
-                {!p.isDemoAccount && (
+                {!p.isDemoAccount && !file.isSystem && (
                   <button onClick={() => { p.onRename(file); p.setActionsAnchor(null); }}>
                     <FontAwesomeIcon icon={faFileLines} /> Rename
                   </button>
@@ -468,7 +470,7 @@ export const ContactsListsRows: React.FC<RowsProps> = (p) => (
                 <button onClick={() => { p.onDownload(file); p.setActionsAnchor(null); }}>
                   <FontAwesomeIcon icon={faDownload} /> Download
                 </button>
-                {!p.isDemoAccount && (
+                {!p.isDemoAccount && !file.isSystem && (
                   <button onClick={() => { p.onDelete(file); p.setActionsAnchor(null); }} className="is-danger">
                     <FontAwesomeIcon icon={faTrashAlt} /> Delete
                   </button>

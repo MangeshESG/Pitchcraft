@@ -2263,6 +2263,7 @@ const formatTimeIST = formatUserTime;
   }, [segmentContacts, segmentSearchQuery, segmentSortKey, segmentSortDirection, segmentCurrentPage, pageSize])
 
 const baseFields: any[] = [
+  { key: "unsubscribe", label: "Unsubscribe", type: "dropdown", options: ["Yes", "No"] },
   { key: "first_name", label: "First Name", type: "text" },
   { key: "last_name", label: "Last Name", type: "text" },
   { key: "full_name", label: "Full Name", type: "text" },
