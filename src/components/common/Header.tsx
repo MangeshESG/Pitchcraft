@@ -5,6 +5,7 @@ import { RootState } from "../../Redux/store";
 import { clearToken } from "../../slices/authSLice";
 import { useCreditRefresh } from "../../hooks/useCreditRefresh";
 import { lessPriorityButtonStyle } from "../../styles/buttonStyles";
+import UnsubscribeNotifications from "./UnsubscribeNotifications";
 
 const CHROME_EXTENSION_URL =
   "https://chromewebstore.google.com/detail/pitchkraft/ikelaephojkjglbknldgiopbpdaklkbl";
@@ -32,6 +33,7 @@ const Header: React.FC<HeaderProps> = React.memo(
     const lastName = useSelector((state: RootState) => state.auth.lastName);
     const username = useSelector((state: RootState) => state.auth.username) as string;
     const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+    const authToken = useSelector((state: RootState) => state.auth.token);
     
     // Use the credit refresh hook
     const { credits, refreshCredits } = useCreditRefresh();
@@ -65,16 +67,15 @@ const logoutHandler = () => {
     const toggleMenu = () => setIsMenuOpen((prev) => !prev);
 
     const effectiveUserId = React.useMemo(() => {
+      if (selectedClient && selectedClient !== "") {
+        return selectedClient;
+      }
       const storedClientId =
         localStorage.getItem("selectedClientId") ||
         sessionStorage.getItem("selectedClientId");
 
       if (storedClientId && storedClientId !== "" && storedClientId !== "null") {
         return storedClientId;
-      }
-
-      if (selectedClient && selectedClient !== "") {
-        return selectedClient;
       }
 
       return reduxUserId?.toString();
@@ -185,6 +186,8 @@ const logoutHandler = () => {
                     {credits !== null ? (typeof credits === 'object' && credits !== null ? credits.total : credits) : "Loading..."}
                   </span>
                 </span>
+
+                <UnsubscribeNotifications key={`${effectiveUserId}-${authToken}`} clientId={effectiveUserId} token={authToken} />
 
                 <a
                   className="linkedin-extension-button"

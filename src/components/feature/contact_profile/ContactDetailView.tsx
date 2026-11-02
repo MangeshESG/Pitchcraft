@@ -30,6 +30,7 @@ import {
 import { faEdit, faTrashAlt, faSquarePlus } from "@fortawesome/free-regular-svg-icons";
 import EditContactModal from "./EditContactModal";
 import ContactIdentityHeader from "./ContactIdentityHeader";
+import { useAppData } from "../../../contexts/AppDataContext";
 import { useAppModal } from "../../../hooks/useAppModal";
 import pitchLogo from "../../../assets/images/pitch_logo.png";
 import "react-quill/dist/quill.snow.css";
@@ -118,6 +119,97 @@ interface ContactSmtpUser {
   type?: string;
   smtpType?: string;
 }
+
+interface ContactSubscriptionButtonProps {
+  contactId: number;
+  clientId: number;
+  token: string | null;
+  disabled?: boolean;
+  onChanged: (isUnsubscribed: boolean) => void;
+  onMessage: (message: string, type: "success" | "error") => void;
+}
+
+const ContactSubscriptionButton: React.FC<ContactSubscriptionButtonProps> = ({ contactId, clientId, token, disabled, onChanged, onMessage }) => {
+  const [isUnsubscribed, setIsUnsubscribed] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const controller = useRef<AbortController | null>(null);
+  const requestVersion = useRef(0);
+  const savingRef = useRef(false);
+  const endpoint = `${API_BASE_URL}/api/Crm/contact-subscription?clientId=${clientId}`;
+  const headers = { Accept: "application/json", Authorization: `Bearer ${token}` };
+
+  useEffect(() => {
+    const abort = new AbortController();
+    controller.current = abort;
+    const load = async () => {
+      if (savingRef.current) return;
+      const version = ++requestVersion.current;
+      try {
+        const response = await fetch(`${endpoint}&contactId=${contactId}`, { headers, signal: abort.signal });
+        if (!response.ok) throw new Error("Could not load subscription status.");
+        const data = await response.json();
+        if (typeof data.isUnsubscribed !== "boolean") throw new Error("Invalid subscription status.");
+        if (!abort.signal.aborted && version === requestVersion.current) {
+          setIsUnsubscribed(data.isUnsubscribed);
+          setLoadError(false);
+        }
+      } catch {
+        if (!abort.signal.aborted && version === requestVersion.current) setLoadError(true);
+      }
+    };
+    void load();
+    window.addEventListener("focus", load);
+    return () => { abort.abort(); window.removeEventListener("focus", load); };
+    // The profile keys the button by account and contact.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactId, clientId, token, retry]);
+
+  const toggleSubscription = async () => {
+    if (loadError) { setLoadError(false); setRetry(value => value + 1); return; }
+    if (isUnsubscribed === null || savingRef.current || disabled) return;
+    const signal = controller.current?.signal;
+    if (!signal || signal.aborted) return;
+    ++requestVersion.current;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      const response = await fetch(endpoint, { method: "POST", signal,
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId, isSubscribed: isUnsubscribed }),
+      });
+      if (!response.ok) throw new Error("Could not update subscription.");
+      const data = await response.json();
+      if (typeof data.isUnsubscribed !== "boolean") throw new Error("Invalid subscription status.");
+      if (signal.aborted) return;
+      setIsUnsubscribed(data.isUnsubscribed);
+      onChanged(data.isUnsubscribed);
+      onMessage(data.isUnsubscribed ? "Contact unsubscribed successfully." : "Contact subscribed successfully.", "success");
+    } catch {
+      if (!signal.aborted) onMessage("Could not update subscription. Please try again.", "error");
+    } finally {
+      savingRef.current = false;
+      if (!signal.aborted) setSaving(false);
+    }
+  };
+
+  const busy = saving || (isUnsubscribed === null && !loadError);
+  const label = saving ? "Updating subscription…" : loadError ? "Retry subscription status" :
+    isUnsubscribed === null ? "Loading subscription status…" : isUnsubscribed ? "Subscribe contact" : "Unsubscribe contact";
+  return <button type="button" title={label} aria-label={label} disabled={disabled || busy}
+    onClick={toggleSubscription} style={{ width: 40, height: 40, padding: 0, border: "none", borderRadius: 8,
+      background: "transparent", color: "#3f9f42", display: "inline-flex", alignItems: "center",
+      justifyContent: "center", flexShrink: 0, cursor: disabled || busy ? "not-allowed" : "pointer", opacity: disabled || busy ? .6 : 1 }}>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22" aria-hidden="true">
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2" />
+      <path stroke="currentColor" strokeLinecap="round" d="M14.25 17.25h6" strokeWidth="2" />
+      {isUnsubscribed && <path stroke="currentColor" strokeLinecap="round" d="M17.25 14.25v6" strokeWidth="2" />}
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2" />
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2" />
+    </svg>
+  </button>;
+};
 
 const ResearchCards: React.FC<{ content: string }> = ({ content }) => {
   const data = repairAndParseJsonObject(content);
@@ -654,6 +746,8 @@ const isSaveDisabled =
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
 
 const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+const subscriptionToken = useSelector((state: RootState) => state.auth.token);
+const { triggerRefresh: refreshContactSubscription } = useAppData();
 
 const effectiveUserId = useMemo(() => {
   const storedClientId =
@@ -5296,6 +5390,7 @@ dispatch(closePanel());
                       {isGeneratingInsights ? "Generating..." : "Generate insights"}
                     </button>
                   </div>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 0, flexShrink: 0 }}>
                   <button
                     type="button"
                     onClick={() => setShowContactDeleteConfirmation(true)}
@@ -5318,6 +5413,20 @@ dispatch(closePanel());
                   >
                     <FontAwesomeIcon icon={faTrashAlt} style={{ fontSize: 20, color: "#3f9f42" }} />
                   </button>
+                  <ContactSubscriptionButton
+                    key={`${effectiveUserId}-${contactId}`}
+                    contactId={Number(contactId)} clientId={effectiveUserId}
+                    token={subscriptionToken || token || localStorage.getItem("token")}
+                    disabled={isDeletingContact || !contact?.email}
+                    onChanged={(isUnsubscribed) => {
+                      const unsubscribe = isUnsubscribed ? "Yes" : "No";
+                      setContact((previous: any) => previous ? { ...previous, unsubscribe } : previous);
+                      setEditingContact((previous: any) => previous ? { ...previous, unsubscribe } : previous);
+                      refreshContactSubscription();
+                    }}
+                    onMessage={(message, type) => type === "success" ? appModal.showSuccess(message) : appModal.showError(message)}
+                  />
+                  </div>
                 </div>
               </div>
 

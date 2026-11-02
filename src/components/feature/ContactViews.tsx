@@ -1124,6 +1124,7 @@ const handleDeleteContacts = () => {
     return {
       ...view,
       ...meta,
+      name: view.isSystem && Number(view.id) === -2 ? "Unsubscribed" : view.name,
       filtersJson:
         normalizeFiltersJson(meta?.filtersJson) ||
         normalizeFiltersJson(serverFiltersJson),
