@@ -53,7 +53,7 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
 
   const request = async (url: string, signal: AbortSignal, init?: RequestInit) => {
     const response = await fetch(url, { ...init, signal, headers: {
-      Authorization: `Bearer ${token}`, Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}), Accept: "application/json",
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
     } });
     if (!response.ok) throw new Error("Could not load notifications. Please try again.");
@@ -67,8 +67,8 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
     setMarkingRead(false);
     let pending = false;
     const load = async () => {
-      if (!clientId || !token || pending || document.visibilityState === "hidden") {
-        if (!clientId || !token) setLoading(false);
+      if (!clientId || pending || document.visibilityState === "hidden") {
+        if (!clientId) setLoading(false);
         return;
       }
       pending = true;
@@ -76,13 +76,7 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
         const response = await request(base, controller.signal);
         const page: NotificationPage = await response.json();
         if (controller.signal.aborted) return;
-        setFeed(previous => {
-          // If more than a page arrived between polls, start at the new page
-          // so pagination can fetch the gap rather than skipping notifications.
-          const overlaps = previous.items.some(item => page.items.some(incoming => incoming.id === item.id));
-          return overlaps ? { ...previous, items: mergeItems(previous.items, page.items) }
-            : { items: page.items, hasMore: page.hasMore, cursor: page.nextCursor };
-        });
+        setFeed({ items: page.items.filter(item => item.isRead === false), hasMore: page.hasMore, cursor: page.nextCursor });
         setUnreadCount(page.unreadCount);
         setError("");
       } catch {
@@ -166,7 +160,7 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
       const page: NotificationPage = await response.json();
       if (signal.aborted) return;
       setFeed(previous => previous.cursor !== cursor ? previous : {
-        items: mergeItems(previous.items, page.items), hasMore: page.hasMore, cursor: page.nextCursor,
+        items: mergeItems(previous.items, page.items.filter(item => item.isRead === false)), hasMore: page.hasMore, cursor: page.nextCursor,
       });
       setUnreadCount(page.unreadCount);
       setError("");
@@ -187,7 +181,8 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
         method: "POST", body: JSON.stringify({ throughId }),
       });
       if (signal.aborted) return;
-      setFeed(previous => ({ ...previous, items: previous.items.map(item => item.id <= throughId ? { ...item, isRead: true } : item) }));
+      setFeed({ items: [], hasMore: false, cursor: null });
+      setUnreadCount(0);
       setError("");
       setRefresh(value => value + 1);
     } catch {
@@ -214,7 +209,7 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
         <strong>{unreadEmailCount !== null ? unreadEmailCount.toLocaleString() : emailCountError ? "Unavailable" : "Loading…"}</strong>
       </Link>
       {items.length > 0 && <div className="unsubscribe-notifications__toolbar"><span>Unsubscribed contacts</span>
-        {unreadCount > 0 && items.length > 0 && <button type="button" disabled={markingRead} onClick={markAllRead}>{markingRead ? "Saving…" : "Mark all as read"}</button>}
+        {token && unreadCount > 0 && items.length > 0 && <button type="button" disabled={markingRead} onClick={markAllRead}>{markingRead ? "Saving…" : "Mark all as read"}</button>}
       </div>}
       {error && <div className="unsubscribe-notifications__status" role="alert">{error} <button type="button" onClick={() => setRefresh(value => value + 1)}>Retry</button></div>}
       {loading && <p className="unsubscribe-notifications__status">Loading notifications…</p>}

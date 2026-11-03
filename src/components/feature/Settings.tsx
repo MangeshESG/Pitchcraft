@@ -4,6 +4,7 @@ import EmailSignature from "./EmailSignature";
 import DateTimeSettings from "./DateTimeSettings";
 import ContactFitBriefsPanel from "./validation/ContactFitBriefsPanel";
 import ValidationJobLog from "./validation/ValidationJobLog";
+import WebsiteContactSettings from "./WebsiteContactSettings";
 import {
   pageBodyClass,
   pageClass,
@@ -18,13 +19,19 @@ interface SettingsProps {
   isAdmin: boolean;
 }
 
-type SettingsTab = "Tracking" | "DateTime" | "EmailSignature" | "Verification";
+type SettingsTab =
+  | "Tracking"
+  | "DateTime"
+  | "EmailSignature"
+  | "Verification"
+  | "WebsiteContacts";
 
 const TABS: { key: SettingsTab; label: string }[] = [
   { key: "Tracking", label: "Tracking" },
   { key: "DateTime", label: "Date and time" },
   { key: "EmailSignature", label: "Email signatures" },
   { key: "Verification", label: "Verification" },
+  { key: "WebsiteContacts", label: "Website contacts" },
 ];
 
 const Settings: React.FC<SettingsProps> = ({ selectedClient, isAdmin }) => {
@@ -73,6 +80,9 @@ const Settings: React.FC<SettingsProps> = ({ selectedClient, isAdmin }) => {
               <ValidationJobLog selectedClient={selectedClient} isAdmin={isAdmin} />
             </div>
           </>
+        )}
+        {settingsSubTab === "WebsiteContacts" && (
+          <WebsiteContactSettings selectedClient={selectedClient} />
         )}
       </div>
     </div>

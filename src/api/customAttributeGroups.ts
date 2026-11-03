@@ -38,7 +38,7 @@ export interface SaveAttributeGroup {
 const basePath = `${API_BASE_URL}/api/crm/custom-attribute-groups`;
 
 function withSelectedClient(path: string): string {
-  const selected = sessionStorage.getItem("selectedClientId") || localStorage.getItem("selectedClientId");
+  const selected = localStorage.getItem("selectedClientId") || sessionStorage.getItem("selectedClientId") || localStorage.getItem("clientId") || sessionStorage.getItem("clientId");
   if (!selected || !/^[1-9]\d*$/.test(selected)) return `${basePath}${path}`;
   const url = new URL(`${basePath}${path}`, window.location.origin);
   url.searchParams.set("clientId", selected);
@@ -47,7 +47,7 @@ function withSelectedClient(path: string): string {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-  if (!token) throw new Error("Please sign in again to manage attribute groups.");
+  if (!token && init?.method && init.method !== "GET") throw new Error("Please sign in again to manage attribute groups.");
 
   let response: Response;
   try {
@@ -55,7 +55,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {
         Accept: "application/json",
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(init?.body ? { "Content-Type": "application/json" } : {}),
         ...init?.headers,
       },
@@ -158,7 +158,7 @@ export interface SystemAttributeGroup {
 export async function getSystemAttributeGroups(): Promise<SystemAttributeGroup[]> {
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
   const response = await fetch(withSelectedClient("/system"), {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), Accept: "application/json" },
   });
   if (!response.ok) throw new Error("Could not load system attribute groups.");
   const result = await response.json();

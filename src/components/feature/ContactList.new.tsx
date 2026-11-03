@@ -356,6 +356,7 @@ export const ContactsToolbar: React.FC<ToolbarProps> = (p) => {
 interface DataFile {
   id: number;
   isSystem?: boolean;
+  isWebsiteContactList?: boolean;
   name: string;
   description?: string;
   contactCount?: number;
@@ -459,7 +460,7 @@ export const ContactsListsRows: React.FC<RowsProps> = (p) => (
             )}
             {p.actionsAnchor === file.id.toString() && (
               <div className="ct-row__menu">
-                {!p.isDemoAccount && !file.isSystem && (
+                {!p.isDemoAccount && !file.isSystem && !file.isWebsiteContactList && (
                   <button onClick={() => { p.onRename(file); p.setActionsAnchor(null); }}>
                     <FontAwesomeIcon icon={faFileLines} /> Rename
                   </button>
@@ -470,7 +471,7 @@ export const ContactsListsRows: React.FC<RowsProps> = (p) => (
                 <button onClick={() => { p.onDownload(file); p.setActionsAnchor(null); }}>
                   <FontAwesomeIcon icon={faDownload} /> Download
                 </button>
-                {!p.isDemoAccount && !file.isSystem && (
+                {!p.isDemoAccount && !file.isSystem && !file.isWebsiteContactList && (
                   <button onClick={() => { p.onDelete(file); p.setActionsAnchor(null); }} className="is-danger">
                     <FontAwesomeIcon icon={faTrashAlt} /> Delete
                   </button>
