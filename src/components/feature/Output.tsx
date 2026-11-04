@@ -35,6 +35,7 @@ import { KraftEmailEmptyState, KraftLoadingState, KraftCampaignSelectState } fro
 import RichTextEditor from "../common/RTEEditor";
 import { repairAndParseJsonObject } from "../../utils/jsonRepair";
 import { toMailtoPlainText } from "../../utils/emailBody";
+import { buildManualInstruction } from "../../utils/manualInstruction";
 
 const SUBJECT_CHARACTER_LIMIT = 50;
 
@@ -1242,7 +1243,9 @@ const subjectCharacterCount = (isEditingSubject
       await onRegenerateContact("Output", {
         regenerate: true,
         regenerateIndex: currentIndex,
-        manualInstruction: manualInstruction.trim(),
+        // The steer plus the body it is about — the model is being asked to
+        // edit the email on screen, not to write a fresh one.
+        manualInstruction: buildManualInstruction(manualInstruction, editableContent),
       });
     } finally {
       setIsRegenerating(false);

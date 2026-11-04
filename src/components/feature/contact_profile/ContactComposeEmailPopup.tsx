@@ -9,6 +9,7 @@ import {
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import RichTextEditor from "../../common/RTEEditor";
 import { EmailHighlight, parseEmailHighlights } from "../../../utils/emailHighlights";
+import { buildManualInstruction } from "../../../utils/manualInstruction";
 import "./ContactComposeEmailPopup.css";
 
 interface ContactComposeEmailPopupProps {
@@ -382,7 +383,9 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
     try {
       const generatedEmail = await onGenerate(
         Number(selectedBlueprintId),
-        manualInstruction.trim(),
+        // Before the first Generate there is no body yet, and the helper then
+        // sends the steer on its own rather than a rule pointing at nothing.
+        buildManualInstruction(manualInstruction, emailBody),
       );
       setHasGeneratedBody(true);
       setEmailBody(generatedEmail.emailBody || "");

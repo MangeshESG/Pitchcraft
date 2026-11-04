@@ -38,6 +38,7 @@ import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
 import RichTextEditor from '../../common/RTEEditor';
 import { extractGenerationInsights } from '../../../utils/generationInsights';
 import { EmailHighlight, parseEmailHighlights } from '../../../utils/emailHighlights';
+import { buildManualInstruction } from '../../../utils/manualInstruction';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import CreditCheckModal from "../../common/CreditCheckModal";
 import Modal from "../../common/Modal";
@@ -2006,7 +2007,10 @@ const handleDeleteContact = async () => {
           contactId: thread.contactId,
           clientId: String(effectiveUserId),
           overwriteExisting: true,
-          manualInstruction: contactManualInstruction.trim(),
+          manualInstruction: buildManualInstruction(
+            contactManualInstruction,
+            contactReplyText,
+          ),
         },
         {
           headers: {
@@ -2057,7 +2061,8 @@ const handleDeleteContact = async () => {
           contactId: Number(contactId),
           clientId: String(effectiveUserId),
           overwriteExisting: true,
-          manualInstruction: (manualInstruction ?? "").trim(),
+          // Already composed by the popup (steer + rule + the body on screen).
+          manualInstruction: manualInstruction ?? "",
         },
         {
           headers: {
@@ -2432,7 +2437,10 @@ const handleDeleteContact = async () => {
           contactId: thread.contactId,
           clientId: String(effectiveUserId),
           overwriteExisting: true,
-          manualInstruction: contactManualInstruction.trim(),
+          manualInstruction: buildManualInstruction(
+            contactManualInstruction,
+            contactForwardMessage,
+          ),
         },
         {
           headers: {

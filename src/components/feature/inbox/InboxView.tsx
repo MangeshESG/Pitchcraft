@@ -12,6 +12,7 @@ import { useSoundAlert } from '../../common/useSoundAlert';
 import RichTextEditor from '../../common/RTEEditor';
 import { extractGenerationInsights } from '../../../utils/generationInsights';
 import { EmailHighlight, parseEmailHighlights } from '../../../utils/emailHighlights';
+import { buildManualInstruction } from '../../../utils/manualInstruction';
 import { RecipientChipInput, mergeRecipients, parseRecipientInput } from '../contact_profile/ContactComposeEmailPopup';
 import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
@@ -1075,7 +1076,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           contactId,
           clientId: effectiveUserId,
           overwriteExisting: true,
-          manualInstruction: manualInstruction.trim(),
+          manualInstruction: buildManualInstruction(
+            manualInstruction,
+            target === 'forward' ? forwardMessage : replyText,
+          ),
         },
         {
           headers: {
@@ -1142,7 +1146,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           contactId: selectedThread.contactId,
           clientId: effectiveUserId,
           overwriteExisting: true,
-          manualInstruction: manualInstruction.trim()
+          manualInstruction: buildManualInstruction(
+            manualInstruction,
+            replyText,
+          )
         },
         {
           headers: {
@@ -1204,7 +1211,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           contactId: forwardThread.contactId,
           clientId: effectiveUserId,
           overwriteExisting: true,
-          manualInstruction: manualInstruction.trim()
+          manualInstruction: buildManualInstruction(
+            manualInstruction,
+            forwardMessage,
+          )
         },
         {
           headers: {
@@ -3979,7 +3989,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                 contactId: selectedUnassignedThread.contactId,
                                 clientId: effectiveUserId,
                                 overwriteExisting: true,
-                                manualInstruction: manualInstruction.trim()
+                                manualInstruction: buildManualInstruction(
+                                  manualInstruction,
+                                  replyText,
+                                )
                               },
                               {
                                 headers: {
@@ -4524,7 +4537,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                 contactId: selectedAllMessagesThread.contactId,
                                 clientId: effectiveUserId,
                                 overwriteExisting: true,
-                                manualInstruction: manualInstruction.trim()
+                                manualInstruction: buildManualInstruction(
+                                  manualInstruction,
+                                  replyText,
+                                )
                               },
                               {
                                 headers: {
