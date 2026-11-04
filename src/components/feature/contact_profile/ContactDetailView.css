@@ -8,6 +8,46 @@
   box-sizing: border-box;
 }
 
+/* ============ EMAILS TAB WORKSPACE ============ */
+
+/* Desktop sizing for the Emails-tab two-pane grid. It lives here rather than
+   inline on the element so the responsive rules below can override it. */
+.inbox-workspace.contact-email-workspace .inbox-content.contact-email-grid {
+  grid-template-columns: 360px minmax(0, 1fr);
+  height: calc(100vh - 260px);
+  min-height: 560px;
+}
+
+/* The reply / forward composer is a *sibling* of the scrolling .mail-detail
+   inside .read-pane (in the Inbox it sits inside .mail-detail instead), and
+   .read-pane is overflow:hidden. A flex item will not shrink below its own
+   content, so as soon as the composer was taller than the space left over, its
+   action row -- Send reply / Forward -- was pushed past the clipped edge of the
+   pane and could not be scrolled to. Give the composer its own scroll area and
+   pin the action row to the bottom of it, so Send is reachable at any height. */
+.contact-email-workspace .read-pane > .reply-section {
+  flex: 1 1 55%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.contact-email-workspace .read-pane > .reply-section > div:last-child {
+  position: sticky;
+  bottom: 0;
+  z-index: 12;
+  margin: 14px -24px -20px;
+  padding: 12px 24px;
+  background: #fff;
+  border-top: 1px solid #f0f1f3;
+}
+
+/* The floating scroll-to-bottom pill would sit on top of that pinned row. */
+.contact-email-workspace .read-pane:has(> .reply-section) .scroll-to-bottom-btn {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .contact-responsive-toast {
     width: calc(100vw - 24px) !important;
@@ -336,5 +376,51 @@
     color: #dc2626;
     border-color: #fecaca;
     background: #fff;
+  }
+}
+
+
+/* Single-pane Emails tab. Matches the 1024px breakpoint InboxView.css uses, so
+   a phone in Chrome's "Desktop site" mode (~980px viewport) gets the stacked
+   layout instead of a 360px list squeezed against a reading pane. */
+@media (max-width: 1024px) {
+  .inbox-workspace.contact-email-workspace {
+    width: 100%;
+    min-width: 0;
+    height: calc(100dvh - 190px);
+    min-height: 420px;
+  }
+
+  .inbox-workspace.contact-email-workspace .inbox-content.contact-email-grid {
+    grid-template-columns: minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+  }
+
+  /* With one pane on screen the composer should own most of it. */
+  .contact-email-workspace .read-pane > .reply-section {
+    flex: 1 1 70%;
+  }
+
+  /* Shorter editor so the recipient row, toolbar and body all fit without
+     fighting for the same few hundred pixels. */
+  .contact-email-workspace .read-pane > .reply-section .rich-text-editor > div {
+    height: 200px !important;
+    max-height: 46vh !important;
+  }
+
+  /* The composer keeps its own scroll area here too; only the pinned action
+     row needs new offsets, because .reply-section drops to 12px side padding
+     at this breakpoint. */
+  .contact-email-workspace .read-pane > .reply-section > div:last-child {
+    margin: 12px -12px 0;
+    padding: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  /* Back to the list: the Emails tab reuses the Inbox reader markup, so the
+     same back control applies. */
+  .contact-email-workspace .mobile-inbox-back {
+    display: inline-grid;
   }
 }

@@ -32,13 +32,11 @@ const ContactEmailsTab: React.FC<ContactEmailsTabProps> = ({
 }) => {
   return (
     <div className="inbox-workspace contact-email-workspace" style={{ marginTop: -25 }}>
+      {/* Column widths and height live in ContactDetailView.css under
+          .contact-email-grid: as inline styles they outranked every media
+          query, so the two-pane desktop sizing stuck on small screens. */}
       <div
-        className={`inbox-content inbox-grid${hasActiveThread ? " has-active-thread" : ""}`}
-        style={{
-          gridTemplateColumns: "360px minmax(0, 1fr)",
-          height: "calc(100vh - 260px)",
-          minHeight: 560,
-        }}
+        className={`inbox-content inbox-grid contact-email-grid${hasActiveThread ? " has-active-thread" : ""}`}
       >
         <div className="list-pane">
           <div

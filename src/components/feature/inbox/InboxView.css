@@ -884,8 +884,11 @@ details[data-reply-email-trail] > summary::marker {
   to   { transform: rotate(360deg); }
 }
 
-/* Mobile inbox uses one pane at a time. Desktop rules above stay unchanged. */
-@media (max-width: 768px) {
+/* Mobile and tablet inboxes use one pane at a time. Desktop rules above stay
+   unchanged. The breakpoint is 1024px rather than 768px because Chrome's
+   "Desktop site" mode on a phone reports a ~980px viewport, which used to fall
+   through to the three-pane desktop grid on a screen far too small for it. */
+@media (max-width: 1024px) {
   .inbox-workspace {
     width: 100%;
     min-width: 0;
