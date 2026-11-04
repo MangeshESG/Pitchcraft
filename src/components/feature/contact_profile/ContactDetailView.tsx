@@ -403,6 +403,10 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   );
   const [selectedContactReplyBlueprint, setSelectedContactReplyBlueprint] = useState<number | null>(null);
   const [isKraftingContactReply, setIsKraftingContactReply] = useState(false);
+  // One-off instruction typed in the reply/forward editor's instruction column.
+  // It travels with the next kraft and fills {manual_instruction} in the
+  // prompt; nothing is stored, so it applies to that call only.
+  const [contactManualInstruction, setContactManualInstruction] = useState("");
   const [isCopyContactReplyText, setIsCopyContactReplyText] = useState(false);
   const [openContactReplyDeviceDropdown, setOpenContactReplyDeviceDropdown] = useState(false);
   const [contactReplyEmailWidth, setContactReplyEmailWidth] = useState<string>("");
@@ -415,6 +419,13 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [contactForwardCcDraft, setContactForwardCcDraft] = useState("");
   const [contactForwardBccEmails, setContactForwardBccEmails] = useState<string[]>([]);
   const [contactForwardBccDraft, setContactForwardBccDraft] = useState("");
+  // The instruction belongs to the draft it was written for, so it goes as
+  // soon as neither the reply nor the forward editor is open.
+  useEffect(() => {
+    if (!showContactReplySection && !showContactForwardSection) {
+      setContactManualInstruction("");
+    }
+  }, [showContactReplySection, showContactForwardSection]);
   const [contactForwardMessage, setContactForwardMessage] = useState("");
   const [showContactForwardBcc, setShowContactForwardBcc] = useState(false);
   const [showContactForwardCc, setShowContactForwardCc] = useState(false);
@@ -1995,6 +2006,7 @@ const handleDeleteContact = async () => {
           contactId: thread.contactId,
           clientId: String(effectiveUserId),
           overwriteExisting: true,
+          manualInstruction: contactManualInstruction.trim(),
         },
         {
           headers: {
@@ -2023,7 +2035,10 @@ const handleDeleteContact = async () => {
     }
   };
 
-  const handleGenerateComposeEmail = async (blueprintId: number) => {
+  const handleGenerateComposeEmail = async (
+    blueprintId: number,
+    manualInstruction?: string,
+  ) => {
     const emptyGeneratedEmail = { emailBody: "", emailSubject: "" };
 
     if (!blueprintId || !contactId) {
@@ -2042,6 +2057,7 @@ const handleDeleteContact = async () => {
           contactId: Number(contactId),
           clientId: String(effectiveUserId),
           overwriteExisting: true,
+          manualInstruction: (manualInstruction ?? "").trim(),
         },
         {
           headers: {
@@ -2416,6 +2432,7 @@ const handleDeleteContact = async () => {
           contactId: thread.contactId,
           clientId: String(effectiveUserId),
           overwriteExisting: true,
+          manualInstruction: contactManualInstruction.trim(),
         },
         {
           headers: {
@@ -4289,6 +4306,9 @@ dispatch(closePanel());
                   value={contactForwardMessage}
                   onChange={setContactForwardMessage}
                   showActionButtons
+                  showManualInstruction
+                  manualInstruction={contactManualInstruction}
+                  onManualInstructionChange={setContactManualInstruction}
                   onRegenerate={() => handleKraftContactForward(activeThread)}
                   isRegenerating={isKraftingContactReply}
                   regenerateDisabled={!selectedContactReplyBlueprint || !activeThread?.contactId}
@@ -4577,6 +4597,9 @@ dispatch(closePanel());
                   onChange={setContactReplyText}
                   height={260}
                   showActionButtons
+                  showManualInstruction
+                  manualInstruction={contactManualInstruction}
+                  onManualInstructionChange={setContactManualInstruction}
                   onRegenerate={() => handleKraftContactReply(activeThread)}
                   isRegenerating={isKraftingContactReply}
                   regenerateDisabled={!selectedContactReplyBlueprint || !activeThread?.contactId}

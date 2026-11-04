@@ -31,7 +31,9 @@ interface ContactComposeEmailPopupProps {
   toEmail: string;
   signatureHtml: string;
   isSignatureLoading?: boolean;
-  onGenerate: (blueprintId: number) => Promise<{
+  /** `manualInstruction` is the one-off steer typed in the editor's
+   *  instruction column; it fills {manual_instruction} in the prompt. */
+  onGenerate: (blueprintId: number, manualInstruction?: string) => Promise<{
     emailBody: string;
     emailSubject: string;
     finalPrompt?: string;
@@ -288,6 +290,10 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   const [bccEmailDraft, setBccEmailDraft] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGeneratedBody, setHasGeneratedBody] = useState(false);
+  // One-off instruction typed in the editor's instruction column. It travels
+  // with the next Generate and fills {manual_instruction} in the prompt;
+  // nothing is stored, so it applies to that call only.
+  const [manualInstruction, setManualInstruction] = useState("");
   const [previewFinalPrompt, setPreviewFinalPrompt] = useState("");
   const [previewWebSearchData, setPreviewWebSearchData] = useState("");
   const [previewEmails, setPreviewEmails] = useState("");
@@ -338,6 +344,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       setPreviewWidth("");
       setOpenDeviceDropdown(false);
       setPreviewHighlights([]);
+      setManualInstruction("");
     }
   }, [isOpen]);
 
@@ -373,7 +380,10 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
 
     setIsGenerating(true);
     try {
-      const generatedEmail = await onGenerate(Number(selectedBlueprintId));
+      const generatedEmail = await onGenerate(
+        Number(selectedBlueprintId),
+        manualInstruction.trim(),
+      );
       setHasGeneratedBody(true);
       setEmailBody(generatedEmail.emailBody || "");
       setEmailSubject(generatedEmail.emailSubject || "");
@@ -681,6 +691,11 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
                 onChange={setEmailBody}
                 height={360}
                 showActionButtons={hasGeneratedBody}
+                // Not gated on hasGeneratedBody: the instruction is written
+                // before the first Generate, not after it.
+                showManualInstruction
+                manualInstruction={manualInstruction}
+                onManualInstructionChange={setManualInstruction}
                 onRegenerate={handleGenerate}
                 isRegenerating={isGenerating}
                 regenerateDisabled={!selectedBlueprintId}

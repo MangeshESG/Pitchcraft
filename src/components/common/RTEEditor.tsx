@@ -282,6 +282,18 @@ interface RichTextEditorProps {
   /** Reserve this many px on the right of the action bar so it clears a
    *  host-provided absolute toolbar (e.g. a device-preview dropdown). */
   reserveRight?: number;
+
+  // ── Manual instruction ──
+  /**
+   * Render the manual-instruction control in the action bar. The panel it
+   * opens takes a one-off instruction for the next regeneration, which the
+   * backend drops into the blueprint's {manual_instruction} slot.
+   */
+  showManualInstruction?: boolean;
+  /** Instruction text — controlled by the host, so it survives toggling and
+   *  can be handed to the regeneration call. */
+  manualInstruction?: string;
+  onManualInstructionChange?: (text: string) => void;
 }
 
 // Gmail-style font list
@@ -493,6 +505,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   infoButtonsOnly = false,
   reserveRight = 0,
   highlights,
+  showManualInstruction = false,
+  manualInstruction = "",
+  onManualInstructionChange,
 }) => {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
@@ -510,6 +525,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [infoCopied, setInfoCopied] = useState(false);
   // Source-highlight toggle (visual only). ON by default, like Output.
   const [highlightsOn, setHighlightsOn] = useState(true);
+  // Manual-instruction panel. Open takes a column on the right of the email
+  // body rather than growing the box, so the toolbar and the action buttons
+  // stay where they were and the email simply gets narrower.
+  const [instructionOpen, setInstructionOpen] = useState(false);
+
+  const instructionVisible = showManualInstruction && instructionOpen && !infoPanel;
 
   const resolvedIsAdmin =
     isAdmin ??
@@ -788,6 +809,56 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   // Brand green used for all action icons (per design).
   const ICON = "#3f9f42";
+
+  /* Manual instruction — a one-off steer for the next generation. Kept out of
+     actionButtonsGroup because it is useful before anything has been written:
+     hosts that only reveal the action bar once a body exists (the contact
+     compose popup) still need this button from the start. */
+  const manualInstructionButton = (
+    <button
+      type="button"
+      title={
+        instructionOpen
+          ? "Hide instruction"
+          : manualInstruction.trim()
+            ? "Instruction for the next generation (set)"
+            : "Add an instruction for the next generation"
+      }
+      aria-pressed={instructionOpen}
+      onClick={() => {
+        // The info views replace the body, so opening the panel has to bring
+        // the body back or there would be nothing to sit beside.
+        setInfoPanel(null);
+        setInstructionOpen((v) => !v);
+      }}
+      style={{
+        ...actionBtnStyle,
+        position: "relative",
+        background: instructionOpen ? "#E4F8E8" : "#ffffff",
+      }}
+    >
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={ICON} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2Z" />
+        <path d="M8 9h8" />
+        <path d="M8 13h5" />
+      </svg>
+      {/* A dot, so a saved instruction is visible with the panel closed */}
+      {!instructionOpen && manualInstruction.trim() !== "" && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 2,
+            right: 2,
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: ICON,
+          }}
+        />
+      )}
+    </button>
+  );
 
   const actionButtonsGroup = (
     <>
@@ -1347,7 +1418,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         {/* Action buttons pinned to the right of the toolbar.
             In infoButtonsOnly mode the host already has its own top-right
             toolbar (copy/expand/save), so reserve space to sit left of it. */}
-        {showActionButtons && (
+        {(showActionButtons || showManualInstruction) && (
           <span
             style={{
               marginLeft: "auto",
@@ -1361,13 +1432,23 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
               paddingLeft: 8,
             }}
           >
-            {actionButtonsGroup}
+            {showManualInstruction && manualInstructionButton}
+            {showActionButtons && actionButtonsGroup}
           </span>
         )}
       </div>
 
-      {/* Editor + info view — editor stays mounted so its content survives toggling */}
-      <div className="rich-text-editor">
+      {/* Editor + info view — editor stays mounted so its content survives
+          toggling. A row while the instruction panel is open: email on the
+          left, instruction column on the right. */}
+      <div
+        className="rich-text-editor"
+        style={
+          instructionVisible
+            ? { display: "flex", alignItems: "stretch", width: "100%" }
+            : undefined
+        }
+      >
         <div
           ref={editorRef}
           contentEditable={!readOnly}
@@ -1378,11 +1459,17 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             border: "1px solid #d1d5db",
             borderTop: "none",
             borderBottomLeftRadius: "6px",
-            borderBottomRightRadius: "6px",
+            // The instruction column carries the right-hand corner while it is
+            // open, so the two read as one box rather than two stacked cards.
+            borderBottomRightRadius: instructionVisible ? 0 : "6px",
             padding: "12px",
             outline: "none",
             background: "#ffffff",
-            width: "100%",
+            width: instructionVisible ? "auto" : "100%",
+            // Takes the room the instruction column leaves, and may shrink
+            // below its content width instead of pushing the column off.
+            flex: instructionVisible ? "1 1 auto" : undefined,
+            minWidth: instructionVisible ? 0 : undefined,
             maxWidth: "100%",
             boxSizing: "border-box",
             wordWrap: "break-word",
@@ -1437,6 +1524,84 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             browser's own `title` bubble — white, and with the links inside the
             explanation reachable. Off with the highlight toggle. */}
         <HighlightTooltip rootRef={editorRef} enabled={highlightsOn && !infoPanel} />
+
+        {/* Manual-instruction column — to the right of the email, full height
+            of the body. Sized in both px and %, so it stays usable in the
+            narrow device previews instead of squeezing the email to nothing. */}
+        {instructionVisible && (
+          <div
+            style={{
+              flex: "0 0 clamp(200px, 30%, 340px)",
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              border: "1px solid #d1d5db",
+              borderTop: "none",
+              borderLeft: "none",
+              borderBottomRightRadius: "6px",
+              background: "#F7FCF8",
+              padding: "10px 12px",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                marginBottom: 6,
+              }}
+            >
+              <label
+                htmlFor="rte-manual-instruction"
+                style={{ fontSize: 12.5, fontWeight: 600, color: "#2f7a32", margin: 0 }}
+              >
+                Instruction
+              </label>
+              <button
+                type="button"
+                onClick={() => onManualInstructionChange?.("")}
+                disabled={manualInstruction === ""}
+                style={{
+                  ...actionBtnStyle,
+                  height: 24,
+                  minWidth: "auto",
+                  padding: "0 10px",
+                  fontSize: 12,
+                  cursor: manualInstruction === "" ? "not-allowed" : "pointer",
+                  opacity: manualInstruction === "" ? 0.5 : 1,
+                }}
+              >
+                Clear
+              </button>
+            </div>
+
+            <textarea
+              id="rte-manual-instruction"
+              value={manualInstruction}
+              onChange={(e) => onManualInstructionChange?.(e.target.value)}
+              placeholder="e.g. Keep it under 100 words and lead with their recent funding round."
+              style={{
+                // Fills the column, however tall the email beside it grows.
+                flex: "1 1 auto",
+                width: "100%",
+                minHeight: 120,
+                resize: "none",
+                boxSizing: "border-box",
+                padding: "8px 10px",
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+                fontSize: 13,
+                lineHeight: 1.5,
+                color: "#374151",
+                background: "#ffffff",
+                outline: "none",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+        )}
 
         {/* Info view — shown in place of the editor; same bordered area as the
             email body, grows with content (no nested box, no inner scroller). */}

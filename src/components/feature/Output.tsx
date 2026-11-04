@@ -137,6 +137,9 @@ interface OutputInterface {
       regenerateIndex: number;
       nextPageToken?: string | null;
       prevPageToken?: string | null;
+      /** One-off steer typed in the editor, dropped into the blueprint's
+       *  {manual_instruction} slot for this regeneration only. */
+      manualInstruction?: string;
     },
   ) => void | Promise<void>;
 
@@ -1181,6 +1184,17 @@ const subjectCharacterCount = (isEditingSubject
   const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
   const [outputEmailWidth, setOutputEmailWidth] = useState<string>("");
 
+  // One-off instruction typed in the editor's instruction panel. It travels
+  // with the next regeneration and fills {manual_instruction} in the prompt;
+  // it is deliberately not saved anywhere, so it applies to that run only.
+  const [manualInstruction, setManualInstruction] = useState("");
+
+  // Moving to another contact drops the instruction — it was written about the
+  // email on screen, and carrying it over would silently steer the next one.
+  useEffect(() => {
+    setManualInstruction("");
+  }, [currentIndex]);
+
   const toggleOutputEmailWidth = (deviceName: string) => {
     setOutputEmailWidth(deviceName);
     setOpenDeviceDropdown(false);
@@ -1228,6 +1242,7 @@ const subjectCharacterCount = (isEditingSubject
       await onRegenerateContact("Output", {
         regenerate: true,
         regenerateIndex: currentIndex,
+        manualInstruction: manualInstruction.trim(),
       });
     } finally {
       setIsRegenerating(false);
@@ -3277,6 +3292,9 @@ const usageData = useMemo(() => {
                               isCopyText={isCopyText}
                               onCopyToClipboard={copyToClipboardHandler}
                               onRegenerate={handleRegenerateCurrentContact}
+                              showManualInstruction
+                              manualInstruction={manualInstruction}
+                              onManualInstructionChange={setManualInstruction}
                               // Spin the regenerate icon for a single-contact
                               // regeneration *and* while the bulk kraft run is
                               // still processing contacts.

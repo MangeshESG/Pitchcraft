@@ -165,6 +165,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   // them over the body by matching their wording and strips them back out of
   // what it reports, so the reply that is sent stays the clean email.
   const [kraftHighlights, setKraftHighlights] = useState<EmailHighlight[]>([]);
+  // One-off instruction typed in the editor's instruction column. It travels
+  // with the next kraft and fills {manual_instruction} in the prompt; nothing
+  // is stored, so it applies to that call only.
+  const [manualInstruction, setManualInstruction] = useState<string>('');
   const [replyAttachments, setReplyAttachments] = useState<File[]>([]);
   const [replyCcEmails, setReplyCcEmails] = useState<string[]>([]);
   const [replyCcDraft, setReplyCcDraft] = useState('');
@@ -212,6 +216,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showReplySection, setShowReplySection] = useState(false);
   const [showForwardSection, setShowForwardSection] = useState(false);
   const [collapsedEmails, setCollapsedEmails] = useState<{ [key: string]: boolean }>({});
+  // The instruction belongs to the draft it was written for. Clearing it once
+  // no draft is open covers every thread switch and tab change in one place,
+  // rather than chasing the twenty-odd setReplyText('') call sites.
+  useEffect(() => {
+    if (!showReplySection && !showForwardSection) setManualInstruction('');
+  }, [showReplySection, showForwardSection]);
   const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
   const mailDetailRef = useRef<HTMLDivElement>(null);
   const [showBulkDeleteDropdown, setShowBulkDeleteDropdown] = useState(false);
@@ -1065,6 +1075,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           contactId,
           clientId: effectiveUserId,
           overwriteExisting: true,
+          manualInstruction: manualInstruction.trim(),
         },
         {
           headers: {
@@ -1130,7 +1141,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           blueprintId: selectedBlueprint,
           contactId: selectedThread.contactId,
           clientId: effectiveUserId,
-          overwriteExisting: true
+          overwriteExisting: true,
+          manualInstruction: manualInstruction.trim()
         },
         {
           headers: {
@@ -1191,7 +1203,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           blueprintId: selectedBlueprint,
           contactId: forwardThread.contactId,
           clientId: effectiveUserId,
-          overwriteExisting: true
+          overwriteExisting: true,
+          manualInstruction: manualInstruction.trim()
         },
         {
           headers: {
@@ -2206,6 +2219,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           value={forwardMessage}
           onChange={setForwardMessage}
           showActionButtons
+          showManualInstruction
+          manualInstruction={manualInstruction}
+          onManualInstructionChange={setManualInstruction}
           onRegenerate={() => kraftEmailForContact(activeThreadContactId, 'forward')}
           isRegenerating={isKrafting}
           regenerateDisabled={!selectedBlueprint || !activeThreadContactId}
@@ -3341,6 +3357,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       value={replyText}
                       onChange={setReplyText}
                       showActionButtons
+                      showManualInstruction
+                      manualInstruction={manualInstruction}
+                      onManualInstructionChange={setManualInstruction}
                       onRegenerate={() => kraftEmailForContact(selectedThread?.contactId)}
                       isRegenerating={isKrafting}
                       regenerateDisabled={!selectedBlueprint || !selectedThread?.contactId}
@@ -3959,7 +3978,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                 blueprintId: selectedBlueprint,
                                 contactId: selectedUnassignedThread.contactId,
                                 clientId: effectiveUserId,
-                                overwriteExisting: true
+                                overwriteExisting: true,
+                                manualInstruction: manualInstruction.trim()
                               },
                               {
                                 headers: {
@@ -4017,6 +4037,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         value={replyText}
                         onChange={setReplyText}
                         showActionButtons
+                        showManualInstruction
+                        manualInstruction={manualInstruction}
+                        onManualInstructionChange={setManualInstruction}
                         onRegenerate={() =>
                           kraftEmailForContact(selectedUnassignedThread?.contactId)
                         }
@@ -4500,7 +4523,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                 blueprintId: selectedBlueprint,
                                 contactId: selectedAllMessagesThread.contactId,
                                 clientId: effectiveUserId,
-                                overwriteExisting: true
+                                overwriteExisting: true,
+                                manualInstruction: manualInstruction.trim()
                               },
                               {
                                 headers: {
@@ -4559,6 +4583,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         value={replyText}
                         onChange={setReplyText}
                         showActionButtons
+                        showManualInstruction
+                        manualInstruction={manualInstruction}
+                        onManualInstructionChange={setManualInstruction}
                         onRegenerate={() =>
                           kraftEmailForContact(selectedAllMessagesThread?.contactId)
                         }

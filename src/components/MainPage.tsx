@@ -181,6 +181,9 @@ interface OutputInterface {
       regenerateIndex: number;
       nextPageToken?: string | null;
       prevPageToken?: string | null;
+      /** One-off steer typed in the editor, dropped into the blueprint's
+       *  {manual_instruction} slot for this regeneration only. */
+      manualInstruction?: string;
     },
   ) => void | Promise<void>;
 
@@ -1591,6 +1594,8 @@ const generateEmailViaBackend = async (params: {
   contactId: number | string;
   clientId: number | string;
   overwriteExisting?: boolean;
+  /** Fills {manual_instruction} in the blueprint for this call only. */
+  manualInstruction?: string;
 }): Promise<GeneratedEmailResult> => {
   const response = await fetch(`${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`, {
     method: "POST",
@@ -1600,6 +1605,7 @@ const generateEmailViaBackend = async (params: {
       contactId: Number(params.contactId),
       clientId: String(params.clientId),
       overwriteExisting: params.overwriteExisting ?? true,
+      manualInstruction: params.manualInstruction ?? "",
     }),
   });
 
@@ -1679,6 +1685,10 @@ const resolvePromptSafely = async () => {
       startFromIndex?: number;
       endAtIndex?: number;
       useCachedData?: boolean;
+      /** One-off steer from the editor's instruction panel. Only the
+       *  single-contact regeneration path carries it — a bulk kraft run has no
+       *  per-contact instruction to apply. */
+      manualInstruction?: string;
     },
   ) => {
     let lastEmailTokens = 0;
@@ -1931,6 +1941,7 @@ const resolvePromptSafely = async () => {
             contactId: entry.id,
             clientId: effectiveUserId,
             overwriteExisting: true,
+            manualInstruction: options?.manualInstruction ?? "",
           });
         } catch (generationError: any) {
           console.error("Regeneration failed:", generationError);
