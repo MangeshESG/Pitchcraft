@@ -25,6 +25,7 @@ import {
   ContactsEmptyState,
   ContactsListsRows,
   ContactsToolbar,
+  getContactListCategory,
 } from "./ContactList.new";
 import "./ContactList.new.css";
 import { RootState } from "../../Redux/store";
@@ -154,6 +155,9 @@ interface ZohoClient {
 
 interface DataFileItem {
   id: number;
+  category_id?: number | null;
+  isSystem?: boolean;
+  isWebsiteContactList?: boolean;
   client_id: number;
   name: string;
   data_file_name: string;
@@ -324,6 +328,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   // const effectiveUserId = selectedClient !== "" ? selectedClient : userId;m
   // Data file states
   const [dataFiles, setDataFiles] = useState<DataFileItem[]>([]);
+  const [customListCategories, setCustomListCategories] = useState<{ id: number; name: string }[]>([]);
+  const [categoryEditor, setCategoryEditor] = useState<{ id?: number; name: string; listIds: number[] } | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
+  useEffect(() => {
+    setCustomListCategories([]);
+    setCategoryEditor(null);
+    setListCategory("all");
+  }, [effectiveUserId]);
   const [selectedDataFile, setSelectedDataFile] = useState<string>("");
   const [selectedDataFileId, setSelectedDataFileId] = useState<number | null>(null);
 
@@ -502,6 +514,10 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       );
       
       setDataFiles([superList, ...orderedData]);
+      const categoriesResponse = await fetch(
+        `${API_BASE_URL}/api/Crm/contact-list-categories?clientId=${effectiveUserId}`
+      );
+      if (categoriesResponse.ok) setCustomListCategories(await categoriesResponse.json());
        
       console.log("datafiles",data);
     } catch (error) {
@@ -1187,6 +1203,7 @@ const formatTimeIST = formatUserTime;
   // });
 
   const [listSearch, setListSearch] = useState("");
+  const [listCategory, setListCategory] = useState<"all" | "systems" | "website" | number>("all");
   const [listSortKey, setListSortKey] = useState("")
   const [listSortDirection, setListSortDirection] = useState("asc")
   const [listActionsAnchor, setListActionsAnchor] = useState<string | null>(
@@ -1215,7 +1232,11 @@ const formatTimeIST = formatUserTime;
   //     df.id.toString().includes(listSearch)
   // );
   const filteredDatafiles = useMemo(() => {
-    let filtered = dataFiles.filter((file) => file.name.toLowerCase().includes(listSearch.toLowerCase()))
+    let filtered = dataFiles.filter((file) =>
+      (listCategory === "all" ||
+        (typeof listCategory === "number" ? file.category_id === listCategory : getContactListCategory(file) === listCategory)) &&
+      file.name.toLowerCase().includes(listSearch.toLowerCase())
+    )
 
     // Apply sorting
     if (listSortKey) {
@@ -1251,7 +1272,7 @@ const formatTimeIST = formatUserTime;
     }
 
     return filtered
-  }, [dataFiles, listSearch, listSortKey, listSortDirection])
+  }, [dataFiles, listCategory, listSearch, listSortKey, listSortDirection])
 
 
   const handleDeleteList = async (file: DataFileItem) => {
@@ -2348,6 +2369,65 @@ const filterFields: any = useMemo(() => {
 
   const superListContactCount = dataFiles.find((f) => f.id === -1)?.contactCount || 0;
   const totalDataFiles = dataFiles.filter((f) => f.id !== -1).length;
+  const listCategories = [
+    { key: "all", label: "All", count: dataFiles.length },
+    { key: "systems", label: "Systems", count: dataFiles.filter((file) => getContactListCategory(file) === "systems").length },
+    { key: "website", label: "Website contacts", count: dataFiles.filter((file) => getContactListCategory(file) === "website").length },
+    ...customListCategories.map((category) => ({
+      key: category.id,
+      label: category.name,
+      count: dataFiles.filter((file) => file.category_id === category.id).length,
+    })),
+  ] as const;
+  const editableCategoryLists = dataFiles.filter((file) =>
+    getContactListCategory(file) === "user" &&
+    (!file.category_id || file.category_id === categoryEditor?.id)
+  );
+  const saveListCategory = async () => {
+    if (!categoryEditor || !effectiveUserId || savingCategory) return;
+    if (!categoryEditor.name.trim()) {
+      showContactMessage("Enter a category name.", "error");
+      return;
+    }
+    setSavingCategory(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/Crm/contact-list-categories?clientId=${effectiveUserId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(categoryEditor),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Could not save category.");
+      await fetchDataFiles();
+      setListCategory(result.id);
+      setCurrentPageLists(1);
+      setCategoryEditor(null);
+      showContactMessage("Category saved.", "success");
+    } catch (error) {
+      showContactMessage(error instanceof Error ? error.message : "Could not save category.", "error");
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+  const deleteListCategory = async () => {
+    if (!categoryEditor?.id || !effectiveUserId || savingCategory ||
+      !window.confirm("Delete this category? Its lists will stay in All.")) return;
+    setSavingCategory(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/Crm/contact-list-categories/${categoryEditor.id}/delete?clientId=${effectiveUserId}`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Could not delete category.");
+      await fetchDataFiles();
+      setListCategory("all");
+      setCategoryEditor(null);
+      showContactMessage("Category deleted.", "success");
+    } catch (error) {
+      showContactMessage(error instanceof Error ? error.message : "Could not delete category.", "error");
+    } finally {
+      setSavingCategory(false);
+    }
+  };
   const totalViews = headerViews.length;
 
   // "+N this month" deltas for the header KPI cards, derived from each item's creation date
@@ -2399,7 +2479,20 @@ const filterFields: any = useMemo(() => {
             <div className="section-wrapper">
               {viewMode === "list" ? (
                 <>
-                  {totalDataFiles === 0 && !isLoading ? (
+                  <div className="ct-catbar" role="group" aria-label="Filter lists by category">
+                    {listCategories.map((category) => (
+                      <span key={category.key} className="ct-catitem"><button
+                        type="button"
+                        className={`ct-catchip${listCategory === category.key ? " is-active" : ""}`}
+                        aria-pressed={listCategory === category.key}
+                        onClick={() => { setListCategory(category.key); setCurrentPageLists(1); }}
+                      >
+                        {category.label} <span className="ct-catchip__count">{category.count}</span>
+                      </button>{typeof category.key === "number" && <button type="button" className="ct-cat-edit" aria-label={`Edit ${category.label} category`} onClick={() => setCategoryEditor({ id: category.key as number, name: category.label, listIds: dataFiles.filter((file) => file.category_id === category.key).map((file) => file.id) })}><FontAwesomeIcon icon={faEdit} /></button>}</span>
+                    ))}
+                    <button type="button" className="ct-catchip" onClick={() => setCategoryEditor({ name: "", listIds: [] })}>+ Create category</button>
+                  </div>
+                  {totalDataFiles === 0 && listCategory === "all" && !isLoading ? (
                     <ContactsEmptyState
                       onAddContact={() => dispatch(openPanel("add-contact-modal"))}
                       onImportList={() => onAddContactClick?.()}
@@ -4731,6 +4824,32 @@ const filterFields: any = useMemo(() => {
         }}
       />
       
+      <CommonSidePanel
+        isOpen={categoryEditor !== null}
+        onClose={() => setCategoryEditor(null)}
+        title={categoryEditor?.id ? "Edit category" : "Create category"}
+        footerContent={<>
+          {categoryEditor?.id && <button type="button" className="button secondary" onClick={deleteListCategory} disabled={savingCategory}>Delete category</button>}
+          <button type="button" className="button secondary" onClick={() => setCategoryEditor(null)}>Cancel</button>
+          <button type="button" className="button primary" onClick={saveListCategory} disabled={savingCategory}>Save</button>
+        </>}
+      >
+        <label htmlFor="contact-list-category-name">Category name</label>
+        <input id="contact-list-category-name" className="ct-category-name" value={categoryEditor?.name || ""} maxLength={120}
+          onChange={(event) => setCategoryEditor((current) => current && { ...current, name: event.target.value })} />
+        <p>Select manually added lists. A list can belong to one category.</p>
+        <div className="ct-category-list-options">
+          {editableCategoryLists.length === 0 && <p>No available manual lists.</p>}
+          {editableCategoryLists.map((file) => <label key={file.id} className="ct-category-list-option">
+            <input type="checkbox" checked={categoryEditor?.listIds.includes(file.id) || false}
+              onChange={(event) => setCategoryEditor((current) => current && ({ ...current,
+                listIds: event.target.checked ? [...current.listIds, file.id] : current.listIds.filter((id) => id !== file.id),
+              }))} />
+            <span>{file.name}</span>
+          </label>)}
+        </div>
+      </CommonSidePanel>
+
       {/* Delete Confirmation Modal - portaled so `position: fixed` centres
           against the viewport instead of a transformed ancestor */}
       {showDeleteConfirmation && createPortal(
