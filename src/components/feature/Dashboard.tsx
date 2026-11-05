@@ -125,7 +125,7 @@ const buildSteps = (
       cta: "Import contacts",
       ctaPath: "/main?tab=DataCampaigns&subtab=List",
       doneCta: "View contacts",
-      doneCtaPath: "/main?tab=DataCampaigns&subtab=List&dataFileId=-1",
+      doneCtaPath: "/main?tab=DataCampaigns&subtab=List",
       illustration: ImportContact,
       videoSrc: "https://www.youtube.com/embed/tO7r20HDjUo",
       tipsUrl: "https://www.pitchkraft.ai/contacts",
@@ -269,6 +269,16 @@ const HelpAndTipsLink: React.FC<{ href: string }> = ({ href }) => (
   </a>
 );
 
+/**
+ * The contact Lists screen keeps the last opened list detail mounted, so a plain
+ * navigate() to the lists subtab can land on that detail instead of the grid.
+ * The ?t= token is what ContactList watches to reset back to the grid.
+ */
+const withNavToken = (path: string) =>
+  path.includes("subtab=List") && !path.includes("dataFileId=")
+    ? `${path}&t=${Date.now()}`
+    : path;
+
 const StepDetail: React.FC<{
   step: OnboardingStep;
 }> = ({ step }) => {
@@ -295,7 +305,7 @@ const StepDetail: React.FC<{
         <div className="flex items-center gap-4 mt-6 max-sm:flex-wrap max-sm:gap-y-3">
           <button
             type="button"
-            onClick={() => ctaPath && navigate(ctaPath)}
+            onClick={() => ctaPath && navigate(withNavToken(ctaPath))}
             disabled={!ctaPath}
             className={`h-11 px-5 rounded-lg text-[15px] font-semibold border transition
               ${ctaPath ? "hover:bg-[var(--btn-default-bg-hover)]" : "opacity-60 cursor-not-allowed"}`}

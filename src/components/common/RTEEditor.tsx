@@ -13,6 +13,7 @@ import {
   stripHighlightsFromHtml,
 } from "../../utils/emailHighlights";
 import HighlightTooltip from "./HighlightTooltip";
+import { defaultButtonStyle } from "../../styles/buttonStyles";
 
 // Empty-state copy — identical to the Insights tab in Output.tsx.
 const EMPTY_ONLINE_RESEARCH =
@@ -531,6 +532,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [instructionOpen, setInstructionOpen] = useState(false);
 
   const instructionVisible = showManualInstruction && instructionOpen && !infoPanel;
+
+  // Names the button in the instruction panel: nothing written yet is a
+  // "Generate", anything else is a "Regenerate". Tags and &nbsp; don't count
+  // as content, or an empty editor's <br> would read as a written email.
+  const bodyIsEmpty =
+    (value || "")
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/gi, " ")
+      .trim() === "";
 
   const resolvedIsAdmin =
     isAdmin ??
@@ -1600,6 +1610,49 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 fontFamily: "inherit",
               }}
             />
+
+            {/* Runs the generation the instruction was written for, so the
+                steer can be applied without going back up to the toolbar. */}
+            {onRegenerate && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                disabled={isRegenerating || regenerateDisabled}
+                title={
+                  regenerateDisabled
+                    ? "Select a blueprint and a contact first"
+                    : "Generate the email with this instruction"
+                }
+                style={{
+                  ...defaultButtonStyle,
+                  marginTop: 8,
+                  width: "100%",
+                  padding: "8px 12px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  flex: "0 0 auto",
+                  cursor: isRegenerating || regenerateDisabled ? "not-allowed" : "pointer",
+                  opacity: isRegenerating || regenerateDisabled ? 0.6 : 1,
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  style={isRegenerating ? { animation: "rte-spin 1s linear infinite" } : undefined}
+                >
+                  <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
+                </svg>
+                {isRegenerating
+                  ? "Generating…"
+                  : bodyIsEmpty
+                    ? "Generate"
+                    : "Regenerate"}
+              </button>
+            )}
           </div>
         )}
 
