@@ -12,6 +12,8 @@ import { useSoundAlert } from '../../common/useSoundAlert';
 import RichTextEditor from '../../common/RTEEditor';
 import { extractGenerationInsights } from '../../../utils/generationInsights';
 import { EmailHighlight, parseEmailHighlights } from '../../../utils/emailHighlights';
+import { EmailOption, parseEmailOptions } from '../../../utils/emailOptions';
+import EmailOptionPicker from '../../common/EmailOptionPicker';
 import { buildManualInstruction } from '../../../utils/manualInstruction';
 import { RecipientChipInput, mergeRecipients, parseRecipientInput } from '../contact_profile/ContactComposeEmailPopup';
 import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
@@ -166,6 +168,22 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   // them over the body by matching their wording and strips them back out of
   // what it reports, so the reply that is sent stays the clean email.
   const [kraftHighlights, setKraftHighlights] = useState<EmailHighlight[]>([]);
+  // Every email the last kraft produced. A blueprint can ask for up to five
+  // in one generation; the first is in the editor and already saved to the
+  // contact, the rest wait here until the user picks one. They are never
+  // stored — krafting again replaces the whole set.
+  const [kraftOptions, setKraftOptions] = useState<EmailOption[]>([]);
+  // Which draft the options belong to, so the picker writes into the editor
+  // the kraft was fired from rather than the other one.
+  const [kraftOptionTarget, setKraftOptionTarget] = useState<'reply' | 'forward'>('reply');
+  const [selectedKraftOption, setSelectedKraftOption] = useState<number>(0);
+  // The option currently stored on the contact row. The backend saves the
+  // first one as part of generating, so that is where this starts.
+  const [savedKraftOption, setSavedKraftOption] = useState<number | null>(null);
+  const [isSavingKraftOption, setIsSavingKraftOption] = useState(false);
+  // The contact the options were generated for, so saving a different option
+  // cannot land on whichever thread happens to be selected by then.
+  const [kraftOptionContactId, setKraftOptionContactId] = useState<number | string | null>(null);
   // One-off instruction typed in the editor's instruction column. It travels
   // with the next kraft and fills {manual_instruction} in the prompt; nothing
   // is stored, so it applies to that call only.
@@ -1048,6 +1066,134 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowDeleteModal(true);
   };
 
+  // What every kraft does with the reply, wherever it was fired from: put the
+  // first option in the draft, keep the rest for the picker, and refresh the
+  // Insights tabs.
+  //
+  // The first option is the one the backend has already written to the contact
+  // row, so the editor and the database agree until the user picks another.
+  const applyKraftResponse = (
+    data: any,
+    target: 'reply' | 'forward',
+    contactId?: number | string | null,
+  ) => {
+    const options = parseEmailOptions(data);
+    const primary = options[0];
+    const bodyHtml = primary?.bodyHtml ?? String(data?.emailBody ?? '');
+
+    if (target === 'forward') {
+      replaceForwardDraftContent(bodyHtml);
+    } else {
+      replaceReplyDraftContent(bodyHtml);
+    }
+
+    setKraftOptions(options);
+    setKraftOptionTarget(target);
+    setSelectedKraftOption(0);
+    // A preview run writes nothing, so no option is stored after it.
+    setSavedKraftOption(data?.preview || data?.Preview ? null : 0);
+    setKraftOptionContactId(contactId ?? null);
+
+    const kraftInsights = extractGenerationInsights(data);
+    setKraftFinalPrompt(kraftInsights.finalPrompt);
+    setKraftWebSearchData(kraftInsights.webSearchData);
+    setKraftEmails(kraftInsights.emails);
+    setKraftNotes(kraftInsights.notes);
+    setKraftProfessionalSummary(kraftInsights.professionalSummary);
+    setKraftHighlights(primary?.highlights ?? parseEmailHighlights(data?.emailHighlights));
+  };
+
+  // Puts a different option in the editor.
+  //
+  // It replaces the draft rather than previewing beside it, so an instruction
+  // typed afterwards is applied to the option actually chosen: the manual
+  // instruction carries the editor's current body with it.
+  const handleSelectKraftOption = (index: number) => {
+    const option = kraftOptions[index];
+    if (!option) return;
+
+    setSelectedKraftOption(index);
+
+    if (kraftOptionTarget === 'forward') {
+      replaceForwardDraftContent(option.bodyHtml);
+    } else {
+      replaceReplyDraftContent(option.bodyHtml);
+    }
+
+    setKraftHighlights(option.highlights);
+  };
+
+  // Stores the option now in the editor on the contact, replacing the first
+  // one the generation saved.
+  //
+  // The body comes from the editor rather than from the option, so a tweak
+  // made after picking it is saved too, and its highlights travel with it so
+  // the stored highlights describe the stored email.
+  const handleSaveKraftOption = async () => {
+    const option = kraftOptions[selectedKraftOption];
+    const contactId = kraftOptionContactId ?? activeThreadContactId;
+    if (!option || !contactId) return;
+
+    const draft = kraftOptionTarget === 'forward' ? forwardMessage : replyText;
+    const emailBody = getDraftReplyBody(draft) || option.bodyHtml;
+
+    setIsSavingKraftOption(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Crm/contacts/update-email`,
+        {
+          clientId: parseInt(effectiveUserId),
+          contactId,
+          gptGenerate: false,
+          emailSubject: option.subject || null,
+          emailBody,
+          emailHighlights: JSON.stringify(option.highlights),
+        },
+        {
+          headers: {
+            accept: '*/*',
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        },
+      );
+
+      if (response.data?.success) {
+        setSavedKraftOption(selectedKraftOption);
+        setToastMessage(`Option ${selectedKraftOption + 1} saved to this contact`);
+        setToastType('success');
+      } else {
+        setToastMessage(response.data?.message || 'Failed to save this option');
+        setToastType('error');
+      }
+    } catch (err: any) {
+      console.error('Error saving email option:', err);
+      setToastMessage(err.response?.data?.message || 'Failed to save this option');
+      setToastType('error');
+    } finally {
+      setIsSavingKraftOption(false);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 4000);
+    }
+  };
+
+  // Wraps an editor in the option picker: arrows floating over the editor and
+  // the save bar under it. The editor is returned untouched unless the last
+  // kraft produced more than one email for that editor.
+  const renderKraftOptionPicker = (target: 'reply' | 'forward', editor: React.ReactNode) => (
+    <EmailOptionPicker
+      options={kraftOptionTarget === target ? kraftOptions : []}
+      selectedIndex={selectedKraftOption}
+      onSelect={handleSelectKraftOption}
+      onSave={handleSaveKraftOption}
+      isSaving={isSavingKraftOption}
+      savedIndex={savedKraftOption}
+      disabled={isKrafting}
+    >
+      {editor}
+    </EmailOptionPicker>
+  );
+
   // Shared kraft used by the editor toolbar's Regenerate button on every tab.
   // Same guards as the Kraft button: blueprint required, single flight, credit
   // check, then the backend generation call.
@@ -1091,19 +1237,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       );
 
       if (response.data?.success && response.data?.emailBody) {
-        if (target === 'forward') {
-          replaceForwardDraftContent(response.data.emailBody);
-        } else {
-          replaceReplyDraftContent(response.data.emailBody);
-        }
-
-        const kraftInsights = extractGenerationInsights(response.data);
-        setKraftFinalPrompt(kraftInsights.finalPrompt);
-        setKraftWebSearchData(kraftInsights.webSearchData);
-        setKraftEmails(kraftInsights.emails);
-        setKraftNotes(kraftInsights.notes);
-        setKraftProfessionalSummary(kraftInsights.professionalSummary);
-        setKraftHighlights(parseEmailHighlights(response.data?.emailHighlights));
+        applyKraftResponse(response.data, target, contactId);
 
         playSound();
         window.dispatchEvent(
@@ -1161,14 +1295,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       );
 
       if (response.data.success && response.data.emailBody) {
-        replaceReplyDraftContent(response.data.emailBody);
-        const kraftInsights = extractGenerationInsights(response.data);
-        setKraftFinalPrompt(kraftInsights.finalPrompt);
-        setKraftWebSearchData(kraftInsights.webSearchData);
-        setKraftEmails(kraftInsights.emails);
-        setKraftNotes(kraftInsights.notes);
-        setKraftProfessionalSummary(kraftInsights.professionalSummary);
-        setKraftHighlights(parseEmailHighlights(response.data?.emailHighlights));
+        applyKraftResponse(response.data, 'reply', selectedThread.contactId);
         playSound();
         window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
       } else {
@@ -1226,14 +1353,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       );
 
       if (response.data?.success && response.data?.emailBody) {
-        replaceForwardDraftContent(response.data.emailBody);
-        const kraftInsights = extractGenerationInsights(response.data);
-        setKraftFinalPrompt(kraftInsights.finalPrompt);
-        setKraftWebSearchData(kraftInsights.webSearchData);
-        setKraftEmails(kraftInsights.emails);
-        setKraftNotes(kraftInsights.notes);
-        setKraftProfessionalSummary(kraftInsights.professionalSummary);
-        setKraftHighlights(parseEmailHighlights(response.data?.emailHighlights));
+        applyKraftResponse(response.data, 'forward', forwardThread.contactId);
         playSound();
         window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
       } else {
@@ -1628,8 +1748,17 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   // or switching tabs. This covers every reset in one place instead of each
   // of the twenty-odd setReplyText('') calls. While a draft is open they are
   // left alone: a record whose wording was edited away is simply not painted.
+  // The same applies to the generated options: they were written for one
+  // contact, so an empty editor must not leave a picker offering them for
+  // whoever is selected next.
   useEffect(() => {
-    if (!replyText.trim() && !forwardMessage.trim()) setKraftHighlights([]);
+    if (!replyText.trim() && !forwardMessage.trim()) {
+      setKraftHighlights([]);
+      setKraftOptions([]);
+      setSelectedKraftOption(0);
+      setSavedKraftOption(null);
+      setKraftOptionContactId(null);
+    }
   }, [replyText, forwardMessage]);
 
   const replaceReplyDraftContent = (nextDraftHtml: string) => {
@@ -2225,6 +2354,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             </button>
           </div>
         )}
+        {renderKraftOptionPicker('forward',
         <RichTextEditor
           value={forwardMessage}
           onChange={setForwardMessage}
@@ -2251,6 +2381,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           insightNotes={kraftNotes}
           insightProfessionalSummary={kraftProfessionalSummary}
         />
+        )}
         <Modal
           show={openModals['modal-forward-expand']}
           closeModal={() => handleModalClose('modal-forward-expand')}
@@ -3363,6 +3494,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     maxWidth: `${outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%'}`,
                     margin: '0 auto'
                   }}>
+                    {renderKraftOptionPicker('reply',
                     <RichTextEditor
                       value={replyText}
                       onChange={setReplyText}
@@ -3391,6 +3523,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       onCopyToClipboard={copyToClipboardHandler}
                       onExpandEditor={() => handleModalOpen('modal-reply-expand')}
                     />
+                    )}
                   </div>
                   
                 </div>
@@ -4004,14 +4137,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             );
 
                             if (response.data.success && response.data.emailBody) {
-                              replaceReplyDraftContent(response.data.emailBody);
-        const kraftInsights = extractGenerationInsights(response.data);
-        setKraftFinalPrompt(kraftInsights.finalPrompt);
-        setKraftWebSearchData(kraftInsights.webSearchData);
-        setKraftEmails(kraftInsights.emails);
-        setKraftNotes(kraftInsights.notes);
-        setKraftProfessionalSummary(kraftInsights.professionalSummary);
-        setKraftHighlights(parseEmailHighlights(response.data?.emailHighlights));
+                              applyKraftResponse(
+                                response.data,
+                                'reply',
+                                selectedUnassignedThread.contactId,
+                              );
                               playSound();
                               window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
                             } else {
@@ -4042,10 +4172,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     `}
                   </style>
                   <div style={{ marginBottom: '12px', position: 'relative' }}>
-                    <div style={{ 
+                    <div style={{
                       maxWidth: `${outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%'}`,
                       margin: '0 auto'
                     }}>
+                      {renderKraftOptionPicker('reply',
                       <RichTextEditor
                         value={replyText}
                         onChange={setReplyText}
@@ -4078,6 +4209,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         onCopyToClipboard={copyToClipboardHandler}
                         onExpandEditor={() => handleModalOpen('modal-reply-expand')}
                       />
+                      )}
                     </div>
                     
                   </div>
@@ -4552,14 +4684,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             );
 
                             if (response.data.success && response.data.emailBody) {
-                              replaceReplyDraftContent(response.data.emailBody);
-        const kraftInsights = extractGenerationInsights(response.data);
-        setKraftFinalPrompt(kraftInsights.finalPrompt);
-        setKraftWebSearchData(kraftInsights.webSearchData);
-        setKraftEmails(kraftInsights.emails);
-        setKraftNotes(kraftInsights.notes);
-        setKraftProfessionalSummary(kraftInsights.professionalSummary);
-        setKraftHighlights(parseEmailHighlights(response.data?.emailHighlights));
+                              applyKraftResponse(
+                                response.data,
+                                'reply',
+                                selectedAllMessagesThread.contactId,
+                              );
                               playSound();
                               window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
                             } else {
@@ -4595,6 +4724,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       maxWidth: `${outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%'}`,
                       margin: '0 auto'
                     }}>
+                      {renderKraftOptionPicker('reply',
                       <RichTextEditor
                         value={replyText}
                         onChange={setReplyText}
@@ -4627,6 +4757,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         onCopyToClipboard={copyToClipboardHandler}
                         onExpandEditor={() => handleModalOpen('modal-reply-expand')}
                       />
+                      )}
                     </div>
 
                   </div>

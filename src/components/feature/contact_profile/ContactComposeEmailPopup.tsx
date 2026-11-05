@@ -9,6 +9,8 @@ import {
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import RichTextEditor from "../../common/RTEEditor";
 import { EmailHighlight, parseEmailHighlights } from "../../../utils/emailHighlights";
+import { EmailOption } from "../../../utils/emailOptions";
+import EmailOptionPicker from "../../common/EmailOptionPicker";
 import { buildManualInstruction } from "../../../utils/manualInstruction";
 import "./ContactComposeEmailPopup.css";
 
@@ -44,7 +46,22 @@ interface ContactComposeEmailPopupProps {
     professionalSummary?: string;
     /** Highlight records as the generator returned them, raw or JSON. */
     emailHighlights?: unknown;
+    /**
+     * Every email this generation produced. One entry when the blueprint
+     * asks for a single email, several when it asks for a choice; the first
+     * is the one above and the one already saved to the contact.
+     */
+    emailOptions?: EmailOption[];
   }>;
+  /**
+   * Stores an option the user stepped to, replacing the first one the
+   * generation saved. Omit to hide the Save button on the option bar.
+   */
+  onSaveOption?: (payload: {
+    emailSubject: string;
+    emailBody: string;
+    emailHighlights: EmailHighlight[];
+  }) => Promise<boolean>;
   onSend: (payload: {
     emailSubject: string;
     emailBody: string;
@@ -262,6 +279,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   signatureHtml,
   isSignatureLoading = false,
   onGenerate,
+  onSaveOption,
   onSend,
   isSending,
 }) => {
@@ -303,6 +321,15 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   // Source highlights for the generated body. The editor paints them over the
   // wording it finds, so the body that gets sent stays clean.
   const [previewHighlights, setPreviewHighlights] = useState<EmailHighlight[]>([]);
+  // Every email the last Generate produced. The first is in the editor and
+  // already saved to the contact; Previous/Next step through the rest. They
+  // are not stored — generating again replaces the whole set.
+  const [emailOptions, setEmailOptions] = useState<EmailOption[]>([]);
+  const [selectedOption, setSelectedOption] = useState(0);
+  // Which option is on the contact row. The generation saves the first one,
+  // so that is where this starts once a set arrives.
+  const [savedOption, setSavedOption] = useState<number | null>(null);
+  const [isSavingOption, setIsSavingOption] = useState(false);
   // Device-preview width for the body editor ("" = desktop).
   const [previewWidth, setPreviewWidth] = useState("");
   const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
@@ -346,6 +373,10 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       setOpenDeviceDropdown(false);
       setPreviewHighlights([]);
       setManualInstruction("");
+      setEmailOptions([]);
+      setSelectedOption(0);
+      setSavedOption(null);
+      setIsSavingOption(false);
     }
   }, [isOpen]);
 
@@ -396,8 +427,52 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       setPreviewNotes(generatedEmail.notes || "");
       setPreviewProfessionalSummary(generatedEmail.professionalSummary || "");
       setPreviewHighlights(parseEmailHighlights(generatedEmail.emailHighlights));
+
+      const options = generatedEmail.emailOptions ?? [];
+      setEmailOptions(options);
+      setSelectedOption(0);
+      // The generation wrote its first option to the contact row, so that is
+      // what is stored until the user steps to another one and saves it.
+      setSavedOption(options.length > 0 ? 0 : null);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // Steps to another option.
+  //
+  // It replaces the body rather than previewing beside it, so an instruction
+  // typed afterwards applies to the option actually chosen: the manual
+  // instruction carries the body on screen with it.
+  const handleSelectOption = (index: number) => {
+    const option = emailOptions[index];
+    if (!option) return;
+
+    setSelectedOption(index);
+    setEmailBody(option.bodyHtml);
+    setEmailSubject(option.subject || "");
+    setPreviewHighlights(option.highlights);
+  };
+
+  // Stores the option on screen, replacing the first one the generation saved.
+  //
+  // The body comes from the editor rather than from the option, so an edit
+  // made after stepping to it is saved too.
+  const handleSaveOption = async () => {
+    const option = emailOptions[selectedOption];
+    if (!option || !onSaveOption || isSavingOption) return;
+
+    setIsSavingOption(true);
+    try {
+      const saved = await onSaveOption({
+        emailSubject,
+        emailBody,
+        emailHighlights: option.highlights,
+      });
+
+      if (saved) setSavedOption(selectedOption);
+    } finally {
+      setIsSavingOption(false);
     }
   };
 
@@ -689,36 +764,46 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
                 margin: "0 auto",
               }}
             >
-              <RichTextEditor
-                value={emailBody}
-                onChange={setEmailBody}
-                height={360}
-                showActionButtons={hasGeneratedBody}
-                // Not gated on hasGeneratedBody: the instruction is written
-                // before the first Generate, not after it.
-                showManualInstruction
-                manualInstruction={manualInstruction}
-                onManualInstructionChange={setManualInstruction}
-                onRegenerate={handleGenerate}
-                isRegenerating={isGenerating}
-                regenerateDisabled={!selectedBlueprintId}
-                showDeviceButton
-                outputEmailWidth={previewWidth}
-                openDeviceDropdown={openDeviceDropdown}
-                onDeviceDropdownToggle={() =>
-                  setOpenDeviceDropdown((prev) => !prev)
-                }
-                onDeviceWidthChange={(width) => {
-                  setPreviewWidth(width);
-                  setOpenDeviceDropdown(false);
-                }}
-                highlights={previewHighlights}
-                finalPrompt={previewFinalPrompt}
-                webSearchData={previewWebSearchData}
-                insightEmails={previewEmails}
-                insightNotes={previewNotes}
-                insightProfessionalSummary={previewProfessionalSummary}
-              />
+              <EmailOptionPicker
+                options={emailOptions}
+                selectedIndex={selectedOption}
+                onSelect={handleSelectOption}
+                onSave={onSaveOption ? handleSaveOption : undefined}
+                isSaving={isSavingOption}
+                savedIndex={savedOption}
+                disabled={isGenerating}
+              >
+                <RichTextEditor
+                  value={emailBody}
+                  onChange={setEmailBody}
+                  height={360}
+                  showActionButtons={hasGeneratedBody}
+                  // Not gated on hasGeneratedBody: the instruction is written
+                  // before the first Generate, not after it.
+                  showManualInstruction
+                  manualInstruction={manualInstruction}
+                  onManualInstructionChange={setManualInstruction}
+                  onRegenerate={handleGenerate}
+                  isRegenerating={isGenerating}
+                  regenerateDisabled={!selectedBlueprintId}
+                  showDeviceButton
+                  outputEmailWidth={previewWidth}
+                  openDeviceDropdown={openDeviceDropdown}
+                  onDeviceDropdownToggle={() =>
+                    setOpenDeviceDropdown((prev) => !prev)
+                  }
+                  onDeviceWidthChange={(width) => {
+                    setPreviewWidth(width);
+                    setOpenDeviceDropdown(false);
+                  }}
+                  highlights={previewHighlights}
+                  finalPrompt={previewFinalPrompt}
+                  webSearchData={previewWebSearchData}
+                  insightEmails={previewEmails}
+                  insightNotes={previewNotes}
+                  insightProfessionalSummary={previewProfessionalSummary}
+                />
+              </EmailOptionPicker>
             </div>
             <div
               style={{

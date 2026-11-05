@@ -38,6 +38,8 @@ import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
 import RichTextEditor from '../../common/RTEEditor';
 import { extractGenerationInsights } from '../../../utils/generationInsights';
 import { EmailHighlight, parseEmailHighlights } from '../../../utils/emailHighlights';
+import { EmailOption, parseEmailOptions } from '../../../utils/emailOptions';
+import EmailOptionPicker from '../../common/EmailOptionPicker';
 import { buildManualInstruction } from '../../../utils/manualInstruction';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import CreditCheckModal from "../../common/CreditCheckModal";
@@ -446,23 +448,46 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   // Source highlights for the draft the last kraft produced. The editor paints
   // them over the wording it finds; nothing is written into the saved body.
   const [kraftHighlights, setKraftHighlights] = useState<EmailHighlight[]>([]);
+  // Every email the last kraft produced. The first is in the draft and saved
+  // to the contact; Previous/Next step through the rest. Not stored anywhere
+  // — krafting again replaces the set.
+  const [kraftOptions, setKraftOptions] = useState<EmailOption[]>([]);
+  const [kraftOptionTarget, setKraftOptionTarget] = useState<"reply" | "forward">("reply");
+  const [selectedKraftOption, setSelectedKraftOption] = useState(0);
+  const [savedKraftOption, setSavedKraftOption] = useState<number | null>(null);
+  const [isSavingKraftOption, setIsSavingKraftOption] = useState(false);
 
-  const captureKraftInsights = (responseData: any) => {
+  const captureKraftInsights = (responseData: any, target: "reply" | "forward" = "reply") => {
     const insights = extractGenerationInsights(responseData);
     setKraftFinalPrompt(insights.finalPrompt);
     setKraftWebSearchData(insights.webSearchData);
     setKraftEmails(insights.emails);
     setKraftNotes(insights.notes);
     setKraftProfessionalSummary(insights.professionalSummary);
-    setKraftHighlights(parseEmailHighlights(responseData?.emailHighlights));
+
+    const options = parseEmailOptions(responseData);
+    const primary = options[0];
+    setKraftOptions(options);
+    setKraftOptionTarget(target);
+    setSelectedKraftOption(0);
+    // The generation saved its first option to the contact row.
+    setSavedKraftOption(options.length > 0 ? 0 : null);
+    setKraftHighlights(primary?.highlights ?? parseEmailHighlights(responseData?.emailHighlights));
   };
 
   // Highlights describe the wording of the draft they were generated for, so
   // they are dropped once both drafts are empty — closing a thread, sending,
   // or switching tabs. While a draft is open they are left alone: a record
   // whose wording was edited away is simply not painted.
+  // The generated options go with them: they were written for one contact and
+  // one draft, so an empty editor must not leave a picker offering them.
   useEffect(() => {
-    if (!contactReplyText.trim() && !contactForwardMessage.trim()) setKraftHighlights([]);
+    if (!contactReplyText.trim() && !contactForwardMessage.trim()) {
+      setKraftHighlights([]);
+      setKraftOptions([]);
+      setSelectedKraftOption(0);
+      setSavedKraftOption(null);
+    }
   }, [contactReplyText, contactForwardMessage]);
 
   useEffect(() => {
@@ -2023,7 +2048,7 @@ const handleDeleteContact = async () => {
 
       if (response.data?.success && response.data?.emailBody) {
         replaceContactReplyDraftContent(response.data.emailBody);
-        captureKraftInsights(response.data);
+        captureKraftInsights(response.data, "reply");
         refreshCreditsAfterDeduction();
         window.dispatchEvent(new CustomEvent("creditUpdated", { detail: { clientId: effectiveUserId } }));
         return;
@@ -2087,6 +2112,10 @@ const handleDeleteContact = async () => {
           notes: generationInsights.notes,
           professionalSummary: generationInsights.professionalSummary,
           emailHighlights: response.data.emailHighlights,
+
+          // Every email this generation wrote. The popup offers the ones
+          // after the first through its Previous/Next bar.
+          emailOptions: parseEmailOptions(response.data),
         };
       }
 
@@ -2097,6 +2126,116 @@ const handleDeleteContact = async () => {
       return emptyGeneratedEmail;
     }
   };
+
+  // Stores the option the user stepped to on the contact, in place of the
+  // first one the generation saved.
+  //
+  // No credit is deducted: the generation wrote every option in one call and
+  // already charged for it, so gptGenerate stays false. The highlights travel
+  // with the body so the stored records describe the stored email.
+  const handleSaveComposeEmailOption = async (payload: {
+    emailSubject: string;
+    emailBody: string;
+    emailHighlights: unknown[];
+  }): Promise<boolean> => {
+    if (!contactId || !effectiveUserId) {
+      showContactMailError("Contact not found.");
+      return false;
+    }
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Crm/contacts/update-email`,
+        {
+          clientId: Number(effectiveUserId),
+          contactId: Number(contactId),
+          campaignId: null,
+          blueprintId: null,
+          gptGenerate: false,
+          emailSubject: payload.emailSubject,
+          emailBody: payload.emailBody,
+          emailHighlights: JSON.stringify(payload.emailHighlights ?? []),
+        },
+        {
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data?.success === false || response.data?.success === "false") {
+        throw new Error(response.data?.message || "Failed to save this option");
+      }
+
+      return true;
+    } catch (error: any) {
+      console.error("Failed to save email option:", error);
+      showContactMailError(error.response?.data?.message || error.message || "Failed to save this option.");
+      return false;
+    }
+  };
+
+  // Steps the reply or forward draft to another generated option, so the
+  // manual instruction typed next applies to the email actually chosen.
+  const handleSelectKraftOption = (index: number) => {
+    const option = kraftOptions[index];
+    if (!option) return;
+
+    setSelectedKraftOption(index);
+
+    if (kraftOptionTarget === "forward") {
+      replaceContactForwardDraftContent(option.bodyHtml);
+    } else {
+      replaceContactReplyDraftContent(option.bodyHtml);
+    }
+
+    setKraftHighlights(option.highlights);
+  };
+
+  // Stores the option now in the draft, in place of the first one.
+  const handleSaveKraftOption = async () => {
+    const option = kraftOptions[selectedKraftOption];
+    if (!option || isSavingKraftOption) return;
+
+    const draft =
+      kraftOptionTarget === "forward" ? contactForwardMessage : contactReplyText;
+    const { draftHtml } = splitContactReplyTrail(draft || "");
+
+    setIsSavingKraftOption(true);
+    try {
+      const saved = await handleSaveComposeEmailOption({
+        emailSubject: option.subject,
+        emailBody: draftHtml || option.bodyHtml,
+        emailHighlights: option.highlights,
+      });
+
+      if (saved) {
+        setSavedKraftOption(selectedKraftOption);
+        showContactMailSuccess(`Option ${selectedKraftOption + 1} saved to this contact`);
+      }
+    } finally {
+      setIsSavingKraftOption(false);
+    }
+  };
+
+  // Wraps a draft editor in the option picker: arrows floating over the editor
+  // and the save bar under it. The editor is returned untouched unless the last
+  // kraft produced more than one email for that editor.
+  const renderKraftOptionPicker = (target: "reply" | "forward", editor: React.ReactNode) => (
+    <EmailOptionPicker
+      options={kraftOptionTarget === target ? kraftOptions : []}
+      selectedIndex={selectedKraftOption}
+      onSelect={handleSelectKraftOption}
+      onSave={handleSaveKraftOption}
+      isSaving={isSavingKraftOption}
+      savedIndex={savedKraftOption}
+      disabled={isKraftingContactReply}
+    >
+      {editor}
+    </EmailOptionPicker>
+  );
 
   const getComposeSmtpId = (smtpUser: ContactSmtpUser) =>
     smtpUser.id ?? smtpUser.outboxId ?? smtpUser.OutboxId;
@@ -2453,7 +2592,7 @@ const handleDeleteContact = async () => {
 
       if (response.data?.success && response.data?.emailBody) {
         replaceContactForwardDraftContent(response.data.emailBody);
-        captureKraftInsights(response.data);
+        captureKraftInsights(response.data, "forward");
         refreshCreditsAfterDeduction();
         window.dispatchEvent(new CustomEvent("creditUpdated", { detail: { clientId: effectiveUserId } }));
       } else {
@@ -4310,6 +4449,7 @@ dispatch(closePanel());
                   width: "100%",
                 }}
               >
+                {renderKraftOptionPicker("forward",
                 <RichTextEditor
                   value={contactForwardMessage}
                   onChange={setContactForwardMessage}
@@ -4336,6 +4476,7 @@ dispatch(closePanel());
                   insightNotes={kraftNotes}
                   insightProfessionalSummary={kraftProfessionalSummary}
                 />
+                )}
               </div>
             </div>
             <div style={{ display: "flex", gap: 12 }}>
@@ -4600,6 +4741,7 @@ dispatch(closePanel());
               >
                 {/* Insights / regenerate / copy / device / expand all live in
                     the editor toolbar — same controls as Inbox and Output. */}
+                {renderKraftOptionPicker("reply",
                 <RichTextEditor
                   value={contactReplyText}
                   onChange={setContactReplyText}
@@ -4629,6 +4771,7 @@ dispatch(closePanel());
                   insightNotes={kraftNotes}
                   insightProfessionalSummary={kraftProfessionalSummary}
                 />
+                )}
               </div>
             </div>
             <div style={{ display: "flex", gap: 12, marginTop: 14, alignItems: "center" }}>
@@ -7496,6 +7639,7 @@ dispatch(closePanel());
       signatureHtml={composeSignatureHtml}
       isSignatureLoading={isLoadingComposeSignature}
       onGenerate={handleGenerateComposeEmail}
+      onSaveOption={handleSaveComposeEmailOption}
       onSend={handleSendComposeEmail}
       isSending={isSendingComposeEmail}
     />
