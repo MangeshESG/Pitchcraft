@@ -803,21 +803,23 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
                   insightNotes={previewNotes}
                   insightProfessionalSummary={previewProfessionalSummary}
                 />
+                {/* Sits between the editor and the option strip, so the count
+                    belongs to the body above it rather than to the strip. */}
+                <div
+                  style={{
+                    minHeight: 28,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "4px 12px 0",
+                    color: "#64748b",
+                    fontSize: 12,
+                  }}
+                >
+                  <span>Characters: {plainBody.length}</span>
+                  <span>{plainBody.trim() ? plainBody.trim().split(/\s+/).length : 0} words</span>
+                </div>
               </EmailOptionPicker>
-            </div>
-            <div
-              style={{
-                minHeight: 28,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "4px 12px 0",
-                color: "#64748b",
-                fontSize: 12,
-              }}
-            >
-              <span>Characters: {plainBody.length}</span>
-              <span>{plainBody.trim() ? plainBody.trim().split(/\s+/).length : 0} words</span>
             </div>
           </div>
         </div>
