@@ -393,10 +393,13 @@ const SYSTEM_LIST_NAMES = [
   "contacts involved in conversations",
 ];
 
-const isSystemFile = (file: DataFile): boolean =>
-  !!file.isSystem ||
-  file.id === -1 ||
-  SYSTEM_LIST_NAMES.includes((file.name || "").trim().toLowerCase());
+export const getContactListCategory = (file: DataFile): "systems" | "website" | "user" => {
+  if (file.isWebsiteContactList) return "website";
+  if (file.isSystem || file.id === -1 || SYSTEM_LIST_NAMES.includes((file.name || "").trim().toLowerCase())) {
+    return "systems";
+  }
+  return "user";
+};
 
 export const ContactsListsRows: React.FC<RowsProps> = (p) => (
   <div className="ct-rows">
@@ -424,7 +427,7 @@ export const ContactsListsRows: React.FC<RowsProps> = (p) => (
       <div className="ct-rows__msg">No lists found.</div>
     ) : (
       p.data.map((file) => {
-        const isSystemList = isSystemFile(file);
+        const isSystemList = getContactListCategory(file) === "systems";
         return (
         <div key={file.id} className="ct-row">
           {isSystemList ? (

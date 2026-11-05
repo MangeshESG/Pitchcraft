@@ -2769,7 +2769,9 @@ case "boolean":
                 const latestEmail = emailMessages[emailMessages.length - 1];
                 const emailExpanded = Boolean(email && expandedPinnedEmailIds.has(email.trackingId));
                 const noteExpanded = Boolean(note && expandedNoteIds.has(note.id));
-                const noteText = note ? getPlainText(note.note || "") : "";
+                const sourceMatch = note?.note?.match(/^<p><strong>Source: (Email|LinkedIn message|Audio\/video call|Note|Website contact)<\/strong><\/p>/);
+                const noteBody = sourceMatch ? note.note.slice(sourceMatch[0].length) : note?.note || "";
+                const noteText = getPlainText(noteBody);
                 return (
                   <div
                     key={note ? "note-" + note.id : email ? "email-" + email.trackingId : "linkedin-" + linkedIn?.id}
@@ -2809,8 +2811,11 @@ case "boolean":
                     </div>
                     {note && (
                       <>
+                        {sourceMatch && (
+                          <strong className="mt-2 block text-sm text-gray-900">Source: {sourceMatch[1]}</strong>
+                        )}
                         <div className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-700">
-                          {noteExpanded ? noteText : getTruncatedNote(note.note || "")}
+                          {noteExpanded ? noteText : getTruncatedNote(noteBody)}
                         </div>
                         {noteText.length > TRUNCATE_LENGTH && (
                           <button type="button" onClick={() => toggleNoteExpand(note.id)} className="mt-2 text-sm font-semibold text-[#3f9f42]">

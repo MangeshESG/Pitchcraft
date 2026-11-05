@@ -9,7 +9,7 @@ interface NotificationItem {
   contactId: number | null;
   contactName: string | null;
   email: string;
-  source: "UnsubscribeByToken" | "OneClick";
+  source: "UnsubscribeByToken" | "OneClick" | "WebsiteContact";
   createdAt: string;
   isRead: boolean;
 }
@@ -208,14 +208,14 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
         <Mail size={19} aria-hidden="true" /><span>Unread emails</span>
         <strong>{unreadEmailCount !== null ? unreadEmailCount.toLocaleString() : emailCountError ? "Unavailable" : "Loading…"}</strong>
       </Link>
-      {items.length > 0 && <div className="unsubscribe-notifications__toolbar"><span>Unsubscribed contacts</span>
+      {items.length > 0 && <div className="unsubscribe-notifications__toolbar"><span>Contact activity</span>
         {token && unreadCount > 0 && items.length > 0 && <button type="button" disabled={markingRead} onClick={markAllRead}>{markingRead ? "Saving…" : "Mark all as read"}</button>}
       </div>}
       {error && <div className="unsubscribe-notifications__status" role="alert">{error} <button type="button" onClick={() => setRefresh(value => value + 1)}>Retry</button></div>}
       {loading && <p className="unsubscribe-notifications__status">Loading notifications…</p>}
       <ul className="unsubscribe-notifications__list">{items.map(item => <li key={item.id} className={item.isRead ? "" : "is-unread"}>
         <span className="unsubscribe-notifications__dot" aria-label={item.isRead ? "Read" : "Unread"} />
-        <div><p><strong>{item.contactName || item.email}</strong> unsubscribed.</p>
+        <div><p><strong>{item.contactName || item.email}</strong> {item.source === "WebsiteContact" ? "was added from the website." : "unsubscribed."}</p>
           {item.contactName && <span className="unsubscribe-notifications__email">{item.email}</span>}
           <time dateTime={item.createdAt}>{notificationTime(item.createdAt)}</time>
         </div>
