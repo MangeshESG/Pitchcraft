@@ -61,6 +61,17 @@ import "../inbox/InboxView.css";
 import { copyToClipboard } from "../../../utils/utils";
 import "./ContactDetailView.css";
 
+const NOTE_SOURCES = ["Email", "LinkedIn message", "Audio/video call", "Note"] as const;
+type NoteSource = typeof NOTE_SOURCES[number] | "Website contact";
+const noteSourcePattern = /^<p><strong>Source: (Email|LinkedIn message|Audio\/video call|Note|Website contact)<\/strong><\/p>/;
+
+const splitNoteSource = (html: string): { source: NoteSource; body: string; hasSource: boolean } => {
+  const match = html.match(noteSourcePattern);
+  return match
+    ? { source: match[1] as NoteSource, body: html.slice(match[0].length), hasSource: true }
+    : { source: "Note", body: html, hasSource: false };
+};
+
 // Same-origin: the API serves this app, so pitch generation goes to the host
 // that loaded the page.
 const PITCH_GENERATION_API_BASE_URL = API_BASE_URL;
@@ -529,6 +540,7 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const showAttachmentPanel = activePanel === "attachment";
   const [isPinned, setIsPinned] = useState(false);
   const [noteText, setNoteText] = useState("");
+  const [noteSource, setNoteSource] = useState<NoteSource>("Note");
   const noteEditorRef = useRef<HTMLDivElement | null>(null);
 
 //   const NOTE_MAX_LENGTH = 10000;
@@ -653,7 +665,7 @@ const MAX_TOTAL_NOTES = 100000;
  const getTotalNotesLength = () => {
     if (!notesHistory || notesHistory.length === 0) return 0;
     return notesHistory.reduce((total: number, note: any) => {
-      const plainText = getPlainText(note.note || "");
+      const plainText = getPlainText(splitNoteSource(note.note || "").body);
       return total + plainText.length;
     }, 0);
   };
@@ -665,7 +677,7 @@ let projectedTotalLength = totalNotesLength + newNotePlainText.length;
 if (isEditMode && editingNoteId) {
   const oldNote = notesHistory.find((n: any) => n.id === editingNoteId);
   if (oldNote) {
-    const oldLength = getPlainText(oldNote.note || "").length;
+    const oldLength = getPlainText(splitNoteSource(oldNote.note || "").body).length;
     projectedTotalLength = totalNotesLength - oldLength + newNotePlainText.length;
   }
 }
@@ -734,6 +746,13 @@ const isSaveDisabled =
       return plainText.substring(0, TRUNCATE_LENGTH) + "...";
     }
     return plainText;
+  };
+
+  const displayNote = (html: string, expanded: boolean): string => {
+    const { source, body, hasSource } = splitNoteSource(html);
+    if (expanded) return html || "<p>No note content</p>";
+    const heading = hasSource ? `<p><strong>Source: ${source}</strong></p>` : "";
+    return `${heading}<p>${getTruncatedNote(body)}</p>`;
   };
   
   const [contactDetails, setContactDetails] = useState<any>(null);
@@ -3054,7 +3073,7 @@ const handleDeleteContact = async () => {
     );
 
     if (oldNote) {
-      const oldLength = getPlainText(oldNote.note || "").length;
+      const oldLength = getPlainText(splitNoteSource(oldNote.note || "").body).length;
       adjustedTotalLength -= oldLength;
     }
   }
@@ -3073,13 +3092,15 @@ const handleDeleteContact = async () => {
     return () => clearTimeout(timer);
   }
 
+  const formattedNote = `<p><strong>Source: ${noteSource}</strong></p>${noteText}`;
+
   try {
     setIsSavingNote(true);
 
     const payload = {
       clientId: effectiveUserId,
       contactId: contactId,
-      note: noteText,
+      note: formattedNote,
       isPin: isPinned,
       isUseInGenration: isEmailPersonalization,
     };
@@ -3092,7 +3113,7 @@ const handleDeleteContact = async () => {
       noteId: editingNoteId,  // Add this missing field
       clientId: effectiveUserId,
       contactId: contactId,
-      note: noteText,
+      note: formattedNote,
       isPin: isPinned,
       isUseInGenration: isEmailPersonalization,
     },
@@ -3110,7 +3131,7 @@ const handleDeleteContact = async () => {
     {
       clientId: effectiveUserId,
       contactId: contactId,
-      note: noteText,
+      note: formattedNote,
       isPin: isPinned,
       isUseInGenration: isEmailPersonalization,
     },
@@ -3130,6 +3151,7 @@ const handleDeleteContact = async () => {
 
 dispatch(closePanel());
     setNoteText("");
+    setNoteSource("Note");
     setIsPinned(false);
     setIsEmailPersonalization(false);
      setIsEditMode(false);
@@ -3282,7 +3304,9 @@ dispatch(closePanel());
       if (!data) return;
 
       // Populate fields from API
-      setNoteText(data.note || "");
+      const savedNote = splitNoteSource(data.note || "");
+      setNoteSource(savedNote.source);
+      setNoteText(savedNote.body);
       setIsPinned(!!data.isPin);
       setIsEmailPersonalization(!!data.isUseInGenration);
 
@@ -5227,6 +5251,7 @@ dispatch(closePanel());
                       setIsEditMode(false);
                       setEditingNoteId(null);
                       setNoteText("");
+                      setNoteSource("Note");
                       setIsPinned(false);
                       setIsEmailPersonalization(false);
                       dispatch(openPanel("note"))
@@ -5861,13 +5886,11 @@ dispatch(closePanel());
     lineHeight: "1.5",
   }}
  dangerouslySetInnerHTML={{
-    __html: expandedNoteIds.has(note.id) 
-      ? (note.note || "<p>No note content</p>")
-      : `<p>${getTruncatedNote(note.note || "")}</p>`,
+    __html: displayNote(note.note || "", expandedNoteIds.has(note.id)),
   }}
 />
  {/* EXPAND BUTTON */}
-{getPlainText(note.note || "").length > TRUNCATE_LENGTH && (
+{getPlainText(splitNoteSource(note.note || "").body).length > TRUNCATE_LENGTH && (
   <button
     onClick={() => toggleNoteExpand(note.id)}
     style={{
@@ -6479,13 +6502,11 @@ dispatch(closePanel());
                                         //   __html: note.note || "<p>No note content</p>",
                                         // }}
                                         dangerouslySetInnerHTML={{
-                                        __html: expandedNoteIds.has(note.id) 
-                                        ? (note.note || "<p>No note content</p>")
-                                        : `<p>${getTruncatedNote(note.note || "")}</p>`,
+                                        __html: displayNote(note.note || "", expandedNoteIds.has(note.id)),
                                         }}
                                       />
                                       {/* EXPAND BUTTON */}
-                                      {getPlainText(note.note || "").length > TRUNCATE_LENGTH && (
+                                      {getPlainText(splitNoteSource(note.note || "").body).length > TRUNCATE_LENGTH && (
                                         <button
                                           onClick={() => toggleNoteExpand(note.id)}
                                           style={{
@@ -7084,6 +7105,18 @@ dispatch(closePanel());
           `}
         </style>
         <div className="note-editor-wrapper">
+          <label htmlFor="note-source" className="block text-sm font-medium text-gray-900 mb-2">
+            Source
+          </label>
+          <select
+            id="note-source"
+            value={noteSource}
+            onChange={(event) => setNoteSource(event.target.value as NoteSource)}
+            className="w-full rounded border border-gray-300 px-3 py-2 mb-4 text-sm"
+          >
+            {NOTE_SOURCES.map((source) => <option key={source} value={source}>{source}</option>)}
+            {noteSource === "Website contact" && <option value="Website contact">Website contact</option>}
+          </select>
           <div style={{ marginBottom: 10 }}>
             <RichTextEditor value={noteText} onChange={setNoteText} />
           </div>
