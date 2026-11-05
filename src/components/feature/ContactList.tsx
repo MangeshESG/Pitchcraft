@@ -13,7 +13,6 @@ import CommonSidePanel from "../common/CommonSidePanel";
 import FilterBuilder from "../common/FilterBuilder";
 import ContactViews from "./ContactViews";
 import BulkUpdatePanel from "./BulkUpdatePanel";
-import PopupModal from "../common/PopupModal";
 import WebsiteGlobeIcon from "../common/WebsiteGlobeIcon";
 import { formatIsoDate, formatUserDate, formatUserDateTime, formatUserTime } from "../common/dateTimePreferences";
 
@@ -330,10 +329,12 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [dataFiles, setDataFiles] = useState<DataFileItem[]>([]);
   const [customListCategories, setCustomListCategories] = useState<{ id: number; name: string }[]>([]);
   const [categoryEditor, setCategoryEditor] = useState<{ id?: number; name: string; listIds: number[] } | null>(null);
+  const [confirmCategoryDelete, setConfirmCategoryDelete] = useState(false);
   const [savingCategory, setSavingCategory] = useState(false);
   useEffect(() => {
     setCustomListCategories([]);
     setCategoryEditor(null);
+    setConfirmCategoryDelete(false);
     setListCategory("all");
   }, [effectiveUserId]);
   const [selectedDataFile, setSelectedDataFile] = useState<string>("");
@@ -2410,8 +2411,7 @@ const filterFields: any = useMemo(() => {
     }
   };
   const deleteListCategory = async () => {
-    if (!categoryEditor?.id || !effectiveUserId || savingCategory ||
-      !window.confirm("Delete this category? Its lists will stay in All.")) return;
+    if (!categoryEditor?.id || !effectiveUserId || savingCategory) return;
     setSavingCategory(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/Crm/contact-list-categories/${categoryEditor.id}/delete?clientId=${effectiveUserId}`, {
@@ -2421,6 +2421,7 @@ const filterFields: any = useMemo(() => {
       await fetchDataFiles();
       setListCategory("all");
       setCategoryEditor(null);
+      setConfirmCategoryDelete(false);
       showContactMessage("Category deleted.", "success");
     } catch (error) {
       showContactMessage(error instanceof Error ? error.message : "Could not delete category.", "error");
@@ -4829,7 +4830,7 @@ const filterFields: any = useMemo(() => {
         onClose={() => setCategoryEditor(null)}
         title={categoryEditor?.id ? "Edit category" : "Create category"}
         footerContent={<>
-          {categoryEditor?.id && <button type="button" className="button secondary" onClick={deleteListCategory} disabled={savingCategory}>Delete category</button>}
+          {categoryEditor?.id && <button type="button" className="button secondary" onClick={() => setConfirmCategoryDelete(true)} disabled={savingCategory}>Delete category</button>}
           <button type="button" className="button secondary" onClick={() => setCategoryEditor(null)}>Cancel</button>
           <button type="button" className="button primary" onClick={saveListCategory} disabled={savingCategory}>Save</button>
         </>}
@@ -4849,6 +4850,19 @@ const filterFields: any = useMemo(() => {
           </label>)}
         </div>
       </CommonSidePanel>
+
+      {confirmCategoryDelete && createPortal(
+        <div className="ct-category-confirm-overlay" role="presentation" onMouseDown={() => setConfirmCategoryDelete(false)}>
+          <div className="ct-category-confirm" role="alertdialog" aria-modal="true" aria-labelledby="ct-category-confirm-title" aria-describedby="ct-category-confirm-message" onMouseDown={(event) => event.stopPropagation()}>
+            <h3 id="ct-category-confirm-title">Delete category</h3>
+            <p id="ct-category-confirm-message">Delete this category? Its lists will stay in All.</p>
+            <div className="ct-category-confirm-actions">
+              <button type="button" className="button secondary" autoFocus onClick={() => setConfirmCategoryDelete(false)}>Cancel</button>
+              <button type="button" className="button primary" onClick={deleteListCategory} disabled={savingCategory}>Delete</button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
 
       {/* Delete Confirmation Modal - portaled so `position: fixed` centres
           against the viewport instead of a transformed ancestor */}
