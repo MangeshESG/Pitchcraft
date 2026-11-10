@@ -21,6 +21,9 @@ import { RootState } from "../../Redux/store";
 import SendEmailPanel from "./SendEmailPanel";
 import KraftEmailPanel from "./KraftEmailPanel";
 import { parseContactRange } from "../../utils/contactRange";
+import { outputLogStamp, resetOutputLogClock } from "../../utils/outputLog";
+import { parseUsageSummary } from "../../utils/usageSummary";
+import UsageSummaryBox from "./UsageSummaryBox";
 import { useSoundAlert } from "../common/useSoundAlert";
 import ReactMarkdown from "react-markdown";
 import toggleOn from "../../assets/images/on-button.png";
@@ -30,7 +33,7 @@ import { faAngleRight, faAngleLeft, faCircleRight, faDownload, faBullhorn } from
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus,faBell    } from "@fortawesome/free-regular-svg-icons";
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
-import { formatIsoDateTime, formatUserDateTime, formatUserDateTimeWithSeconds } from "../common/dateTimePreferences";
+import { formatIsoDateTime, formatUserDateTime } from "../common/dateTimePreferences";
 import { KraftEmailEmptyState, KraftLoadingState, KraftCampaignSelectState } from "./Output.new";
 import RichTextEditor from "../common/RTEEditor";
 import { repairAndParseJsonObject } from "../../utils/jsonRepair";
@@ -544,6 +547,8 @@ const Output: React.FC<OutputInterface> = ({
   };
 
   const clearContent = () => {
+    // Nothing is left to measure against once the log is emptied.
+    resetOutputLogClock();
     setOutputForm((prevOutputForm: any) => ({
       ...prevOutputForm,
       generatedContent: "", // Clear generated content
@@ -1435,7 +1440,7 @@ const subjectCharacterCount = (isEditingSubject
     message: string,
     color: "green" | "red" | "orange" | "blue" = "green",
   ) => {
-    const stamp = formatUserDateTimeWithSeconds(new Date());
+    const stamp = outputLogStamp();
     setOutputForm((prev: any) => ({
       ...prev,
       generatedContent:
@@ -2205,31 +2210,10 @@ const sleepWithCountdown = async (ms: number) => {
   }, []);
 
 
-const usageData = useMemo(() => {
-  if (!outputForm?.usage) return null;
-  try {
-    const parsed = JSON.parse(outputForm.usage);
-    const toUsageNumber = (value: unknown) => {
-      const numericValue = Number(value);
-      return Number.isFinite(numericValue) ? numericValue : 0;
-    };
-
-    return {
-      last: {
-        tokens: toUsageNumber(parsed?.last?.tokens),
-        cost: toUsageNumber(parsed?.last?.cost),
-        emails: toUsageNumber(parsed?.last?.emails),
-      },
-      total: {
-        tokens: toUsageNumber(parsed?.total?.tokens),
-        cost: toUsageNumber(parsed?.total?.cost),
-        emails: toUsageNumber(parsed?.total?.emails),
-      },
-    };
-  } catch {
-    return null;
-  }
-}, [outputForm.usage]);
+const usageData = useMemo(
+  () => parseUsageSummary(outputForm?.usage),
+  [outputForm.usage],
+);
 
   const editableArea = useRef<HTMLDivElement | null>(null);
   const [tabPanelHeight, setTabPanelHeight] = useState(0); // div2 height
@@ -2285,11 +2269,7 @@ const usageData = useMemo(() => {
         </div>
         <div className="flex items-center gap-3">
           {userRole === "ADMIN" && usageData && (
-            <div style={{ padding: "6px 10px", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "11px", lineHeight: "1.3", whiteSpace: "nowrap", position: "relative" }}>
-              <button onClick={clearUsage} title="Clear usage" style={{ position: "absolute", top: "4px", right: "6px", border: "none", background: "transparent", cursor: "pointer", fontSize: "12px", color: "#64748b" }}>✕</button>
-              <div style={{ display: "flex", gap: "10px" }}><strong>Last:</strong><span>Tokens {usageData.last.tokens}</span><span>💲{usageData.last.cost.toFixed(6)}</span></div>
-              <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}><strong>Total:</strong><span>Emails {usageData.total.emails}</span><span>Tokens {usageData.total.tokens}</span><span>💲{usageData.total.cost.toFixed(6)}</span></div>
-            </div>
+            <UsageSummaryBox usage={usageData} onClear={clearUsage} variant="compact" />
           )}
           {/* Download, bell and on/off toggle share one bordered group. The
               sound toggle only fires from the bell/toggle half. */}

@@ -33,7 +33,7 @@ import Header from "./common/Header";
 import API_BASE_URL from "../config";
 import { extractGenerationInsights } from "../utils/generationInsights";
 import { EmailHighlight, parseEmailHighlights } from "../utils/emailHighlights";
-import { DEFAULT_DATE_TIME_PREFERENCES, setDateTimePreferences, formatUserDateTime, formatUserDateTimeWithSeconds } from "./common/dateTimePreferences";
+import { DEFAULT_DATE_TIME_PREFERENCES, setDateTimePreferences, formatUserDateTime } from "./common/dateTimePreferences";
 import { useDispatch } from "react-redux";
 import { useModel } from "../ModelContext";
 import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
@@ -57,6 +57,13 @@ import LoadingSpinner from "./common/LoadingSpinner";
 import CustomFieldSettings from "./feature/CustomFieldSettings";
 import ContactDetailView from "./feature/contact_profile/ContactDetailView";
 import { closePanel } from "../slices/panelSlice";
+import { contactLogLabel, outputLogStamp, resetOutputLogClock } from "../utils/outputLog";
+import {
+  ModelUsage,
+  averageLeg,
+  mergeModelUsage,
+} from "../utils/usageSummary";
+import { fetchAiModelSettings } from "../utils/aiModelSettings";
 // Same-origin: the API serves this app, so pitch generation goes to the host
 // that loaded the page.
 const PITCH_GENERATION_API_BASE_URL = API_BASE_URL;
@@ -139,20 +146,77 @@ interface GeneratedEmailResult {
   professionalSummary: string;
   /** Source highlights, kept out of the body so it stays send-ready. */
   emailHighlights: EmailHighlight[];
-  usage: { totalTokens: number; totalCost: number };
+  usage: {
+    totalTokens: number;
+    totalCost: number;
+    /** What each model was billed for: research and writing are usually
+     *  different models, and the usage box reports them apart. */
+    models: ModelUsage[];
+  };
+}
+
+/** Model names to fall back on when the usage legs do not carry their own. */
+interface GenerationModelNames {
+  /** Writes the body and the subject. */
+  generationModel?: string;
+  /** Runs the research step. */
+  webSearchModel?: string;
 }
 
 // Usage block returned by /api/email-generation/generate (web search + body +
-// subject are already summed server-side).
-const normalizeGenerationUsage = (usage: any) => {
+// subject are already summed server-side). Each leg also names the model it
+// was billed to, which is what lets the usage box break the spend down per
+// model.
+//
+// Those per-leg names are recent. Where they are missing, the names resolved
+// from the response's details block and from Settings > AI models stand in, so
+// the box attributes spend correctly against an API that predates them.
+const normalizeGenerationUsage = (
+  usage: any,
+  fallbackModels: GenerationModelNames = {},
+) => {
   const toNumber = (value: unknown) => {
     const numericValue = Number(value);
     return Number.isFinite(numericValue) ? numericValue : 0;
   };
 
+  const leg = (model: unknown, tokens: unknown, cost: unknown): ModelUsage[] => {
+    const name = String(model ?? "").trim();
+    const legTokens = toNumber(tokens);
+    const legCost = toNumber(cost);
+
+    // A leg that did not run (manual subject, personalization search off) has
+    // no model and nothing to attribute.
+    if (!name || (legTokens === 0 && legCost === 0)) return [];
+
+    return [{ model: name, tokens: legTokens, cost: legCost, calls: 1 }];
+  };
+
+  const models = mergeModelUsage(
+    [],
+    [
+      ...leg(
+        usage?.webSearchModel ?? usage?.WebSearchModel ?? fallbackModels.webSearchModel,
+        usage?.webSearchTokens ?? usage?.WebSearchTokens,
+        usage?.webSearchCost ?? usage?.WebSearchCost,
+      ),
+      ...leg(
+        usage?.bodyModel ?? usage?.BodyModel ?? fallbackModels.generationModel,
+        usage?.bodyTokens ?? usage?.BodyTokens,
+        usage?.bodyCost ?? usage?.BodyCost,
+      ),
+      ...leg(
+        usage?.subjectModel ?? usage?.SubjectModel ?? fallbackModels.generationModel,
+        usage?.subjectTokens ?? usage?.SubjectTokens,
+        usage?.subjectCost ?? usage?.SubjectCost,
+      ),
+    ],
+  );
+
   return {
     totalTokens: toNumber(usage?.totalTokens ?? usage?.TotalTokens),
     totalCost: toNumber(usage?.totalCost ?? usage?.TotalCost),
+    models,
   };
 };
 
@@ -1415,11 +1479,8 @@ const handleClientChange = async (
   var scrapfailedreq = 0;
   var totaltokensused = 0;
 
-  // Helper function to format date and time. Only the output log uses this, and
-  // its lines need seconds to be tellable apart during a run.
-  function formatDateTime(date: Date): string {
-    return formatUserDateTimeWithSeconds(date);
-  }
+  // The output log's own stamping (timestamp with seconds plus the step's
+  // duration) now lives in outputLogStamp — see src/utils/outputLog.ts.
 
 
 
@@ -1572,10 +1633,82 @@ const handleClientChange = async (
     }
   }, [selectedCampaign]);
 
+  /**
+   * The models configured in Settings > AI models, resolved once per kraft run.
+   *
+   * The generation response names the writing model itself, but nothing in it
+   * identifies the research model on older builds — and the usage box has to
+   * say which model each slice of the spend went to. One call per run, cached
+   * here, answers that; it is re-read on the next run so a model changed in
+   * Settings is picked up.
+   */
+  const aiModelNamesRef = useRef<{
+    generationModel: string;
+    webSearchModel: string;
+  } | null>(null);
+
+  const resolveAiModelNames = async () => {
+    if (aiModelNamesRef.current) return aiModelNamesRef.current;
+
+    try {
+      const { settings } = await fetchAiModelSettings();
+
+      const modelFor = (purposeKey: string) =>
+        (settings.find((setting) => setting.purposeKey === purposeKey)?.modelName ?? "").trim();
+
+      const resolved = {
+        generationModel: modelFor("email_generation"),
+        webSearchModel: modelFor("web_search"),
+      };
+
+      aiModelNamesRef.current = resolved;
+      return resolved;
+    } catch (error) {
+      // Not worth failing a kraft over: the box just shows no model.
+      console.error("Could not resolve AI model settings:", error);
+      return { generationModel: "", webSearchModel: "" };
+    }
+  };
+
   // Running totals across the whole kraft session (survive re-renders).
   const totalEmailTokensRef = useRef(0);
   const totalEmailCostRef = useRef(0);
   const totalEmailCountRef = useRef(0); // <-- emails, NOT api calls
+  // Wall-clock time spent inside the generation calls, which is what the
+  // average time per contact is drawn from. Queue waits and the operator's own
+  // pauses are deliberately not in here — this is time the run actually spent
+  // generating.
+  const totalEmailDurationMsRef = useRef(0);
+  // Per-model spend for the whole session, so the box can show which models
+  // were used and what each one cost.
+  const totalModelUsageRef = useRef<ModelUsage[]>([]);
+
+  /**
+   * The usage string rendered by the admin usage box: this contact, the
+   * per-contact average, and the session total. Written as JSON on
+   * outputForm.usage, parsed back by parseUsageSummary.
+   */
+  const buildUsagePayload = (last: {
+    tokens: number;
+    cost: number;
+    durationMs: number;
+    models: ModelUsage[];
+    emails: number;
+  }) => {
+    const total = {
+      tokens: totalEmailTokensRef.current,
+      cost: totalEmailCostRef.current,
+      durationMs: totalEmailDurationMsRef.current,
+      models: totalModelUsageRef.current,
+      emails: totalEmailCountRef.current,
+    };
+
+    return JSON.stringify({
+      last,
+      average: averageLeg(total, total.emails),
+      total,
+    });
+  };
 
   useEffect(() => {
     console.log("Current prompt length:", allprompt[currentIndex]?.length);
@@ -1619,6 +1752,17 @@ const generateEmailViaBackend = async (params: {
 
   const insights = extractGenerationInsights(data);
 
+  // The writing model is named in the response; the research model is not, so
+  // it comes from the configured settings.
+  const configuredModels = await resolveAiModelNames();
+  const details = data?.details ?? data?.Details ?? {};
+  const fallbackModels: GenerationModelNames = {
+    generationModel:
+      String(details?.model ?? details?.Model ?? "").trim() ||
+      configuredModels.generationModel,
+    webSearchModel: configuredModels.webSearchModel,
+  };
+
   return {
     emailBody: data.emailBody ?? data.EmailBody ?? "",
     emailSubject: data.emailSubject ?? data.EmailSubject ?? "",
@@ -1632,7 +1776,7 @@ const generateEmailViaBackend = async (params: {
     emailHighlights: parseEmailHighlights(
       data.emailHighlights ?? data.EmailHighlights,
     ),
-    usage: normalizeGenerationUsage(data.usage ?? data.Usage),
+    usage: normalizeGenerationUsage(data.usage ?? data.Usage, fallbackModels),
   };
 };
 
@@ -1694,6 +1838,10 @@ const resolvePromptSafely = async () => {
     let lastEmailTokens = 0;
     let lastEmailCost = 0;
     let lastEmailGenerations = 0;
+    // The models billed for the most recent contact, and how long that contact
+    // took end to end.
+    let lastEmailModels: ModelUsage[] = [];
+    let lastEmailDurationMs = 0;
 
   
     // Calculate effectiveUserId first
@@ -1842,6 +1990,12 @@ const resolvePromptSafely = async () => {
     }
 
     setStartTime(startTime);
+    // A run's first log line has no preceding step, so drop the previous run's
+    // (or the previous send's) timestamp before anything is logged.
+    resetOutputLogClock();
+    // Re-read Settings > AI models for this run, in case the models changed
+    // since the last one.
+    aiModelNamesRef.current = null;
     let generatedPitches: any[] = []; // Declare and initialize generatedPitches
 
     setIsProcessing(true);
@@ -1852,9 +2006,8 @@ const resolvePromptSafely = async () => {
         const missingVars = [];
         if (!promptForRun) missingVars.push("prompt template");
 
-        const errorMessage = `<span style="color: red">[${formatDateTime(
-          new Date(),
-        )}] Error: Cannot generate pitch. Missing required parameters: ${missingVars.join(
+        const errorStamp = outputLogStamp();
+        const errorMessage = `<span style="color: red">${errorStamp} Error: Cannot generate pitch. Missing required parameters: ${missingVars.join(
           ", ",
         )}</span>`;
 
@@ -1873,6 +2026,8 @@ const resolvePromptSafely = async () => {
         lastEmailTokens = 0;
         lastEmailCost = 0;
         lastEmailGenerations = 0;
+        lastEmailModels = [];
+        lastEmailDurationMs = 0;
 
         const index =
           typeof options.regenerateIndex === "number"
@@ -1892,10 +2047,11 @@ const resolvePromptSafely = async () => {
         const safePrompt = promptForRun || await resolvePromptSafely();
 
         if (!safePrompt) {
+          const stamp = outputLogStamp();
           setOutputForm(prev => ({
             ...prev,
             generatedContent:
-              `<span style="color:red">[${formatDateTime(new Date())}] Error: Prompt template not loaded</span><br/>`
+              `<span style="color:red">${stamp} Error: Prompt template not loaded</span><br/>`
               + prev.generatedContent,
           }));
 
@@ -1907,14 +2063,18 @@ const resolvePromptSafely = async () => {
 
         const full_name = entry.full_name || entry.name;
         const company_name = entry.company_name || entry.company;
+        // The row's 1-based position in the list, so every log line below says
+        // which contact it is about.
+        const contact_ref = contactLogLabel(index + 1, full_name);
 
         const blueprintId = Number(safePrompt.id);
 
         if (!blueprintId) {
+          const stamp = outputLogStamp();
           setOutputForm(prev => ({
             ...prev,
             generatedContent:
-              `<span style="color:red">[${formatDateTime(new Date())}] Error: Blueprint id missing — cannot kraft ${full_name}</span><br/>`
+              `<span style="color:red">${stamp} Error: Blueprint id missing — cannot kraft ${contact_ref}</span><br/>`
               + prev.generatedContent,
           }));
 
@@ -1924,10 +2084,11 @@ const resolvePromptSafely = async () => {
           return;
         }
 
+        const craftingStamp = outputLogStamp();
         setOutputForm(prev => ({
           ...prev,
           generatedContent:
-            `<span style="color: blue">[${formatDateTime(new Date())}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name} and domain ${
+            `<span style="color: blue">${craftingStamp} Crafting phase #1 integritas , for contact ${contact_ref} with company name ${company_name} and domain ${
             entry.email}</span><br/>`
             + prev.generatedContent,
         }));
@@ -1935,6 +2096,7 @@ const resolvePromptSafely = async () => {
         // 🚀 One backend call does prompt building, research, body, subject,
         // the contact save, the credit deduction and the kraft history.
         let generation: GeneratedEmailResult;
+        const regenerationStartedAt = Date.now();
         try {
           generation = await generateEmailViaBackend({
             blueprintId,
@@ -1945,10 +2107,11 @@ const resolvePromptSafely = async () => {
           });
         } catch (generationError: any) {
           console.error("Regeneration failed:", generationError);
+          const failureStamp = outputLogStamp();
           setOutputForm(prev => ({
             ...prev,
             generatedContent:
-              `<span style="color:red">[${formatDateTime(new Date())}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email}${
+              `<span style="color:red">${failureStamp} Phase #1 integritas incomplete for contact ${contact_ref} with company name ${company_name} and domain ${entry.email}${
                 generationError?.message ? ` — ${generationError.message}` : ""
               }</span><br/>`
               + prev.generatedContent,
@@ -1962,12 +2125,20 @@ const resolvePromptSafely = async () => {
 
         const generationTokens = generation.usage.totalTokens;
         const generationCost = generation.usage.totalCost;
+        const regenerationDurationMs = Date.now() - regenerationStartedAt;
 
         lastEmailTokens += generationTokens;
         lastEmailCost += generationCost;
+        lastEmailModels = mergeModelUsage(lastEmailModels, generation.usage.models);
+        lastEmailDurationMs += regenerationDurationMs;
 
         totalEmailTokensRef.current += generationTokens;
         totalEmailCostRef.current += generationCost;
+        totalEmailDurationMsRef.current += regenerationDurationMs;
+        totalModelUsageRef.current = mergeModelUsage(
+          totalModelUsageRef.current,
+          generation.usage.models,
+        );
 
         lastEmailGenerations = 1;
         totalEmailCountRef.current += 1;
@@ -2002,38 +2173,33 @@ const resolvePromptSafely = async () => {
           linkedinInfo: generation.professionalSummary,
         });
 
+        const successStamp = outputLogStamp();
         setOutputForm(prev => ({
           ...prev,
           generatedContent:
-            `<span style="color:green">[${formatDateTime(new Date())}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
+            `<span style="color:green">${successStamp} Pitch successfully crafted for contact ${contact_ref} with company name ${company_name} and domain ${entry.email}</span><br/>`
             + prev.generatedContent,
           linkLabel: displayPitch,
         }));
 
         setOutputForm(prev => ({
           ...prev,
-          usage: JSON.stringify({
-            last: {
-              tokens: lastEmailTokens,
-              cost: Number(lastEmailCost.toFixed(6)),
-              emails: lastEmailGenerations,
-            },
-            total: {
-              tokens: totalEmailTokensRef.current,
-              cost: Number(totalEmailCostRef.current.toFixed(6)),
-              emails: totalEmailCountRef.current,
-            },
+          usage: buildUsagePayload({
+            tokens: lastEmailTokens,
+            cost: lastEmailCost,
+            durationMs: lastEmailDurationMs,
+            models: lastEmailModels,
+            emails: lastEmailGenerations,
           }),
           emailSubject: subjectLine,
         }));
 
         // The backend saved the contact as part of the generation call.
+        const savedStamp = outputLogStamp();
         setOutputForm(prev => ({
           ...prev,
           generatedContent:
-            `<span style="color: green">[${formatDateTime(
-              new Date(),
-            )}] Updated pitch in database for ${full_name}.</span><br/>`
+            `<span style="color: green">${savedStamp} Updated pitch in database for contact ${contact_ref} with company name ${company_name} and domain ${entry.email}.</span><br/>`
             + prev.generatedContent,
         }));
 
@@ -2212,6 +2378,8 @@ const resolvePromptSafely = async () => {
         lastEmailTokens = 0;
         lastEmailCost = 0;
         lastEmailGenerations = 0;
+        lastEmailModels = [];
+        lastEmailDurationMs = 0;
 
         // Start from currentIndex instead of 0
         const entry = contacts[i];
@@ -2230,6 +2398,9 @@ const resolvePromptSafely = async () => {
         try {
           var full_name = entry.full_name;
           var company_name = entry.company_name;
+          // The contact's 1-based position in the list being krafted, carried
+          // into every log line for this contact.
+          var contact_ref = contactLogLabel(i + 1, full_name);
 
           // Check if email already exists and if we should overwrite
           if (entry.email_body && !settingsForm.overwriteDatabase) {
@@ -2237,12 +2408,11 @@ const resolvePromptSafely = async () => {
               ? i
               : allResponses.length;
 
+            const skippedStamp = outputLogStamp();
             setOutputForm((prevOutputForm) => ({
               ...prevOutputForm,
               generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date(),
-                )}] Pitch crafted for contact ${full_name} with company name ${company_name} and domain ${
+                `<span style="color: orange">${skippedStamp} Pitch crafted for contact ${contact_ref} with company name ${company_name} and domain ${
                   entry.email
                 } </span><br/>` + prevOutputForm.generatedContent,
               linkLabel: entry.email_body,
@@ -2363,12 +2533,11 @@ const resolvePromptSafely = async () => {
           } else {
             foundRecordWithoutPitch = true;
             if (isDemoAccount) {
+              const trialStamp = outputLogStamp();
               setOutputForm((prevOutputForm) => ({
                 ...prevOutputForm,
                 generatedContent:
-                  `<span style="color: blue">[${formatDateTime(
-                    new Date(),
-                  )}] Subscription: Trial mode. Processing is paused. Contact support on Live Chat (bottom right) or London: +44 (0) 207 660 4243 | New York: +1 (0) 315 400 2402 or email info@dataji.co </span><br/>` +
+                  `<span style="color: blue">${trialStamp} Subscription: Trial mode. Processing is paused. Contact support on Live Chat (bottom right) or London: +44 (0) 207 660 4243 | New York: +1 (0) 315 400 2402 or email info@dataji.co </span><br/>` +
                   prevOutputForm.generatedContent,
               }));
 
@@ -2386,12 +2555,14 @@ const resolvePromptSafely = async () => {
           if (!hasCreditsForThisEmail) {
             kraftResumeIndexRef.current = i;
             setCurrentIndex(i);
+            const creditStamp = outputLogStamp();
             setOutputForm((prevOutputForm) => ({
               ...prevOutputForm,
               generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date(),
-                )}] Credit limit reached. Processing paused before crafting ${full_name || entry.email}.</span><br/>` +
+                `<span style="color: orange">${creditStamp} Credit limit reached. Processing paused before crafting ${contactLogLabel(
+                  i + 1,
+                  full_name || entry.email,
+                )}.</span><br/>` +
                 prevOutputForm.generatedContent,
             }));
 
@@ -2407,12 +2578,11 @@ const resolvePromptSafely = async () => {
           const blueprintId = Number(promptForRun?.id);
 
           if (!blueprintId) {
+            const blueprintStamp = outputLogStamp();
             setOutputForm((prevOutputForm) => ({
               ...prevOutputForm,
               generatedContent:
-                `<span style="color: red">[${formatDateTime(
-                  new Date(),
-                )}] Error: Blueprint id missing — cannot kraft ${full_name}.</span><br/>` +
+                `<span style="color: red">${blueprintStamp} Error: Blueprint id missing — cannot kraft ${contact_ref}.</span><br/>` +
                 prevOutputForm.generatedContent,
             }));
 
@@ -2425,18 +2595,18 @@ const resolvePromptSafely = async () => {
             ? i
             : allResponses.length + generatedPitches.length;
 
+          const loopCraftingStamp = outputLogStamp();
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
 
             generatedContent:
-              `<span style="color: blue">[${formatDateTime(
-                new Date(),
-              )}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name} and domain ${
+              `<span style="color: blue">${loopCraftingStamp} Crafting phase #1 integritas , for contact ${contact_ref} with company name ${company_name} and domain ${
                 entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
           }));
 
           let generation: GeneratedEmailResult;
+          const generationStartedAt = Date.now();
           try {
             generation = await generateEmailViaBackend({
               blueprintId,
@@ -2447,13 +2617,12 @@ const resolvePromptSafely = async () => {
           } catch (generationError: any) {
             console.error(`Generation failed for ${entry.email}:`, generationError);
 
+            const loopFailureStamp = outputLogStamp();
             setOutputForm((prevOutputForm) => ({
               ...prevOutputForm,
 
               generatedContent:
-                `<span style="color: red">[${formatDateTime(
-                  new Date(),
-                )}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                `<span style="color: red">${loopFailureStamp} Phase #1 integritas incomplete for contact ${contact_ref} with company name ${company_name} and domain ${
                   entry.email
                 }${generationError?.message ? ` — ${generationError.message}` : ""}</span><br/>` +
                 prevOutputForm.generatedContent,
@@ -2470,14 +2639,22 @@ const resolvePromptSafely = async () => {
 
           const generationTokens = generation.usage.totalTokens;
           const generationCost = generation.usage.totalCost;
+          const generationDurationMs = Date.now() - generationStartedAt;
 
           // LAST
           lastEmailTokens += generationTokens;
           lastEmailCost += generationCost;
+          lastEmailModels = mergeModelUsage(lastEmailModels, generation.usage.models);
+          lastEmailDurationMs += generationDurationMs;
 
           // TOTAL (persisted)
           totalEmailTokensRef.current += generationTokens;
           totalEmailCostRef.current += generationCost;
+          totalEmailDurationMsRef.current += generationDurationMs;
+          totalModelUsageRef.current = mergeModelUsage(
+            totalModelUsageRef.current,
+            generation.usage.models,
+          );
 
           // ✅ ONE EMAIL GENERATED
           lastEmailGenerations = 1;
@@ -2521,13 +2698,12 @@ const resolvePromptSafely = async () => {
           }));
 
           // Success: Update UI with the generated pitch
+          const loopSuccessStamp = outputLogStamp();
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
 
             generatedContent:
-              `<span style="color: green">[${formatDateTime(
-                new Date(),
-              )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${
+              `<span style="color: green">${loopSuccessStamp} Pitch successfully crafted for contact ${contact_ref} with company name ${company_name} and domain ${
                 entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
           }));
@@ -2549,17 +2725,12 @@ const resolvePromptSafely = async () => {
 
           setOutputForm((prev) => ({
             ...prev,
-            usage: JSON.stringify({
-              last: {
-                tokens: lastEmailTokens,
-                cost: Number(lastEmailCost.toFixed(6)),
-                emails: lastEmailGenerations, // always 1
-              },
-              total: {
-                tokens: totalEmailTokensRef.current,
-                cost: Number(totalEmailCostRef.current.toFixed(6)),
-                emails: totalEmailCountRef.current,
-              },
+            usage: buildUsagePayload({
+              tokens: lastEmailTokens,
+              cost: lastEmailCost,
+              durationMs: lastEmailDurationMs,
+              models: lastEmailModels,
+              emails: lastEmailGenerations, // always 1
             }),
           }));
 
@@ -2657,12 +2828,13 @@ const resolvePromptSafely = async () => {
 
           // ✅ The contact was already saved by the generation API — just
           // reflect it in the log and refresh the credit balance.
+          const loopSavedStamp = outputLogStamp();
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
             generatedContent:
-              `<span style="color: green">[${formatDateTime(
-                new Date(),
-              )}] Updated pitch in database for ${full_name}.</span><br/>` +
+              `<span style="color: green">${loopSavedStamp} Updated pitch in database for contact ${contact_ref} with company name ${company_name} and domain ${
+                entry.email
+              }.</span><br/>` +
               prevOutputForm.generatedContent,
           }));
 
@@ -2693,14 +2865,14 @@ const resolvePromptSafely = async () => {
           console.log("Delaying " + delayTime + " secs");
           // await delay(delayTime * 1000); // 1-second delay
         } catch (error) {
+          const caughtStamp = outputLogStamp();
           setOutputForm((prevOutputForm: any) => ({
             ...prevOutputForm,
             generatedContent:
-              `<span style="color: red">[${formatDateTime(
-                new Date(),
-              )}] Phase #1 integritas incomplete for contact ${
-                entry.full_name
-              } with company name ${entry.company_name} and domain ${
+              `<span style="color: red">${caughtStamp} Phase #1 integritas incomplete for contact ${contactLogLabel(
+                i + 1,
+                entry.full_name,
+              )} with company name ${entry.company_name} and domain ${
                 entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
             usage:
@@ -2835,6 +3007,7 @@ const resolvePromptSafely = async () => {
   );
 
   const clearOutputForm = () => {
+    resetOutputLogClock();
     setOutputForm((prevForm) => ({
       ...prevForm,
       generatedContent: "",
@@ -3422,6 +3595,15 @@ try {
   );
 
   const clearUsage = () => {
+    // The box reports a session; clearing it starts a new one, so the running
+    // totals behind it reset as well. Leaving them would make the next email
+    // reappear with the old totals and a meaningless average.
+    totalEmailTokensRef.current = 0;
+    totalEmailCostRef.current = 0;
+    totalEmailCountRef.current = 0;
+    totalEmailDurationMsRef.current = 0;
+    totalModelUsageRef.current = [];
+
     setOutputForm((prevOutputForm: any) => ({
       ...prevOutputForm,
       usage: "", // Correctly clears the usage field

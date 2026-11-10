@@ -1,5 +1,7 @@
 import React from "react";
 import { formatUserDateTime } from "../common/dateTimePreferences";
+import { UsageSummary } from "../../utils/usageSummary";
+import UsageSummaryBox from "./UsageSummaryBox";
 
 interface KraftEmailPanelProps {
   isOpen: boolean;
@@ -17,7 +19,7 @@ interface KraftEmailPanelProps {
   enableIndexRange: boolean;
   setEnableIndexRange: (val: boolean) => void;
   combinedResponses: any[];
-  usageData: any;
+  usageData: UsageSummary | null;
   clearUsage: () => void;
   userRole?: string;
   currentIndex: number;
@@ -217,47 +219,7 @@ const KraftEmailPanel: React.FC<KraftEmailPanelProps> = ({
 
         {/* Usage Panel */}
         {userRole === "ADMIN" && usageData && (
-          <div
-            style={{
-              marginBottom: 20,
-              padding: "12px 16px",
-              border: "1px solid #ddd",
-              borderRadius: "8px",
-              backgroundColor: "#fff",
-              position: "relative",
-            }}
-          >
-            <button
-              onClick={clearUsage}
-              title="Clear usage"
-              style={{
-                position: "absolute",
-                top: "8px",
-                right: "8px",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                fontSize: "14px",
-                color: "#64748b",
-                borderRadius: "12px",
-              }}
-            >
-              ✕
-            </button>
-            <div style={{ fontSize: "13px", lineHeight: "1.6" }}>
-              <div style={{ marginBottom: 8 }}>
-                <strong>Last:</strong>
-                <span style={{ marginLeft: 8 }}>Tokens {usageData.last.tokens}</span>
-                <span style={{ marginLeft: 8 }}>💲{usageData.last.cost.toFixed(6)}</span>
-              </div>
-              <div>
-                <strong>Total:</strong>
-                <span style={{ marginLeft: 8 }}>Emails {usageData.total.emails}</span>
-                <span style={{ marginLeft: 8 }}>Tokens {usageData.total.tokens}</span>
-                <span style={{ marginLeft: 8 }}>💲{usageData.total.cost.toFixed(6)}</span>
-              </div>
-            </div>
-          </div>
+          <UsageSummaryBox usage={usageData} onClear={clearUsage} variant="panel" />
         )}
 
         {/* Krafted and Emailed Dates */}
