@@ -6,6 +6,8 @@ import PaginationControls from "./PaginationControls";
 import FilterBuilder from "../common/FilterBuilder";
 import type { ViewEditorPayload } from "../common/FilterBuilder";
 import AppModal from "../common/AppModal";
+import CommonSidePanel from "../common/CommonSidePanel";
+import "./ContactList.new.css";
 import WebsiteGlobeIcon from "../common/WebsiteGlobeIcon";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import duplicateIcon from "../../assets/images/icons/duplicate.png";
@@ -77,6 +79,7 @@ interface ContactFieldOption {
 interface ViewSummary {
   id: number;
   isSystem?: boolean;
+  category_id?: number | null;
   name: string;
   description?: string;
   created_at?: string;
@@ -480,6 +483,10 @@ const ContactViews: React.FC<ContactViewsProps> = ({
 }) => {
   const dispatch = useDispatch();
   const [views, setViews] = useState<ViewItem[]>([]);
+  const [viewCategory, setViewCategory] = useState<"all" | "systems" | number>("all");
+  const [viewCategories, setViewCategories] = useState<{ id: number; name: string }[]>([]);
+  const [categoryEditor, setCategoryEditor] = useState<{ id?: number; name: string; listIds: number[] } | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
   const [viewSearch, setViewSearch] = useState("");
   const [currentPageViews, setCurrentPageViews] = useState(1);
   const [pageSizeViews, setPageSizeViews] = useState<number | "All">(30);
@@ -1170,6 +1177,18 @@ const handleDeleteContacts = () => {
     }
   };
 
+  const fetchViewCategories = async () => {
+    if (!clientId) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/Crm/contact-list-categories?clientId=${clientId}&type=view`);
+      if (!response.ok) throw new Error("Failed to load view categories");
+      setViewCategories(await response.json());
+    } catch (error) {
+      console.error(error);
+      setViewCategories([]);
+    }
+  };
+
   const fetchViewForEdit = async (view: ViewItem): Promise<ViewItem> => {
     const metaMap = loadViewMetaMap(clientId);
 
@@ -1207,6 +1226,9 @@ const handleDeleteContacts = () => {
 
   useEffect(() => {
     fetchViews();
+    fetchViewCategories();
+    setViewCategory("all");
+    setCategoryEditor(null);
   }, [clientId]);
 
   useEffect(() => {
@@ -1367,7 +1389,8 @@ const handleDeleteContacts = () => {
   const filteredViews = useMemo(() => {
     const searchLower = viewSearch.toLowerCase();
     let filtered = views.filter((view) => {
-      return (
+      return (viewCategory === "all" ||
+        (viewCategory === "systems" ? !!view.isSystem : view.category_id === viewCategory)) && (
         view.name?.toLowerCase().includes(searchLower) ||
         view.description?.toLowerCase().includes(searchLower) ||
         String(view.id).includes(searchLower)
@@ -1407,11 +1430,11 @@ const handleDeleteContacts = () => {
       ...filtered.filter((view) => view.isSystem && view.id === -2),
       ...filtered.filter((view) => !(view.isSystem && view.id === -2)),
     ];
-  }, [views, viewSearch, viewSortKey, viewSortDirection]);
+  }, [views, viewCategory, viewSearch, viewSortKey, viewSortDirection]);
 
   useEffect(() => {
     setCurrentPageViews(1);
-  }, [viewSearch]);
+  }, [viewSearch, viewCategory]);
 
   const getNumericPageSize = (size: number | "All", totalItems: number) => {
     return size === "All" ? totalItems : size;
@@ -2454,11 +2477,84 @@ const handleDeleteContacts = () => {
   </>
 );
 
+  const editableCategoryViews = views.filter((view) => !view.isSystem &&
+    (!view.category_id || view.category_id === categoryEditor?.id));
+
+  const saveViewCategory = async () => {
+    if (!categoryEditor || !clientId || savingCategory) return;
+    if (!categoryEditor.name.trim()) {
+      showContactMessage("Enter a category name.", "error");
+      return;
+    }
+    setSavingCategory(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/Crm/contact-list-categories?clientId=${clientId}&type=view`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(categoryEditor),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Could not save category.");
+      await Promise.all([fetchViews(), fetchViewCategories()]);
+      setViewCategory(result.id);
+      setCategoryEditor(null);
+      showContactMessage("Category saved.", "success");
+    } catch (error) {
+      showContactMessage(error instanceof Error ? error.message : "Could not save category.", "error");
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
+  const deleteViewCategory = () => {
+    if (!categoryEditor?.id || savingCategory) return;
+    const categoryId = categoryEditor.id;
+    appModal.showConfirm("Delete this category? Its views will stay in All.", async () => {
+      setSavingCategory(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/Crm/contact-list-categories/${categoryId}/delete?clientId=${clientId}&type=view`, {
+          method: "POST",
+        });
+        if (!response.ok) throw new Error("Could not delete category.");
+        await Promise.all([fetchViews(), fetchViewCategories()]);
+        setViewCategory("all");
+        setCategoryEditor(null);
+        showContactMessage("Category deleted.", "success");
+      } catch (error) {
+        showContactMessage(error instanceof Error ? error.message : "Could not delete category.", "error");
+      } finally {
+        setSavingCategory(false);
+      }
+    }, "Delete category", "Delete", "Cancel");
+  };
+
   return (
     <div className="list-content">
       <div className="section-wrapper">
         {viewMode === "list" ? (
           <>
+            <div className="ct-catbar" role="group" aria-label="Filter views by category">
+              {([
+                { key: "all", label: "All", count: views.length },
+                { key: "systems", label: "Systems", count: views.filter((view) => view.isSystem).length },
+                ...viewCategories.map((category) => ({ key: category.id, label: category.name,
+                  count: views.filter((view) => view.category_id === category.id).length })),
+              ] as const).map((category) => (
+                <span key={category.key} className="ct-catitem">
+                  <button type="button" className={`ct-catchip${viewCategory === category.key ? " is-active" : ""}`}
+                    aria-pressed={viewCategory === category.key} onClick={() => setViewCategory(category.key)}>
+                    {category.label} <span className="ct-catchip__count">{category.count}</span>
+                  </button>
+                  {typeof category.key === "number" && <button type="button" className="ct-cat-edit"
+                    aria-label={`Edit ${category.label} category`}
+                    onClick={() => setCategoryEditor({ id: category.key as number, name: category.label,
+                      listIds: views.filter((view) => view.category_id === category.key).map((view) => view.id) })}>
+                    <FontAwesomeIcon icon={faEdit} />
+                  </button>}
+                </span>
+              ))}
+              <button type="button" className="ct-catchip" onClick={() => setCategoryEditor({ name: "", listIds: [] })}>+ Create category</button>
+            </div>
             <ContactsToolbar
               search={viewSearch}
               onSearchChange={setViewSearch}
@@ -2821,6 +2917,32 @@ effectiveUserId={String(clientId)}
     setSelectedContacts(new Set());
   }}
 />
+
+<CommonSidePanel
+  isOpen={categoryEditor !== null}
+  onClose={() => setCategoryEditor(null)}
+  title={categoryEditor?.id ? "Edit category" : "Create category"}
+  footerContent={<>
+    {categoryEditor?.id && <button type="button" className="button secondary" onClick={deleteViewCategory} disabled={savingCategory}>Delete category</button>}
+    <button type="button" className="button secondary" onClick={() => setCategoryEditor(null)}>Cancel</button>
+    <button type="button" className="button primary" onClick={saveViewCategory} disabled={savingCategory}>Save</button>
+  </>}
+>
+  <label htmlFor="contact-view-category-name">Category name</label>
+  <input id="contact-view-category-name" className="ct-category-name" value={categoryEditor?.name || ""} maxLength={120}
+    onChange={(event) => setCategoryEditor((current) => current && { ...current, name: event.target.value })} />
+  <p>Select manually created views. A view can belong to one category.</p>
+  <div className="ct-category-list-options">
+    {editableCategoryViews.length === 0 && <p>No available views.</p>}
+    {editableCategoryViews.map((view) => <label key={view.id} className="ct-category-list-option">
+      <input type="checkbox" checked={categoryEditor?.listIds.includes(view.id) || false}
+        onChange={(event) => setCategoryEditor((current) => current && ({ ...current,
+          listIds: event.target.checked ? [...current.listIds, view.id] : current.listIds.filter((id) => id !== view.id),
+        }))} />
+      <span>{view.name}</span>
+    </label>)}
+  </div>
+</CommonSidePanel>
 
 <ToastMessage
   show={toast.show}
