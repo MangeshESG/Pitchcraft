@@ -34,6 +34,7 @@ const Header: React.FC<HeaderProps> = React.memo(
     const username = useSelector((state: RootState) => state.auth.username) as string;
     const reduxUserId = useSelector((state: RootState) => state.auth.userId);
     const authToken = useSelector((state: RootState) => state.auth.token);
+    const notificationToken = authToken || localStorage.getItem("token");
     
     // Use the credit refresh hook
     const { credits, refreshCredits } = useCreditRefresh();
@@ -46,6 +47,7 @@ const Header: React.FC<HeaderProps> = React.memo(
 
 const logoutHandler = () => {
   dispatch(clearToken());
+  localStorage.removeItem("token");
 
   localStorage.removeItem("selectedModel");
 
@@ -187,7 +189,7 @@ const logoutHandler = () => {
                   </span>
                 </span>
 
-                <UnsubscribeNotifications key={`${effectiveUserId}-${authToken}`} clientId={effectiveUserId} token={authToken} />
+                <UnsubscribeNotifications key={`${effectiveUserId}-${notificationToken}`} clientId={effectiveUserId} token={notificationToken} />
 
                 <a
                   className="linkedin-extension-button"
