@@ -2,6 +2,7 @@ import * as userDates from "../../common/dateTimePreferences";
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { faAngleRight, faAngleLeft, faCircleRight, faCircleLeft } from "@fortawesome/free-solid-svg-icons";
 import BlueprintBuilderPanel from "./BlueprintBuilderPanel";
+import type { SignatureOption } from "./ElementsTab";
 import InstructionSetManager from "./InstructionSetManager";
 import { categoryLabel } from "./categoryLabels";
 import {
@@ -2048,6 +2049,12 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   );
   const [isLoadingDefinitions, setIsLoadingDefinitions] = useState(false);
 
+  // ---- Saved email signatures (Settings -> Email signature) ---
+  // The signature element is chosen from this list rather than typed into the
+  // blueprint, so every blueprint for a client offers the same sign-offs.
+  const [signatureOptions, setSignatureOptions] = useState<SignatureOption[]>([]);
+  const [signaturesLoading, setSignaturesLoading] = useState(false);
+
   // ---- Datafiles & contacts ---
   const [dataFiles, setDataFiles] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
@@ -2381,6 +2388,72 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       )
       .then((res) => setDataFiles(res.data || []))
       .catch((err) => console.error("Failed to load datafiles", err));
+  }, [effectiveUserId]);
+
+  // ====================================================================
+  // LOAD SAVED EMAIL SIGNATURES
+  // ====================================================================
+  // Mailbox addresses are loaded alongside so the dropdown can name the
+  // account a signature belongs to, exactly as the Settings list does. A
+  // failure there only costs the label, so the signatures still load.
+  useEffect(() => {
+    if (!effectiveUserId) {
+      setSignatureOptions([]);
+      return;
+    }
+
+    let cancelled = false;
+    const normalizeProvider = (provider?: string) => {
+      const value = String(provider || "").trim().toLowerCase();
+      return value === "imap" ? "smtp" : value;
+    };
+
+    const loadSignatures = async () => {
+      setSignaturesLoading(true);
+      try {
+        const [signatureRes, accountRes] = await Promise.all([
+          axios.get(`${API_BASE_URL}/api/Crm/signatures/${effectiveUserId}`),
+          axios
+            .get(`${API_BASE_URL}/api/Crm/email-accounts/${effectiveUserId}`)
+            .catch(() => ({ data: [] as any[] })),
+        ]);
+
+        if (cancelled) return;
+
+        const accounts: any[] = accountRes?.data || [];
+        const options: SignatureOption[] = (signatureRes?.data || []).map(
+          (sig: any) => {
+            const account = accounts.find(
+              (acc) =>
+                Number(acc.id) === Number(sig.outboxId) &&
+                normalizeProvider(acc.provider) === normalizeProvider(sig.provider),
+            );
+            return {
+              id: Number(sig.id),
+              name: sig.signatureName || `Signature ${sig.id}`,
+              html: sig.signatureHtml || "",
+              provider: sig.provider,
+              email: account?.email,
+              isDefault: !!sig.isDefault,
+            };
+          },
+        );
+
+        setSignatureOptions(options);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to load email signatures", err);
+          setSignatureOptions([]);
+        }
+      } finally {
+        if (!cancelled) setSignaturesLoading(false);
+      }
+    };
+
+    loadSignatures();
+    return () => {
+      cancelled = true;
+    };
   }, [effectiveUserId]);
 
   // ====================================================================
@@ -4755,6 +4828,8 @@ const parsePlaceholdersSafe = (block: string) => {
               renderPlaceholderInput={renderPlaceholderInput}
               saveAllPlaceholders={saveAllPlaceholders}
               isSavingElements={isSavingElements}
+              signatureOptions={signatureOptions}
+              signaturesLoading={signaturesLoading}
               exampleOutput={exampleOutput}
               editableExampleOutput={editableExampleOutput}
               setEditableExampleOutput={setEditableExampleOutput}

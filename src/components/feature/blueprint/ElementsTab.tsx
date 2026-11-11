@@ -1,7 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
+import DOMPurify from "dompurify";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import { defaultButtonStyle } from "../../../styles/buttonStyles";
 import { categoryLabel } from "./categoryLabels";
+
+// One signature saved under Settings -> Email signature. The blueprint picks
+// its sign-off from this list rather than holding a copy of its own, so a
+// signature edited in Settings only has to be re-selected, never retyped.
+export interface SignatureOption {
+  id: number;
+  name: string;
+  html: string;
+  provider?: string;
+  email?: string;
+  isDefault?: boolean;
+}
 
 export interface ElementsTabProps {
   groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
@@ -16,6 +29,11 @@ export interface ElementsTabProps {
   // Key of the placeholder currently open in the edit side panel (used to
   // highlight its row in the list). Null when no element is being edited.
   activeElementKey?: string | null;
+
+  // Signatures saved for the active client. Drives the dropdown shown on the
+  // signature element in place of a free-text value.
+  signatureOptions?: SignatureOption[];
+  signaturesLoading?: boolean;
 
   dataFiles: any[];
   contacts: any[];
@@ -168,6 +186,52 @@ const stripHtml = (html: string) =>
     .replace(/[ \t]*\n[ \t]*/g, "\n")
     .trim();
 
+// True for the signature element whatever the blueprint's author named its
+// key - "signature", "email_signature" and "signature_block" are all in use.
+// Mirrors isSignatureKey in EmailCampaignBuilder and PlaceholderEngine on the
+// API, which decide the same thing when the generation prompt is built.
+const isSignatureKey = (key: string) => /signature/i.test(key);
+
+// Placeholder-values entry recording WHICH saved signature the blueprint
+// picked. The HTML is still stored in the signature element itself (that is
+// what the prompt reads), but the id lets the API refresh that copy from
+// Settings, so a signature edited there reaches campaigns that picked it
+// earlier. Must match SignatureResolver.SourceIdKey on the API.
+const SIGNATURE_SOURCE_ID_KEY = "signature_source_id";
+
+// Two signature bodies are "the same" when they read the same. Compared on
+// text rather than markup because the value stored on the blueprint has been
+// through DOMPurify, so its tags and attribute order no longer match the copy
+// the signatures endpoint returns.
+const signatureFingerprint = (html: string) =>
+  stripHtml(html || "").replace(/\s+/g, " ").trim().toLowerCase();
+
+const SIGNATURE_PREVIEW_TAGS = [
+  "b", "strong", "i", "em", "u", "s", "strike", "br", "hr",
+  "p", "div", "span", "font", "small", "sub", "sup",
+  "ul", "ol", "li", "blockquote",
+  "h1", "h2", "h3", "h4", "h5", "h6",
+  "a", "img",
+  "table", "thead", "tbody", "tfoot", "tr", "td", "th",
+];
+
+const SIGNATURE_PREVIEW_ATTR = [
+  "href", "target", "rel", "src", "alt", "title",
+  "style", "align", "valign", "width", "height",
+  "color", "face", "size", "border", "cellpadding", "cellspacing", "colspan", "rowspan",
+];
+
+// The preview keeps the signature's own formatting (that is the point of a
+// signature), so it is sanitised here rather than stripped: no script, iframe,
+// form or on* handler survives the allowlist.
+const cleanSignaturePreview = (html: string) =>
+  DOMPurify.sanitize(html || "", {
+    ALLOWED_TAGS: SIGNATURE_PREVIEW_TAGS,
+    ALLOWED_ATTR: SIGNATURE_PREVIEW_ATTR,
+    ALLOW_DATA_ATTR: false,
+    KEEP_CONTENT: true,
+  });
+
 const ElementsTab: React.FC<ElementsTabProps> = ({
   groupedPlaceholders,
   formValues,
@@ -175,6 +239,9 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
   saveAllPlaceholders,
   activeElementKey,
   isSaving = false,
+  setFormValues,
+  signatureOptions = [],
+  signaturesLoading = false,
 }) => {
   const categories = Object.keys(groupedPlaceholders);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -244,6 +311,118 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
     flexShrink: 0,
     whiteSpace: "nowrap",
     lineHeight: 1.4,
+  };
+
+  // The signature element is picked from the signatures saved under
+  // Settings -> Email signature. Choosing one copies its HTML into the
+  // element value, which is what "Save all" stores and what the API drops
+  // into the signature placeholder of the final prompt.
+  const renderSignaturePicker = (p: PlaceholderDefinitionUI) => {
+    const currentValue = formValues[p.placeholderKey] ?? "";
+    const currentFingerprint = signatureFingerprint(currentValue);
+    const storedSourceId = (formValues[SIGNATURE_SOURCE_ID_KEY] ?? "").trim();
+
+    // The recorded id wins over the text comparison: a signature edited in
+    // Settings no longer reads like the copy the blueprint holds, and that is
+    // exactly the case the id is here for. The comparison stays as the
+    // fallback for blueprints saved before the id was recorded.
+    const matched =
+      (storedSourceId
+        ? signatureOptions.find((sig) => String(sig.id) === storedSourceId)
+        : undefined) ??
+      (currentFingerprint
+        ? signatureOptions.find(
+            (sig) => signatureFingerprint(sig.html) === currentFingerprint,
+          )
+        : undefined) ??
+      null;
+
+    // A value that matches nothing in the list is a signature written straight
+    // into the blueprint before this dropdown existed (or edited since). It
+    // stays selectable so switching away is a deliberate choice, never a
+    // silent loss.
+    const isCustom = !matched && currentFingerprint.length > 0;
+    const selectValue = matched ? String(matched.id) : isCustom ? "custom" : "";
+    const previewHtml = matched ? matched.html : currentValue;
+
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const next = e.target.value;
+      // Re-picking "Custom" is a no-op; it exists only to label what is there.
+      if (next === "custom") return;
+      const chosen = signatureOptions.find((sig) => String(sig.id) === next);
+      setFormValues((prev) => ({
+        ...prev,
+        [p.placeholderKey]: chosen ? chosen.html : "",
+        // Cleared rather than left behind when the signature is removed, so
+        // the API never refreshes a slot the blueprint no longer uses.
+        [SIGNATURE_SOURCE_ID_KEY]: chosen ? String(chosen.id) : "",
+      }));
+    };
+
+    if (signaturesLoading) {
+      return (
+        <span style={{ color: "#9ca3af", fontStyle: "italic", fontSize: 13 }}>
+          Loading signatures…
+        </span>
+      );
+    }
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+        <select
+          value={selectValue}
+          onChange={handleChange}
+          disabled={signatureOptions.length === 0 && !isCustom}
+          style={{
+            width: "100%",
+            maxWidth: 320,
+            padding: "6px 10px",
+            fontSize: 13,
+            color: selectValue ? "#111827" : "#6b7280",
+            border: "1px solid #d1d5db",
+            borderRadius: 6,
+            background: "#fff",
+            cursor: signatureOptions.length === 0 && !isCustom ? "not-allowed" : "pointer",
+          }}
+        >
+          <option value="">
+            {signatureOptions.length === 0 ? "No signatures saved" : "No signature"}
+          </option>
+          {signatureOptions.map((sig) => (
+            <option key={sig.id} value={String(sig.id)}>
+              {sig.name}
+              {sig.email ? ` — ${sig.email}` : ""}
+              {sig.isDefault ? " (default)" : ""}
+            </option>
+          ))}
+          {isCustom && <option value="custom">Custom signature (typed here)</option>}
+        </select>
+
+        {signatureOptions.length === 0 && (
+          <span style={{ fontSize: 11.5, color: "#9ca3af" }}>
+            Add one under Settings → Email signature, then pick it here.
+          </span>
+        )}
+
+        {previewHtml.trim() && (
+          <div
+            style={{
+              border: "1px solid #f3f4f6",
+              borderRadius: 6,
+              background: "#fafafa",
+              padding: "8px 10px",
+              maxHeight: 140,
+              overflow: "auto",
+              fontSize: 12.5,
+              lineHeight: 1.5,
+              color: "#374151",
+              overflowWrap: "anywhere",
+            }}
+            dangerouslySetInnerHTML={{ __html: cleanSignaturePreview(previewHtml) }}
+          />
+        )}
+      </div>
+    );
   };
 
   return (
@@ -373,6 +552,7 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                     const href = /^https?:\/\//i.test(displayValue) ? displayValue : `https://${displayValue}`;
                     const isLongText = !isUrl && displayValue.length > LONG_TEXT_THRESHOLD;
                     const isActive = !!activeElementKey && activeElementKey === p.placeholderKey;
+                    const isSignature = isSignatureKey(p.placeholderKey);
 
                     return (
                       <div
@@ -413,7 +593,9 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
 
                         {/* COLUMN 2: VALUE */}
                         <div style={{ fontSize: 13, minWidth: 0 }}>
-                          {!displayValue ? (
+                          {isSignature ? (
+                            renderSignaturePicker(p)
+                          ) : !displayValue ? (
                             <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Not set</span>
                           ) : isUrl ? (
                             <a
@@ -450,21 +632,25 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
 
                         {/* COLUMN 3: ACTION */}
                         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                          <button
-                            onClick={() => onExpandElement(p)}
-                            title="View and edit this element or use AI chat"
-                            style={{
-                              ...actionButtonStyle,
-                              // Active row's button picks up the theme green so it
-                              // reads as the currently-open element.
-                              ...(isActive
-                                ? { borderColor: "#86efac", background: "#f0fdf4", color: "#3f9f42" }
-                                : {}),
-                            }}
-                          >
-                            <EditIcon />
-                            View and edit
-                          </button>
+                          {/* The signature is chosen, not written, so the row
+                              offers the dropdown instead of the editor. */}
+                          {!isSignature && (
+                            <button
+                              onClick={() => onExpandElement(p)}
+                              title="View and edit this element or use AI chat"
+                              style={{
+                                ...actionButtonStyle,
+                                // Active row's button picks up the theme green so
+                                // it reads as the currently-open element.
+                                ...(isActive
+                                  ? { borderColor: "#86efac", background: "#f0fdf4", color: "#3f9f42" }
+                                  : {}),
+                              }}
+                            >
+                              <EditIcon />
+                              View and edit
+                            </button>
+                          )}
                         </div>
                       </div>
                     );

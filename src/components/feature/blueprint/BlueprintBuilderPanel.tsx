@@ -1,6 +1,7 @@
 import * as userDates from "../../common/dateTimePreferences";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import ElementsTab from "./ElementsTab";
+import type { SignatureOption } from "./ElementsTab";
 import { categoryLabel } from "./categoryLabels";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import { Loader2 } from "lucide-react";
@@ -47,6 +48,11 @@ export interface BlueprintBuilderPanelProps {
   renderPlaceholderInput: (p: PlaceholderDefinitionUI) => React.ReactNode;
   saveAllPlaceholders: () => Promise<void>;
   isSavingElements?: boolean;
+
+  // Signatures saved under Settings -> Email signature, shown as a dropdown on
+  // the signature element instead of a free-text value.
+  signatureOptions?: SignatureOption[];
+  signaturesLoading?: boolean;
 
   exampleOutput: string;
   editableExampleOutput: string;
@@ -143,6 +149,8 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   renderPlaceholderInput,
   saveAllPlaceholders,
   isSavingElements = false,
+  signatureOptions = [],
+  signaturesLoading = false,
   exampleOutput,
   editableExampleOutput,
   setEditableExampleOutput,
@@ -666,6 +674,8 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
               saveAllPlaceholders={saveAllPlaceholders}
               isSaving={isSavingElements}
               activeElementKey={sidePanelElement?.placeholderKey ?? null}
+              signatureOptions={signatureOptions}
+              signaturesLoading={signaturesLoading}
               dataFiles={dataFiles}
               contacts={contacts}
               selectedDataFileId={selectedDataFileId}
