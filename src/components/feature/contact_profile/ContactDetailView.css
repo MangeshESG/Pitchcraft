@@ -424,3 +424,4 @@
     display: inline-grid;
   }
 }
+.rendered-note-content p + p { margin-top: 6px; }

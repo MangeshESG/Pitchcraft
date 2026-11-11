@@ -51,9 +51,9 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
   const abort = useRef<AbortController | null>(null);
   const base = `${API_BASE_URL}/api/Notification?clientId=${encodeURIComponent(clientId || "")}`;
 
-  const request = async (url: string, signal: AbortSignal, init?: RequestInit) => {
+  const request = async (url: string, signal: AbortSignal, init?: RequestInit, authenticated = false) => {
     const response = await fetch(url, { ...init, signal, headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}), Accept: "application/json",
+      ...(authenticated && token ? { Authorization: `Bearer ${token}` } : {}), Accept: "application/json",
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
     } });
     if (!response.ok) throw new Error("Could not load notifications. Please try again.");
@@ -107,7 +107,7 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
       if (!clientId || !token || pending || document.visibilityState === "hidden") return;
       pending = true;
       try {
-        const response = await request(`${API_BASE_URL}/api/Inbox/unread-count?clientId=${encodeURIComponent(clientId)}`, controller.signal);
+        const response = await request(`${API_BASE_URL}/api/Inbox/unread-count?clientId=${encodeURIComponent(clientId)}`, controller.signal, undefined, true);
         const data = await response.json();
         const count = data.grandTotalUnreadCount;
         if (!Number.isSafeInteger(count) || count < 0) throw new Error("Invalid unread count");
@@ -173,14 +173,14 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
 
   const markAllRead = async () => {
     const signal = abort.current?.signal;
-    const throughId = items[0]?.id;
-    if (!signal || !throughId || markingRead) return;
+    if (!signal || !clientId || !token || markingRead) return;
     setMarkingRead(true);
     try {
       await request(base.replace("?", "/read?"), signal, {
-        method: "POST", body: JSON.stringify({ throughId }),
-      });
+        method: "POST",
+      }, true);
       if (signal.aborted) return;
+      abort.current?.abort();
       setFeed({ items: [], hasMore: false, cursor: null });
       setUnreadCount(0);
       setError("");
@@ -188,7 +188,7 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
     } catch {
       if (!signal.aborted) setError("Could not mark notifications as read. Please try again.");
     } finally {
-      if (!signal.aborted) setMarkingRead(false);
+      setMarkingRead(false);
     }
   };
 
@@ -208,8 +208,8 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
         <Mail size={19} aria-hidden="true" /><span>Unread emails</span>
         <strong>{unreadEmailCount !== null ? unreadEmailCount.toLocaleString() : emailCountError ? "Unavailable" : "Loading…"}</strong>
       </Link>
-      {items.length > 0 && <div className="unsubscribe-notifications__toolbar"><span>Contact activity</span>
-        {token && unreadCount > 0 && items.length > 0 && <button type="button" disabled={markingRead} onClick={markAllRead}>{markingRead ? "Saving…" : "Mark all as read"}</button>}
+      {unreadCount > 0 && <div className="unsubscribe-notifications__toolbar"><span>Contact activity</span>
+        {token && <button type="button" disabled={markingRead} onClick={markAllRead}>{markingRead ? "Saving…" : "Mark all as read"}</button>}
       </div>}
       {error && <div className="unsubscribe-notifications__status" role="alert">{error} <button type="button" onClick={() => setRefresh(value => value + 1)}>Retry</button></div>}
       {loading && <p className="unsubscribe-notifications__status">Loading notifications…</p>}

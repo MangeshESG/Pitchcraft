@@ -779,18 +779,22 @@ const isSaveDisabled =
   // Truncate note text to 300 characters
   const TRUNCATE_LENGTH = 300;
   const getTruncatedNote = (html: string): string => {
-    const plainText = getPlainText(html);
-    if (plainText.length > TRUNCATE_LENGTH) {
-      return plainText.substring(0, TRUNCATE_LENGTH) + "...";
-    }
-    return plainText;
+    const plainText = getPlainText(html.replace(/<br\s*\/?>|<\/p>/gi, " ")).replace(/\s+/g, " ").trim();
+    const truncated = plainText.length > TRUNCATE_LENGTH
+      ? plainText.substring(0, TRUNCATE_LENGTH) + "..."
+      : plainText;
+    const safeText = document.createElement("span");
+    safeText.textContent = truncated;
+    return safeText.innerHTML;
   };
 
   const displayNote = (html: string, expanded: boolean): string => {
     const { source, body, hasSource } = splitNoteSource(html);
     if (expanded) return html || "<p>No note content</p>";
     const heading = hasSource ? `<p><strong>Source: ${source}</strong></p>` : "";
-    return `${heading}<p>${getTruncatedNote(body)}</p>`;
+    const enquiryHeading = body.match(/^<p><strong>((?:Second|Third|Fourth|\d+(?:st|nd|rd|th)) enquiry)<\/strong><\/p>/);
+    const noteBody = enquiryHeading ? body.slice(enquiryHeading[0].length) : body;
+    return `${heading}${enquiryHeading ? `<p><strong>${enquiryHeading[1]}</strong></p>` : ""}<p>${getTruncatedNote(noteBody)}</p>`;
   };
   
   const [contactDetails, setContactDetails] = useState<any>(null);
