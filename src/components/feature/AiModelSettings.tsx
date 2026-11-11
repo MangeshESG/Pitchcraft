@@ -33,8 +33,14 @@ import {
 const PURPOSE_GROUPS: { title: string; blurb: string; keys: string[] }[] = [
   {
     title: "Writing",
-    blurb: "The models that produce text a contact will read.",
-    keys: ["email_generation", "blueprint_generation"],
+    blurb:
+      "The models that produce text a contact will read. Kraft, transactional and LinkedIn are three separate jobs: a campaign kraft writes from a blueprint and research, a transactional email answers a message already on screen while someone waits, and a LinkedIn note is short plain text — so each has its own model rather than sharing one.",
+    keys: [
+      "email_generation",
+      "transactional_email",
+      "linkedin_message",
+      "blueprint_generation",
+    ],
   },
   {
     title: "Research",

@@ -15,9 +15,21 @@ export type AiModelPurposeKey =
   | "web_search"
   | "blueprint_generation"
   | "email_generation"
+  | "transactional_email"
+  | "linkedin_message"
   | "contact_qa"
   | "find_email"
   | "profile_summary";
+
+/**
+ * The purpose a `/api/email-generation/generate` caller declares, when it is
+ * not a campaign kraft. One endpoint writes both the kraft and the one-off
+ * emails (inbox reply/forward, profile Compose and the Emails timeline), and
+ * each reads its model from its own row here — so the surface making the call
+ * is the only thing that knows which model should write it. A caller that
+ * sends nothing is treated as a kraft by the API.
+ */
+export const TRANSACTIONAL_EMAIL_PURPOSE = "transactional_email";
 
 export interface AiModelSetting {
   /**
@@ -51,6 +63,8 @@ export const AI_MODEL_PURPOSE_ORDER: AiModelPurposeKey[] = [
   "web_search",
   "blueprint_generation",
   "email_generation",
+  "transactional_email",
+  "linkedin_message",
   "contact_qa",
   "find_email",
   "profile_summary",
@@ -75,9 +89,20 @@ const FALLBACK_SETTINGS: Record<
     defaultModel: "gpt-5.1",
   },
   email_generation: {
-    label: "Email generation",
+    label: "Kraft email generation",
     description:
-      "Writes email bodies and subject lines when a contact is krafted.",
+      "Writes email bodies and subject lines when a contact is krafted from a campaign.",
+    defaultModel: "deepseek-v4-flash",
+  },
+  transactional_email: {
+    label: "Transactional email generation",
+    description:
+      "Writes inbox replies and forwards, and the Compose / Emails drafts on a contact profile.",
+    defaultModel: "deepseek-v4-flash",
+  },
+  linkedin_message: {
+    label: "LinkedIn message generation",
+    description: "Writes the LinkedIn messages krafted from a blueprint.",
     defaultModel: "deepseek-v4-flash",
   },
   contact_qa: {

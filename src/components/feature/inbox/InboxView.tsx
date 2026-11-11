@@ -15,6 +15,7 @@ import { EmailHighlight, parseEmailHighlights } from '../../../utils/emailHighli
 import { EmailOption, parseEmailOptions } from '../../../utils/emailOptions';
 import EmailOptionPicker from '../../common/EmailOptionPicker';
 import { buildManualInstruction } from '../../../utils/manualInstruction';
+import { TRANSACTIONAL_EMAIL_PURPOSE } from '../../../utils/aiModelSettings';
 import { RecipientChipInput, mergeRecipients, parseRecipientInput } from '../contact_profile/ContactComposeEmailPopup';
 import DeleteConfirmationModal from '../../common/DeleteConfirmationModal';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
@@ -1222,6 +1223,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           contactId,
           clientId: effectiveUserId,
           overwriteExisting: true,
+          // Written by the transactional model from Settings > AI models,
+          // not the campaign kraft one — see TRANSACTIONAL_EMAIL_PURPOSE.
+          modelPurpose: TRANSACTIONAL_EMAIL_PURPOSE,
           manualInstruction: buildManualInstruction(
             manualInstruction,
             target === 'forward' ? forwardMessage : replyText,
@@ -1280,6 +1284,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           contactId: selectedThread.contactId,
           clientId: effectiveUserId,
           overwriteExisting: true,
+          modelPurpose: TRANSACTIONAL_EMAIL_PURPOSE,
           manualInstruction: buildManualInstruction(
             manualInstruction,
             replyText,
@@ -1338,6 +1343,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           contactId: forwardThread.contactId,
           clientId: effectiveUserId,
           overwriteExisting: true,
+          modelPurpose: TRANSACTIONAL_EMAIL_PURPOSE,
           manualInstruction: buildManualInstruction(
             manualInstruction,
             forwardMessage,
@@ -4122,6 +4128,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                 contactId: selectedUnassignedThread.contactId,
                                 clientId: effectiveUserId,
                                 overwriteExisting: true,
+                                modelPurpose: TRANSACTIONAL_EMAIL_PURPOSE,
                                 manualInstruction: buildManualInstruction(
                                   manualInstruction,
                                   replyText,
@@ -4669,6 +4676,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                 contactId: selectedAllMessagesThread.contactId,
                                 clientId: effectiveUserId,
                                 overwriteExisting: true,
+                                modelPurpose: TRANSACTIONAL_EMAIL_PURPOSE,
                                 manualInstruction: buildManualInstruction(
                                   manualInstruction,
                                   replyText,

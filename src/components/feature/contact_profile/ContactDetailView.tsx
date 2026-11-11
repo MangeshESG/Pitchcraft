@@ -41,6 +41,7 @@ import { EmailHighlight, parseEmailHighlights } from '../../../utils/emailHighli
 import { EmailOption, parseEmailOptions } from '../../../utils/emailOptions';
 import EmailOptionPicker from '../../common/EmailOptionPicker';
 import { buildManualInstruction } from '../../../utils/manualInstruction';
+import { TRANSACTIONAL_EMAIL_PURPOSE } from '../../../utils/aiModelSettings';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import CreditCheckModal from "../../common/CreditCheckModal";
 import Modal from "../../common/Modal";
@@ -2051,6 +2052,9 @@ const handleDeleteContact = async () => {
           contactId: thread.contactId,
           clientId: String(effectiveUserId),
           overwriteExisting: true,
+          // Written by the transactional model from Settings > AI models,
+          // not the campaign kraft one — see TRANSACTIONAL_EMAIL_PURPOSE.
+          modelPurpose: TRANSACTIONAL_EMAIL_PURPOSE,
           manualInstruction: buildManualInstruction(
             contactManualInstruction,
             contactReplyText,
@@ -2105,6 +2109,7 @@ const handleDeleteContact = async () => {
           contactId: Number(contactId),
           clientId: String(effectiveUserId),
           overwriteExisting: true,
+          modelPurpose: TRANSACTIONAL_EMAIL_PURPOSE,
           // Already composed by the popup (steer + rule + the body on screen).
           manualInstruction: manualInstruction ?? "",
         },
@@ -2595,6 +2600,7 @@ const handleDeleteContact = async () => {
           contactId: thread.contactId,
           clientId: String(effectiveUserId),
           overwriteExisting: true,
+          modelPurpose: TRANSACTIONAL_EMAIL_PURPOSE,
           manualInstruction: buildManualInstruction(
             contactManualInstruction,
             contactForwardMessage,
