@@ -1,11 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CommonSidePanel from "../../common/CommonSidePanel";
-import { VALIDATION_CHECK_LABELS } from "./validationColumns";
+import { VALIDATION_CHECK_ICONS, VALIDATION_CHECK_LABELS } from "./validationColumns";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
-import targetAudienceIcon from "../../../assets/validation/target-audience-match.png";
-import employmentMatchIcon from "../../../assets/validation/employment-match.png";
-import emailVerificationIcon from "../../../assets/validation/email-verification.png";
-import dataIntegrityIcon from "../../../assets/validation/data-integrity-check.png";
 import {
   CheckTypeInfo,
   ContactFitBrief,
@@ -38,12 +34,8 @@ interface ValidationRunPanelProps {
 /** How often a running job is polled. */
 const POLL_MS = 3000;
 
-const CHECK_ICONS: Partial<Record<ValidationCheckType, string>> = {
-  contact_fit: targetAudienceIcon,
-  data_integrity: dataIntegrityIcon,
-  live_contact: employmentMatchIcon,
-  email_verification: emailVerificationIcon,
-};
+/** The grid headings use the same pictures, so there is one definition. */
+const CHECK_ICONS: Partial<Record<ValidationCheckType, string>> = VALIDATION_CHECK_ICONS;
 
 const labelStyle: React.CSSProperties = {
   display: "block",

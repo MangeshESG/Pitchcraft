@@ -89,6 +89,16 @@ interface DynamicContactsTableProps {
    * switch expands them into readable text.
    */
   compactIconColumns?: string[];
+  /**
+   * A picture to head an icon column with once it has been shortened, keyed by
+   * column key.
+   *
+   * Initials are only readable when the words behind them are already known:
+   * "W" for Website is obvious, "TAM" for Target Audience Match is not. A
+   * column with an icon here shows that icon in place of its initials, and the
+   * written-out name stays on hover either way.
+   */
+  headerIcons?: Record<string, string>;
   searchFields?: string[];
   primaryKey?: string;
 
@@ -308,6 +318,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   customFormatters = {},
   iconColumns,
   compactIconColumns,
+  headerIcons,
   searchFields = [],
   primaryKey = "id",
   viewMode = "table",
@@ -1183,6 +1194,9 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                   const sortable = column.key !== "checkbox" && column.sortable !== false;
                   const fullLabel = columnNameMap?.[column.key] || column.label;
                   const isIconColumn = iconColumnKeys.has(normalizeAttributeKey(column.key));
+                  const headerIcon =
+                    headerIcons?.[column.key] ??
+                    headerIcons?.[normalizeAttributeKey(column.key)];
                   const headerCell = (
                     <th
                       key={column.key}
@@ -1202,7 +1216,15 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                         <span className="dt-th-label">
                           {isIconColumn ? (
                             <abbr className="dt-th-abbr" title={fullLabel}>
-                              <span className="dt-th-abbr__short">{abbreviateLabel(fullLabel)}</span>
+                              <span className="dt-th-abbr__short">
+                                {headerIcon ? (
+                                  <span className="dt-th-icon" aria-hidden="true">
+                                    <img src={headerIcon} alt="" />
+                                  </span>
+                                ) : (
+                                  abbreviateLabel(fullLabel)
+                                )}
+                              </span>
                               <span className="dt-th-abbr__full">{fullLabel}</span>
                             </abbr>
                           ) : (

@@ -321,7 +321,24 @@
 }
 /* Both forms are in the markup; the grid's width decides which one shows. */
 .dt-th-abbr__short { display: none; }
-.dt-table--abbr .dt-th-abbr__short { display: inline; }
+.dt-table--abbr .dt-th-abbr__short { display: inline-flex; align-items: center; }
+/*
+ * A shortened heading drawn as the check's own icon. The artwork is padded
+ * well inside its own canvas, so the box crops to the drawing: an image at
+ * roughly twice the box, centred, is what the run panel does with the same
+ * files.
+ */
+.dt-th-icon {
+  position: relative; display: inline-block;
+  width: 28px; height: 28px;
+  overflow: hidden; flex-shrink: 0;
+  vertical-align: middle;
+}
+.dt-th-icon img {
+  position: absolute;
+  width: 53px; height: 53px; max-width: none;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+}
 .dt-table--abbr .dt-th-abbr__full { display: none; }
 /* Must stay last: the measuring pass lays every heading out written out. */
 .dt-table--measuring .dt-th-abbr__short { display: none; }

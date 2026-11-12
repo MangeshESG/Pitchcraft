@@ -50,6 +50,7 @@ import {
 import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
+  VALIDATION_HEADER_ICONS,
   createValidationFormatters,
   getValidationScoreColumn,
   verifiedScore,
@@ -2695,6 +2696,7 @@ const handleDeleteContacts = () => {
               defaultVisibleColumns={defaultVisibleColumns}
               iconColumns={["website", "linkedin_url"]}
               compactIconColumns={Object.values(VALIDATION_SCORE_KEYS)}
+              headerIcons={VALIDATION_HEADER_ICONS}
               customFormatters={{
                 ...validationFormatters,
                 /**

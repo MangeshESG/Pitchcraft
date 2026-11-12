@@ -17,6 +17,10 @@ import {
   type ValidationSuggestion,
 } from "../../../api/contactValidation";
 import { formatUserDate } from "../../common/dateTimePreferences";
+import targetAudienceIcon from "../../../assets/validation/target-audience-match.png";
+import employmentMatchIcon from "../../../assets/validation/employment-match.png";
+import emailVerificationIcon from "../../../assets/validation/email-verification.png";
+import dataIntegrityIcon from "../../../assets/validation/data-integrity-check.png";
 import { useGridDetailOn } from "../../common/GridDetailMode";
 
 /**
@@ -66,6 +70,33 @@ const SCORE_COLUMN_BY_CHECK: Record<ValidationCheckType, string> = {
 
 export const getValidationScoreColumn = (checkType: ValidationCheckType): string =>
   SCORE_COLUMN_BY_CHECK[checkType];
+
+/**
+ * The artwork each check is known by.
+ *
+ * It is the run panel's picture of the check, reused as the grid heading: a
+ * column too narrow for "Target Audience Match" otherwise falls back to
+ * "TAM", four letters that mean nothing to someone who has not read the
+ * panel. The same picture in both places is what ties the column to the check
+ * the user chose to run.
+ */
+export const VALIDATION_CHECK_ICONS: Record<ValidationCheckType, string> = {
+  contact_fit: targetAudienceIcon,
+  data_integrity: dataIntegrityIcon,
+  live_contact: employmentMatchIcon,
+  email_verification: emailVerificationIcon,
+};
+
+/**
+ * The same artwork, keyed by the score column it heads — what a grid hands to
+ * `headerIcons` so the narrow heading becomes the icon rather than initials.
+ */
+export const VALIDATION_HEADER_ICONS: Record<string, string> = Object.fromEntries(
+  (Object.keys(VALIDATION_CHECK_ICONS) as ValidationCheckType[]).map((checkType) => [
+    SCORE_COLUMN_BY_CHECK[checkType],
+    VALIDATION_CHECK_ICONS[checkType],
+  ])
+);
 
 /**
  * Validation fields that travel on the row but never become columns.

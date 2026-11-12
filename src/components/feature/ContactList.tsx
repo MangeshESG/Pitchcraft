@@ -61,6 +61,7 @@ import {
   VALIDATION_COLUMN_LABELS,
   VALIDATION_EXCLUDED_FIELDS,
   VALIDATION_FILTER_FIELDS,
+  VALIDATION_HEADER_ICONS,
   createValidationFormatters,
   getValidationScoreColumn,
   verifiedScore,
@@ -2615,6 +2616,7 @@ const filterFields: any = useMemo(() => {
                   defaultVisibleColumns={defaultVisibleColumns}
                   iconColumns={ICON_COLUMNS}
                   compactIconColumns={COMPACT_ICON_COLUMNS}
+                  headerIcons={VALIDATION_HEADER_ICONS}
                   customFormatters={{
                     ...validationFormatters,
                     /**
@@ -3723,6 +3725,7 @@ const filterFields: any = useMemo(() => {
                   defaultVisibleColumns={defaultVisibleColumns}
                   iconColumns={ICON_COLUMNS}
                   compactIconColumns={COMPACT_ICON_COLUMNS}
+                  headerIcons={VALIDATION_HEADER_ICONS}
                   customFormatters={{
                     ...validationFormatters,
                     /**
