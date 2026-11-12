@@ -66,6 +66,7 @@ import {
   type ValidationSuggestion,
 } from "../../api/contactValidation";
 import { useToast } from "../../hooks/useToast";
+import { defaultButtonStyle, lessPriorityButtonStyle } from "../../styles/buttonStyles";
 
 
 interface ContactFieldOption {
@@ -95,6 +96,22 @@ interface ViewMeta {
 }
 
 interface ViewItem extends ViewSummary, ViewMeta {}
+
+const pendingViewRequests = new Map<string, Promise<any[]>>();
+export const fetchClientViews = (clientId: string | number): Promise<any[]> => {
+  const key = String(clientId);
+  let request = pendingViewRequests.get(key);
+  if (!request) {
+    request = fetch(`${API_BASE_URL}/api/Crm/views-by-client?clientId=${key}`)
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to fetch views");
+        return response.json();
+      })
+      .finally(() => pendingViewRequests.delete(key));
+    pendingViewRequests.set(key, request);
+  }
+  return request;
+};
 
 interface ContactViewsProps {
   clientId: string | number;
@@ -1146,13 +1163,7 @@ const handleDeleteContacts = () => {
     if (!clientId) return;
     setIsLoadingViews(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/views-by-client?clientId=${clientId}`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch views");
-      }
-      const data: any[] = await response.json();
+      const data = await fetchClientViews(clientId);
       const metaMap = loadViewMetaMap(clientId);
       const merged = data.map((view) =>
         normalizeViewFromApi(view, metaMap[String(view.id)])
@@ -1231,9 +1242,12 @@ const handleDeleteContacts = () => {
     setCategoryEditor(null);
   }, [clientId]);
 
+  const lastViewFetch = useRef({ clientId: String(clientId), isActive, refreshToken });
   useEffect(() => {
-    if (!clientId || !isActive) return;
-    fetchViews();
+    const previous = lastViewFetch.current;
+    lastViewFetch.current = { clientId: String(clientId), isActive, refreshToken };
+    if (previous.clientId === String(clientId) && clientId && isActive &&
+      (!previous.isActive || previous.refreshToken !== refreshToken)) fetchViews();
   }, [clientId, isActive, refreshToken]);
 
   useEffect(() => {
@@ -2923,14 +2937,18 @@ effectiveUserId={String(clientId)}
   onClose={() => setCategoryEditor(null)}
   title={categoryEditor?.id ? "Edit category" : "Create category"}
   footerContent={<>
-    {categoryEditor?.id && <button type="button" className="button secondary" onClick={deleteViewCategory} disabled={savingCategory}>Delete category</button>}
-    <button type="button" className="button secondary" onClick={() => setCategoryEditor(null)}>Cancel</button>
-    <button type="button" className="button primary" onClick={saveViewCategory} disabled={savingCategory}>Save</button>
+    <button type="button" className="button secondary" style={lessPriorityButtonStyle} onClick={() => setCategoryEditor(null)}>Cancel</button>
+    <button type="button" className="button primary" style={{ ...defaultButtonStyle, opacity: savingCategory ? 0.5 : 1 }}
+      onClick={saveViewCategory} disabled={savingCategory}>{savingCategory ? "Saving..." : "Save"}</button>
   </>}
 >
   <label htmlFor="contact-view-category-name">Category name</label>
-  <input id="contact-view-category-name" className="ct-category-name" value={categoryEditor?.name || ""} maxLength={120}
-    onChange={(event) => setCategoryEditor((current) => current && { ...current, name: event.target.value })} />
+  <div className="ct-category-name-row">
+    <input id="contact-view-category-name" className="ct-category-name" value={categoryEditor?.name || ""} maxLength={120}
+      onChange={(event) => setCategoryEditor((current) => current && { ...current, name: event.target.value })} />
+    {categoryEditor?.id && <button type="button" className="ct-category-delete" aria-label="Delete category" title="Delete category"
+      onClick={deleteViewCategory} disabled={savingCategory}><FontAwesomeIcon icon={faTrashAlt} /></button>}
+  </div>
   <p>Select manually created views. A view can belong to one category.</p>
   <div className="ct-category-list-options">
     {editableCategoryViews.length === 0 && <p>No available views.</p>}

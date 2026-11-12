@@ -11,7 +11,7 @@ import CreateListModal from "./CreateListModal";
 import SegmentModal from "../common/SegmentModal";
 import CommonSidePanel from "../common/CommonSidePanel";
 import FilterBuilder from "../common/FilterBuilder";
-import ContactViews from "./ContactViews";
+import ContactViews, { fetchClientViews } from "./ContactViews";
 import BulkUpdatePanel from "./BulkUpdatePanel";
 import WebsiteGlobeIcon from "../common/WebsiteGlobeIcon";
 import { formatIsoDate, formatUserDate, formatUserDateTime, formatUserTime } from "../common/dateTimePreferences";
@@ -472,6 +472,12 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
     setIsLoading(true);
     try {
+      const countPromise = fetch(`${API_BASE_URL}/api/Crm/allcontacts/count-by-clientId?clientId=${effectiveUserId}`)
+        .then((response) => response.ok ? response.json() : null)
+        .catch(() => null);
+      const categoriesPromise = fetch(`${API_BASE_URL}/api/Crm/contact-list-categories?clientId=${effectiveUserId}`)
+        .then((response) => response.ok ? response.json() : null)
+        .catch(() => null);
       const response = await fetch(
         `${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${effectiveUserId}`
       );
@@ -482,19 +488,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
       const data: DataFileItem[] = await response.json();
       
-      // Fetch Super List contact count
-      let superListCount = 0;
-      try {
-        const countResponse = await fetch(
-          `${API_BASE_URL}/api/Crm/allcontacts/count-by-clientId?clientId=${effectiveUserId}`
-        );
-        if (countResponse.ok) {
-          const countData = await countResponse.json();
-          superListCount = countData.contactCount || 0;
-        }
-      } catch (err) {
-        console.error("Error fetching super list count:", err);
-      }
+      const countData = await countPromise;
+      const superListCount = countData?.contactCount || 0;
       
       // Add Super List as default list
       const superList: DataFileItem = {
@@ -515,10 +510,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       );
       
       setDataFiles([superList, ...orderedData]);
-      const categoriesResponse = await fetch(
-        `${API_BASE_URL}/api/Crm/contact-list-categories?clientId=${effectiveUserId}`
-      );
-      if (categoriesResponse.ok) setCustomListCategories(await categoriesResponse.json());
+      setIsLoading(false);
+      const categories = await categoriesPromise;
+      if (categories) setCustomListCategories(categories);
        
       console.log("datafiles",data);
     } catch (error) {
@@ -762,23 +756,28 @@ const formatTimeIST = formatUserTime;
   const endIndex = Math.min(currentPage * numericPageSize, filteredContacts.length)
 
   // Load data when client changes or component mounts
+  const initialListClient = useRef<string | null>(null);
   useEffect(() => {
-    if (effectiveUserId) {
-      fetchDataFiles();
-      fetchSegments();
-      fetchHeaderViews();
-    }
+    if (!effectiveUserId || initialListClient.current === effectiveUserId) return;
+    initialListClient.current = effectiveUserId;
+    fetchDataFiles();
+    fetchSegments();
+    fetchHeaderViews();
   }, [effectiveUserId]);
 
+  const lastListRefresh = useRef(refreshTrigger);
   useEffect(() => {
-    if (refreshTrigger > 0 && effectiveUserId) {
-      fetchDataFiles();
-    }
+    if (lastListRefresh.current === refreshTrigger) return;
+    lastListRefresh.current = refreshTrigger;
+    if (effectiveUserId) fetchDataFiles();
   }, [refreshTrigger, effectiveUserId]);
 
   // Load data when switching to List tab
+  const previousSubTab = useRef(activeSubTab);
   useEffect(() => {
-    if (activeSubTab === "List" && effectiveUserId && dataFiles.length === 0 && !isLoading) {
+    const switchedToList = previousSubTab.current !== "List" && activeSubTab === "List";
+    previousSubTab.current = activeSubTab;
+    if (switchedToList && effectiveUserId && dataFiles.length === 0 && !isLoading) {
       fetchDataFiles();
     }
   }, [activeSubTab, effectiveUserId]);
@@ -1113,11 +1112,7 @@ const formatTimeIST = formatUserTime;
     if (!effectiveUserId) return;
     setIsLoadingHeaderViews(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/views-by-client?clientId=${effectiveUserId}`
-      );
-      if (!response.ok) throw new Error("Failed to fetch views");
-      const data = await response.json();
+      const data = await fetchClientViews(effectiveUserId);
       setHeaderViews(
         Array.isArray(data)
           ? data.map((v: any) => ({ id: v.id, created_at: v.created_at || v.createdAt }))
@@ -4830,14 +4825,18 @@ const filterFields: any = useMemo(() => {
         onClose={() => setCategoryEditor(null)}
         title={categoryEditor?.id ? "Edit category" : "Create category"}
         footerContent={<>
-          {categoryEditor?.id && <button type="button" className="button secondary" onClick={() => setConfirmCategoryDelete(true)} disabled={savingCategory}>Delete category</button>}
-          <button type="button" className="button secondary" onClick={() => setCategoryEditor(null)}>Cancel</button>
-          <button type="button" className="button primary" onClick={saveListCategory} disabled={savingCategory}>Save</button>
+          <button type="button" className="button secondary" style={lessPriorityButtonStyle} onClick={() => setCategoryEditor(null)}>Cancel</button>
+          <button type="button" className="button primary" style={{ ...defaultButtonStyle, opacity: savingCategory ? 0.5 : 1 }}
+            onClick={saveListCategory} disabled={savingCategory}>{savingCategory ? "Saving..." : "Save"}</button>
         </>}
       >
         <label htmlFor="contact-list-category-name">Category name</label>
-        <input id="contact-list-category-name" className="ct-category-name" value={categoryEditor?.name || ""} maxLength={120}
-          onChange={(event) => setCategoryEditor((current) => current && { ...current, name: event.target.value })} />
+        <div className="ct-category-name-row">
+          <input id="contact-list-category-name" className="ct-category-name" value={categoryEditor?.name || ""} maxLength={120}
+            onChange={(event) => setCategoryEditor((current) => current && { ...current, name: event.target.value })} />
+          {categoryEditor?.id && <button type="button" className="ct-category-delete" aria-label="Delete category" title="Delete category"
+            onClick={() => setConfirmCategoryDelete(true)} disabled={savingCategory}><FontAwesomeIcon icon={faTrashAlt} /></button>}
+        </div>
         <p>Select manually added lists. A list can belong to one category.</p>
         <div className="ct-category-list-options">
           {editableCategoryLists.length === 0 && <p>No available manual lists.</p>}

@@ -180,7 +180,11 @@
 .ct-catitem { display: inline-flex; align-items: center; gap: 3px; }
 .ct-cat-edit { border: 0; background: transparent; color: var(--ct-ink-faint); cursor: pointer; padding: 5px; }
 .ct-cat-edit:hover { color: var(--ct-brand); }
-.ct-category-name { display: block; width: 100%; margin: 8px 0 20px; padding: 9px 12px; border: 1px solid #ccc; border-radius: 6px; }
+.ct-category-name-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 20px; }
+.ct-category-name { display: block; flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid #ccc; border-radius: 6px; }
+.ct-category-delete { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; border: 1px solid #e5b4b4; border-radius: 6px; background: #fff; color: #c53b3b; cursor: pointer; }
+.ct-category-delete:hover { background: #fff1f1; }
+.ct-category-delete:disabled { opacity: .5; cursor: not-allowed; }
 .ct-category-list-options { display: grid; gap: 12px; margin-top: 16px; }
 .ct-category-list-option { display: flex; align-items: center; gap: 9px; cursor: pointer; }
 .ct-category-confirm-overlay { position: fixed; inset: 0; z-index: 99999; display: grid; place-items: center; background: rgba(0, 0, 0, .5); }
