@@ -210,19 +210,35 @@ const ContactSubscriptionButton: React.FC<ContactSubscriptionButtonProps> = ({ c
   };
 
   const busy = saving || (isUnsubscribed === null && !loadError);
+  const unsubscribed = isUnsubscribed === true;
   const label = saving ? "Updating subscription…" : loadError ? "Retry subscription status" :
-    isUnsubscribed === null ? "Loading subscription status…" : isUnsubscribed ? "Subscribe contact" : "Unsubscribe contact";
-  return <button type="button" title={label} aria-label={label} disabled={disabled || busy}
-    onClick={toggleSubscription} style={{ width: 40, height: 40, padding: 0, border: "none", borderRadius: 8,
-      background: "transparent", color: "#3f9f42", display: "inline-flex", alignItems: "center",
-      justifyContent: "center", flexShrink: 0, cursor: disabled || busy ? "not-allowed" : "pointer", opacity: disabled || busy ? .6 : 1 }}>
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22" aria-hidden="true">
-      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2" />
-      <path stroke="currentColor" strokeLinecap="round" d="M14.25 17.25h6" strokeWidth="2" />
-      {isUnsubscribed && <path stroke="currentColor" strokeLinecap="round" d="M17.25 14.25v6" strokeWidth="2" />}
-      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2" />
-      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2" />
-    </svg>
+    isUnsubscribed === null ? "Loading subscription status…" :
+    unsubscribed ? "Unsubscribed — no email can be sent. Click to resubscribe." : "Unsubscribe contact";
+  // Unsubscribed is a blocked state, so it reads red and keeps a distinct blocked-envelope glyph.
+  const tone = unsubscribed ? "#dc2626" : "#64748b";
+  return <button type="button" title={label} aria-label={label} aria-pressed={unsubscribed}
+    disabled={disabled || busy} onClick={toggleSubscription}
+    style={{ width: 40, height: 40, padding: 0, borderRadius: 8,
+      border: unsubscribed ? "1px solid #fecaca" : "1px solid transparent",
+      background: unsubscribed ? "#fef2f2" : "transparent", color: tone,
+      display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+      cursor: disabled || busy ? "not-allowed" : "pointer", opacity: disabled || busy ? .6 : 1,
+      transition: "background .15s ease, color .15s ease, border-color .15s ease" }}>
+    {unsubscribed ? (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22" aria-hidden="true">
+        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2" />
+        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2" />
+        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2" />
+        <path stroke="currentColor" strokeLinecap="round" d="m13.01 13.01 8.48 8.48" strokeWidth="2" />
+      </svg>
+    ) : (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22" aria-hidden="true">
+        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2" />
+        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2" />
+        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2" />
+        <path stroke="currentColor" strokeLinecap="round" d="M14.25 17.25h6" strokeWidth="2" />
+      </svg>
+    )}
   </button>;
 };
 
