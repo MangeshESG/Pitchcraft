@@ -362,6 +362,9 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [contactCollapsedEmails, setContactCollapsedEmails] = useState<{ [key: string]: boolean }>({});
   const [expandedContactMessageHeaders, setExpandedContactMessageHeaders] = useState<{ [key: string]: boolean }>({});
   const [contactReplyText, setContactReplyText] = useState("");
+  const [contactReplyFromOptions, setContactReplyFromOptions] = useState<Array<{ inboxId: number; emailAddress: string; provider: string }>>([]);
+  const [contactReplyFromKey, setContactReplyFromKey] = useState("");
+  useEffect(() => setContactReplyFromKey(""), [selectedContactThread?.trackingId]);
   const [contactReplyTrailHtml, setContactReplyTrailHtml] = useState("");
   const [contactReplyCcEmails, setContactReplyCcEmails] = useState<string[]>([]);
   const [contactReplyCcDraft, setContactReplyCcDraft] = useState("");
@@ -2303,7 +2306,6 @@ const handleDeleteContact = async () => {
   };
 
   const handleSendContactReply = async (thread: any) => {
-    const sendableReplyBody = getSendableContactReplyBody(contactReplyText || "");
     const plainReply = getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim();
 
     if (!thread?.trackingId) {
@@ -2312,10 +2314,32 @@ const handleDeleteContact = async () => {
     }
 
     const threadMessages = Array.isArray(thread?.messages) ? thread.messages : [];
-    const replyOutboxId =
+    const originalInboxId =
       getInboxIdValue(thread) ??
       getInboxIdValue(thread?.lastMessage) ??
       threadMessages.map(getInboxIdValue).find(Boolean);
+
+    const originalProvider =
+      getProviderValue(thread) ||
+      getProviderValue(thread?.lastMessage) ||
+      getProviderValue(threadMessages.find((message: any) => getProviderValue(message)));
+    const firstMessage = [...threadMessages].sort((a, b) => getMessageTime(a) - getMessageTime(b))[0];
+    const originalAddress = extractEmailAddress(
+      String(firstMessage?.type || "").toLowerCase() === "sent" ? firstMessage?.fromEmail : firstMessage?.toEmail
+    );
+    const originalMailbox = contactReplyFromOptions.find((inbox) =>
+      inbox.inboxId === originalInboxId &&
+      normalizeSignatureProvider(inbox.provider).toLowerCase() === normalizeSignatureProvider(originalProvider).toLowerCase()
+    ) || contactReplyFromOptions.find((inbox) => inbox.emailAddress.toLowerCase() === originalAddress.toLowerCase());
+    const selectedMailbox = contactReplyFromOptions.find((inbox) =>
+      `${normalizeSignatureProvider(inbox.provider).toLowerCase()}:${inbox.inboxId}` === contactReplyFromKey) || originalMailbox;
+    const replyOutboxId = selectedMailbox?.inboxId ?? originalInboxId;
+    const replyProvider = selectedMailbox?.provider ?? originalProvider;
+    const startsNewThread = !!selectedMailbox && !!originalMailbox &&
+      selectedMailbox.emailAddress.toLowerCase() !== originalMailbox.emailAddress.toLowerCase();
+    const sendableReplyBody = startsNewThread
+      ? getDraftContactReplyBody(contactReplyText || "")
+      : getSendableContactReplyBody(contactReplyText || "");
 
     if (!replyOutboxId) {
       showContactMailError("Thread inbox id not found.");
@@ -2326,11 +2350,6 @@ const handleDeleteContact = async () => {
       showContactMailError("Please write a reply.");
       return;
     }
-
-    const replyProvider =
-      getProviderValue(thread) ||
-      getProviderValue(thread?.lastMessage) ||
-      getProviderValue(threadMessages.find((message: any) => getProviderValue(message)));
 
     if (!replyProvider) {
       showContactMailError("Thread provider not found.");
@@ -2367,7 +2386,7 @@ const handleDeleteContact = async () => {
         messageId: `temp-${Date.now()}`,
         subject: `Re: ${thread.subject || ""}`.trim(),
         body: sendableReplyBody,
-        fromEmail: thread?.lastMessage?.toEmail || thread?.contactEmail || contact?.email || "",
+        fromEmail: selectedMailbox?.emailAddress || thread?.lastMessage?.toEmail || "",
         toEmail: thread.contactEmail || contact?.email || "",
         date: new Date().toISOString(),
         isRead: true,
@@ -2390,8 +2409,14 @@ const handleDeleteContact = async () => {
         };
       };
 
-      setEmailTimeline((prev) => prev.map(updateThreadWithReply));
-      setSelectedContactThread((prev: any) => (prev?.trackingId === thread.trackingId ? updateThreadWithReply(prev) : prev));
+      if (!startsNewThread) {
+        setEmailTimeline((prev) => prev.map(updateThreadWithReply));
+        setSelectedContactThread((prev: any) => (prev?.trackingId === thread.trackingId ? updateThreadWithReply(prev) : prev));
+      }
+      if (startsNewThread) {
+        setContactMailTab("sent");
+        setSelectedContactThread(null);
+      }
       setContactReplyText("");
       setContactReplyTrailHtml("");
       setContactReplyCcEmails([]);
@@ -3745,6 +3770,24 @@ dispatch(closePanel());
     };
   }, [showContactReplySection, showContactForwardSection, selectedContactThread?.trackingId, token]);
 
+  useEffect(() => {
+    if (!showContactReplySection || !effectiveUserId) {
+      setContactReplyFromKey("");
+      return;
+    }
+
+    let cancelled = false;
+    axios.get(`${API_BASE_URL}/api/Inbox/Inbox_dropdown?clientId=${effectiveUserId}`, {
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+    }).then((response) => {
+      if (!cancelled) setContactReplyFromOptions(response.data?.data || []);
+    }).catch(() => {
+      if (!cancelled) showContactMailError("Could not load From addresses.");
+    });
+
+    return () => { cancelled = true; };
+  }, [showContactReplySection, effectiveUserId, token]);
+
   // Load the mailbox signature into reply and forward drafts. The thread
   // carries the inbox it arrived on, so the signature is resolved from that
   // inbox rather than the compose "From" selection.
@@ -3756,11 +3799,16 @@ dispatch(closePanel());
     }
 
     const threadMessages = Array.isArray(thread?.messages) ? thread.messages : [];
+    const selectedMailbox = showContactReplySection
+      ? contactReplyFromOptions.find((inbox) =>
+          `${normalizeSignatureProvider(inbox.provider).toLowerCase()}:${inbox.inboxId}` === contactReplyFromKey)
+      : undefined;
     const signatureInboxId =
+      selectedMailbox?.inboxId ??
       getInboxIdValue(thread) ??
       getInboxIdValue(thread?.lastMessage) ??
       threadMessages.map(getInboxIdValue).find(Boolean);
-    const signatureProvider = normalizeSignatureProvider(getContactThreadProvider(thread));
+    const signatureProvider = normalizeSignatureProvider(selectedMailbox?.provider || getContactThreadProvider(thread));
 
     if (!signatureInboxId || !signatureProvider) {
       return;
@@ -3783,7 +3831,7 @@ dispatch(closePanel());
         if (isCancelled) return;
 
         const signatureHtml = response.data?.signatureHtml || "";
-        if (!signatureHtml) return;
+        if (!signatureHtml && showContactForwardSection) return;
 
         if (showContactForwardSection) {
           setContactForwardMessage((currentForwardMessage) =>
@@ -3792,12 +3840,11 @@ dispatch(closePanel());
         } else {
           setContactReplyText((currentReplyText) => {
             const { draftHtml, trailHtml } = splitContactReplyTrail(currentReplyText || "");
-            if (draftHtml.includes(contactReplySignatureMarker)) {
-              return currentReplyText;
-            }
-
-            const compactDraftHtml = draftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
-            return `${compactDraftHtml}<br/><br/><div ${contactReplySignatureMarker}>${signatureHtml}</div>${trailHtml || contactReplyTrailHtml}`;
+            const draft = document.createElement("div");
+            draft.innerHTML = draftHtml;
+            draft.querySelector('[data-reply-email-signature="true"]')?.remove();
+            const compactDraftHtml = draft.innerHTML.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
+            return `${compactDraftHtml}${signatureHtml ? `<br/><br/><div ${contactReplySignatureMarker}>${signatureHtml}</div>` : ""}${trailHtml || contactReplyTrailHtml}`;
           });
         }
       } catch (error) {
@@ -3812,7 +3859,7 @@ dispatch(closePanel());
     return () => {
       isCancelled = true;
     };
-  }, [showContactReplySection, showContactForwardSection, selectedContactThread?.trackingId, effectiveUserId, token]);
+  }, [showContactReplySection, showContactForwardSection, selectedContactThread?.trackingId, contactReplyFromKey, contactReplyFromOptions, effectiveUserId, token]);
 
   useEffect(() => {
     setSelectedContactThread(null);
@@ -4462,6 +4509,21 @@ dispatch(closePanel());
                   {isKraftingContactReply ? "Krafting..." : "Kraft"}
                 </button>
               </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <label htmlFor="contact-reply-from">From</label>
+              <select
+                id="contact-reply-from"
+                value={contactReplyFromKey || `${normalizeSignatureProvider(getContactThreadProvider(activeThread)).toLowerCase()}:${getInboxIdValue(activeThread) ?? getInboxIdValue(activeThread.lastMessage) ?? ""}`}
+                onChange={(event) => setContactReplyFromKey(event.target.value)}
+                style={{ minWidth: 220, padding: 8, border: "1px solid #d1d5db", borderRadius: 6 }}
+              >
+                {contactReplyFromOptions.map((inbox) => (
+                  <option key={`${inbox.provider}:${inbox.inboxId}`} value={`${normalizeSignatureProvider(inbox.provider).toLowerCase()}:${inbox.inboxId}`}>
+                    {inbox.emailAddress}
+                  </option>
+                ))}
+              </select>
             </div>
             {(activeThread.contactEmail || contact?.email) && (
               <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>

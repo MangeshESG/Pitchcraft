@@ -154,6 +154,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [replyText, setReplyText] = useState<string>('');
+  const [replyFromKey, setReplyFromKey] = useState('');
+  const [replySignatureHtml, setReplySignatureHtml] = useState('');
   const [kraftFinalPrompt, setKraftFinalPrompt] = useState<string>('');
   const [kraftWebSearchData, setKraftWebSearchData] = useState<string>('');
   // Remaining personalization inputs returned by /api/email-generation/generate,
@@ -210,6 +212,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showReplySection, setShowReplySection] = useState(false);
+  useEffect(() => {
+    if (!showReplySection) setReplyFromKey('');
+  }, [showReplySection]);
   const [showForwardSection, setShowForwardSection] = useState(false);
   const [collapsedEmails, setCollapsedEmails] = useState<{ [key: string]: boolean }>({});
   const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
@@ -716,12 +721,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     );
   };
 
-  const fetchDefaultSignature = useCallback(async () => {
-    if (!selectedInboxId || !selectedProvider) return '';
+  const fetchDefaultSignature = useCallback(async (mailbox?: InboxDropdownItem) => {
+    const inboxId = mailbox?.inboxId ?? selectedInboxId;
+    const provider = mailbox?.provider ?? selectedProvider;
+    if (!inboxId || !provider) return '';
     
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${selectedInboxId}&Provider=${selectedProvider}&Mathod=Inbox`,
+        `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${inboxId}&Provider=${provider}&Mathod=Inbox`,
         {
           headers: {
             accept: '*/*',
@@ -1225,16 +1232,31 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }
   };
 
+  const activeReplyThread = activeTab === 'inbox' ? selectedThread
+    : activeTab === 'unassigned' ? selectedUnassignedThread
+      : selectedAllMessagesThread;
+  const firstReplyMessage = activeReplyThread?.messages?.slice()
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+  const originalSenderAddress = firstReplyMessage?.type?.toLowerCase() === 'sent'
+    ? firstReplyMessage.fromEmail
+    : firstReplyMessage?.toEmail;
+  const originalReplyMailbox = inboxList.find((inbox) =>
+    inbox.emailAddress.toLowerCase() === (originalSenderAddress?.match(/<([^>]+)>/)?.[1] || originalSenderAddress || '').toLowerCase()
+  ) || inboxList.find((inbox) => inbox.inboxId === selectedInboxId && inbox.provider === selectedProvider);
+  const selectedReplyMailbox = inboxList.find((inbox) => `${inbox.provider}:${inbox.inboxId}` === replyFromKey) || originalReplyMailbox;
+  const replyStartsNewThread = !!selectedReplyMailbox && !!originalReplyMailbox &&
+    selectedReplyMailbox.emailAddress.toLowerCase() !== originalReplyMailbox.emailAddress.toLowerCase();
+
   const sendReplyEmail = (trackingId: string) => {
-    const sendableReplyBody = getSendableReplyBody(replyText);
+    const sendableReplyBody = replyStartsNewThread ? getDraftReplyBody(replyText) : getSendableReplyBody(replyText);
     const formData = new FormData();
     formData.append('TrackingId', trackingId);
     formData.append('ClientId', String(parseInt(effectiveUserId)));
     formData.append('ReplyBody', sendableReplyBody);
-    formData.append('Outboxid', String(selectedInboxId || 0));
+    formData.append('Outboxid', String(selectedReplyMailbox?.inboxId || 0));
     formData.append('CC', mergeRecipients(replyCcEmails, parseRecipientInput(replyCcDraft)).join(','));
     formData.append('BCC', mergeRecipients(replyBccEmails, parseRecipientInput(replyBccDraft)).join(','));
-    formData.append('Provider', selectedProvider);
+    formData.append('Provider', selectedReplyMailbox?.provider || '');
     replyAttachments.forEach((file) => {
       formData.append('Attachments', file);
     });
@@ -1411,7 +1433,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           messageId: `temp-${Date.now()}`,
           subject: `Re: ${selectedThread.subject}`,
           body: getSendableReplyBody(replyText),
-          fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
+          fromEmail: selectedReplyMailbox?.emailAddress || '',
           toEmail: selectedThread.contactEmail,
           date: new Date().toISOString(),
           isRead: true,
@@ -1426,18 +1448,19 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           lastMessageDate: sentMessage.date
         };
         
-        setSelectedThread(updatedThread);
-        
-        // Update threads list
-        setThreads(prevThreads => 
-          prevThreads.map(t => 
-            t.trackingId === selectedThread.trackingId ? updatedThread : t
-          )
-        );
+        if (!replyStartsNewThread) {
+          setSelectedThread(updatedThread);
+          setThreads(prevThreads =>
+            prevThreads.map(t =>
+              t.trackingId === selectedThread.trackingId ? updatedThread : t
+            )
+          );
+        }
         
         setReplyText('');
         setReplyAttachments([]);
         setShowReplySection(false);
+        if (replyStartsNewThread) handleTabChange('sent');
         setToastMessage('Reply sent successfully!');
         setToastType('success');
         setShowToast(true);
@@ -1916,6 +1939,31 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   const renderReplyRecipientFields = (toEmail?: string) => (
     <>
+      <div className="reply-recipient-primary-row" style={{ marginBottom: '12px' }}>
+        <label htmlFor="reply-from-inbox" style={{ marginRight: 8 }}>From</label>
+        <select
+          id="reply-from-inbox"
+          value={replyFromKey || `${originalReplyMailbox?.provider}:${originalReplyMailbox?.inboxId}`}
+          onChange={async (event) => {
+            const key = event.target.value;
+            setReplyFromKey(key);
+            const mailbox = inboxList.find((inbox) => `${inbox.provider}:${inbox.inboxId}` === key);
+            const nextSignature = await fetchDefaultSignature(mailbox);
+            setReplyText((current) => {
+              const { draftHtml, trailHtml } = splitReplyTrail(current);
+              return draftHtml.replace(replySignatureHtml, '') + nextSignature + trailHtml;
+            });
+            setReplySignatureHtml(nextSignature);
+          }}
+          style={{ minWidth: 220, padding: '8px', border: '1px solid #d1d5db', borderRadius: 6 }}
+        >
+          {inboxList.map((inbox) => (
+            <option key={`${inbox.provider}:${inbox.inboxId}`} value={`${inbox.provider}:${inbox.inboxId}`}>
+              {inbox.emailAddress}
+            </option>
+          ))}
+        </select>
+      </div>
       {toEmail && (
         <div className="reply-recipient-primary-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
           <RecipientChipInput
@@ -3277,7 +3325,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     type="button"
                     className="btn-default"
                     onClick={async () => {
-                      const signature = await fetchDefaultSignature();
+                      const signature = await fetchDefaultSignature(originalReplyMailbox);
+                      setReplySignatureHtml(signature);
                       setReplyText(signature);
                       setShowReplySection(true);
                     }}
@@ -3902,7 +3951,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       type="button"
                       className="btn-default"
                       onClick={async () => {
-                        const signature = await fetchDefaultSignature();
+                        const signature = await fetchDefaultSignature(originalReplyMailbox);
+                        setReplySignatureHtml(signature);
                         setReplyText(signature);
                         setShowReplySection(true);
                       }}
@@ -4086,7 +4136,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               messageId: `temp-${Date.now()}`,
                               subject: `Re: ${selectedUnassignedThread.subject}`,
                               body: getSendableReplyBody(replyText),
-                              fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
+                              fromEmail: selectedReplyMailbox?.emailAddress || '',
                               toEmail: selectedUnassignedThread.contactEmail,
                               date: new Date().toISOString(),
                               isRead: true,
@@ -4101,10 +4151,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               lastMessageDate: sentMessage.date
                             };
                             
-                            setSelectedUnassignedThread(updatedThread);
+                            if (!replyStartsNewThread) setSelectedUnassignedThread(updatedThread);
                             setReplyText('');
                             setReplyAttachments([]);
                             setShowReplySection(false);
+                            if (replyStartsNewThread) handleTabChange('sent');
                             setToastMessage('Reply sent successfully!');
                             setToastType('success');
                             setShowToast(true);
@@ -4438,7 +4489,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       type="button"
                       className="btn-default"
                       onClick={async () => {
-                        const signature = await fetchDefaultSignature();
+                        const signature = await fetchDefaultSignature(originalReplyMailbox);
+                        setReplySignatureHtml(signature);
                         setReplyText(signature);
                         setShowReplySection(true);
                       }}
@@ -4627,7 +4679,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               messageId: `temp-${Date.now()}`,
                               subject: `Re: ${selectedAllMessagesThread.subject}`,
                               body: getSendableReplyBody(replyText),
-                              fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
+                              fromEmail: selectedReplyMailbox?.emailAddress || '',
                               toEmail: selectedAllMessagesThread.contactEmail,
                               date: new Date().toISOString(),
                               isRead: true,
@@ -4641,10 +4693,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               lastMessageDate: sentMessage.date
                             };
 
-                            setSelectedAllMessagesThread(updatedThread);
+                            if (!replyStartsNewThread) setSelectedAllMessagesThread(updatedThread);
                             setReplyText('');
                             setReplyAttachments([]);
                             setShowReplySection(false);
+                            if (replyStartsNewThread) handleTabChange('sent');
                             setToastMessage('Reply sent successfully!');
                             setToastType('success');
                             setShowToast(true);
