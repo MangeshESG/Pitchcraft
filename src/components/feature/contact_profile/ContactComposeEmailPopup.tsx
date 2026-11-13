@@ -8,6 +8,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import RichTextEditor from "../../common/RTEEditor";
+import Modal from "../../common/Modal";
 import { EmailHighlight, parseEmailHighlights } from "../../../utils/emailHighlights";
 import { EmailOption } from "../../../utils/emailOptions";
 import EmailOptionPicker from "../../common/EmailOptionPicker";
@@ -333,6 +334,9 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
   // Device-preview width for the body editor ("" = desktop).
   const [previewWidth, setPreviewWidth] = useState("");
   const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
+  // Expand control — same full-width editor modal the Kraft email, Inbox and
+  // contact reply/forward toolbars open.
+  const [isBodyExpanded, setIsBodyExpanded] = useState(false);
   const signatureSelector = "[data-compose-email-signature]";
 
   const getComposeSignatureBlock = (signature: string) =>
@@ -371,6 +375,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
       setHasGeneratedBody(false);
       setPreviewWidth("");
       setOpenDeviceDropdown(false);
+      setIsBodyExpanded(false);
       setPreviewHighlights([]);
       setManualInstruction("");
       setEmailOptions([]);
@@ -777,7 +782,11 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
                   value={emailBody}
                   onChange={setEmailBody}
                   height={360}
-                  showActionButtons={hasGeneratedBody}
+                  // Always on, like the Kraft email toolbar: copy, device
+                  // preview and expand are just as useful on a hand-written
+                  // body as on a generated one, and the insight panels carry
+                  // their own empty states before the first Generate.
+                  showActionButtons
                   // Not gated on hasGeneratedBody: the instruction is written
                   // before the first Generate, not after it.
                   showManualInstruction
@@ -802,6 +811,7 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
                   insightEmails={previewEmails}
                   insightNotes={previewNotes}
                   insightProfessionalSummary={previewProfessionalSummary}
+                  onExpandEditor={() => setIsBodyExpanded(true)}
                 />
                 {/* Sits between the editor and the option strip, so the count
                     belongs to the body above it rather than to the strip. */}
@@ -822,6 +832,47 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
               </EmailOptionPicker>
             </div>
           </div>
+        </div>
+
+        {/* Expanded body editor — the Modal portals to <body> at a higher
+            z-index than the compose backdrop, so it sits over the popup and
+            edits the same `emailBody` state.
+
+            The wrapper is not decoration: React events bubble through the
+            component tree, not the DOM one, so without it a click inside the
+            portalled modal would reach the backdrop's onClick and close the
+            whole compose popup. */}
+        <div style={{ display: "contents" }} onClick={(event) => event.stopPropagation()}>
+        <Modal
+          show={isBodyExpanded}
+          closeModal={() => setIsBodyExpanded(false)}
+          buttonLabel="Close"
+          size="90%"
+        >
+          <div style={{ padding: 20 }}>
+            <label style={{ fontWeight: 500, fontSize: 16, marginBottom: 12, display: "block" }}>
+              Email body
+            </label>
+            <RichTextEditor
+              value={emailBody}
+              onChange={setEmailBody}
+              height={520}
+              highlights={previewHighlights}
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 14 }}>
+              <button
+                type="button"
+                onClick={() => setIsBodyExpanded(false)}
+                style={{
+                  ...lessPriorityButtonStyle,
+                  cursor: "pointer",
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </Modal>
         </div>
       </div>
     </div>
