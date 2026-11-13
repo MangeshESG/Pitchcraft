@@ -147,6 +147,7 @@ interface ContactSubscriptionButtonProps {
 const ContactSubscriptionButton: React.FC<ContactSubscriptionButtonProps> = ({ contactId, clientId, token, disabled, onChanged, onMessage }) => {
   const [isUnsubscribed, setIsUnsubscribed] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [retry, setRetry] = useState(0);
   const controller = useRef<AbortController | null>(null);
@@ -214,31 +215,31 @@ const ContactSubscriptionButton: React.FC<ContactSubscriptionButtonProps> = ({ c
   const label = saving ? "Updating subscription…" : loadError ? "Retry subscription status" :
     isUnsubscribed === null ? "Loading subscription status…" :
     unsubscribed ? "Unsubscribed — no email can be sent. Click to resubscribe." : "Unsubscribe contact";
-  // Unsubscribed is a blocked state, so it reads red and keeps a distinct blocked-envelope glyph.
-  const tone = unsubscribed ? "#dc2626" : "#64748b";
+  // Green reads "this contact is reachable"; red reads "blocked".
+  const palette = unsubscribed
+    ? { fg: "#dc2626", bg: "#fdecec", bgHover: "#fbdcdc", ring: "#b91c1c" }
+    : { fg: "#2f7a33", bg: "#eaf5ea", bgHover: "#dbeedc", ring: "#2f7a33" };
+  const interactive = !(disabled || busy);
+  const lifted = interactive && hovered;
   return <button type="button" title={label} aria-label={label} aria-pressed={unsubscribed}
     disabled={disabled || busy} onClick={toggleSubscription}
-    style={{ width: 40, height: 40, padding: 0, borderRadius: 8,
-      border: unsubscribed ? "1px solid #fecaca" : "1px solid transparent",
-      background: unsubscribed ? "#fef2f2" : "transparent", color: tone,
-      display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-      cursor: disabled || busy ? "not-allowed" : "pointer", opacity: disabled || busy ? .6 : 1,
-      transition: "background .15s ease, color .15s ease, border-color .15s ease" }}>
-    {unsubscribed ? (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22" aria-hidden="true">
-        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2" />
-        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2" />
-        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2" />
-        <path stroke="currentColor" strokeLinecap="round" d="m13.01 13.01 8.48 8.48" strokeWidth="2" />
-      </svg>
-    ) : (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22" aria-hidden="true">
-        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2" />
-        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2" />
-        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2" />
-        <path stroke="currentColor" strokeLinecap="round" d="M14.25 17.25h6" strokeWidth="2" />
-      </svg>
-    )}
+    onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+    onFocus={() => setHovered(true)} onBlur={() => setHovered(false)}
+    style={{ width: 40, height: 40, padding: 0, borderRadius: "50%",
+      border: `1.5px solid ${palette.ring}`, background: lifted ? palette.bgHover : palette.bg,
+      color: palette.fg, display: "inline-flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0, cursor: interactive ? "pointer" : "not-allowed", opacity: interactive ? 1 : .55,
+      boxShadow: lifted ? "0 2px 6px rgba(15, 23, 42, .12)" : "none",
+      transform: lifted ? "translateY(-1px)" : "none",
+      transition: "background .15s ease, box-shadow .15s ease, transform .15s ease, border-color .15s ease" }}>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="21" width="21" aria-hidden="true">
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2" />
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2" />
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2" />
+      {unsubscribed
+        ? <path stroke="currentColor" strokeLinecap="round" d="m13.01 13.01 8.48 8.48" strokeWidth="2" />
+        : <path stroke="currentColor" strokeLinecap="round" d="M14.25 17.25h6" strokeWidth="2" />}
+    </svg>
   </button>;
 };
 
@@ -5615,7 +5616,7 @@ dispatch(closePanel());
                       {isGeneratingInsights ? "Generating..." : "Generate insights"}
                     </button>
                   </div>
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: 0, flexShrink: 0 }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                   <button
                     type="button"
                     onClick={() => setShowContactDeleteConfirmation(true)}
@@ -5625,18 +5626,19 @@ dispatch(closePanel());
                       width: 40,
                       height: 40,
                       padding: 0,
-                      border: "none",
-                      borderRadius: 8,
-                      background: "transparent",
+                      // Matches the subscription control beside it: one dark green ring each.
+                      border: "1.5px solid #2f7a33",
+                      borderRadius: "50%",
+                      background: "#eaf5ea",
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
                       cursor: isDeletingContact ? "not-allowed" : "pointer",
-                      opacity: isDeletingContact ? 0.6 : 1,
+                      opacity: isDeletingContact ? 0.55 : 1,
                       flexShrink: 0,
                     }}
                   >
-                    <FontAwesomeIcon icon={faTrashAlt} style={{ fontSize: 20, color: "#3f9f42" }} />
+                    <FontAwesomeIcon icon={faTrashAlt} style={{ fontSize: 18, color: "#2f7a33" }} />
                   </button>
                   <ContactSubscriptionButton
                     key={`${effectiveUserId}-${contactId}`}

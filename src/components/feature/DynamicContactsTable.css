@@ -330,13 +330,22 @@
  */
 .dt-th-icon {
   position: relative; display: inline-block;
-  width: 28px; height: 28px;
+  width: 36px; height: 36px;
   overflow: hidden; flex-shrink: 0;
   vertical-align: middle;
+  /*
+   * A tinted disc so the picture reads as a heading rather than as part of
+   * the scores underneath it, which are themselves green pills. The drawing
+   * is held a little inside the disc so the tint shows as a ring around it.
+   */
+  border-radius: 999px;
+  background: var(--dt-brand-100);
+  /* A dark-green ring so the disc reads as a deliberate heading badge. */
+  border: 2px solid var(--dt-brand-d);
 }
 .dt-th-icon img {
   position: absolute;
-  width: 53px; height: 53px; max-width: none;
+  width: 54px; height: 54px; max-width: none;
   top: 50%; left: 50%; transform: translate(-50%, -50%);
 }
 .dt-table--abbr .dt-th-abbr__full { display: none; }
