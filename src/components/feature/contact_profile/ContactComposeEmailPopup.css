@@ -1,95 +1,342 @@
+/* Contact-profile compose popup.
+   Same chrome as the inbox reply/forward composer (see InboxView.css
+   "COMPOSER CARD"): head bar, green blueprint strip, framed recipient rows,
+   framed editor, footer. The colours are written out rather than taken from
+   the inbox tokens so the popup also holds up on a page that does not load
+   InboxView.css. */
+
+.contact-compose-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(17, 24, 39, 0.38);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.contact-compose-modal {
+  width: min(1180px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(17, 24, 39, 0.22);
+  overflow: hidden;
+  font-family: inherit;
+  color: #111827;
+}
+
+/* ---- head ---- */
+.contact-compose-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f0f1f0;
+  flex-shrink: 0;
+}
+.cc-head-back,
+.cc-head-close {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #5b6472;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.cc-head-back { color: #1f7a3a; }
+.cc-head-back:hover,
+.cc-head-close:hover { background: #f0f1f0; color: #111827; }
+.cc-head-title {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* ---- scrolling body ---- */
+.contact-compose-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 4px;
+}
+.contact-compose-body::-webkit-scrollbar { width: 8px; }
+.contact-compose-body::-webkit-scrollbar-thumb {
+  background: #d4d7dc;
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* ---- blueprint strip ---- */
+.cc-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 20px 0;
+  padding: 14px 16px;
+  border: 1px solid #cfe6d4;
+  border-radius: 12px;
+  background: #f3f9f4;
+}
+.cc-strip-lead {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.cc-strip-mark {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #1f7a3a;
+  display: grid;
+  place-items: center;
+}
+.cc-strip-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cc-strip-title { font-size: 14px; font-weight: 600; color: #111827; }
+.cc-strip-hint { font-size: 12px; color: #4b5563; }
+.cc-strip select {
+  flex: 1 1 200px;
+  max-width: 280px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #cfe6d4;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  font-family: inherit;
+  color: #111827;
+  cursor: pointer;
+}
+
+/* ---- recipient / subject rows ---- */
+.cc-fields {
+  display: flex;
+  flex-direction: column;
+  margin: 16px 20px 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.cc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 6px 12px;
+  border-bottom: 1px solid #f0f1f0;
+}
+.cc-row:last-child { border-bottom: 0; }
+.cc-label {
+  width: 64px;
+  flex: none;
+  font-size: 13px;
+  color: #5b6472;
+}
+.cc-row-input,
+.cc-row-select {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: #111827;
+}
+.cc-row-select { cursor: pointer; }
+.cc-row-input-readonly { color: #475569; }
+.cc-row-input::placeholder { color: #9ca3af; }
+.cc-row-chips { flex: 1; min-width: 0; }
+.cc-row-chips .recipient-chip-input {
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  min-height: 34px !important;
+  background: transparent !important;
+}
+.cc-row-note { font-size: 12px; color: #5b6472; white-space: nowrap; }
+.cc-link {
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #1f7a3a;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+.cc-link:hover { background: #eaf5ec; }
+.cc-row-remove {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #5b6472;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.cc-row-remove:hover { background: #f0f1f0; color: #111827; }
+
+/* ---- editor ---- */
+.cc-editor {
+  margin: 16px 20px 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.cc-counts {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  color: #5b6472;
+  font-size: 12px;
+}
+
+/* ---- footer ---- */
+.cc-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f1f0;
+  background: #fbfbfa;
+  flex-shrink: 0;
+}
+.cc-footer-spacer { flex: 1; }
+
+/* ---- buttons ---- */
+.cc-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.cc-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.cc-btn-primary {
+  height: 44px;
+  padding: 0 20px;
+  background: #1f7a3a;
+  color: #fff;
+  border: 1px solid #1f7a3a;
+}
+.cc-btn-primary:hover:not(:disabled) { background: #17602d; border-color: #17602d; }
+.cc-btn-kraft {
+  background: #eaf5ec;
+  color: #17602d;
+  border: 1px solid #cfe6d4;
+}
+.cc-btn-kraft:hover:not(:disabled) { background: #dcecdf; }
+.cc-btn-ghost {
+  height: 44px;
+  padding: 0 18px;
+  background: transparent;
+  color: #374151;
+  border: 1px solid transparent;
+}
+.cc-btn-ghost:hover:not(:disabled) { background: #f0f1f0; }
+
+.cc-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   .contact-compose-backdrop {
-    padding: 8px !important;
-    align-items: stretch !important;
+    padding: 8px;
+    align-items: stretch;
   }
 
   .contact-compose-modal {
-    width: 100% !important;
-    max-width: 100% !important;
+    width: 100%;
+    max-width: 100%;
     height: calc(100dvh - 16px);
-    max-height: calc(100dvh - 16px) !important;
-    padding: 12px !important;
-    border-radius: 8px !important;
-    box-sizing: border-box;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
+    max-height: calc(100dvh - 16px);
+    border-radius: 12px;
   }
 
-  .contact-compose-header {
-    align-items: flex-start !important;
+  .contact-compose-head,
+  .cc-footer {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .cc-strip,
+  .cc-fields,
+  .cc-editor {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .cc-strip select { max-width: 100%; }
+
+  .cc-row {
+    align-items: stretch;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 16px !important;
+    gap: 6px;
+    padding: 10px 12px;
   }
 
-  .contact-compose-header > button:first-child {
-    width: 100%;
-    font-size: 17px !important;
-  }
+  .cc-label { width: 100%; flex: 0 0 100%; }
 
-  .contact-compose-header-actions {
-    width: 100%;
-    justify-content: flex-end;
-    gap: 8px !important;
-  }
-
-  .contact-compose-header-actions > button {
+  .cc-row-input,
+  .cc-row-select,
+  .cc-row-chips {
+    flex: 1 1 100%;
     min-width: 0;
-    padding-left: 10px !important;
-    padding-right: 10px !important;
   }
 
-  .contact-compose-form {
-    width: 100%;
-    min-width: 0;
-    padding: 12px !important;
-    box-sizing: border-box;
-  }
-
-  .contact-compose-field {
-    width: 100%;
-    min-width: 0;
-    align-items: stretch !important;
-    flex-wrap: wrap;
-    gap: 8px !important;
-    margin-bottom: 14px !important;
-  }
-
-  .contact-compose-field > label {
-    width: 100% !important;
-    flex: 0 0 100%;
-  }
-
-  .contact-compose-field > select,
-  .contact-compose-field > input,
-  .contact-compose-field > div {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-    flex: 1 1 100% !important;
-    box-sizing: border-box;
-  }
-
-  .contact-compose-to-field > button {
-    flex: 0 0 auto;
-    min-height: 34px;
-    padding: 0 10px !important;
-    border: 1px solid #d8dee8 !important;
-    border-radius: 6px;
-  }
-
-  .contact-compose-editor,
-  .contact-compose-editor > div,
-  .contact-compose-editor .rich-text-editor,
-  .contact-compose-editor .rich-text-editor > div {
+  .cc-editor,
+  .cc-editor > div,
+  .cc-editor .rich-text-editor,
+  .cc-editor .rich-text-editor > div {
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
     box-sizing: border-box;
   }
 
-  .contact-compose-editor .rte-toolbar {
+  .cc-editor .rte-toolbar {
     width: 100%;
     max-width: 100%;
     min-width: 0;

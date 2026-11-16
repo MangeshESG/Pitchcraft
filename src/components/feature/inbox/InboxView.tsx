@@ -25,7 +25,7 @@ import { formatUserDateTime } from '../../common/dateTimePreferences';
 import ToastMessage from '../../common/ToastMessage';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
-import { faCaretDown, faEllipsisV, faPaperclip, faReply, faShare } from '@fortawesome/free-solid-svg-icons';
+import { faCaretDown, faEllipsisV, faPaperclip, faReply, faReplyAll, faShare } from '@fortawesome/free-solid-svg-icons';
 import { Pin, PinOff, X } from 'lucide-react';
 import UnassignedTab from './UnassignedTab';
 import SentTab from './SentTab';
@@ -132,18 +132,6 @@ interface InboxViewProps {
 }
 
 const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible, initialTab = 'Inbox', onTabChange, onSelectedInboxUnreadCountsChange }) => {
-  const primarySoftButtonStyle: React.CSSProperties = {
-    background: '#e2f1e3',
-    color: '#3f9f42',
-    border: '1px solid #cfecd6'
-  };
-
-  const secondaryButtonStyle: React.CSSProperties = {
-    background: '#f8fafc',
-    color: '#374151',
-    border: '1px solid #d1d5db'
-  };
-
   const navigate = useNavigate();
   const goToInboxConfiguration = () => {
     navigate('/main?tab=Mail&mailSubTab=Configuration');
@@ -1259,62 +1247,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }
   };
 
-  const handleKraftEmail = async () => {
-    if (!selectedBlueprint || !selectedThread) return;
-
-    if (kraftInFlightRef.current) {
-      return;
-    }
-
-    kraftInFlightRef.current = true;
-
-    const canKraft = await ensureCanKraft();
-    if (!canKraft) {
-      kraftInFlightRef.current = false;
-      return;
-    }
-
-    setIsKrafting(true);
-    setError('');
-    try {
-      const response = await axios.post(
-        `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
-        {
-          blueprintId: selectedBlueprint,
-          contactId: selectedThread.contactId,
-          clientId: effectiveUserId,
-          overwriteExisting: true,
-          modelPurpose: TRANSACTIONAL_EMAIL_PURPOSE,
-          manualInstruction: buildManualInstruction(
-            manualInstruction,
-            replyText,
-          )
-        },
-        {
-          headers: {
-            'accept': '*/*',
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
-      if (response.data.success && response.data.emailBody) {
-        applyKraftResponse(response.data, 'reply', selectedThread.contactId);
-        playSound();
-        window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
-      } else {
-        setError('Failed to generate email');
-      }
-    } catch (err: any) {
-      console.error('Error krafting email:', err);
-      setError(err.response?.data?.message || 'Failed to generate email');
-    } finally {
-      setIsKrafting(false);
-      kraftInFlightRef.current = false;
-    }
-  };
-
   const handleKraftForwardEmail = async () => {
     const forwardThread = activeTab === 'inbox'
       ? selectedThread
@@ -1529,7 +1461,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
               }}
               title={fileName}
             >
-              <FontAwesomeIcon icon={faPaperclip} style={{ color: '#3f9f42', flexShrink: 0 }} />
+              <FontAwesomeIcon icon={faPaperclip} style={{ color: '#1f7a3a', flexShrink: 0 }} />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {fileName}
               </span>
@@ -1746,7 +1678,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const replyTrailSeparator = '<hr style="border:0;border-top:1px solid #d1d5db;margin:16px 0;width:100%;" />';
 
   const buildCollapsedReplyTrail = (formattedTrail: string): string => {
-    return `<br/><details ${replyTrailMarker} style="margin:0;padding:0;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35;text-align:left;"><summary contenteditable="false" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;list-style:none;user-select:none;color:#3f9f42;background:#eaf5ea;border:1px solid #cfe7d0;border-radius:999px;font-weight:700;font-size:18px;line-height:1;width:34px;height:22px;padding:0;margin:0 0 10px 0;">...</summary><style>details[data-reply-email-trail][open] > summary{display:none;}</style><div>${replyTrailSeparator}${formattedTrail}</div></details>`;
+    return `<br/><details ${replyTrailMarker} style="margin:0;padding:0;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35;text-align:left;"><summary contenteditable="false" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;list-style:none;user-select:none;color:#1f7a3a;background:#eaf5ea;border:1px solid #cfe7d0;border-radius:999px;font-weight:700;font-size:18px;line-height:1;width:34px;height:22px;padding:0;margin:0 0 10px 0;">...</summary><style>details[data-reply-email-trail][open] > summary{display:none;}</style><div>${replyTrailSeparator}${formattedTrail}</div></details>`;
   };
 
   // Highlights describe the wording of the draft they were generated for, so
@@ -1963,42 +1895,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setOpenModals((prev) => ({ ...prev, [id]: false }));
   };
 
-  const recipientToggleButtonStyle: React.CSSProperties = {
-    padding: '6px 12px',
-    background: '#fff',
-    color: '#2563eb',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '500',
-    whiteSpace: 'nowrap'
-  };
-
-  const recipientInputStyle: React.CSSProperties = {
-    flex: 1,
-    width: '100%',
-    padding: '10px 12px',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '14px'
-  };
-
-  const recipientIconButtonStyle: React.CSSProperties = {
-    width: '38px',
-    minWidth: '38px',
-    height: '38px',
-    padding: 0,
-    background: '#fff',
-    color: '#6b7280',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  };
-
   const collapseReplyCc = () => {
     setReplyCcEmails([]);
     setReplyCcDraft('');
@@ -2017,122 +1913,385 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowForwardBcc(false);
   };
 
-  const renderReplyRecipientToggles = () => (
+  // ---- Reply / Reply all ------------------------------------------------
+  // Inbound mail is stored with From and To only: neither InboxEmails nor
+  // EmailReplies has a Cc column, so whatever the provider put in Cc never
+  // reached us. "Reply all" therefore copies in everyone the message was
+  // addressed to, minus this inbox and minus the address the reply already
+  // goes to (the backend sets To from the tracking id).
+  const splitAddressList = (value?: string | null): string[] =>
+    String(value || '')
+      .split(/[,;]/)
+      .map((part) => extractEmailAddress(part.trim()))
+      .filter((address) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address));
+
+  const getSelectedInboxAddress = (): string =>
+    inboxList.find((inbox) => inbox.inboxId === selectedInboxId)?.emailAddress || '';
+
+  // The message the reading pane shows - the newest received one in the thread.
+  const getLatestReceivedMessage = (thread?: InboxThread | null): InboxMessage | null => {
+    const received = (thread?.messages || []).filter(isReceivedInboxMessage);
+    if (!received.length) return null;
+    return [...received].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    )[0];
+  };
+
+  const getReplyAllCcList = (thread?: InboxThread | null): string[] => {
+    const message = getLatestReceivedMessage(thread);
+    if (!message) return [];
+    const excluded = new Set(
+      [getSelectedInboxAddress(), thread?.contactEmail, message.fromEmail]
+        .map((address) => extractEmailAddress(String(address || '')).toLowerCase())
+        .filter(Boolean),
+    );
+    const seen = new Set<string>();
+    return splitAddressList(message.toEmail).filter((address) => {
+      const key = address.toLowerCase();
+      if (excluded.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
+  const openReplyComposer = async (thread?: InboxThread | null, replyAll = false) => {
+    const signature = await fetchDefaultSignature();
+    setReplyText(signature);
+    setShowForwardSection(false);
+    if (replyAll) {
+      const ccList = getReplyAllCcList(thread);
+      setReplyCcEmails(ccList);
+      setReplyCcDraft('');
+      setShowReplyCc(true);
+      if (!ccList.length) {
+        setToastMessage('No other recipients were stored for this email - add anyone else in CC.');
+        setToastType('info');
+        setShowToast(true);
+      }
+    }
+    setShowReplySection(true);
+  };
+
+  const closeReplyComposer = () => {
+    setShowReplySection(false);
+    setReplyText('');
+    setReplyAttachments([]);
+    setReplyCcEmails([]);
+    setReplyCcDraft('');
+    setReplyBccEmails([]);
+    setReplyBccDraft('');
+    setShowReplyCc(false);
+    setShowReplyBcc(false);
+  };
+
+  const sparkIcon = (color: string, size = 16) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+    </svg>
+  );
+
+  // Reply / Reply all / Forward - used by the reading-pane header and by the
+  // action row at the foot of a message card, so both stay in step.
+  const renderMailActionButtons = (thread?: InboxThread | null) => (
     <>
-      {!showReplyCc && (
+      {activeTab !== 'sent' && (
+        <>
+          <button
+            type="button"
+            className="btn-pill btn-reply"
+            onClick={() => openReplyComposer(thread)}
+          >
+            <FontAwesomeIcon icon={faReply} />
+            Reply
+          </button>
+          <button
+            type="button"
+            className="btn-pill btn-replyall"
+            title="Reply to everyone on this email"
+            onClick={() => openReplyComposer(thread, true)}
+          >
+            <FontAwesomeIcon icon={faReplyAll} />
+            Reply all
+          </button>
+        </>
+      )}
+      {thread && (
         <button
-          className="reply-recipient-toggle"
           type="button"
-          onClick={() => setShowReplyCc(true)}
-          style={recipientToggleButtonStyle}
+          className="btn-pill btn-forward"
+          onClick={() => openForwardModal(thread)}
         >
-          CC
+          <FontAwesomeIcon icon={faShare} />
+          Forward
         </button>
       )}
-      {!showReplyBcc && (
-        <button
-          className="reply-recipient-toggle"
-          type="button"
-          onClick={() => setShowReplyBcc(true)}
-          style={recipientToggleButtonStyle}
-        >
-          BCC
-        </button>
-      )}
-      <label
-        className="reply-attachment-toggle"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '9px 12px',
-          border: '1px solid #d1d5db',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: '500',
-          color: '#374151',
-          background: '#fff',
-          gap: '6px',
-          whiteSpace: 'nowrap'
-        }}
-      >
-        <FontAwesomeIcon icon={faPaperclip} style={{ color: '#3f9f42' }} />
-        <input
-          type="file"
-          multiple
-          onChange={(e) => {
-            const files = Array.from(e.target.files || []);
-            setReplyAttachments((prev) => [...prev, ...files]);
-            e.target.value = '';
-          }}
-          style={{ display: 'none' }}
-        />
-      </label>
     </>
   );
 
-  const renderReplyRecipientFields = (toEmail?: string) => (
-    <>
-      {toEmail && (
-        <div className="reply-recipient-primary-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+  // To / Cc / Bcc as one bordered block, the way the redesign frames them.
+  const renderComposerRecipients = (toEmail?: string) => (
+    <div className="composer-recipients">
+      <div className="composer-recipient-row">
+        <span className="composer-recipient-label">To</span>
+        <div className="composer-recipient-field">
           <RecipientChipInput
             readOnly
-            prefixLabel="To"
-            recipients={[extractEmailAddress(toEmail)]}
+            recipients={toEmail ? [extractEmailAddress(toEmail)] : []}
             draft=""
             onRecipientsChange={() => {}}
             onDraftChange={() => {}}
-            placeholder=""
-            containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
+            placeholder="No recipient on this thread"
+            containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none' }}
           />
-          {renderReplyRecipientToggles()}
         </div>
-      )}
-      {showReplyCc && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <RecipientChipInput
-            recipients={replyCcEmails}
-            draft={replyCcDraft}
-            onRecipientsChange={setReplyCcEmails}
-            onDraftChange={setReplyCcDraft}
-            placeholder="Enter CC email"
-            containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
-          />
+        {!showReplyCc && (
           <button
             type="button"
+            className="composer-recipient-action"
+            onClick={() => setShowReplyCc(true)}
+          >
+            Cc
+          </button>
+        )}
+        {!showReplyBcc && (
+          <button
+            type="button"
+            className="composer-recipient-action"
+            onClick={() => setShowReplyBcc(true)}
+          >
+            Bcc
+          </button>
+        )}
+      </div>
+      {showReplyCc && (
+        <div className="composer-recipient-row">
+          <span className="composer-recipient-label">Cc</span>
+          <div className="composer-recipient-field">
+            <RecipientChipInput
+              recipients={replyCcEmails}
+              draft={replyCcDraft}
+              onRecipientsChange={setReplyCcEmails}
+              onDraftChange={setReplyCcDraft}
+              placeholder="Add CC recipients"
+              containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none' }}
+            />
+          </div>
+          <button
+            type="button"
+            className="composer-recipient-remove"
             onClick={collapseReplyCc}
             title="Hide CC"
             aria-label="Hide CC"
-            style={recipientIconButtonStyle}
           >
-            <X size={16} strokeWidth={2.5} />
+            <X size={15} strokeWidth={2.4} />
           </button>
         </div>
       )}
       {showReplyBcc && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <RecipientChipInput
-            recipients={replyBccEmails}
-            draft={replyBccDraft}
-            onRecipientsChange={setReplyBccEmails}
-            onDraftChange={setReplyBccDraft}
-            placeholder="Enter BCC email"
-            containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
-          />
+        <div className="composer-recipient-row">
+          <span className="composer-recipient-label">Bcc</span>
+          <div className="composer-recipient-field">
+            <RecipientChipInput
+              recipients={replyBccEmails}
+              draft={replyBccDraft}
+              onRecipientsChange={setReplyBccEmails}
+              onDraftChange={setReplyBccDraft}
+              placeholder="Add BCC recipients"
+              containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none' }}
+            />
+          </div>
           <button
             type="button"
+            className="composer-recipient-remove"
             onClick={collapseReplyBcc}
             title="Hide BCC"
             aria-label="Hide BCC"
-            style={recipientIconButtonStyle}
           >
-            <X size={16} strokeWidth={2.5} />
+            <X size={15} strokeWidth={2.4} />
           </button>
         </div>
       )}
-    </>
+    </div>
   );
+
+  // The reply composer, shared by the Associated, External and All-messages
+  // readers. Each used to carry its own copy of this markup.
+  const renderReplyComposer = (thread?: InboxThread | null) => {
+    const latestMessage = getLatestReceivedMessage(thread);
+    const replyToName = latestMessage
+      ? latestMessage.contactName || extractSenderName(latestMessage.fromEmail)
+      : '';
+    const contactId = thread?.contactId ?? null;
+    const editorMaxWidth =
+      outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%';
+
+    return (
+      <div className="reply-section composer-card">
+        <div className="composer-head">
+          <FontAwesomeIcon icon={faReply} />
+          <h2 className="composer-title">
+            {replyToName ? `Reply to ${replyToName}` : 'Write reply'}
+          </h2>
+          <button
+            type="button"
+            className="composer-close"
+            onClick={closeReplyComposer}
+            title="Close reply"
+            aria-label="Close reply"
+          >
+            <X size={16} strokeWidth={2.4} />
+          </button>
+        </div>
+
+        <div className="composer-strip">
+          <div className="composer-strip-lead">
+            <span className="composer-strip-mark">{sparkIcon('#ffffff')}</span>
+            <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <span className="composer-strip-title">Draft with a blueprint</span>
+              <span className="composer-strip-hint">
+                Pick a blueprint, kraft it, then edit before sending.
+              </span>
+            </span>
+          </div>
+          <select
+            aria-label="Blueprint"
+            value={selectedBlueprint || ''}
+            onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
+          >
+            <option value="">Select a blueprint...</option>
+            {groupedBlueprintOptions}
+          </select>
+          <button
+            type="button"
+            className="btn-pill btn-kraft"
+            onClick={() => kraftEmailForContact(contactId)}
+            disabled={!selectedBlueprint || isKrafting || !contactId}
+            title={contactId ? 'Kraft a draft from the selected blueprint' : 'This thread has no linked contact'}
+          >
+            {sparkIcon('currentColor')}
+            {isKrafting ? 'Krafting...' : 'Kraft'}
+          </button>
+        </div>
+
+        {renderComposerRecipients(thread?.contactEmail)}
+
+        <style>
+          {`
+            .composer-card .rich-text-editor > div {
+              min-height: 200px !important;
+              height: auto !important;
+              overflow-y: visible !important;
+            }
+          `}
+        </style>
+
+        <div className="composer-editor" style={{ maxWidth: editorMaxWidth, marginInline: 'auto' }}>
+          {renderKraftOptionPicker('reply',
+            <RichTextEditor
+              value={replyText}
+              onChange={setReplyText}
+              showActionButtons
+              showManualInstruction
+              manualInstruction={manualInstruction}
+              onManualInstructionChange={setManualInstruction}
+              onRegenerate={() => kraftEmailForContact(contactId)}
+              isRegenerating={isKrafting}
+              regenerateDisabled={!selectedBlueprint || !contactId}
+              showDeviceButton
+              finalPrompt={kraftFinalPrompt}
+              highlights={kraftHighlights}
+              webSearchData={kraftWebSearchData}
+              insightEmails={kraftEmails}
+              insightNotes={kraftNotes}
+              insightProfessionalSummary={kraftProfessionalSummary}
+              outputEmailWidth={outputEmailWidth}
+              isCopyText={isCopyText}
+              openDeviceDropdown={openDeviceDropdown}
+              onDeviceDropdownToggle={() => setOpenDeviceDropdown(!openDeviceDropdown)}
+              onDeviceWidthChange={(width) => {
+                setOutputEmailWidth(width);
+                setOpenDeviceDropdown(false);
+              }}
+              onCopyToClipboard={copyToClipboardHandler}
+              onExpandEditor={() => handleModalOpen('modal-reply-expand')}
+            />
+          )}
+        </div>
+
+        <Modal
+          show={openModals['modal-reply-expand']}
+          closeModal={() => handleModalClose('modal-reply-expand')}
+          buttonLabel="Close"
+          size="90%"
+        >
+          <div style={{ padding: '20px' }}>
+            <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>
+              Reply editor
+            </label>
+            <RichTextEditor value={replyText} onChange={setReplyText} highlights={kraftHighlights} />
+          </div>
+        </Modal>
+
+        {replyAttachments.length > 0 && (
+          <div className="composer-attachments">{renderReplyAttachments()}</div>
+        )}
+
+        <div className="composer-footer">
+          <label className="composer-attach" title="Attach files">
+            <FontAwesomeIcon icon={faPaperclip} />
+            <input
+              type="file"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                setReplyAttachments((prev) => [...prev, ...files]);
+                e.target.value = '';
+              }}
+              style={{ display: 'none' }}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn-pill btn-forward"
+            onClick={handleSaveDraft}
+            disabled={!replyText.trim() || isSavingDraft}
+            title="Save this draft on the contact"
+          >
+            {isSavingDraft ? 'Saving...' : 'Save draft'}
+          </button>
+          <span className="composer-footer-spacer" />
+          <button
+            type="button"
+            className="btn-pill btn-ghost composer-discard"
+            onClick={closeReplyComposer}
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            className="btn-pill btn-reply composer-send"
+            onClick={handleSendReply}
+            disabled={!replyText.trim() || isSending}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M22 2L11 13" />
+              <path d="M22 2l-7 20-4-9-9-4z" />
+            </svg>
+            {isSending ? 'Sending...' : 'Send reply'}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const openForwardModal = (thread: InboxThread) => {
     setForwardTrackingId(thread.trackingId);
@@ -2237,129 +2396,155 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           ? selectedUnassignedThread?.contactId
           : selectedAllMessagesThread?.contactId;
 
-  const renderForwardSection = () => (
+  const renderForwardSection = () => {
+    const editorMaxWidth =
+      outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%';
+
+    return (
     <form
-      className="reply-section"
+      className="reply-section composer-card"
       onSubmit={(e) => {
         e.preventDefault();
         handleForwardEmail();
       }}
-      style={{
-        marginTop: '24px',
-        borderTop: '1px solid #e5e7eb',
-        paddingTop: '24px',
-        padding: '24px'
-      }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-        <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Forward</label>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <select
-            value={selectedBlueprint || ''}
-            onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
-            style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', background: '#fff' }}
-          >
-            <option value="">Select Blueprint</option>
-            {groupedBlueprintOptions}
-          </select>
-          <button
-            type="button"
-            onClick={handleKraftForwardEmail}
-            disabled={!selectedBlueprint || isKrafting}
-            className="btn-default"
-          >
-            {isKrafting ? 'Krafting...' : 'Kraft'}
-          </button>
+      <div className="composer-head">
+        <FontAwesomeIcon icon={faShare} />
+        <h2 className="composer-title">Forward email</h2>
+        <button
+          type="button"
+          className="composer-close"
+          onClick={closeForwardModal}
+          title="Close forward"
+          aria-label="Close forward"
+        >
+          <X size={16} strokeWidth={2.4} />
+        </button>
+      </div>
+
+      <div className="composer-strip">
+        <div className="composer-strip-lead">
+          <span className="composer-strip-mark">{sparkIcon('#ffffff')}</span>
+          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span className="composer-strip-title">Draft with a blueprint</span>
+            <span className="composer-strip-hint">
+              Pick a blueprint, kraft it, then edit before sending.
+            </span>
+          </span>
         </div>
+        <select
+          aria-label="Blueprint"
+          value={selectedBlueprint || ''}
+          onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
+        >
+          <option value="">Select a blueprint...</option>
+          {groupedBlueprintOptions}
+        </select>
+        <button
+          type="button"
+          className="btn-pill btn-kraft"
+          onClick={handleKraftForwardEmail}
+          disabled={!selectedBlueprint || isKrafting}
+        >
+          {sparkIcon('currentColor')}
+          {isKrafting ? 'Krafting...' : 'Kraft'}
+        </button>
+      </div>
+
+      <div className="composer-recipients">
+        <div className="composer-recipient-row">
+          <span className="composer-recipient-label">To</span>
+          <div className="composer-recipient-field">
+            <RecipientChipInput
+              recipients={forwardEmail.trim() ? [forwardEmail.trim()] : []}
+              draft={forwardDraft}
+              onRecipientsChange={(recipients) => setForwardEmail(recipients[0] || '')}
+              onDraftChange={setForwardDraft}
+              placeholder="Enter recipient email"
+              maxRecipients={1}
+              containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none' }}
+            />
+          </div>
+          {!showForwardCc && (
+            <button
+              type="button"
+              className="composer-recipient-action"
+              onClick={() => setShowForwardCc(true)}
+            >
+              Cc
+            </button>
+          )}
+          {!showForwardBcc && (
+            <button
+              type="button"
+              className="composer-recipient-action"
+              onClick={() => setShowForwardBcc(true)}
+            >
+              Bcc
+            </button>
+          )}
+        </div>
+        {showForwardCc && (
+          <div className="composer-recipient-row">
+            <span className="composer-recipient-label">Cc</span>
+            <div className="composer-recipient-field">
+              <RecipientChipInput
+                recipients={forwardCcEmails}
+                draft={forwardCcDraft}
+                onRecipientsChange={setForwardCcEmails}
+                onDraftChange={setForwardCcDraft}
+                placeholder="Add CC recipients"
+                containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none' }}
+              />
+            </div>
+            <button
+              type="button"
+              className="composer-recipient-remove"
+              onClick={() => { setForwardCcEmails([]); setForwardCcDraft(''); setShowForwardCc(false); }}
+              title="Hide CC"
+              aria-label="Hide CC"
+            >
+              <X size={15} strokeWidth={2.4} />
+            </button>
+          </div>
+        )}
+        {showForwardBcc && (
+          <div className="composer-recipient-row">
+            <span className="composer-recipient-label">Bcc</span>
+            <div className="composer-recipient-field">
+              <RecipientChipInput
+                recipients={forwardBccEmails}
+                draft={forwardBccDraft}
+                onRecipientsChange={setForwardBccEmails}
+                onDraftChange={setForwardBccDraft}
+                placeholder="Add BCC recipients"
+                containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none' }}
+              />
+            </div>
+            <button
+              type="button"
+              className="composer-recipient-remove"
+              onClick={collapseForwardBcc}
+              title="Hide BCC"
+              aria-label="Hide BCC"
+            >
+              <X size={15} strokeWidth={2.4} />
+            </button>
+          </div>
+        )}
       </div>
 
       <style>
         {`
-          .reply-section .rich-text-editor > div {
-            min-height: 160px !important;
+          .composer-card .rich-text-editor > div {
+            min-height: 200px !important;
             height: auto !important;
             overflow-y: visible !important;
           }
         `}
       </style>
 
-      <div style={{ display: 'grid', gap: '12px', marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <RecipientChipInput
-            prefixLabel="To"
-            recipients={forwardEmail.trim() ? [forwardEmail.trim()] : []}
-            draft={forwardDraft}
-            onRecipientsChange={(recipients) => setForwardEmail(recipients[0] || '')}
-            onDraftChange={setForwardDraft}
-            placeholder="Enter recipient email"
-            maxRecipients={1}
-            containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
-          />
-          {!showForwardCc && (
-            <button
-              type="button"
-              onClick={() => setShowForwardCc(true)}
-              style={{ padding: '10px 12px', background: '#fff', color: '#2563eb', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', whiteSpace: 'nowrap' }}
-            >
-              CC
-            </button>
-          )}
-          {!showForwardBcc && (
-            <button
-              type="button"
-              onClick={() => setShowForwardBcc(true)}
-              style={{
-                padding: '10px 12px',
-                background: '#fff',
-                color: '#2563eb',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              BCC
-            </button>
-          )}
-        </div>
-        {showForwardCc && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <RecipientChipInput
-              recipients={forwardCcEmails}
-              draft={forwardCcDraft}
-              onRecipientsChange={setForwardCcEmails}
-              onDraftChange={setForwardCcDraft}
-              placeholder="Enter CC email"
-              containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
-            />
-            <button type="button" onClick={() => { setForwardCcEmails([]); setForwardCcDraft(''); setShowForwardCc(false); }} title="Hide CC" aria-label="Hide CC" style={recipientIconButtonStyle}>
-              <X size={16} strokeWidth={2.5} />
-            </button>
-          </div>
-        )}
-        {showForwardBcc && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <RecipientChipInput
-              recipients={forwardBccEmails}
-              draft={forwardBccDraft}
-              onRecipientsChange={setForwardBccEmails}
-              onDraftChange={setForwardBccDraft}
-              placeholder="Enter BCC email"
-              containerStyle={{ width: '100%', minWidth: 0, maxWidth: 'none', flex: 1 }}
-            />
-            <button
-              type="button"
-              onClick={collapseForwardBcc}
-              title="Hide BCC"
-              aria-label="Hide BCC"
-              style={recipientIconButtonStyle}
-            >
-              <X size={16} strokeWidth={2.5} />
-            </button>
-          </div>
-        )}
+      <div className="composer-editor" style={{ maxWidth: editorMaxWidth, marginInline: 'auto' }}>
         {renderKraftOptionPicker('forward',
         <RichTextEditor
           value={forwardMessage}
@@ -2388,45 +2573,49 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           insightProfessionalSummary={kraftProfessionalSummary}
         />
         )}
-        <Modal
-          show={openModals['modal-forward-expand']}
-          closeModal={() => handleModalClose('modal-forward-expand')}
-          buttonLabel="Close"
-          size="90%"
-        >
-          <div style={{ padding: '20px' }}>
-            <label style={{ fontWeight: 500, fontSize: '16px', marginBottom: '12px', display: 'block' }}>Forward editor</label>
-            <RichTextEditor value={forwardMessage} onChange={setForwardMessage} height={520} highlights={kraftHighlights} />
-          </div>
-        </Modal>
       </div>
 
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <button
-          type="submit"
-          disabled={isForwarding || (!forwardEmail.trim() && !forwardDraft.trim()) || !forwardMessage.trim()}
-          className="btn-default"
-        >
-          {isForwarding ? 'Forwarding...' : 'Forward'}
-        </button>
+      <div className="composer-note">
+        The original message is quoted below your note when the forward goes out.
+      </div>
+
+      <Modal
+        show={openModals['modal-forward-expand']}
+        closeModal={() => handleModalClose('modal-forward-expand')}
+        buttonLabel="Close"
+        size="90%"
+      >
+        <div style={{ padding: '20px' }}>
+          <label style={{ fontWeight: 500, fontSize: '16px', marginBottom: '12px', display: 'block' }}>Forward editor</label>
+          <RichTextEditor value={forwardMessage} onChange={setForwardMessage} height={520} highlights={kraftHighlights} />
+        </div>
+      </Modal>
+
+      <div className="composer-footer">
+        <span className="composer-footer-spacer" />
         <button
           type="button"
+          className="btn-pill btn-ghost composer-discard"
           onClick={closeForwardModal}
           disabled={isForwarding}
-          style={{
-            padding: '10px 24px',
-            ...secondaryButtonStyle,
-            borderRadius: '6px',
-            cursor: isForwarding ? 'not-allowed' : 'pointer',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}
         >
-          Cancel
+          Discard
+        </button>
+        <button
+          type="submit"
+          className="btn-pill btn-reply composer-send"
+          disabled={isForwarding || (!forwardEmail.trim() && !forwardDraft.trim()) || !forwardMessage.trim()}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M22 2L11 13" />
+            <path d="M22 2l-7 20-4-9-9-4z" />
+          </svg>
+          {isForwarding ? 'Forwarding...' : 'Forward'}
         </button>
       </div>
     </form>
-  );
+    );
+  };
 
   const toggleMessageExpand = (messageId: string) => {
     setExpandedMessages((prev) => ({ ...prev, [messageId]: !prev[messageId] }));
@@ -2664,7 +2853,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         animation: isRefreshing ? 'spin 1s linear infinite' : 'none'
                       }}
                     >
-                      <g fill="#3f9f42">
+                      <g fill="#1f7a3a">
                         <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
                       </g>
                     </svg>
@@ -2742,7 +2931,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             style={{
                               padding: '8px',
                               background: 'transparent',
-                              color: '#3f9f42',
+                              color: '#1f7a3a',
                               border: 'none',
                               borderRadius: '6px',
                               cursor: 'pointer',
@@ -2763,7 +2952,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           >
                             <FontAwesomeIcon
                               icon={faTrashAlt}
-                              style={{ fontSize: 20, color: '#3f9f42' }}
+                              style={{ fontSize: 20, color: '#1f7a3a' }}
                             />
                           </button>
                           
@@ -2844,7 +3033,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           background: inboxCurrentPage === 1 ? '#f3f4f6' : '#e2f1e3',
                           cursor: inboxCurrentPage === 1 ? 'not-allowed' : 'pointer',
                           fontSize: '18px',
-                          color: inboxCurrentPage === 1 ? '#9ca3af' : '#3f9f42'
+                          color: inboxCurrentPage === 1 ? '#9ca3af' : '#1f7a3a'
                         }}
                       >
                         ‹
@@ -2859,7 +3048,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           background: inboxCurrentPage === inboxTotalPages ? '#f3f4f6' : '#e2f1e3',
                           cursor: inboxCurrentPage === inboxTotalPages ? 'not-allowed' : 'pointer',
                           fontSize: '18px',
-                          color: inboxCurrentPage === inboxTotalPages ? '#9ca3af' : '#3f9f42'
+                          color: inboxCurrentPage === inboxTotalPages ? '#9ca3af' : '#1f7a3a'
                         }}
                       >
                         ›
@@ -3121,6 +3310,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </button>
                 <h1 className="read-subject">{getActiveThread()!.subject}</h1>
                 <div className="read-head-actions">
+                  {!showReplySection && !showForwardSection && renderMailActionButtons(getActiveThread())}
+                  <span className="read-head-divider" />
                   <div style={{ position: 'relative' }}>
                     <button
                       className="head-icon danger"
@@ -3177,7 +3368,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     style={{
                       padding: '8px',
                       background: 'transparent',
-                      color: '#3f9f42',
+                      color: '#1f7a3a',
                       border: 'none',
                       borderRadius: '6px',
                       cursor: 'pointer',
@@ -3197,7 +3388,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   >
                     <FontAwesomeIcon
                       icon={faTrashAlt}
-                      style={{ fontSize: 20, color: '#3f9f42' }}
+                      style={{ fontSize: 20, color: '#1f7a3a' }}
                     />
                   </button>
                   
@@ -3271,7 +3462,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 const uniqueKey = `${message.messageId}-${index}`;
                 console.log('Message type:', message.type, 'contactId:', messageContactId);
                 return (
-                <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? '16px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                <div key={uniqueKey} className="mail-message-card">
                   <div className="mail-detail-header">
                     <div className="mail-detail-top">
                       <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
@@ -3281,7 +3472,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             className="mail-detail-sender"
                             style={{
                               cursor: messageContactId ? 'pointer' : 'default',
-                              color: messageContactId ? '#3f9f42' : '#1f2937',
+                              color: messageContactId ? '#1f7a3a' : '#1f2937',
                               textDecoration: messageContactId ? 'underline' : 'none',
                               fontWeight: '500',
                               fontSize: '14px'
@@ -3356,18 +3547,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <button
-                          type="button"
-                          title="Forward"
-                          aria-label="Forward email"
-                          className="btn-default"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openForwardModal(selectedThread);
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faShare} />
-                        </button>
+                        <span className={`mail-status-pill${isReceivedInboxMessage(message) ? ' received' : ' sent'}`}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                            {isReceivedInboxMessage(message)
+                              ? <path d="M17 7L7 17M7 9v8h8" />
+                              : <path d="M7 17L17 7M9 7h8v8" />}
+                          </svg>
+                          {isReceivedInboxMessage(message) ? 'Received' : 'Sent'}
+                        </span>
                         <div className="mail-detail-date">{formatUserDateTime(message.date)}</div>
                       </div>
                     </div>
@@ -3433,156 +3620,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
               );})}
               {showForwardSection && renderForwardSection()}
 
-              {/* Reply Button */}
+              {/* Reply / Reply all / Forward */}
               {!showReplySection && !showForwardSection && (
                 <div className="reply-button-sticky">
-                  <button
-                    type="button"
-                    className="btn-default"
-                    onClick={async () => {
-                      const signature = await fetchDefaultSignature();
-                      setReplyText(signature);
-                      setShowReplySection(true);
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
-                    Reply
-                  </button>
+                  {renderMailActionButtons(selectedThread)}
                 </div>
               )}
-              
-              {/* Reply Section */}
-              {showReplySection && (
-              <div className="reply-section" style={{
-                marginTop: '24px',
-                borderTop: '1px solid #e5e7eb',
-                paddingTop: '24px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write reply</label>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <select
-                      value={selectedBlueprint || ''}
-                      onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
-                      style={{
-                        padding: '6px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                        minWidth: '200px'
-                      }}
-                    >
-                      <option value="">Select Blueprint</option>
-                      {groupedBlueprintOptions}
-                    </select>
-                    <button
-                      onClick={handleKraftEmail}
-                      disabled={!selectedBlueprint || isKrafting}
-                      className="btn-default"
-                    >
-                      {isKrafting ? 'Krafting...' : 'Kraft'}
-                    </button>
-                  </div>
-                </div>
-                {renderReplyRecipientFields(selectedThread?.contactEmail)}
-                <style>
-                  {`
-                    .reply-section .rich-text-editor > div {
-                      min-height: 160px !important;
-                      height: auto !important;
-                      overflow-y: visible !important;
-                    }
-                  `}
-                </style>
-                <div style={{ marginBottom: '12px', position: 'relative' }}>
-                  <div style={{ 
-                    maxWidth: `${outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%'}`,
-                    margin: '0 auto'
-                  }}>
-                    {renderKraftOptionPicker('reply',
-                    <RichTextEditor
-                      value={replyText}
-                      onChange={setReplyText}
-                      showActionButtons
-                      showManualInstruction
-                      manualInstruction={manualInstruction}
-                      onManualInstructionChange={setManualInstruction}
-                      onRegenerate={() => kraftEmailForContact(selectedThread?.contactId)}
-                      isRegenerating={isKrafting}
-                      regenerateDisabled={!selectedBlueprint || !selectedThread?.contactId}
-                      showDeviceButton
-                      finalPrompt={kraftFinalPrompt}
-                      highlights={kraftHighlights}
-                      webSearchData={kraftWebSearchData}
-                      insightEmails={kraftEmails}
-                      insightNotes={kraftNotes}
-                      insightProfessionalSummary={kraftProfessionalSummary}
-                      outputEmailWidth={outputEmailWidth}
-                      isCopyText={isCopyText}
-                      openDeviceDropdown={openDeviceDropdown}
-                      onDeviceDropdownToggle={() => setOpenDeviceDropdown(!openDeviceDropdown)}
-                      onDeviceWidthChange={(width) => {
-                        setOutputEmailWidth(width);
-                        setOpenDeviceDropdown(false);
-                      }}
-                      onCopyToClipboard={copyToClipboardHandler}
-                      onExpandEditor={() => handleModalOpen('modal-reply-expand')}
-                    />
-                    )}
-                  </div>
-                  
-                </div>
 
-                {/* Expand Modal */}
-                <Modal
-                  show={openModals['modal-reply-expand']}
-                  closeModal={() => handleModalClose('modal-reply-expand')}
-                  buttonLabel="Close"
-                  size="90%"
-                >
-                  <div style={{ padding: '20px' }}>
-                    <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply editor</label>
-                    <RichTextEditor value={replyText} onChange={setReplyText} highlights={kraftHighlights} />
-                  </div>
-                </Modal>
-                {renderReplyAttachments()}
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button
-                    onClick={handleSendReply}
-                    disabled={!replyText.trim() || isSending}
-                    className="btn-default"
-                    style={{ order: 2 }}
-                  >
-                    {isSending ? 'Sending...' : 'Send reply'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowReplySection(false);
-                      setReplyText('');
-                      setReplyAttachments([]);
-                      setReplyCcEmails([]);
-                      setReplyCcDraft('');
-                      setReplyBccEmails([]);
-                      setReplyBccDraft('');
-                      setShowReplyCc(false);
-                      setShowReplyBcc(false);
-                    }}
-                    style={{
-                      order: 1,
-                      padding: '10px 24px',
-                      ...secondaryButtonStyle,
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '500'
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-              )}
+              {showReplySection && renderReplyComposer(selectedThread)}
             </div>
           ) : null
           ) : (
@@ -3598,7 +3643,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       style={{
                         padding: '8px',
                         background: 'transparent',
-                        color: '#3f9f42',
+                        color: '#1f7a3a',
                         border: 'none',
                         borderRadius: '6px',
                         cursor: 'pointer',
@@ -3618,7 +3663,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     >
                       <FontAwesomeIcon
                         icon={faTrashAlt}
-                        style={{ fontSize: 20, color: '#3f9f42' }}
+                        style={{ fontSize: 20, color: '#1f7a3a' }}
                       />
                     </button>
                     
@@ -3690,7 +3735,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 ).slice(0, 1).map((message, index, sortedMessages) => {
                   const uniqueKey = `sent-${message.messageId}-${index}`;
                   return (
-                  <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? '16px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                  <div key={uniqueKey} className="mail-message-card">
                     <div className="mail-detail-header">
                       <div className="mail-detail-top">
                         <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
@@ -3700,7 +3745,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               className="mail-detail-sender"
                               style={{
                                 cursor: message.contactId ? 'pointer' : 'default',
-                                color: message.contactId ? '#3f9f42' : '#1f2937',
+                                color: message.contactId ? '#1f7a3a' : '#1f2937',
                                 textDecoration: message.contactId ? 'underline' : 'none',
                                 fontWeight: '500',
                                 fontSize: '14px'
@@ -3722,18 +3767,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <button
-                            type="button"
-                            title="Forward"
-                            aria-label="Forward email"
-                            className="btn-default"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openForwardModal(selectedSentThread);
-                            }}
-                          >
-                            <FontAwesomeIcon icon={faShare} />
-                          </button>
+                          <span className={`mail-status-pill${isReceivedInboxMessage(message) ? ' received' : ' sent'}`}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                              {isReceivedInboxMessage(message)
+                                ? <path d="M17 7L7 17M7 9v8h8" />
+                                : <path d="M7 17L17 7M9 7h8v8" />}
+                            </svg>
+                            {isReceivedInboxMessage(message) ? 'Received' : 'Sent'}
+                          </span>
                           <div className="mail-detail-date">{formatUserDateTime(message.date)}</div>
                         </div>
                       </div>
@@ -3810,7 +3851,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       style={{
                         padding: '8px',
                         background: 'transparent',
-                        color: '#3f9f42',
+                        color: '#1f7a3a',
                         border: 'none',
                         borderRadius: '6px',
                         cursor: 'pointer',
@@ -3830,7 +3871,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     >
                       <FontAwesomeIcon
                         icon={faTrashAlt}
-                        style={{ fontSize: 20, color: '#3f9f42' }}
+                        style={{ fontSize: 20, color: '#1f7a3a' }}
                       />
                     </button>
                     
@@ -3902,7 +3943,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 ).slice(0, 1).map((message, index, sortedMessages) => {
                   const uniqueKey = `unassigned-${message.messageId}-${index}`;
                   return (
-                  <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? '16px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                  <div key={uniqueKey} className="mail-message-card">
                     <div className="mail-detail-header">
                       <div className="mail-detail-top">
                         <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
@@ -3912,7 +3953,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               className="mail-detail-sender"
                               style={{
                                 cursor: message.contactId ? 'pointer' : 'default',
-                                color: message.contactId ? '#3f9f42' : '#1f2937',
+                                color: message.contactId ? '#1f7a3a' : '#1f2937',
                                 textDecoration: message.contactId ? 'underline' : 'none',
                                 fontWeight: '500',
                                 fontSize: '14px'
@@ -3987,18 +4028,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <button
-                            type="button"
-                            title="Forward"
-                            aria-label="Forward email"
-                            className="btn-default"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openForwardModal(selectedUnassignedThread);
-                            }}
-                          >
-                            <FontAwesomeIcon icon={faShare} />
-                          </button>
+                          <span className={`mail-status-pill${isReceivedInboxMessage(message) ? ' received' : ' sent'}`}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                              {isReceivedInboxMessage(message)
+                                ? <path d="M17 7L7 17M7 9v8h8" />
+                                : <path d="M7 17L17 7M9 7h8v8" />}
+                            </svg>
+                            {isReceivedInboxMessage(message) ? 'Received' : 'Sent'}
+                          </span>
                           <div className="mail-detail-date">{formatUserDateTime(message.date)}</div>
                         </div>
                       </div>
@@ -4063,279 +4100,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 );})}
                 {showForwardSection && renderForwardSection()}
 
-                {/* Reply Button */}
+                {/* Reply / Reply all / Forward */}
                 {!showReplySection && !showForwardSection && (
                   <div className="reply-button-sticky">
-                    <button
-                      type="button"
-                      className="btn-default"
-                      onClick={async () => {
-                        const signature = await fetchDefaultSignature();
-                        setReplyText(signature);
-                        setShowReplySection(true);
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
-                      Reply
-                    </button>
+                    {renderMailActionButtons(selectedUnassignedThread)}
                   </div>
                 )}
-                
-                {/* Reply Section */}
-                {showReplySection && (
-                <div className="reply-section" style={{
-                  marginTop: '24px',
-                  borderTop: '1px solid #e5e7eb',
-                  paddingTop: '24px',
-                  padding: '24px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write reply</label>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <select
-                        value={selectedBlueprint || ''}
-                        onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
-                        style={{
-                          padding: '6px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          cursor: 'pointer',
-                          minWidth: '200px'
-                        }}
-                      >
-                        <option value="">Select Blueprint</option>
-                        {groupedBlueprintOptions}
-                      </select>
-                      <button
-                        onClick={async () => {
-                          if (!selectedBlueprint || !selectedUnassignedThread.contactId) return;
 
-                          if (!isDemoAccount) {
-                            const currentCredits = await checkUserCredits(effectiveUserId);
-                            if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
-                              return;
-                            }
-                          }
-
-                          setIsKrafting(true);
-                          setError('');
-                          try {
-                            const response = await axios.post(
-                              `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
-                              {
-                                blueprintId: selectedBlueprint,
-                                contactId: selectedUnassignedThread.contactId,
-                                clientId: effectiveUserId,
-                                overwriteExisting: true,
-                                modelPurpose: TRANSACTIONAL_EMAIL_PURPOSE,
-                                manualInstruction: buildManualInstruction(
-                                  manualInstruction,
-                                  replyText,
-                                )
-                              },
-                              {
-                                headers: {
-                                  'accept': '*/*',
-                                  'Content-Type': 'application/json',
-                                  ...(token && { Authorization: `Bearer ${token}` }),
-                                },
-                              }
-                            );
-
-                            if (response.data.success && response.data.emailBody) {
-                              applyKraftResponse(
-                                response.data,
-                                'reply',
-                                selectedUnassignedThread.contactId,
-                              );
-                              playSound();
-                              window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
-                            } else {
-                              setError('Failed to generate email');
-                            }
-                          } catch (err: any) {
-                            console.error('Error krafting email:', err);
-                            setError(err.response?.data?.message || 'Failed to generate email');
-                          } finally {
-                            setIsKrafting(false);
-                          }
-                        }}
-                        disabled={!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId}
-                        className="btn-default"
-                      >
-                        {isKrafting ? 'Krafting...' : 'Kraft'}
-                      </button>
-                    </div>
-                  </div>
-                  {renderReplyRecipientFields(selectedUnassignedThread?.contactEmail)}
-                  <style>
-                    {`
-                      .reply-section .rich-text-editor > div {
-                        min-height: 160px !important;
-                        height: auto !important;
-                        overflow-y: visible !important;
-                      }
-                    `}
-                  </style>
-                  <div style={{ marginBottom: '12px', position: 'relative' }}>
-                    <div style={{
-                      maxWidth: `${outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%'}`,
-                      margin: '0 auto'
-                    }}>
-                      {renderKraftOptionPicker('reply',
-                      <RichTextEditor
-                        value={replyText}
-                        onChange={setReplyText}
-                        showActionButtons
-                        showManualInstruction
-                        manualInstruction={manualInstruction}
-                        onManualInstructionChange={setManualInstruction}
-                        onRegenerate={() =>
-                          kraftEmailForContact(selectedUnassignedThread?.contactId)
-                        }
-                        isRegenerating={isKrafting}
-                        regenerateDisabled={
-                          !selectedBlueprint || !selectedUnassignedThread?.contactId
-                        }
-                        showDeviceButton
-                        finalPrompt={kraftFinalPrompt}
-                        highlights={kraftHighlights}
-                        webSearchData={kraftWebSearchData}
-                        insightEmails={kraftEmails}
-                        insightNotes={kraftNotes}
-                        insightProfessionalSummary={kraftProfessionalSummary}
-                        outputEmailWidth={outputEmailWidth}
-                        isCopyText={isCopyText}
-                        openDeviceDropdown={openDeviceDropdown}
-                        onDeviceDropdownToggle={() => setOpenDeviceDropdown(!openDeviceDropdown)}
-                        onDeviceWidthChange={(width) => {
-                          setOutputEmailWidth(width);
-                          setOpenDeviceDropdown(false);
-                        }}
-                        onCopyToClipboard={copyToClipboardHandler}
-                        onExpandEditor={() => handleModalOpen('modal-reply-expand')}
-                      />
-                      )}
-                    </div>
-                    
-                  </div>
-
-                  {/* Expand Modal */}
-                  <Modal
-                    show={openModals['modal-reply-expand']}
-                    closeModal={() => handleModalClose('modal-reply-expand')}
-                    buttonLabel="Close"
-                    size="90%"
-                  >
-                    <div style={{ padding: '20px' }}>
-                      <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply editor</label>
-                      <RichTextEditor value={replyText} onChange={setReplyText} highlights={kraftHighlights} />
-                    </div>
-                  </Modal>
-                  {renderReplyAttachments()}
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <button
-                      onClick={async () => {
-                        if (!replyText.trim()) return;
-                        
-                        const emailTrackingId = selectedUnassignedThread.trackingId;
-                        
-                        if (!emailTrackingId) {
-                          setToastMessage('Cannot reply: No tracking ID available');
-                          setToastType('error');
-                          setShowToast(true);
-                          setTimeout(() => setShowToast(false), 3000);
-                          return;
-                        }
-                        
-                        setIsSending(true);
-                        setError('');
-                        try {
-                          const response = await sendReplyEmail(emailTrackingId);
-
-                          if (response.data.success) {
-                            // Add the sent message to the thread immediately
-                            const sentMessage: InboxMessage = {
-                              type: 'Reply',
-                              messageId: `temp-${Date.now()}`,
-                              subject: `Re: ${selectedUnassignedThread.subject}`,
-                              body: getSendableReplyBody(replyText),
-                              fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
-                              toEmail: selectedUnassignedThread.contactEmail,
-                              date: new Date().toISOString(),
-                              isRead: true,
-                              contactId: selectedUnassignedThread.contactId
-                            };
-                            
-                            // Update the thread with the new message
-                            const updatedThread = {
-                              ...selectedUnassignedThread,
-                              messages: [...selectedUnassignedThread.messages, sentMessage],
-                              totalMessages: selectedUnassignedThread.totalMessages + 1,
-                              lastMessageDate: sentMessage.date
-                            };
-                            
-                            setSelectedUnassignedThread(updatedThread);
-                            setReplyText('');
-                            setReplyAttachments([]);
-                            setShowReplySection(false);
-                            setToastMessage('Reply sent successfully!');
-                            setToastType('success');
-                            setShowToast(true);
-                            setTimeout(() => setShowToast(false), 3000);
-                            
-                            // Refresh in background
-                            setRefreshUnassignedTab(prev => prev + 1);
-                          } else {
-                            setToastMessage('Failed to send reply');
-                            setToastType('error');
-                            setShowToast(true);
-                            setTimeout(() => setShowToast(false), 3000);
-                          }
-                        } catch (err: any) {
-                          console.error('Error sending reply:', err);
-                          setToastMessage(err.response?.data?.message || 'Failed to send reply');
-                          setToastType('error');
-                          setShowToast(true);
-                          setTimeout(() => setShowToast(false), 3000);
-                        } finally {
-                          setIsSending(false);
-                        }
-                      }}
-                      disabled={!replyText.trim() || isSending}
-                      className="btn-default"
-                      style={{ order: 2 }}
-                    >
-                      {isSending ? 'Sending...' : 'Send reply'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowReplySection(false);
-                        setReplyText('');
-                        setReplyAttachments([]);
-                        setReplyCcEmails([]);
-                        setReplyCcDraft('');
-                        setReplyBccEmails([]);
-                        setReplyBccDraft('');
-                        setShowReplyCc(false);
-                        setShowReplyBcc(false);
-                      }}
-                      style={{
-                        order: 1,
-                        padding: '10px 24px',
-                        ...secondaryButtonStyle,
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-                )}
+                {showReplySection && renderReplyComposer(selectedUnassignedThread)}
               </div>
             ) : selectedAllMessagesThread ? (
               <div className="mail-detail" ref={mailDetailRef}>
@@ -4349,7 +4121,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       style={{
                         padding: '8px',
                         background: 'transparent',
-                        color: '#3f9f42',
+                        color: '#1f7a3a',
                         border: 'none',
                         borderRadius: '6px',
                         cursor: 'pointer',
@@ -4369,7 +4141,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     >
                       <FontAwesomeIcon
                         icon={faTrashAlt}
-                        style={{ fontSize: 20, color: '#3f9f42' }}
+                        style={{ fontSize: 20, color: '#1f7a3a' }}
                       />
                     </button>
                     
@@ -4441,7 +4213,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 ).slice(0, 1).map((message, index, sortedMessages) => {
                   const uniqueKey = `all-${message.messageId}-${index}`;
                   return (
-                  <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? '16px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                  <div key={uniqueKey} className="mail-message-card">
                     <div className="mail-detail-header">
                       <div className="mail-detail-top">
                         <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
@@ -4451,7 +4223,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               className="mail-detail-sender"
                               style={{
                                 cursor: message.contactId ? 'pointer' : 'default',
-                                color: message.contactId ? '#3f9f42' : '#1f2937',
+                                color: message.contactId ? '#1f7a3a' : '#1f2937',
                                 textDecoration: message.contactId ? 'underline' : 'none',
                                 fontWeight: '500',
                                 fontSize: '14px'
@@ -4530,18 +4302,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <button
-                            type="button"
-                            title="Forward"
-                            aria-label="Forward email"
-                            className="btn-default"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openForwardModal(selectedAllMessagesThread);
-                            }}
-                          >
-                            <FontAwesomeIcon icon={faShare} />
-                          </button>
+                          <span className={`mail-status-pill${isReceivedInboxMessage(message) ? ' received' : ' sent'}`}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                              {isReceivedInboxMessage(message)
+                                ? <path d="M17 7L7 17M7 9v8h8" />
+                                : <path d="M7 17L17 7M9 7h8v8" />}
+                            </svg>
+                            {isReceivedInboxMessage(message) ? 'Received' : 'Sent'}
+                          </span>
                           <div className="mail-detail-date">{formatUserDateTime(message.date)}</div>
                         </div>
                       </div>
@@ -4606,283 +4374,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 );})}
                 {showForwardSection && renderForwardSection()}
 
-                {/* Reply Button */}
+                {/* Reply / Reply all / Forward */}
                 {!showReplySection && !showForwardSection && (
                   <div className="reply-button-sticky">
-                    <button
-                      type="button"
-                      className="btn-default"
-                      onClick={async () => {
-                        const signature = await fetchDefaultSignature();
-                        setReplyText(signature);
-                        setShowReplySection(true);
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
-                      Reply
-                    </button>
+                    {renderMailActionButtons(selectedAllMessagesThread)}
                   </div>
                 )}
 
-                {/* Reply Section */}
-                {showReplySection && (
-                <div className="reply-section" style={{
-                  marginTop: '24px',
-                  borderTop: '1px solid #e5e7eb',
-                  paddingTop: '24px',
-                  padding: '24px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write reply</label>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <select
-                        value={selectedBlueprint || ''}
-                        onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
-                        style={{
-                          padding: '6px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          cursor: 'pointer',
-                          minWidth: '200px'
-                        }}
-                      >
-                        <option value="">Select Blueprint</option>
-                        {groupedBlueprintOptions}
-                      </select>
-                      <button
-                        onClick={async () => {
-                          if (!selectedBlueprint || !selectedAllMessagesThread.contactId) return;
-
-                          if (kraftInFlightRef.current) {
-                            return;
-                          }
-
-                          kraftInFlightRef.current = true;
-
-                          const canKraft = await ensureCanKraft();
-                          if (!canKraft) {
-                            kraftInFlightRef.current = false;
-                            return;
-                          }
-
-                          setIsKrafting(true);
-                          setError('');
-                          try {
-                            const response = await axios.post(
-                              `${PITCH_GENERATION_API_BASE_URL}/api/email-generation/generate`,
-                              {
-                                blueprintId: selectedBlueprint,
-                                contactId: selectedAllMessagesThread.contactId,
-                                clientId: effectiveUserId,
-                                overwriteExisting: true,
-                                modelPurpose: TRANSACTIONAL_EMAIL_PURPOSE,
-                                manualInstruction: buildManualInstruction(
-                                  manualInstruction,
-                                  replyText,
-                                )
-                              },
-                              {
-                                headers: {
-                                  'accept': '*/*',
-                                  'Content-Type': 'application/json',
-                                  ...(token && { Authorization: `Bearer ${token}` }),
-                                },
-                              }
-                            );
-
-                            if (response.data.success && response.data.emailBody) {
-                              applyKraftResponse(
-                                response.data,
-                                'reply',
-                                selectedAllMessagesThread.contactId,
-                              );
-                              playSound();
-                              window.dispatchEvent(new CustomEvent('creditUpdated', { detail: { clientId: effectiveUserId } }));
-                            } else {
-                              setError('Failed to generate email');
-                            }
-                          } catch (err: any) {
-                            console.error('Error krafting email:', err);
-                            setError(err.response?.data?.message || 'Failed to generate email');
-                          } finally {
-                            setIsKrafting(false);
-                            kraftInFlightRef.current = false;
-                          }
-                        }}
-                        disabled={!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId}
-                        className="btn-default"
-                      >
-                        {isKrafting ? 'Krafting...' : 'Kraft'}
-                      </button>
-                    </div>
-                  </div>
-                  {renderReplyRecipientFields(selectedAllMessagesThread?.contactEmail)}
-                  <style>
-                    {`
-                      .reply-section .rich-text-editor > div {
-                        min-height: 160px !important;
-                        height: auto !important;
-                        overflow-y: visible !important;
-                      }
-                    `}
-                  </style>
-                  <div style={{ marginBottom: '12px', position: 'relative' }}>
-                    <div style={{
-                      maxWidth: `${outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%'}`,
-                      margin: '0 auto'
-                    }}>
-                      {renderKraftOptionPicker('reply',
-                      <RichTextEditor
-                        value={replyText}
-                        onChange={setReplyText}
-                        showActionButtons
-                        showManualInstruction
-                        manualInstruction={manualInstruction}
-                        onManualInstructionChange={setManualInstruction}
-                        onRegenerate={() =>
-                          kraftEmailForContact(selectedAllMessagesThread?.contactId)
-                        }
-                        isRegenerating={isKrafting}
-                        regenerateDisabled={
-                          !selectedBlueprint || !selectedAllMessagesThread?.contactId
-                        }
-                        showDeviceButton
-                        finalPrompt={kraftFinalPrompt}
-                        highlights={kraftHighlights}
-                        webSearchData={kraftWebSearchData}
-                        insightEmails={kraftEmails}
-                        insightNotes={kraftNotes}
-                        insightProfessionalSummary={kraftProfessionalSummary}
-                        outputEmailWidth={outputEmailWidth}
-                        isCopyText={isCopyText}
-                        openDeviceDropdown={openDeviceDropdown}
-                        onDeviceDropdownToggle={() => setOpenDeviceDropdown(!openDeviceDropdown)}
-                        onDeviceWidthChange={(width) => {
-                          setOutputEmailWidth(width);
-                          setOpenDeviceDropdown(false);
-                        }}
-                        onCopyToClipboard={copyToClipboardHandler}
-                        onExpandEditor={() => handleModalOpen('modal-reply-expand')}
-                      />
-                      )}
-                    </div>
-
-                  </div>
-
-                  {/* Expand Modal */}
-                  <Modal
-                    show={openModals['modal-reply-expand']}
-                    closeModal={() => handleModalClose('modal-reply-expand')}
-                    buttonLabel="Close"
-                    size="90%"
-                  >
-                    <div style={{ padding: '20px' }}>
-                      <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply editor</label>
-                      <RichTextEditor value={replyText} onChange={setReplyText} highlights={kraftHighlights} />
-                    </div>
-                  </Modal>
-                  {renderReplyAttachments()}
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <button
-                      onClick={async () => {
-                        if (!replyText.trim()) return;
-
-                        const emailTrackingId = selectedAllMessagesThread.trackingId;
-
-                        if (!emailTrackingId) {
-                          setToastMessage('Cannot reply: No tracking ID available');
-                          setToastType('error');
-                          setShowToast(true);
-                          setTimeout(() => setShowToast(false), 3000);
-                          return;
-                        }
-
-                        setIsSending(true);
-                        setError('');
-                        try {
-                          const response = await sendReplyEmail(emailTrackingId);
-
-                          if (response.data.success) {
-                            const sentMessage: InboxMessage = {
-                              type: 'Reply',
-                              messageId: `temp-${Date.now()}`,
-                              subject: `Re: ${selectedAllMessagesThread.subject}`,
-                              body: getSendableReplyBody(replyText),
-                              fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
-                              toEmail: selectedAllMessagesThread.contactEmail,
-                              date: new Date().toISOString(),
-                              isRead: true,
-                              contactId: selectedAllMessagesThread.contactId
-                            };
-
-                            const updatedThread = {
-                              ...selectedAllMessagesThread,
-                              messages: [...selectedAllMessagesThread.messages, sentMessage],
-                              totalMessages: selectedAllMessagesThread.totalMessages + 1,
-                              lastMessageDate: sentMessage.date
-                            };
-
-                            setSelectedAllMessagesThread(updatedThread);
-                            setReplyText('');
-                            setReplyAttachments([]);
-                            setShowReplySection(false);
-                            setToastMessage('Reply sent successfully!');
-                            setToastType('success');
-                            setShowToast(true);
-                            setTimeout(() => setShowToast(false), 3000);
-                            
-                            // Refresh in background
-                            setRefreshAllMessagesTab(prev => prev + 1);
-                          } else {
-                            setToastMessage('Failed to send reply');
-                            setToastType('error');
-                            setShowToast(true);
-                            setTimeout(() => setShowToast(false), 3000);
-                          }
-                        } catch (err: any) {
-                          console.error('Error sending reply:', err);
-                          setToastMessage(err.response?.data?.message || 'Failed to send reply');
-                          setToastType('error');
-                          setShowToast(true);
-                          setTimeout(() => setShowToast(false), 3000);
-                        } finally {
-                          setIsSending(false);
-                        }
-                      }}
-                      disabled={!replyText.trim() || isSending}
-                      className="btn-default"
-                      style={{ order: 2 }}
-                    >
-                      {isSending ? 'Sending...' : 'Send reply'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowReplySection(false);
-                        setReplyText('');
-                        setReplyAttachments([]);
-                        setReplyCcEmails([]);
-                        setReplyCcDraft('');
-                        setReplyBccEmails([]);
-                        setReplyBccDraft('');
-                        setShowReplyCc(false);
-                        setShowReplyBcc(false);
-                      }}
-                      style={{
-                        order: 1,
-                        padding: '10px 24px',
-                        ...secondaryButtonStyle,
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-                )}
+                {showReplySection && renderReplyComposer(selectedAllMessagesThread)}
               </div>
             ) : null
           )}
@@ -4908,14 +4407,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             )}
           </div>
         </div>
-
-        {/* Floating contact reopen tab */}
-        {hasActiveThread && !contactPanelOpen && (
-          <button className="panel-reopen" onClick={() => setContactPanelOpen(true)}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
-            <span>Contact</span>
-          </button>
-        )}
 
       <CreditCheckModal
         isOpen={showCreditModal || forceShowCreditModal}

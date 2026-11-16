@@ -91,7 +91,7 @@ const ContactInfoPanel: React.FC<ContactInfoPanelProps> = ({ contactId, token })
       <div style={{ textAlign: 'center', padding: '0 24px 20px', borderBottom: '1px solid #f0f1f3' }}>
         <div style={{
           width: 72, height: 72, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #3f9f42 0%, #2f7d33 100%)',
+          background: 'linear-gradient(135deg, #1f7a3a 0%, #2f7d33 100%)',
           color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 26, fontWeight: 700, margin: '0 auto 14px'
         }}>
@@ -171,7 +171,7 @@ const Field: React.FC<{ label: string; children: React.ReactElement }> = ({ labe
         ...(children.type === 'textarea' ? { resize: 'vertical', minHeight: 80 } : {}),
       },
       onFocus: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        e.target.style.borderColor = '#3f9f42';
+        e.target.style.borderColor = '#1f7a3a';
         e.target.style.boxShadow = '0 0 0 3px #eaf5ea';
       },
       onBlur: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {

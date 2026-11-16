@@ -23,6 +23,109 @@ interface EmailIframeProps {
  *   makes the entire email appear blank when injected into the DOM.
  *   Inline styles on the table/td elements are safe to keep.
  */
+/**
+ * Find the forwarded/replied-to header block - the run of
+ * "From: / Sent: / To: / Cc: / Subject:" lines a mail client pastes above the
+ * quoted message - and tag it so the stylesheet below can show it as its own
+ * grey card, separated from the message text.
+ *
+ * The block arrives as ordinary body markup and differs per client (one
+ * paragraph with <br>s from Outlook, a row of <div>s from Gmail), so it is
+ * located by content: the innermost short element whose text carries the
+ * From, To and Subject labels together.
+ */
+function markForwardHeader(bodyHtml: string): string {
+  if (typeof DOMParser === 'undefined') return bodyHtml;
+  if (!/From:/i.test(bodyHtml) || !/Subject:/i.test(bodyHtml)) return bodyHtml;
+
+  const WRAPPABLE = new Set(['P', 'DIV', 'TD', 'BLOCKQUOTE', 'SECTION', 'ARTICLE']);
+  const MAX_HEADER_CHARS = 600;
+
+  const normalize = (value: string | null) => (value || '').replace(/\s+/g, ' ').trim();
+  const hasHeaderLabels = (text: string) =>
+    /(^|[\s>])From:/i.test(text) && /(^|[\s>])To:/i.test(text) && /(^|[\s>])Subject:/i.test(text);
+
+  try {
+    const doc = new DOMParser().parseFromString(`<body>${bodyHtml}</body>`, 'text/html');
+
+    // Innermost match wins: the shortest text that still carries every label.
+    let header: HTMLElement | null = null;
+    let headerLength = Number.POSITIVE_INFINITY;
+
+    doc.body.querySelectorAll('*').forEach((node) => {
+      const element = node as HTMLElement;
+      const text = normalize(element.textContent);
+      if (!text || text.length > MAX_HEADER_CHARS || text.length >= headerLength) return;
+      if (!hasHeaderLabels(text)) return;
+      header = element;
+      headerLength = text.length;
+    });
+
+    if (!header) return bodyHtml;
+
+    // A <b>/<span> match is only the label; climb to the block that holds the
+    // whole run of lines, as long as it stays header-sized.
+    let block: HTMLElement = header;
+    while (!WRAPPABLE.has(block.tagName) && block.parentElement && block.parentElement !== doc.body) {
+      const parentText = normalize(block.parentElement.textContent);
+      if (parentText.length > MAX_HEADER_CHARS) break;
+      block = block.parentElement;
+    }
+    if (!WRAPPABLE.has(block.tagName) && block.parentElement === doc.body) {
+      // Loose inline run straight under the body: wrap it rather than restyle it.
+      const wrapper = doc.createElement('div');
+      block.parentElement.insertBefore(wrapper, block);
+      wrapper.appendChild(block);
+      block = wrapper;
+    }
+    if (block.tagName === 'TD' || block === doc.body) return bodyHtml;
+
+    // Clients that give each header line its own element (Gmail) land on the
+    // quote wrapper above, which also holds the message text. Wrap just the
+    // run of header lines instead.
+    const headerLine = /^(from|sent|date|to|cc|bcc|subject|importance|reply-to)\s*:/i;
+    const LINE_TAGS = new Set(['DIV', 'P', 'LI', 'TR']);
+    const children = Array.from(block.children) as HTMLElement[];
+    // Only whole lines count. An inline <b>From:</b> is just the label, and
+    // moving it would leave its address behind.
+    const lines = children.filter(
+      (child) => LINE_TAGS.has(child.tagName) && headerLine.test(normalize(child.textContent)),
+    );
+    if (lines.length >= 2) {
+      const first = children.indexOf(lines[0]);
+      const last = children.indexOf(lines[lines.length - 1]);
+      const run = children.slice(first, last + 1);
+      const wrapper = doc.createElement('div');
+      block.insertBefore(wrapper, run[0]);
+      run.forEach((child) => wrapper.appendChild(child));
+      block = wrapper;
+    }
+
+    // The client's own "Forwarded message" divider above the block becomes the
+    // card's label, so it is not repeated.
+    const previous = block.previousElementSibling as HTMLElement | null;
+    const previousText = normalize(previous && previous.textContent);
+    if (previous && previousText.length <= 60 &&
+        /^-*\s*(forwarded|original)\s+(message|email)\b/i.test(previousText)) {
+      previous.remove();
+    }
+
+    block.className = `${block.className || ''} pk-mail-head`.trim();
+    // Outlook ships these paragraphs with their own margins and font sizes;
+    // the card supplies both.
+    block.removeAttribute('style');
+
+    const label = doc.createElement('span');
+    label.className = 'pk-mail-head-label';
+    label.textContent = 'FORWARDED MESSAGE';
+    block.insertBefore(label, block.firstChild);
+
+    return doc.body.innerHTML;
+  } catch {
+    return bodyHtml;
+  }
+}
+
 function buildEmailDocument(raw: string): string {
   const containsActualHtml = (value: string): boolean =>
     /<\/?(?:html|head|body|div|table|p|span|font|blockquote|br)\b/i.test(value);
@@ -78,6 +181,8 @@ function buildEmailDocument(raw: string): string {
     .replace(/<(?:p|div)\b[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/(?:p|div)>/gi, '')
     .trim();
 
+  bodyContent = markForwardHeader(bodyContent);
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -89,7 +194,30 @@ function buildEmailDocument(raw: string): string {
   p { margin-bottom: 6px; }
   img  { max-width: 100%; height: auto; }
   *    { box-sizing: border-box; }
-  a    { color: #2563eb; }
+  a    { color: #1f7a3a; }
+
+  /* Forwarded / replied-to header, lifted out by markForwardHeader(). */
+  .pk-mail-head {
+    display: block;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    background: #f7f8f7;
+    border: 1px solid #ecedec;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 20px;
+    color: #374151;
+  }
+  .pk-mail-head .pk-mail-head-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    color: #5b6472;
+  }
+  .pk-mail-head p,
+  .pk-mail-head div { margin: 0; }
   @media (max-width: 640px) {
     html, body {
       width: 100% !important;

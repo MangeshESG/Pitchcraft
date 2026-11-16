@@ -6,7 +6,6 @@ import {
   faPaperPlane,
   faTimes,
 } from "@fortawesome/free-solid-svg-icons";
-import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import RichTextEditor from "../../common/RTEEditor";
 import Modal from "../../common/Modal";
 import { EmailHighlight, parseEmailHighlights } from "../../../utils/emailHighlights";
@@ -71,24 +70,6 @@ interface ContactComposeEmailPopupProps {
   }) => Promise<boolean>;
   isSending: boolean;
 }
-
-const inputStyle: React.CSSProperties = {
-  height: 42,
-  border: "1px solid #d8dee8",
-  borderRadius: 6,
-  padding: "0 14px",
-  fontSize: 13,
-  color: "#111827",
-  background: "#fff",
-  outline: "none",
-};
-
-const labelStyle: React.CSSProperties = {
-  width: 120,
-  fontSize: 13,
-  fontWeight: 700,
-  color: "#111827",
-};
 
 const compactFieldStyle: React.CSSProperties = {
   width: 390,
@@ -499,135 +480,64 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
 
   if (!isOpen) return null;
 
+  const editorMaxWidth =
+    previewWidth === "Mobile" ? 480 : previewWidth === "Tab" ? 768 : "100%";
+
   return (
-    <div
-      className="contact-compose-backdrop"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1200,
-        background: "rgba(15, 23, 42, 0.36)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-      }}
-      onClick={onClose}
-    >
+    <div className="contact-compose-backdrop" onClick={onClose}>
       <div
         className="contact-compose-modal"
-        style={{
-          width: "min(1180px, 96vw)",
-          maxHeight: "92vh",
-          overflow: "auto",
-          background: "#fff",
-          borderRadius: 8,
-          boxShadow: "0 24px 70px rgba(15, 23, 42, 0.22)",
-          padding: 24,
-        }}
         onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Compose email"
       >
-        <div
-          className="contact-compose-header"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 28,
-          }}
-        >
+        <div className="contact-compose-head">
           <button
             type="button"
+            className="cc-head-back"
             onClick={onClose}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 12,
-              border: "none",
-              background: "transparent",
-              color: "#111827",
-              fontSize: 18,
-              fontWeight: 700,
-              cursor: "pointer",
-              padding: 0,
-            }}
+            title="Back"
+            aria-label="Back to contact"
           >
             <FontAwesomeIcon icon={faArrowLeft} />
-            Compose email
           </button>
-          <div className="contact-compose-header-actions" style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={!selectedBlueprintId || isGenerating}
-              style={{
-                ...lessPriorityButtonStyle,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                opacity: (!selectedBlueprintId || isGenerating) ? 0.6 : 1,
-                cursor: (!selectedBlueprintId || isGenerating) ? "not-allowed" : "pointer",
-              }}
-            >
-              <FontAwesomeIcon icon={faBolt} />
-              {isGenerating ? "Generating..." : "Generate"}
-            </button>
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={isSending}
-              style={{
-                ...defaultButtonStyle,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                opacity: isSending ? 0.6 : 1,
-                cursor: isSending ? "not-allowed" : "pointer",
-              }}
-            >
-              <FontAwesomeIcon icon={faPaperPlane} />
-              {isSending ? "Sending..." : "Send"}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close compose"
-              title="Close"
-              style={{
-                width: 38,
-                height: 38,
-                border: "1px solid #d8dee8",
-                borderRadius: 8,
-                background: "#fff",
-                color: "#64748b",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
-            >
-              <FontAwesomeIcon icon={faTimes} />
-            </button>
-          </div>
+          <h2 className="cc-head-title">Compose email</h2>
+          <button
+            type="button"
+            className="cc-head-close"
+            onClick={onClose}
+            aria-label="Close compose"
+            title="Close"
+          >
+            <FontAwesomeIcon icon={faTimes} />
+          </button>
         </div>
 
-        <div
-          className="contact-compose-form"
-          style={{
-            border: "1px solid #e0e6ef",
-            borderRadius: 8,
-            padding: 24,
-            background: "#fff",
-          }}
-        >
-          <div className="contact-compose-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
-            <label style={labelStyle}>Select blueprint</label>
+        <div className="contact-compose-body">
+          <div className="cc-strip">
+            <div className="cc-strip-lead">
+              <span className="cc-strip-mark">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+                </svg>
+              </span>
+              <span className="cc-strip-copy">
+                <span className="cc-strip-title">Draft with a blueprint</span>
+                <span className="cc-strip-hint">
+                  Pick a blueprint, generate, then edit before sending.
+                </span>
+              </span>
+            </div>
+            <label className="cc-visually-hidden" htmlFor="contact-compose-blueprint">
+              Blueprint
+            </label>
             <select
+              id="contact-compose-blueprint"
               value={selectedBlueprintId}
               onChange={(event) => setSelectedBlueprintId(event.target.value)}
-              style={{ ...inputStyle, width: 390 }}
             >
-              <option value="">Select blueprint (optional)...</option>
+              <option value="">Select a blueprint (optional)...</option>
               {blueprintGroups.map(({ category, blueprints: items }) => (
                 <optgroup key={category} label={category}>
                   {items.map((blueprint) => (
@@ -638,203 +548,200 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
                 </optgroup>
               ))}
             </select>
-            </div>
-
-          <div className="contact-compose-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
-            <label style={labelStyle}>From</label>
-            <select
-              value={selectedFromId}
-              onChange={(event) => onFromChange(event.target.value)}
-              style={{ ...inputStyle, ...compactFieldStyle }}
+            <button
+              type="button"
+              className="cc-btn cc-btn-kraft"
+              onClick={handleGenerate}
+              disabled={!selectedBlueprintId || isGenerating}
             >
-              <option value="">Select from email...</option>
-              {visibleFromOptions.map((fromOption) => {
-                const optionId = getFromOptionId(fromOption);
-                return (
-                <option key={optionId} value={optionId}>
-                  {getFromOptionLabel(fromOption)}
-                </option>
-                );
-              })}
-            </select>
-            {isSignatureLoading && (
-              <span style={{ color: "#64748b", fontSize: 12, whiteSpace: "nowrap" }}>
-                Loading signature...
-              </span>
-            )}
+              <FontAwesomeIcon icon={faBolt} />
+              {isGenerating ? "Generating..." : "Generate"}
+            </button>
           </div>
 
-          <div className="contact-compose-field contact-compose-to-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
-            <label style={labelStyle}>To</label>
-            <input
-              value={toEmail}
-              readOnly
-              style={{
-                ...inputStyle,
-                ...compactFieldStyle,
-                background: "#f8fafc",
-                color: "#475569",
-                cursor: "not-allowed",
-              }}
-              placeholder="Contact email not available"
-            />
-            {!showCc && (
-              <button
-                type="button"
-                onClick={() => setShowCc(true)}
-                style={{ border: "none", background: "transparent", color: "#16822f", fontWeight: 700, cursor: "pointer" }}
+          <div className="cc-fields">
+            <div className="cc-row">
+              <span className="cc-label">From</span>
+              <select
+                className="cc-row-select"
+                value={selectedFromId}
+                onChange={(event) => onFromChange(event.target.value)}
+                aria-label="From address"
               >
-                Cc
-              </button>
-            )}
-            {!showBcc && (
-              <button
-                type="button"
-                onClick={() => setShowBcc(true)}
-                style={{ border: "none", background: "transparent", color: "#16822f", fontWeight: 700, cursor: "pointer" }}
-              >
-                Bcc
-              </button>
-            )}
-          </div>
-
-          {showCc && (
-            <div className="contact-compose-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
-              <label style={labelStyle}>Cc</label>
-              <RecipientChipInput
-                recipients={ccEmails}
-                draft={ccEmailDraft}
-                onRecipientsChange={setCcEmails}
-                onDraftChange={setCcEmailDraft}
-                placeholder="Enter Cc email..."
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCc(false);
-                  setCcEmails([]);
-                  setCcEmailDraft("");
-                }}
-                style={{ border: "none", background: "transparent", color: "#64748b", fontWeight: 700, cursor: "pointer" }}
-              >
-                X
-              </button>
+                <option value="">Select from email...</option>
+                {visibleFromOptions.map((fromOption) => {
+                  const optionId = getFromOptionId(fromOption);
+                  return (
+                    <option key={optionId} value={optionId}>
+                      {getFromOptionLabel(fromOption)}
+                    </option>
+                  );
+                })}
+              </select>
+              {isSignatureLoading && <span className="cc-row-note">Loading signature...</span>}
             </div>
-          )}
 
-          {showBcc && (
-            <div className="contact-compose-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
-              <label style={labelStyle}>Bcc</label>
-              <RecipientChipInput
-                recipients={bccEmails}
-                draft={bccEmailDraft}
-                onRecipientsChange={setBccEmails}
-                onDraftChange={setBccEmailDraft}
-                placeholder="Enter Bcc email..."
+            <div className="cc-row">
+              <span className="cc-label">To</span>
+              <input
+                className="cc-row-input cc-row-input-readonly"
+                value={toEmail}
+                readOnly
+                aria-label="To"
+                placeholder="Contact email not available"
               />
-              <button
-                type="button"
-                onClick={() => {
-                  setShowBcc(false);
-                  setBccEmails([]);
-                  setBccEmailDraft("");
-                }}
-                style={{ border: "none", background: "transparent", color: "#64748b", fontWeight: 700, cursor: "pointer" }}
-              >
-                X
-              </button>
+              {!showCc && (
+                <button type="button" className="cc-link" onClick={() => setShowCc(true)}>
+                  Cc
+                </button>
+              )}
+              {!showBcc && (
+                <button type="button" className="cc-link" onClick={() => setShowBcc(true)}>
+                  Bcc
+                </button>
+              )}
             </div>
-          )}
 
-          <div className="contact-compose-field" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-            <label style={labelStyle}>Subject</label>
-            <input
-              value={emailSubject}
-              onChange={(event) => setEmailSubject(event.target.value)}
-              style={{ ...inputStyle, flex: 1 }}
-              placeholder="Enter subject..."
-            />
-          </div>
-
-          <div className="contact-compose-editor">
-            <div
-              style={{
-                width: "100%",
-                maxWidth:
-                  previewWidth === "Mobile"
-                    ? 480
-                    : previewWidth === "Tab"
-                      ? 768
-                      : "100%",
-                margin: "0 auto",
-              }}
-            >
-              <EmailOptionPicker
-                options={emailOptions}
-                selectedIndex={selectedOption}
-                onSelect={handleSelectOption}
-                onSave={onSaveOption ? handleSaveOption : undefined}
-                isSaving={isSavingOption}
-                savedIndex={savedOption}
-                disabled={isGenerating}
-              >
-                <RichTextEditor
-                  value={emailBody}
-                  onChange={setEmailBody}
-                  height={360}
-                  // Always on, like the Kraft email toolbar: copy, device
-                  // preview and expand are just as useful on a hand-written
-                  // body as on a generated one, and the insight panels carry
-                  // their own empty states before the first Generate.
-                  showActionButtons
-                  // Not gated on hasGeneratedBody: the instruction is written
-                  // before the first Generate, not after it.
-                  showManualInstruction
-                  manualInstruction={manualInstruction}
-                  onManualInstructionChange={setManualInstruction}
-                  onRegenerate={handleGenerate}
-                  isRegenerating={isGenerating}
-                  regenerateDisabled={!selectedBlueprintId}
-                  showDeviceButton
-                  outputEmailWidth={previewWidth}
-                  openDeviceDropdown={openDeviceDropdown}
-                  onDeviceDropdownToggle={() =>
-                    setOpenDeviceDropdown((prev) => !prev)
-                  }
-                  onDeviceWidthChange={(width) => {
-                    setPreviewWidth(width);
-                    setOpenDeviceDropdown(false);
-                  }}
-                  highlights={previewHighlights}
-                  finalPrompt={previewFinalPrompt}
-                  webSearchData={previewWebSearchData}
-                  insightEmails={previewEmails}
-                  insightNotes={previewNotes}
-                  insightProfessionalSummary={previewProfessionalSummary}
-                  onExpandEditor={() => setIsBodyExpanded(true)}
-                />
-                {/* Sits between the editor and the option strip, so the count
-                    belongs to the body above it rather than to the strip. */}
-                <div
-                  style={{
-                    minHeight: 28,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "4px 12px 0",
-                    color: "#64748b",
-                    fontSize: 12,
-                  }}
-                >
-                  <span>Characters: {plainBody.length}</span>
-                  <span>{plainBody.trim() ? plainBody.trim().split(/\s+/).length : 0} words</span>
+            {showCc && (
+              <div className="cc-row">
+                <span className="cc-label">Cc</span>
+                <div className="cc-row-chips">
+                  <RecipientChipInput
+                    recipients={ccEmails}
+                    draft={ccEmailDraft}
+                    onRecipientsChange={setCcEmails}
+                    onDraftChange={setCcEmailDraft}
+                    placeholder="Add Cc recipients"
+                    containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none" }}
+                  />
                 </div>
-              </EmailOptionPicker>
+                <button
+                  type="button"
+                  className="cc-row-remove"
+                  onClick={() => {
+                    setShowCc(false);
+                    setCcEmails([]);
+                    setCcEmailDraft("");
+                  }}
+                  title="Hide Cc"
+                  aria-label="Hide Cc"
+                >
+                  <FontAwesomeIcon icon={faTimes} />
+                </button>
+              </div>
+            )}
+
+            {showBcc && (
+              <div className="cc-row">
+                <span className="cc-label">Bcc</span>
+                <div className="cc-row-chips">
+                  <RecipientChipInput
+                    recipients={bccEmails}
+                    draft={bccEmailDraft}
+                    onRecipientsChange={setBccEmails}
+                    onDraftChange={setBccEmailDraft}
+                    placeholder="Add Bcc recipients"
+                    containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none" }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="cc-row-remove"
+                  onClick={() => {
+                    setShowBcc(false);
+                    setBccEmails([]);
+                    setBccEmailDraft("");
+                  }}
+                  title="Hide Bcc"
+                  aria-label="Hide Bcc"
+                >
+                  <FontAwesomeIcon icon={faTimes} />
+                </button>
+              </div>
+            )}
+
+            <div className="cc-row">
+              <span className="cc-label">Subject</span>
+              <input
+                className="cc-row-input"
+                value={emailSubject}
+                onChange={(event) => setEmailSubject(event.target.value)}
+                placeholder="Enter subject..."
+                aria-label="Subject"
+              />
             </div>
+          </div>
+
+          <div className="contact-compose-editor cc-editor" style={{ maxWidth: editorMaxWidth }}>
+            <EmailOptionPicker
+              options={emailOptions}
+              selectedIndex={selectedOption}
+              onSelect={handleSelectOption}
+              onSave={onSaveOption ? handleSaveOption : undefined}
+              isSaving={isSavingOption}
+              savedIndex={savedOption}
+              disabled={isGenerating}
+            >
+              <RichTextEditor
+                value={emailBody}
+                onChange={setEmailBody}
+                height={360}
+                // Always on, like the Kraft email toolbar: copy, device
+                // preview and expand are just as useful on a hand-written
+                // body as on a generated one, and the insight panels carry
+                // their own empty states before the first Generate.
+                showActionButtons
+                // Not gated on hasGeneratedBody: the instruction is written
+                // before the first Generate, not after it.
+                showManualInstruction
+                manualInstruction={manualInstruction}
+                onManualInstructionChange={setManualInstruction}
+                onRegenerate={handleGenerate}
+                isRegenerating={isGenerating}
+                regenerateDisabled={!selectedBlueprintId}
+                showDeviceButton
+                outputEmailWidth={previewWidth}
+                openDeviceDropdown={openDeviceDropdown}
+                onDeviceDropdownToggle={() => setOpenDeviceDropdown((prev) => !prev)}
+                onDeviceWidthChange={(width) => {
+                  setPreviewWidth(width);
+                  setOpenDeviceDropdown(false);
+                }}
+                highlights={previewHighlights}
+                finalPrompt={previewFinalPrompt}
+                webSearchData={previewWebSearchData}
+                insightEmails={previewEmails}
+                insightNotes={previewNotes}
+                insightProfessionalSummary={previewProfessionalSummary}
+                onExpandEditor={() => setIsBodyExpanded(true)}
+              />
+              {/* Sits between the editor and the option strip, so the count
+                  belongs to the body above it rather than to the strip. */}
+              <div className="cc-counts">
+                <span>Characters: {plainBody.length}</span>
+                <span>{plainBody.trim() ? plainBody.trim().split(/\s+/).length : 0} words</span>
+              </div>
+            </EmailOptionPicker>
           </div>
         </div>
 
-        {/* Expanded body editor — the Modal portals to <body> at a higher
+        <div className="cc-footer">
+          <span className="cc-footer-spacer" />
+          <button type="button" className="cc-btn cc-btn-ghost" onClick={onClose}>
+            Discard
+          </button>
+          <button
+            type="button"
+            className="cc-btn cc-btn-primary"
+            onClick={handleSend}
+            disabled={isSending}
+          >
+            <FontAwesomeIcon icon={faPaperPlane} />
+            {isSending ? "Sending..." : "Send"}
+          </button>
+        </div>
+
+        {/* Expanded body editor - the Modal portals to <body> at a higher
             z-index than the compose backdrop, so it sits over the popup and
             edits the same `emailBody` state.
 
@@ -843,36 +750,33 @@ const ContactComposeEmailPopup: React.FC<ContactComposeEmailPopupProps> = ({
             portalled modal would reach the backdrop's onClick and close the
             whole compose popup. */}
         <div style={{ display: "contents" }} onClick={(event) => event.stopPropagation()}>
-        <Modal
-          show={isBodyExpanded}
-          closeModal={() => setIsBodyExpanded(false)}
-          buttonLabel="Close"
-          size="90%"
-        >
-          <div style={{ padding: 20 }}>
-            <label style={{ fontWeight: 500, fontSize: 16, marginBottom: 12, display: "block" }}>
-              Email body
-            </label>
-            <RichTextEditor
-              value={emailBody}
-              onChange={setEmailBody}
-              height={520}
-              highlights={previewHighlights}
-            />
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 14 }}>
-              <button
-                type="button"
-                onClick={() => setIsBodyExpanded(false)}
-                style={{
-                  ...lessPriorityButtonStyle,
-                  cursor: "pointer",
-                }}
-              >
-                Done
-              </button>
+          <Modal
+            show={isBodyExpanded}
+            closeModal={() => setIsBodyExpanded(false)}
+            buttonLabel="Close"
+            size="90%"
+          >
+            <div style={{ padding: 20 }}>
+              <label style={{ fontWeight: 500, fontSize: 16, marginBottom: 12, display: "block" }}>
+                Email body
+              </label>
+              <RichTextEditor
+                value={emailBody}
+                onChange={setEmailBody}
+                height={520}
+                highlights={previewHighlights}
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 14 }}>
+                <button
+                  type="button"
+                  className="cc-btn cc-btn-ghost"
+                  onClick={() => setIsBodyExpanded(false)}
+                >
+                  Done
+                </button>
+              </div>
             </div>
-          </div>
-        </Modal>
+          </Modal>
         </div>
       </div>
     </div>

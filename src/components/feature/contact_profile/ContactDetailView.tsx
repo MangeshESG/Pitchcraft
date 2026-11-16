@@ -24,8 +24,10 @@ import {
   faPaperclip,
   faDownload,
   faReply,
+  faReplyAll,
   faPen,
   faShare,
+  faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import { faEdit, faTrashAlt, faSquarePlus } from "@fortawesome/free-regular-svg-icons";
 import EditContactModal from "./EditContactModal";
@@ -2484,6 +2486,74 @@ const handleDeleteContact = async () => {
     }
   };
 
+  // ---- Reply / Reply all (contact profile) -----------------------------
+  // Same constraint as the Inbox: stored mail carries From and To only, with
+  // no Cc column anywhere, so Reply all copies in the message's other
+  // recipients, minus the user's own mailboxes and minus the contact the
+  // reply already goes to.
+  const getOwnMailAddresses = (): string[] =>
+    composeSmtpUsers
+      .map(
+        (smtpUser) =>
+          smtpUser.emailAddress || smtpUser.fromEmail || smtpUser.email || smtpUser.username || "",
+      )
+      .map((address) => extractEmailAddress(address).toLowerCase())
+      .filter(Boolean);
+
+  const getContactReplyAllCcList = (thread: any): string[] => {
+    const messages = Array.isArray(thread?.messages) ? thread.messages : [];
+    const received = messages.filter(
+      (message: any) => String(message?.type || "").toLowerCase() !== "sent",
+    );
+    const latest = [...(received.length ? received : messages)].sort(
+      (a: any, b: any) => new Date(b?.date).getTime() - new Date(a?.date).getTime(),
+    )[0];
+    if (!latest) return [];
+
+    const excluded = new Set<string>(
+      [
+        ...getOwnMailAddresses(),
+        extractEmailAddress(thread?.contactEmail || contact?.email || "").toLowerCase(),
+        extractEmailAddress(latest?.fromEmail || "").toLowerCase(),
+      ].filter(Boolean),
+    );
+    const seen = new Set<string>();
+
+    return String(latest?.toEmail || "")
+      .split(/[,;]/)
+      .map((part: string) => extractEmailAddress(part.trim()))
+      .filter((address: string) => {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return false;
+        const key = address.toLowerCase();
+        if (excluded.has(key) || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+
+  const openContactReplyComposer = (thread: any, replyAll = false) => {
+    setShowContactForwardSection(false);
+    if (replyAll) {
+      setContactReplyCcEmails(getContactReplyAllCcList(thread));
+      setContactReplyCcDraft("");
+      setShowContactReplyCc(true);
+    }
+    setShowContactReplySection(true);
+  };
+
+  const closeContactReplyComposer = () => {
+    setShowContactReplySection(false);
+    setContactReplyText("");
+    setContactReplyTrailHtml("");
+    setContactReplyCcEmails([]);
+    setContactReplyCcDraft("");
+    setContactReplyBccEmails([]);
+    setContactReplyBccDraft("");
+    setShowContactReplyCc(false);
+    setShowContactReplyBcc(false);
+    setContactReplyAttachments([]);
+  };
+
   const handleSendContactReply = async (thread: any) => {
     const sendableReplyBody = getSendableContactReplyBody(contactReplyText || "");
     const plainReply = getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim();
@@ -4252,7 +4322,7 @@ dispatch(closePanel());
             const isHeaderExpanded = expandedContactMessageHeaders[uniqueKey];
 
             return (
-              <div key={uniqueKey} style={{ paddingBottom: index < sortedMessages.length - 1 ? 16 : 0, borderBottom: index < sortedMessages.length - 1 ? "1px solid #e5e7eb" : "none" }}>
+              <div key={uniqueKey} className="mail-message-card">
                 <div className="mail-detail-header">
                   <div className="mail-detail-top">
                     <div className="mail-detail-avatar">{getMailInitials(message.fromEmail, message.contactName)}</div>
@@ -4327,18 +4397,16 @@ dispatch(closePanel());
                       )}
                     </div>
                     <div className="contact-mail-message-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <button
-                        type="button"
-                        title="Forward"
-                        aria-label="Forward email"
-                        className="btn-default"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openContactForwardSection(activeThread);
-                        }}
+                      <span
+                        className={`mail-status-pill${String(message.type || "").toLowerCase() === "sent" ? " sent" : " received"}`}
                       >
-                        <FontAwesomeIcon icon={faShare} />
-                      </button>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                          {String(message.type || "").toLowerCase() === "sent"
+                            ? <path d="M7 17L17 7M9 7h8v8" />
+                            : <path d="M17 7L7 17M7 9v8h8" />}
+                        </svg>
+                        {String(message.type || "").toLowerCase() === "sent" ? "Sent" : "Received"}
+                      </span>
                       <div className="mail-detail-date">{formatDateTimeIST(message.date)}</div>
                     </div>
                   </div>
@@ -4368,53 +4436,182 @@ dispatch(closePanel());
             <div className="reply-button-sticky">
               <button
                 type="button"
-                className="btn-default"
-                onClick={() => {
-                  setShowContactForwardSection(false);
-                  setShowContactReplySection(true);
-                }}
+                className="btn-pill btn-reply"
+                onClick={() => openContactReplyComposer(activeThread)}
               >
-                <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
+                <FontAwesomeIcon icon={faReply} />
                 Reply
+              </button>
+              <button
+                type="button"
+                className="btn-pill btn-replyall"
+                title="Reply to everyone on this email"
+                onClick={() => openContactReplyComposer(activeThread, true)}
+              >
+                <FontAwesomeIcon icon={faReplyAll} />
+                Reply all
+              </button>
+              <button
+                type="button"
+                className="btn-pill btn-forward"
+                onClick={() => openContactForwardSection(activeThread)}
+              >
+                <FontAwesomeIcon icon={faShare} />
+                Forward
               </button>
             </div>
           )}
         </div>
         {showContactForwardSection && (
           <form
-            className="reply-section"
+            className="reply-section composer-card"
             onSubmit={(event) => {
               event.preventDefault();
               handleForwardContactEmail(activeThread);
             }}
-            style={{
-              marginTop: 24,
-              padding: "24px 24px 20px",
-              borderTop: "1px solid #e5e7eb",
-              background: "#fff",
-            }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <label style={{ fontWeight: 500, fontSize: 14, color: "#374151" }}>Forward</label>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <select
-                  value={selectedContactReplyBlueprint || ""}
-                  onChange={(event) => setSelectedContactReplyBlueprint(event.target.value ? Number(event.target.value) : null)}
-                  style={{ padding: "6px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, background: "#fff" }}
-                >
-                  <option value="">Select Blueprint</option>
-                  {groupedContactBlueprintOptions}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => handleKraftContactForward(activeThread)}
-                  disabled={!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId}
-                  className="btn-default"
-                >
-                  {isKraftingContactReply ? "Krafting..." : "Kraft"}
-                </button>
-              </div>
+            <div className="composer-head">
+              <FontAwesomeIcon icon={faShare} />
+              <h2 className="composer-title">Forward email</h2>
+              <button
+                type="button"
+                className="composer-close"
+                onClick={closeContactForwardSection}
+                title="Close forward"
+                aria-label="Close forward"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
             </div>
+
+            <div className="composer-strip">
+              <div className="composer-strip-lead">
+                <span className="composer-strip-mark">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+                  </svg>
+                </span>
+                <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                  <span className="composer-strip-title">Draft with a blueprint</span>
+                  <span className="composer-strip-hint">
+                    Pick a blueprint, kraft it, then edit before sending.
+                  </span>
+                </span>
+              </div>
+              <select
+                aria-label="Blueprint"
+                value={selectedContactReplyBlueprint || ""}
+                onChange={(event) =>
+                  setSelectedContactReplyBlueprint(event.target.value ? Number(event.target.value) : null)
+                }
+              >
+                <option value="">Select a blueprint...</option>
+                {groupedContactBlueprintOptions}
+              </select>
+              <button
+                type="button"
+                className="btn-pill btn-kraft"
+                onClick={() => handleKraftContactForward(activeThread)}
+                disabled={!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+                </svg>
+                {isKraftingContactReply ? "Krafting..." : "Kraft"}
+              </button>
+            </div>
+
+            <div className="composer-recipients">
+              <div className="composer-recipient-row">
+                <span className="composer-recipient-label">To</span>
+                <div className="composer-recipient-field">
+                  <RecipientChipInput
+                    recipients={contactForwardEmail.trim() ? [contactForwardEmail.trim()] : []}
+                    draft={contactForwardDraft}
+                    onRecipientsChange={(recipients) => setContactForwardEmail(recipients[0] || "")}
+                    onDraftChange={setContactForwardDraft}
+                    placeholder="Enter recipient email"
+                    maxRecipients={1}
+                    containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none" }}
+                  />
+                </div>
+                {!showContactForwardCc && (
+                  <button
+                    type="button"
+                    className="composer-recipient-action"
+                    onClick={() => setShowContactForwardCc(true)}
+                  >
+                    Cc
+                  </button>
+                )}
+                {!showContactForwardBcc && (
+                  <button
+                    type="button"
+                    className="composer-recipient-action"
+                    onClick={() => setShowContactForwardBcc(true)}
+                  >
+                    Bcc
+                  </button>
+                )}
+              </div>
+              {showContactForwardCc && (
+                <div className="composer-recipient-row">
+                  <span className="composer-recipient-label">Cc</span>
+                  <div className="composer-recipient-field">
+                    <RecipientChipInput
+                      recipients={contactForwardCcEmails}
+                      draft={contactForwardCcDraft}
+                      onRecipientsChange={setContactForwardCcEmails}
+                      onDraftChange={setContactForwardCcDraft}
+                      placeholder="Add CC recipients"
+                      containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none" }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="composer-recipient-remove"
+                    onClick={() => {
+                      setContactForwardCcEmails([]);
+                      setContactForwardCcDraft("");
+                      setShowContactForwardCc(false);
+                    }}
+                    title="Hide CC"
+                    aria-label="Hide CC"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+              )}
+              {showContactForwardBcc && (
+                <div className="composer-recipient-row">
+                  <span className="composer-recipient-label">Bcc</span>
+                  <div className="composer-recipient-field">
+                    <RecipientChipInput
+                      recipients={contactForwardBccEmails}
+                      draft={contactForwardBccDraft}
+                      onRecipientsChange={setContactForwardBccEmails}
+                      onDraftChange={setContactForwardBccDraft}
+                      placeholder="Add BCC recipients"
+                      containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none" }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="composer-recipient-remove"
+                    onClick={() => {
+                      setContactForwardBccEmails([]);
+                      setContactForwardBccDraft("");
+                      setShowContactForwardBcc(false);
+                    }}
+                    title="Hide BCC"
+                    aria-label="Hide BCC"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+              )}
+            </div>
+
             <style>
               {`
                 .contact-email-workspace .reply-section .rich-text-editor > div {
@@ -4424,291 +4621,233 @@ dispatch(closePanel());
                 }
               `}
             </style>
-            <div style={{ display: "grid", gap: 12, marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <RecipientChipInput
-                  prefixLabel="To"
-                  recipients={contactForwardEmail.trim() ? [contactForwardEmail.trim()] : []}
-                  draft={contactForwardDraft}
-                  onRecipientsChange={(recipients) => setContactForwardEmail(recipients[0] || "")}
-                  onDraftChange={setContactForwardDraft}
-                  placeholder="Enter recipient email"
-                  maxRecipients={1}
-                  containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
-                />
-                {!showContactForwardCc && (
-                  <button
-                    type="button"
-                    onClick={() => setShowContactForwardCc(true)}
-                    style={{ padding: "10px 12px", background: "#fff", color: "#2563eb", border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 500, whiteSpace: "nowrap" }}
-                  >
-                    CC
-                  </button>
-                )}
-                {!showContactForwardBcc && (
-                  <button
-                    type="button"
-                    onClick={() => setShowContactForwardBcc(true)}
-                    style={{ padding: "10px 12px", background: "#fff", color: "#2563eb", border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 500, whiteSpace: "nowrap" }}
-                  >
-                    BCC
-                  </button>
-                )}
-              </div>
-              {showContactForwardCc && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <RecipientChipInput
-                    recipients={contactForwardCcEmails}
-                    draft={contactForwardCcDraft}
-                    onRecipientsChange={setContactForwardCcEmails}
-                    onDraftChange={setContactForwardCcDraft}
-                    placeholder="Enter CC email"
-                    containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
-                  />
-                  <button type="button" onClick={() => { setContactForwardCcEmails([]); setContactForwardCcDraft(""); setShowContactForwardCc(false); }} title="Hide CC" aria-label="Hide CC" style={{ width: 38, height: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>x</button>
-                </div>
-              )}
-              {showContactForwardBcc && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <RecipientChipInput
-                    recipients={contactForwardBccEmails}
-                    draft={contactForwardBccDraft}
-                    onRecipientsChange={setContactForwardBccEmails}
-                    onDraftChange={setContactForwardBccDraft}
-                    placeholder="Enter BCC email"
-                    containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setContactForwardBccEmails([]);
-                      setContactForwardBccDraft("");
-                      setShowContactForwardBcc(false);
-                    }}
-                    title="Hide BCC"
-                    aria-label="Hide BCC"
-                    style={{ width: 38, height: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}
-                  >
-                    x
-                  </button>
-                </div>
-              )}
-              <div
-                style={{
-                  maxWidth: contactForwardEmailWidth === "Mobile" ? "480px" : contactForwardEmailWidth === "Tab" ? "768px" : "100%",
-                  margin: "0 auto",
-                  width: "100%",
+
+            <div
+              className="composer-editor"
+              style={{
+                maxWidth:
+                  contactForwardEmailWidth === "Mobile"
+                    ? "480px"
+                    : contactForwardEmailWidth === "Tab"
+                      ? "768px"
+                      : "100%",
+                marginInline: "auto",
+              }}
+            >
+              {renderKraftOptionPicker("forward",
+              <RichTextEditor
+                value={contactForwardMessage}
+                onChange={setContactForwardMessage}
+                showActionButtons
+                showManualInstruction
+                manualInstruction={contactManualInstruction}
+                onManualInstructionChange={setContactManualInstruction}
+                onRegenerate={() => handleKraftContactForward(activeThread)}
+                isRegenerating={isKraftingContactReply}
+                regenerateDisabled={!selectedContactReplyBlueprint || !activeThread?.contactId}
+                showDeviceButton
+                outputEmailWidth={contactForwardEmailWidth}
+                openDeviceDropdown={openContactForwardDeviceDropdown}
+                onDeviceDropdownToggle={() => setOpenContactForwardDeviceDropdown((prev) => !prev)}
+                onDeviceWidthChange={(width) => {
+                  setContactForwardEmailWidth(width);
+                  setOpenContactForwardDeviceDropdown(false);
                 }}
-              >
-                {renderKraftOptionPicker("forward",
-                <RichTextEditor
-                  value={contactForwardMessage}
-                  onChange={setContactForwardMessage}
-                  showActionButtons
-                  showManualInstruction
-                  manualInstruction={contactManualInstruction}
-                  onManualInstructionChange={setContactManualInstruction}
-                  onRegenerate={() => handleKraftContactForward(activeThread)}
-                  isRegenerating={isKraftingContactReply}
-                  regenerateDisabled={!selectedContactReplyBlueprint || !activeThread?.contactId}
-                  showDeviceButton
-                  outputEmailWidth={contactForwardEmailWidth}
-                  openDeviceDropdown={openContactForwardDeviceDropdown}
-                  onDeviceDropdownToggle={() => setOpenContactForwardDeviceDropdown((prev) => !prev)}
-                  onDeviceWidthChange={(width) => {
-                    setContactForwardEmailWidth(width);
-                    setOpenContactForwardDeviceDropdown(false);
-                  }}
-                  onExpandEditor={() => setIsContactForwardExpanded(true)}
-                  highlights={kraftHighlights}
-                  finalPrompt={kraftFinalPrompt}
-                  webSearchData={kraftWebSearchData}
-                  insightEmails={kraftEmails}
-                  insightNotes={kraftNotes}
-                  insightProfessionalSummary={kraftProfessionalSummary}
-                />
-                )}
-              </div>
+                onExpandEditor={() => setIsContactForwardExpanded(true)}
+                highlights={kraftHighlights}
+                finalPrompt={kraftFinalPrompt}
+                webSearchData={kraftWebSearchData}
+                insightEmails={kraftEmails}
+                insightNotes={kraftNotes}
+                insightProfessionalSummary={kraftProfessionalSummary}
+              />
+              )}
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
+
+            <div className="composer-note">
+              The original message is quoted below your note when the forward goes out.
+            </div>
+
+            <div className="composer-footer">
+              <span className="composer-footer-spacer" />
               <button
                 type="button"
+                className="btn-pill btn-ghost composer-discard"
                 onClick={closeContactForwardSection}
                 disabled={isForwardingContactEmail}
-                style={{
-                  padding: "10px 24px",
-                  ...secondaryButtonStyle,
-                  borderRadius: 6,
-                  cursor: isForwardingContactEmail ? "not-allowed" : "pointer",
-                  fontSize: 14,
-                  fontWeight: 500,
-                }}
               >
-                Cancel
+                Discard
               </button>
               <button
                 type="submit"
+                className="btn-pill btn-reply composer-send"
                 disabled={
                   isForwardingContactEmail ||
                   (!contactForwardEmail.trim() && !contactForwardDraft.trim()) ||
                   !contactForwardMessage.trim()
                 }
-                className="btn-default"
               >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M22 2L11 13" />
+                  <path d="M22 2l-7 20-4-9-9-4z" />
+                </svg>
                 {isForwardingContactEmail ? "Forwarding..." : "Forward"}
               </button>
             </div>
           </form>
         )}
         {contactMailTab !== "sent" && showContactReplySection && (
-          <div
-            className="reply-section"
-            style={{
-              marginTop: 24,
-              padding: "24px 24px 20px",
-              borderTop: "1px solid #e5e7eb",
-              background: "#fff",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 12,
-                marginBottom: 12,
-                flexWrap: "wrap",
-              }}
-            >
-              <label style={{ fontWeight: 500, fontSize: 14, color: "#374151" }}>Write reply</label>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="reply-section composer-card">
+            <div className="composer-head">
+              <FontAwesomeIcon icon={faReply} />
+              <h2 className="composer-title">
+                {activeThread?.contactEmail || contact?.email
+                  ? `Reply to ${extractSenderName(activeThread?.contactEmail || contact?.email || "")}`
+                  : "Write reply"}
+              </h2>
+              <button
+                type="button"
+                className="composer-close"
+                onClick={closeContactReplyComposer}
+                title="Close reply"
+                aria-label="Close reply"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+
+            <div className="composer-strip">
+              <div className="composer-strip-lead">
+                <span className="composer-strip-mark">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+                  </svg>
+                </span>
+                <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                  <span className="composer-strip-title">Draft with a blueprint</span>
+                  <span className="composer-strip-hint">
+                    Pick a blueprint, kraft it, then edit before sending.
+                  </span>
+                </span>
+              </div>
+              <select
+                aria-label="Blueprint"
+                value={selectedContactReplyBlueprint || ""}
+                onChange={(event) =>
+                  setSelectedContactReplyBlueprint(event.target.value ? Number(event.target.value) : null)
+                }
+              >
+                <option value="">Select a blueprint...</option>
+                {groupedContactBlueprintOptions}
+              </select>
+              <button
+                type="button"
+                className="btn-pill btn-kraft"
+                onClick={() => handleKraftContactReply(activeThread)}
+                disabled={!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread?.contactId}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+                </svg>
+                {isKraftingContactReply ? "Krafting..." : "Kraft"}
+              </button>
+            </div>
+
+            <div className="composer-recipients">
+              <div className="composer-recipient-row">
+                <span className="composer-recipient-label">To</span>
+                <div className="composer-recipient-field">
+                  <RecipientChipInput
+                    readOnly
+                    recipients={
+                      activeThread?.contactEmail || contact?.email
+                        ? [extractEmailAddress(activeThread?.contactEmail || contact?.email || "")]
+                        : []
+                    }
+                    draft=""
+                    onRecipientsChange={() => {}}
+                    onDraftChange={() => {}}
+                    placeholder="No recipient on this thread"
+                    containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none" }}
+                  />
+                </div>
                 {!showContactReplyCc && (
                   <button
                     type="button"
+                    className="composer-recipient-action"
                     onClick={() => setShowContactReplyCc(true)}
-                    style={{ padding: "6px 12px", background: "#fff", color: "#2563eb", border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500 }}
                   >
-                    CC
+                    Cc
                   </button>
                 )}
                 {!showContactReplyBcc && (
                   <button
                     type="button"
+                    className="composer-recipient-action"
                     onClick={() => setShowContactReplyBcc(true)}
-                    style={{ padding: "6px 12px", background: "#fff", color: "#2563eb", border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500 }}
                   >
-                    BCC
+                    Bcc
                   </button>
                 )}
-                <label
-                  style={{
-                    width: 38,
-                    minWidth: 38,
-                    height: 38,
-                    padding: 0,
-                    background: "#fff",
-                    color: "#6b7280",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                  title="Attach files"
-                >
-                  <FontAwesomeIcon icon={faPaperclip} style={{ color: "#3f9f42" }} />
-                  <input
-                    type="file"
-                    multiple
-                    style={{ display: "none" }}
-                    onChange={(event) => {
-                      const files = event.target.files ? Array.from(event.target.files) : [];
-                      if (files.length) setContactReplyAttachments((prev) => [...prev, ...files]);
-                      event.target.value = "";
-                    }}
-                  />
-                </label>
-                <select
-                  value={selectedContactReplyBlueprint || ""}
-                  onChange={(event) => setSelectedContactReplyBlueprint(event.target.value ? Number(event.target.value) : null)}
-                  style={{
-                    padding: "6px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    cursor: "pointer",
-                    minWidth: 200,
-                    background: "#fff",
-                  }}
-                >
-                  <option value="">Select Blueprint</option>
-                  {groupedContactBlueprintOptions}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => handleKraftContactReply(activeThread)}
-                  disabled={!selectedContactReplyBlueprint || isKraftingContactReply || !activeThread.contactId}
-                  className="btn-default"
-                >
-                  {isKraftingContactReply ? "Krafting..." : "Kraft"}
-                </button>
               </div>
-            </div>
-            {(activeThread.contactEmail || contact?.email) && (
-              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                <RecipientChipInput
-                  readOnly
-                  prefixLabel="To"
-                  recipients={[extractEmailAddress(activeThread.contactEmail || contact?.email || "")]}
-                  draft=""
-                  onRecipientsChange={() => {}}
-                  onDraftChange={() => {}}
-                  placeholder=""
-                  containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
-                />
-              </div>
-            )}
-            {(showContactReplyCc || showContactReplyBcc) && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-                {showContactReplyCc && (
-                  <div style={{ display: "flex", gap: 8 }}>
+              {showContactReplyCc && (
+                <div className="composer-recipient-row">
+                  <span className="composer-recipient-label">Cc</span>
+                  <div className="composer-recipient-field">
                     <RecipientChipInput
                       recipients={contactReplyCcEmails}
                       draft={contactReplyCcDraft}
                       onRecipientsChange={setContactReplyCcEmails}
                       onDraftChange={setContactReplyCcDraft}
-                      placeholder="Enter CC email"
-                      containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
+                      placeholder="Add CC recipients"
+                      containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none" }}
                     />
-                    <button type="button" onClick={() => { setContactReplyCcEmails([]); setContactReplyCcDraft(""); setShowContactReplyCc(false); }} style={{ width: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>x</button>
                   </div>
-                )}
-                {showContactReplyBcc && (
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    className="composer-recipient-remove"
+                    onClick={() => {
+                      setContactReplyCcEmails([]);
+                      setContactReplyCcDraft("");
+                      setShowContactReplyCc(false);
+                    }}
+                    title="Hide CC"
+                    aria-label="Hide CC"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+              )}
+              {showContactReplyBcc && (
+                <div className="composer-recipient-row">
+                  <span className="composer-recipient-label">Bcc</span>
+                  <div className="composer-recipient-field">
                     <RecipientChipInput
                       recipients={contactReplyBccEmails}
                       draft={contactReplyBccDraft}
                       onRecipientsChange={setContactReplyBccEmails}
                       onDraftChange={setContactReplyBccDraft}
-                      placeholder="Enter BCC email"
-                      containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none", flex: 1 }}
+                      placeholder="Add BCC recipients"
+                      containerStyle={{ width: "100%", minWidth: 0, maxWidth: "none" }}
                     />
-                    <button type="button" onClick={() => { setContactReplyBccEmails([]); setContactReplyBccDraft(""); setShowContactReplyBcc(false); }} style={{ width: 38, border: "1px solid #d1d5db", borderRadius: 6, background: "#fff", cursor: "pointer" }}>x</button>
                   </div>
-                )}
-              </div>
-            )}
-            {contactReplyAttachments.length > 0 && (
-              <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {contactReplyAttachments.map((file, index) => (
-                  <span key={`${file.name}-${file.lastModified}-${index}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 999, fontSize: 12, color: "#374151", background: "#f9fafb" }}>
-                    {file.name}
-                    <button type="button" onClick={() => setContactReplyAttachments((prev) => prev.filter((_, fileIndex) => fileIndex !== index))} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#ef4444", fontSize: 14, lineHeight: 1 }}>x</button>
-                  </span>
-                ))}
-              </div>
-            )}
+                  <button
+                    type="button"
+                    className="composer-recipient-remove"
+                    onClick={() => {
+                      setContactReplyBccEmails([]);
+                      setContactReplyBccDraft("");
+                      setShowContactReplyBcc(false);
+                    }}
+                    title="Hide BCC"
+                    aria-label="Hide BCC"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+              )}
+            </div>
+
             <style>
               {`
                 .contact-email-workspace .reply-section .rich-text-editor > div {
@@ -4780,86 +4919,145 @@ dispatch(closePanel());
                 }
               `}
             </style>
-            <div style={{ marginBottom: 12 }}>
-              <div
-                style={{
-                  maxWidth: contactReplyEmailWidth === "Mobile" ? "480px" : contactReplyEmailWidth === "Tab" ? "768px" : "100%",
-                  margin: "0 auto",
-                  // Anchors the floated "Save draft" button to the editor, so it
-                  // follows the device-preview width instead of the full row.
-                  position: "relative",
+
+            <div
+              className="composer-editor"
+              style={{
+                maxWidth:
+                  contactReplyEmailWidth === "Mobile"
+                    ? "480px"
+                    : contactReplyEmailWidth === "Tab"
+                      ? "768px"
+                      : "100%",
+                marginInline: "auto",
+                // Anchors the floated "Save draft" button to the editor, so it
+                // follows the device-preview width instead of the full row.
+                position: "relative",
+              }}
+            >
+              {/* Insights / regenerate / copy / device / expand all live in
+                  the editor toolbar - same controls as Inbox and Output. */}
+              {renderKraftOptionPicker("reply",
+              <RichTextEditor
+                value={contactReplyText}
+                onChange={setContactReplyText}
+                height={260}
+                showActionButtons
+                showManualInstruction
+                manualInstruction={contactManualInstruction}
+                onManualInstructionChange={setContactManualInstruction}
+                onRegenerate={() => handleKraftContactReply(activeThread)}
+                isRegenerating={isKraftingContactReply}
+                regenerateDisabled={!selectedContactReplyBlueprint || !activeThread?.contactId}
+                isCopyText={isCopyContactReplyText}
+                onCopyToClipboard={copyContactReplyToClipboard}
+                showDeviceButton
+                outputEmailWidth={contactReplyEmailWidth}
+                openDeviceDropdown={openContactReplyDeviceDropdown}
+                onDeviceDropdownToggle={() => setOpenContactReplyDeviceDropdown((prev) => !prev)}
+                onDeviceWidthChange={(width) => {
+                  setContactReplyEmailWidth(width);
+                  setOpenContactReplyDeviceDropdown(false);
                 }}
-              >
-                {/* Insights / regenerate / copy / device / expand all live in
-                    the editor toolbar — same controls as Inbox and Output. */}
-                {renderKraftOptionPicker("reply",
-                <RichTextEditor
-                  value={contactReplyText}
-                  onChange={setContactReplyText}
-                  height={260}
-                  showActionButtons
-                  showManualInstruction
-                  manualInstruction={contactManualInstruction}
-                  onManualInstructionChange={setContactManualInstruction}
-                  onRegenerate={() => handleKraftContactReply(activeThread)}
-                  isRegenerating={isKraftingContactReply}
-                  regenerateDisabled={!selectedContactReplyBlueprint || !activeThread?.contactId}
-                  isCopyText={isCopyContactReplyText}
-                  onCopyToClipboard={copyContactReplyToClipboard}
-                  showDeviceButton
-                  outputEmailWidth={contactReplyEmailWidth}
-                  openDeviceDropdown={openContactReplyDeviceDropdown}
-                  onDeviceDropdownToggle={() => setOpenContactReplyDeviceDropdown((prev) => !prev)}
-                  onDeviceWidthChange={(width) => {
-                    setContactReplyEmailWidth(width);
-                    setOpenContactReplyDeviceDropdown(false);
-                  }}
-                  onExpandEditor={() => setIsContactReplyExpanded(true)}
-                  highlights={kraftHighlights}
-                  finalPrompt={kraftFinalPrompt}
-                  webSearchData={kraftWebSearchData}
-                  insightEmails={kraftEmails}
-                  insightNotes={kraftNotes}
-                  insightProfessionalSummary={kraftProfessionalSummary}
-                />
-                )}
-              </div>
+                onExpandEditor={() => setIsContactReplyExpanded(true)}
+                highlights={kraftHighlights}
+                finalPrompt={kraftFinalPrompt}
+                webSearchData={kraftWebSearchData}
+                insightEmails={kraftEmails}
+                insightNotes={kraftNotes}
+                insightProfessionalSummary={kraftProfessionalSummary}
+              />
+              )}
             </div>
-            <div style={{ display: "flex", gap: 12, marginTop: 14, alignItems: "center" }}>
+
+            {contactReplyAttachments.length > 0 && (
+              <div className="composer-attachments">
+                {contactReplyAttachments.map((file, index) => (
+                  <span
+                    key={`${file.name}-${file.lastModified}-${index}`}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "8px 10px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 999,
+                      fontSize: 12,
+                      color: "#374151",
+                      background: "#f9fafb",
+                    }}
+                  >
+                    {file.name}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setContactReplyAttachments((prev) => prev.filter((_, fileIndex) => fileIndex !== index))
+                      }
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        color: "#ef4444",
+                        fontSize: 14,
+                        lineHeight: 1,
+                      }}
+                      aria-label={`Remove ${file.name}`}
+                    >
+                      x
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="composer-footer">
+              <label className="composer-attach" title="Attach files">
+                <FontAwesomeIcon icon={faPaperclip} />
+                <input
+                  type="file"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={(event) => {
+                    const files = event.target.files ? Array.from(event.target.files) : [];
+                    if (files.length) setContactReplyAttachments((prev) => [...prev, ...files]);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
               <button
                 type="button"
-                onClick={() => handleSendContactReply(activeThread)}
-                disabled={!getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() || isSendingContactReply}
-                className="btn-default"
-                style={{ order: 2 }}
+                className="btn-pill btn-forward"
+                onClick={() => handleSaveContactReplyDraft(activeThread)}
+                disabled={
+                  isSavingContactReplyDraft ||
+                  !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim()
+                }
+                title="Save this draft on the contact"
               >
-                {isSendingContactReply ? "Sending..." : "Send reply"}
+                {isSavingContactReplyDraft ? "Saving..." : "Save draft"}
+              </button>
+              <span className="composer-footer-spacer" />
+              <button
+                type="button"
+                className="btn-pill btn-ghost composer-discard"
+                onClick={closeContactReplyComposer}
+              >
+                Discard
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowContactReplySection(false);
-                  setContactReplyText("");
-                  setContactReplyTrailHtml("");
-                  setContactReplyCcEmails([]);
-                  setContactReplyCcDraft("");
-                  setContactReplyBccEmails([]);
-                  setContactReplyBccDraft("");
-                  setShowContactReplyCc(false);
-                  setShowContactReplyBcc(false);
-                  setContactReplyAttachments([]);
-                }}
-                style={{
-                  order: 1,
-                  padding: "10px 24px",
-                  ...secondaryButtonStyle,
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontSize: 14,
-                  fontWeight: 500,
-                }}
+                className="btn-pill btn-reply composer-send"
+                onClick={() => handleSendContactReply(activeThread)}
+                disabled={
+                  !getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim() ||
+                  isSendingContactReply
+                }
               >
-                Cancel
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M22 2L11 13" />
+                  <path d="M22 2l-7 20-4-9-9-4z" />
+                </svg>
+                {isSendingContactReply ? "Sending..." : "Send reply"}
               </button>
             </div>
           </div>

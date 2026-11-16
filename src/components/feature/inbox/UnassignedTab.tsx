@@ -412,7 +412,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 20px', gap: '12px' }}>
-        <div style={{ width: 24, height: 24, border: '3px solid #eaf5ea', borderTop: '3px solid #3f9f42', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+        <div style={{ width: 24, height: 24, border: '3px solid #eaf5ea', borderTop: '3px solid #1f7a3a', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
         <span style={{ fontSize: 13, color: '#9aa1ab' }}>Loading…</span>
       </div>
     );
@@ -478,7 +478,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                 style={{
                   padding: '8px',
                   background: 'transparent',
-                  color: '#3f9f42',
+                  color: '#1f7a3a',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
@@ -499,7 +499,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
               >
                 <FontAwesomeIcon
                   icon={faTrashAlt}
-                  style={{ fontSize: 20, color: '#3f9f42' }}
+                  style={{ fontSize: 20, color: '#1f7a3a' }}
                 />
               </button>
               
@@ -579,7 +579,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
               background: currentPage === 1 ? '#f3f4f6' : '#e2f1e3',
               cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
               fontSize: '18px',
-              color: currentPage === 1 ? '#9ca3af' : '#3f9f42'
+              color: currentPage === 1 ? '#9ca3af' : '#1f7a3a'
             }}
           >
             ‹
@@ -594,7 +594,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
               background: currentPage === totalPages ? '#f3f4f6' : '#e2f1e3',
               cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
               fontSize: '18px',
-              color: currentPage === totalPages ? '#9ca3af' : '#3f9f42'
+              color: currentPage === totalPages ? '#9ca3af' : '#1f7a3a'
             }}
           >
             ›
@@ -647,7 +647,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
                   className="mail-sender"
                   style={{
                     cursor: thread.contactId ? 'pointer' : 'default',
-                    color: thread.contactId ? '#3f9f42' : 'inherit',
+                    color: thread.contactId ? '#1f7a3a' : 'inherit',
                     textDecoration: thread.contactId ? 'underline' : 'none'
                   }}
                   onClick={(e) => {
