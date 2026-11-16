@@ -293,8 +293,8 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
                 >
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 10, fontSize: 13.5, fontWeight: 600, color: "#0b1220" }}>
                     {CHECK_ICONS[type.key] && (
-                      <span aria-hidden="true" style={{ position: "relative", display: "inline-block", width: 40, height: 40, overflow: "hidden", flexShrink: 0 }}>
-                        <img src={CHECK_ICONS[type.key]} alt="" style={{ position: "absolute", width: 76, height: 76, maxWidth: "none", top: "50%", left: "50%", transform: "translate(-50%, -50%)" }} />
+                      <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, flexShrink: 0 }}>
+                        <img src={CHECK_ICONS[type.key]} alt="" style={{ width: "100%", height: "100%", maxWidth: "none", objectFit: "contain" }} />
                       </span>
                     )}
                     {VALIDATION_CHECK_LABELS[type.key] || type.label}

@@ -17,10 +17,10 @@ import {
   type ValidationSuggestion,
 } from "../../../api/contactValidation";
 import { formatUserDate } from "../../common/dateTimePreferences";
-import targetAudienceIcon from "../../../assets/validation/target-audience-match.png";
-import employmentMatchIcon from "../../../assets/validation/employment-match.png";
+import targetAudienceIcon from "../../../assets/validation/Target_Audience_Match_curved_large_text.png";
+import employmentMatchIcon from "../../../assets/validation/Employment_Match_curved_large_text.png";
 import emailVerificationIcon from "../../../assets/validation/email-verification.png";
-import dataIntegrityIcon from "../../../assets/validation/data-integrity-check.png";
+import dataIntegrityIcon from "../../../assets/validation/Data_Integrity_Check_curved_large_text.png";
 import { useGridDetailOn } from "../../common/GridDetailMode";
 
 /**
