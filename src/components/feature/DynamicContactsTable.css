@@ -328,7 +328,7 @@
  */
 .dt-th-icon {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px;
+  width: 44px; height: 44px;
   flex-shrink: 0;
   vertical-align: middle;
 }

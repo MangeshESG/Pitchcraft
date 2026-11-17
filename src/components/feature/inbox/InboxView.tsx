@@ -88,7 +88,15 @@ interface InboxMessage {
   subject: string;
   body: string;
   fromEmail: string;
+  /** The mailbox that received this message (or the recipient, when sent). */
   toEmail: string;
+  /** Every address on the To line, comma separated. Null on rows stored
+   *  before the column existed, so always fall back to toEmail. */
+  toRecipients?: string | null;
+  /** The Cc line, comma separated. */
+  ccEmail?: string | null;
+  /** Bcc, on sent messages only — received mail never carries one. */
+  bccEmail?: string | null;
   date: string;
   isRead: boolean;
   contactId: number | null;
@@ -1477,55 +1485,87 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     );
   };
 
-  const handleSendReply = async () => {
-    if (!replyText.trim() || !selectedThread) return;
-    
+  // One composer serves Associated, External and All messages, but each tab
+  // holds its own selected thread and its own refresh trigger, so the send has
+  // to be told which thread it is replying to. Reading selectedThread alone
+  // left this button silently dead on the other two tabs.
+  const handleSendReply = async (thread?: InboxThread | null) => {
+    const replyThread = thread ?? selectedThread;
+
+    if (!replyText.trim()) return;
+
+    if (!replyThread?.trackingId) {
+      setToastMessage('Cannot reply: no tracking ID on this thread');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      return;
+    }
+
     setIsSending(true);
     setError('');
     try {
-      const response = await sendReplyEmail(selectedThread.trackingId);
+      const response = await sendReplyEmail(replyThread.trackingId);
 
       if (response.data.success) {
         // Add the sent message to the thread immediately
         const sentMessage: InboxMessage = {
           type: 'Reply',
           messageId: `temp-${Date.now()}`,
-          subject: `Re: ${selectedThread.subject}`,
+          subject: `Re: ${replyThread.subject}`,
           body: getSendableReplyBody(replyText),
           fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
-          toEmail: selectedThread.contactEmail,
+          toEmail: replyThread.contactEmail,
+          toRecipients: replyThread.contactEmail,
+          ccEmail: mergeRecipients(replyCcEmails, parseRecipientInput(replyCcDraft)).join(', ') || null,
+          bccEmail: mergeRecipients(replyBccEmails, parseRecipientInput(replyBccDraft)).join(', ') || null,
           date: new Date().toISOString(),
           isRead: true,
-          contactId: selectedThread.contactId
+          contactId: replyThread.contactId
         };
-        
+
         // Update the thread with the new message
         const updatedThread = {
-          ...selectedThread,
-          messages: [...selectedThread.messages, sentMessage],
-          totalMessages: selectedThread.totalMessages + 1,
+          ...replyThread,
+          messages: [...replyThread.messages, sentMessage],
+          totalMessages: replyThread.totalMessages + 1,
           lastMessageDate: sentMessage.date
         };
-        
-        setSelectedThread(updatedThread);
-        
-        // Update threads list
-        setThreads(prevThreads => 
-          prevThreads.map(t => 
-            t.trackingId === selectedThread.trackingId ? updatedThread : t
-          )
-        );
-        
+
+        // Put the thread back where it came from and refresh that tab's list.
+        if (activeTab === 'unassigned') {
+          setSelectedUnassignedThread(updatedThread);
+          setRefreshUnassignedTab(prev => prev + 1);
+        } else if (activeTab === 'allmessages' || activeTab === 'all') {
+          setSelectedAllMessagesThread(updatedThread);
+          setRefreshAllMessagesTab(prev => prev + 1);
+        } else {
+          setSelectedThread(updatedThread);
+
+          // Update threads list
+          setThreads(prevThreads =>
+            prevThreads.map(t =>
+              t.trackingId === replyThread.trackingId ? updatedThread : t
+            )
+          );
+
+          // Refresh the inbox list in background to get actual data from server
+          fetchMails(false);
+        }
+
         setReplyText('');
         setReplyAttachments([]);
+        setReplyCcEmails([]);
+        setReplyCcDraft('');
+        setReplyBccEmails([]);
+        setReplyBccDraft('');
+        setShowReplyCc(false);
+        setShowReplyBcc(false);
         setShowReplySection(false);
         setToastMessage('Reply sent successfully!');
         setToastType('success');
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
-        
-        // Refresh the inbox list in background to get actual data from server
-        fetchMails(false);
       } else {
         setToastMessage('Failed to send reply');
         setToastType('error');
@@ -1925,6 +1965,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       .map((part) => extractEmailAddress(part.trim()))
       .filter((address) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address));
 
+  // "Name <a@x.com>, b@y.com" -> "a@x.com, b@y.com" for the header lines.
+  const formatRecipientList = (value?: string | null): string => {
+    const addresses = splitAddressList(value);
+    return addresses.length ? addresses.join(', ') : String(value || '').trim();
+  };
+
   const getSelectedInboxAddress = (): string =>
     inboxList.find((inbox) => inbox.inboxId === selectedInboxId)?.emailAddress || '';
 
@@ -1937,6 +1983,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     )[0];
   };
 
+  // Everyone else on the message: the rest of its To line plus its Cc, minus
+  // this inbox and minus the address the reply already goes to.
   const getReplyAllCcList = (thread?: InboxThread | null): string[] => {
     const message = getLatestReceivedMessage(thread);
     if (!message) return [];
@@ -1946,7 +1994,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         .filter(Boolean),
     );
     const seen = new Set<string>();
-    return splitAddressList(message.toEmail).filter((address) => {
+    return [
+      ...splitAddressList(message.toRecipients || message.toEmail),
+      ...splitAddressList(message.ccEmail),
+    ].filter((address) => {
       const key = address.toLowerCase();
       if (excluded.has(key) || seen.has(key)) return false;
       seen.add(key);
@@ -2279,7 +2330,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           <button
             type="button"
             className="btn-pill btn-reply composer-send"
-            onClick={handleSendReply}
+            onClick={() => handleSendReply(thread)}
             disabled={!replyText.trim() || isSending}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -3492,11 +3543,19 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
                           {extractEmailAddress(message.fromEmail)}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
                           <span style={{ color: '#6b7280', fontSize: '13px' }}>To:</span>
-                          <span style={{ color: '#2563eb', fontSize: '13px' }}>
-                            {extractEmailAddress(message.toEmail || selectedThread.contactEmail)}
+                          <span style={{ color: '#374151', fontSize: '13px' }}>
+                            {formatRecipientList(message.toRecipients || message.toEmail || selectedThread.contactEmail)}
                           </span>
+                          {message.ccEmail && (
+                            <>
+                              <span style={{ color: '#6b7280', fontSize: '13px', marginLeft: '6px' }}>Cc:</span>
+                              <span style={{ color: '#374151', fontSize: '13px' }}>
+                                {formatRecipientList(message.ccEmail)}
+                              </span>
+                            </>
+                          )}
                           <button
                             type="button"
                             onClick={(e) => {
@@ -3535,8 +3594,18 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               <strong style={{ color: '#374151' }}>From:</strong> {message.contactName || extractSenderName(message.fromEmail)} &lt;{extractEmailAddress(message.fromEmail)}&gt;
                             </div>
                             <div>
-                              <strong style={{ color: '#374151' }}>To:</strong> {extractEmailAddress(message.toEmail || selectedThread.contactEmail)}
+                              <strong style={{ color: '#374151' }}>To:</strong> {formatRecipientList(message.toRecipients || message.toEmail || selectedThread.contactEmail)}
                             </div>
+                            {message.ccEmail && (
+                              <div>
+                                <strong style={{ color: '#374151' }}>Cc:</strong> {formatRecipientList(message.ccEmail)}
+                              </div>
+                            )}
+                            {message.bccEmail && (
+                              <div>
+                                <strong style={{ color: '#374151' }}>Bcc:</strong> {formatRecipientList(message.bccEmail)}
+                              </div>
+                            )}
                             <div>
                               <strong style={{ color: '#374151' }}>Date:</strong> {formatFullDate(message.date)}
                             </div>
@@ -3765,6 +3834,28 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
                             {extractEmailAddress(message.fromEmail)}
                           </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                            <span style={{ color: '#6b7280', fontSize: '13px' }}>To:</span>
+                            <span style={{ color: '#374151', fontSize: '13px' }}>
+                              {formatRecipientList(message.toRecipients || message.toEmail || selectedSentThread.contactEmail)}
+                            </span>
+                            {message.ccEmail && (
+                              <>
+                                <span style={{ color: '#6b7280', fontSize: '13px', marginLeft: '6px' }}>Cc:</span>
+                                <span style={{ color: '#374151', fontSize: '13px' }}>
+                                  {formatRecipientList(message.ccEmail)}
+                                </span>
+                              </>
+                            )}
+                            {message.bccEmail && (
+                              <>
+                                <span style={{ color: '#6b7280', fontSize: '13px', marginLeft: '6px' }}>Bcc:</span>
+                                <span style={{ color: '#374151', fontSize: '13px' }}>
+                                  {formatRecipientList(message.bccEmail)}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <span className={`mail-status-pill${isReceivedInboxMessage(message) ? ' received' : ' sent'}`}>
@@ -3973,11 +4064,19 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
                             {extractEmailAddress(message.fromEmail)}
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
                             <span style={{ color: '#6b7280', fontSize: '13px' }}>To:</span>
-                            <span style={{ color: '#2563eb', fontSize: '13px' }}>
-                              {extractEmailAddress(message.toEmail || selectedUnassignedThread.contactEmail)}
+                            <span style={{ color: '#374151', fontSize: '13px' }}>
+                              {formatRecipientList(message.toRecipients || message.toEmail || selectedUnassignedThread.contactEmail)}
                             </span>
+                            {message.ccEmail && (
+                              <>
+                                <span style={{ color: '#6b7280', fontSize: '13px', marginLeft: '6px' }}>Cc:</span>
+                                <span style={{ color: '#374151', fontSize: '13px' }}>
+                                  {formatRecipientList(message.ccEmail)}
+                                </span>
+                              </>
+                            )}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -4016,8 +4115,18 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                 <strong style={{ color: '#374151' }}>From:</strong> {message.contactName || extractSenderName(message.fromEmail)} &lt;{extractEmailAddress(message.fromEmail)}&gt;
                               </div>
                               <div>
-                                <strong style={{ color: '#374151' }}>To:</strong> {extractEmailAddress(message.toEmail || selectedUnassignedThread.contactEmail)}
+                                <strong style={{ color: '#374151' }}>To:</strong> {formatRecipientList(message.toRecipients || message.toEmail || selectedUnassignedThread.contactEmail)}
                               </div>
+                              {message.ccEmail && (
+                                <div>
+                                  <strong style={{ color: '#374151' }}>Cc:</strong> {formatRecipientList(message.ccEmail)}
+                                </div>
+                              )}
+                              {message.bccEmail && (
+                                <div>
+                                  <strong style={{ color: '#374151' }}>Bcc:</strong> {formatRecipientList(message.bccEmail)}
+                                </div>
+                              )}
                               <div>
                                 <strong style={{ color: '#374151' }}>Date:</strong> {formatFullDate(message.date)}
                               </div>
@@ -4243,11 +4352,19 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
                             {extractEmailAddress(message.fromEmail)}
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
                             <span style={{ color: '#6b7280', fontSize: '13px' }}>To:</span>
-                            <span style={{ color: '#2563eb', fontSize: '13px' }}>
-                              {extractEmailAddress(message.toEmail || selectedAllMessagesThread.contactEmail)}
+                            <span style={{ color: '#374151', fontSize: '13px' }}>
+                              {formatRecipientList(message.toRecipients || message.toEmail || selectedAllMessagesThread.contactEmail)}
                             </span>
+                            {message.ccEmail && (
+                              <>
+                                <span style={{ color: '#6b7280', fontSize: '13px', marginLeft: '6px' }}>Cc:</span>
+                                <span style={{ color: '#374151', fontSize: '13px' }}>
+                                  {formatRecipientList(message.ccEmail)}
+                                </span>
+                              </>
+                            )}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -4290,8 +4407,18 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                 <strong style={{ color: '#374151' }}>From:</strong> {message.contactName || extractSenderName(message.fromEmail)} &lt;{extractEmailAddress(message.fromEmail)}&gt;
                               </div>
                               <div>
-                                <strong style={{ color: '#374151' }}>To:</strong> {extractEmailAddress(message.toEmail || selectedAllMessagesThread.contactEmail)}
+                                <strong style={{ color: '#374151' }}>To:</strong> {formatRecipientList(message.toRecipients || message.toEmail || selectedAllMessagesThread.contactEmail)}
                               </div>
+                              {message.ccEmail && (
+                                <div>
+                                  <strong style={{ color: '#374151' }}>Cc:</strong> {formatRecipientList(message.ccEmail)}
+                                </div>
+                              )}
+                              {message.bccEmail && (
+                                <div>
+                                  <strong style={{ color: '#374151' }}>Bcc:</strong> {formatRecipientList(message.bccEmail)}
+                                </div>
+                              )}
                               <div>
                                 <strong style={{ color: '#374151' }}>Date:</strong> {formatFullDate(message.date)}
                               </div>

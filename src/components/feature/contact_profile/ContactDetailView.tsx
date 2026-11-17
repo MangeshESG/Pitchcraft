@@ -524,10 +524,14 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   useEffect(() => {
     if (!showContactReplySection && !showContactForwardSection) return;
 
+    // The Emails tab rides the contact page's scroll rather than scrolling
+    // inside the reader, so bring the composer itself into view.
     const scrollToComposer = () => {
-      const el = contactMailDetailRef.current;
-      if (el) {
-        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      const composer = document.querySelector(
+        ".contact-email-workspace .read-pane > .reply-section",
+      );
+      if (composer) {
+        composer.scrollIntoView({ behavior: "smooth", block: "end" });
       }
     };
 
@@ -2519,7 +2523,9 @@ const handleDeleteContact = async () => {
     );
     const seen = new Set<string>();
 
-    return String(latest?.toEmail || "")
+    // The rest of the To line plus the Cc line.
+    return [latest?.toRecipients || latest?.toEmail || "", latest?.ccEmail || ""]
+      .join(",")
       .split(/[,;]/)
       .map((part: string) => extractEmailAddress(part.trim()))
       .filter((address: string) => {
@@ -3776,6 +3782,16 @@ dispatch(closePanel());
     return (match ? match[1] : emailString).trim();
   };
 
+  /** "Name <a@x.com>, b@y.com" -> "a@x.com, b@y.com" for the header lines. */
+  const formatRecipientList = (value?: string | null): string => {
+    const addresses = String(value || "")
+      .split(/[,;]/)
+      .map((part) => extractEmailAddress(part.trim()))
+      .filter((address) => address.includes("@"));
+
+    return addresses.length ? addresses.join(", ") : String(value || "").trim();
+  };
+
   const extractSenderName = (emailString?: string): string => {
     if (!emailString) return "Unknown";
     const match = emailString.match(/^"?(.+?)"?\s*</);
@@ -4291,6 +4307,38 @@ dispatch(closePanel());
           </button>
           <h1 className="read-subject">{activeThread.subject}</h1>
           <div className="read-head-actions">
+            {/* Same actions the Inbox header carries, so both readers behave
+                alike. Hidden while a composer is open, as in the Inbox. */}
+            {contactMailTab !== "sent" && !showContactReplySection && !showContactForwardSection && (
+              <>
+                <button
+                  type="button"
+                  className="btn-pill btn-reply"
+                  onClick={() => openContactReplyComposer(activeThread)}
+                >
+                  <FontAwesomeIcon icon={faReply} />
+                  Reply
+                </button>
+                <button
+                  type="button"
+                  className="btn-pill btn-replyall"
+                  title="Reply to everyone on this email"
+                  onClick={() => openContactReplyComposer(activeThread, true)}
+                >
+                  <FontAwesomeIcon icon={faReplyAll} />
+                  Reply all
+                </button>
+                <button
+                  type="button"
+                  className="btn-pill btn-forward"
+                  onClick={() => openContactForwardSection(activeThread)}
+                >
+                  <FontAwesomeIcon icon={faShare} />
+                  Forward
+                </button>
+                <span className="read-head-divider" />
+              </>
+            )}
             <button
               className="head-icon danger contact-mail-delete"
               title="Delete"
@@ -4300,21 +4348,11 @@ dispatch(closePanel());
             </button>
           </div>
         </div>
-        <button
-          type="button"
-          className="scroll-to-bottom-btn"
-          title="Scroll to bottom"
-          onClick={() => {
-            const el = contactMailDetailRef.current;
-            if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-          }}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
-        </button>
+        {/* No scroll-to-bottom pill here: the Emails tab scrolls with the
+            contact page rather than inside the reader. */}
         <div
           className="mail-detail contact-mail-detail"
           ref={contactMailDetailRef}
-          style={{ paddingBottom: contactMailTab !== "sent" && !showContactReplySection && !showContactForwardSection ? 82 : 0 }}
         >
           {sortedMessages.slice(0, 1).map((message: any, index: number) => {
             const uniqueKey = getContactMessageCollapseKey(activeThread, message, index);
@@ -4346,9 +4384,21 @@ dispatch(closePanel());
                         )}
                       </div>
                       <div className="contact-mail-sender-email" style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{extractEmailAddress(message.fromEmail)}</div>
-                      <div className="contact-mail-recipient" style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                      <div className="contact-mail-recipient" style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
                         <span style={{ color: "#6b7280", fontSize: 13 }}>To:</span>
-                        <span style={{ color: "#2563eb", fontSize: 13 }}>{extractEmailAddress(message.toEmail || activeThread.contactEmail)}</span>
+                        <span style={{ color: "#374151", fontSize: 13 }}>{formatRecipientList(message.toRecipients || message.toEmail || activeThread.contactEmail)}</span>
+                        {message.ccEmail && (
+                          <>
+                            <span style={{ color: "#6b7280", fontSize: 13, marginLeft: 6 }}>Cc:</span>
+                            <span style={{ color: "#374151", fontSize: 13 }}>{formatRecipientList(message.ccEmail)}</span>
+                          </>
+                        )}
+                        {message.bccEmail && (
+                          <>
+                            <span style={{ color: "#6b7280", fontSize: 13, marginLeft: 6 }}>Bcc:</span>
+                            <span style={{ color: "#374151", fontSize: 13 }}>{formatRecipientList(message.bccEmail)}</span>
+                          </>
+                        )}
                         <button
                           type="button"
                           onClick={(event) => {
@@ -4390,7 +4440,13 @@ dispatch(closePanel());
                           }}
                         >
                           <div><strong style={{ color: "#374151" }}>From:</strong> {message.contactName || extractSenderName(message.fromEmail)} &lt;{extractEmailAddress(message.fromEmail)}&gt;</div>
-                          <div><strong style={{ color: "#374151" }}>To:</strong> {extractEmailAddress(message.toEmail || activeThread.contactEmail)}</div>
+                          <div><strong style={{ color: "#374151" }}>To:</strong> {formatRecipientList(message.toRecipients || message.toEmail || activeThread.contactEmail)}</div>
+                          {message.ccEmail && (
+                            <div><strong style={{ color: "#374151" }}>Cc:</strong> {formatRecipientList(message.ccEmail)}</div>
+                          )}
+                          {message.bccEmail && (
+                            <div><strong style={{ color: "#374151" }}>Bcc:</strong> {formatRecipientList(message.bccEmail)}</div>
+                          )}
                           <div><strong style={{ color: "#374151" }}>Date:</strong> {formatDateTimeIST(message.date)}</div>
                           <div><strong style={{ color: "#374151" }}>Subject:</strong> {message.subject || activeThread.subject}</div>
                         </div>
@@ -4615,8 +4671,9 @@ dispatch(closePanel());
             <style>
               {`
                 .contact-email-workspace .reply-section .rich-text-editor > div {
-                  min-height: 160px !important;
+                  min-height: 220px !important;
                   height: auto !important;
+                  max-height: none !important;
                   overflow-y: visible !important;
                 }
               `}
@@ -4850,11 +4907,13 @@ dispatch(closePanel());
 
             <style>
               {`
+                /* Grows with the draft, like the Inbox composer: the contact
+                   page scrolls, so the editor needs no scrollbar of its own. */
                 .contact-email-workspace .reply-section .rich-text-editor > div {
-                  min-height: 160px !important;
-                  height: 260px !important;
-                  max-height: 360px !important;
-                  overflow-y: auto !important;
+                  min-height: 220px !important;
+                  height: auto !important;
+                  max-height: none !important;
+                  overflow-y: visible !important;
                   overflow-x: hidden !important;
                   box-sizing: border-box !important;
                   word-break: break-word;

@@ -26,6 +26,12 @@ interface UnassignedMessage {
   body: string;
   fromEmail: string;
   toEmail: string;
+  /** Every address on the To line, comma separated; null on older rows. */
+  toRecipients?: string | null;
+  /** The Cc line, comma separated. */
+  ccEmail?: string | null;
+  /** Bcc, on sent messages only. */
+  bccEmail?: string | null;
   date: string;
   isRead: boolean;
   contactId: number | null;
