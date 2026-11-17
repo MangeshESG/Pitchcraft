@@ -120,6 +120,13 @@ interface ContactReplyBlueprint {
   templateDefinitionName?: string | null;
 }
 
+// A mailbox the client can send from, as /api/Inbox/Inbox_dropdown returns it.
+interface ContactReplyMailbox {
+  inboxId: number;
+  emailAddress: string;
+  provider: string;
+}
+
 interface ContactSmtpUser {
   id?: number;
   outboxId?: number;
@@ -386,6 +393,14 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [expandedContactMessageHeaders, setExpandedContactMessageHeaders] = useState<{ [key: string]: boolean }>({});
   const [contactReplyText, setContactReplyText] = useState("");
   const [contactReplyTrailHtml, setContactReplyTrailHtml] = useState("");
+  // Mailboxes a reply or a forward can be sent from, and the one each is
+  // addressed from as "<provider>:<inboxId>". Empty means the mailbox the
+  // thread runs on; for a reply any other choice cannot stay on the thread -
+  // see contactReplyStartsNewThread. A forward is a new email either way, so
+  // there the choice only decides which mailbox it leaves from.
+  const [contactReplyFromOptions, setContactReplyFromOptions] = useState<ContactReplyMailbox[]>([]);
+  const [contactReplyFromKey, setContactReplyFromKey] = useState("");
+  const [contactForwardFromKey, setContactForwardFromKey] = useState("");
   const [contactReplyCcEmails, setContactReplyCcEmails] = useState<string[]>([]);
   const [contactReplyCcDraft, setContactReplyCcDraft] = useState("");
   const [contactReplyBccEmails, setContactReplyBccEmails] = useState<string[]>([]);
@@ -1932,14 +1947,6 @@ const handleDeleteContact = async () => {
     return wrapper.querySelector("[data-reply-email-signature]")?.outerHTML || "";
   };
 
-  const appendContactForwardSignature = (html: string, signatureHtml: string): string => {
-    const { draftHtml, trailHtml } = splitContactReplyTrail(html || "");
-    if (draftHtml.includes(contactReplySignatureMarker)) return html;
-
-    const compactDraftHtml = draftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
-    return `${compactDraftHtml}<br/><br/><div ${contactReplySignatureMarker}>${signatureHtml}</div>${trailHtml}`;
-  };
-
   const replaceContactForwardDraftContent = (nextDraftHtml: string) => {
     setContactForwardMessage((currentForwardMessage) => {
       const { trailHtml } = splitContactReplyTrail(currentForwardMessage);
@@ -2560,8 +2567,108 @@ const handleDeleteContact = async () => {
     setContactReplyAttachments([]);
   };
 
+  // Provider and inbox id together identify a mailbox: the two sources behind
+  // the dropdown (IMAP credentials and OAuth tokens) number their rows
+  // separately, so the id alone is not unique.
+  const contactMailboxKey = (mailbox: ContactReplyMailbox): string =>
+    `${mailbox.provider}:${mailbox.inboxId}`;
+
+  const sameProvider = (first?: string, second?: string): boolean =>
+    normalizeSignatureProvider(first).toLowerCase() === normalizeSignatureProvider(second).toLowerCase();
+
+  // The mailbox this conversation runs on: the inbox the thread arrived on,
+  // or, failing that, our own address on its oldest message - that message's
+  // From when we started the thread and its To when the contact did.
+  const getOriginalContactReplyMailbox = (thread: any): ContactReplyMailbox | undefined => {
+    const threadMessages = Array.isArray(thread?.messages) ? thread.messages : [];
+    const threadInboxId =
+      getInboxIdValue(thread) ??
+      getInboxIdValue(thread?.lastMessage) ??
+      threadMessages.map(getInboxIdValue).find(Boolean);
+    const threadProvider = getContactThreadProvider(thread);
+    const oldestMessage = [...threadMessages].sort((a, b) => getMessageTime(a) - getMessageTime(b))[0];
+    const ownAddress = extractEmailAddress(
+      String(oldestMessage?.type || "").toLowerCase() === "sent"
+        ? oldestMessage?.fromEmail
+        : oldestMessage?.toEmail
+    ).toLowerCase();
+
+    return (
+      contactReplyFromOptions.find(
+        (mailbox) => mailbox.inboxId === threadInboxId && sameProvider(mailbox.provider, threadProvider)
+      ) ||
+      contactReplyFromOptions.find(
+        (mailbox) => !!ownAddress && mailbox.emailAddress.toLowerCase() === ownAddress
+      )
+    );
+  };
+
+  const getSelectedContactReplyMailbox = (thread: any): ContactReplyMailbox | undefined =>
+    contactReplyFromOptions.find((mailbox) => contactMailboxKey(mailbox) === contactReplyFromKey) ||
+    getOriginalContactReplyMailbox(thread);
+
+  const getSelectedContactForwardMailbox = (thread: any): ContactReplyMailbox | undefined =>
+    contactReplyFromOptions.find((mailbox) => contactMailboxKey(mailbox) === contactForwardFromKey) ||
+    getOriginalContactReplyMailbox(thread);
+
+  // A reply stays on the thread only while it goes out from the address the
+  // thread runs on. From any other mailbox the backend sends a new email under
+  // a new tracking id, so the draft drops the quoted trail and the result
+  // shows up in Sent rather than under this thread.
+  const contactReplyStartsNewThread = (thread: any): boolean => {
+    const originalMailbox = getOriginalContactReplyMailbox(thread);
+    const selectedMailbox = getSelectedContactReplyMailbox(thread);
+
+    return (
+      !!originalMailbox && !!selectedMailbox &&
+      selectedMailbox.emailAddress.toLowerCase() !== originalMailbox.emailAddress.toLowerCase()
+    );
+  };
+
+  // Swap in the signature of the selected From mailbox, leaving the rest of
+  // the draft and the quoted trail where they are.
+  const applyContactReplySignature = (html: string, signatureHtml: string): string => {
+    const { draftHtml, trailHtml } = splitContactReplyTrail(html || "");
+    const draft = document.createElement("div");
+    draft.innerHTML = draftHtml;
+    draft.querySelector(`[${contactReplySignatureMarker}]`)?.remove();
+
+    const compactDraftHtml = draft.innerHTML.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
+    const signatureBlock = signatureHtml
+      ? `<br/><br/><div ${contactReplySignatureMarker}>${signatureHtml}</div>`
+      : "";
+
+    return `${compactDraftHtml}${signatureBlock}${trailHtml}`;
+  };
+
+  // Picking another From address takes the quoted history out of the draft,
+  // because the send then starts a new email; going back to the thread's own
+  // address puts it back. The signature follows from the effect below.
+  const handleContactReplyFromChange = (key: string, thread: any) => {
+    setContactReplyFromKey(key);
+
+    const mailbox = contactReplyFromOptions.find((option) => contactMailboxKey(option) === key);
+    const originalMailbox = getOriginalContactReplyMailbox(thread);
+    const startsNewThread =
+      !!mailbox && !!originalMailbox &&
+      mailbox.emailAddress.toLowerCase() !== originalMailbox.emailAddress.toLowerCase();
+
+    setContactReplyText((currentReplyText) => {
+      const { draftHtml } = splitContactReplyTrail(currentReplyText || "");
+      const compactDraftHtml = draftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
+
+      return startsNewThread ? compactDraftHtml : `${compactDraftHtml}${contactReplyTrailHtml}`;
+    });
+  };
+
+  // A forward keeps its quoted original whichever mailbox it leaves from - it
+  // is a new email either way, and the backend quotes it itself - so only the
+  // signature follows the choice, which the effect below reloads.
+  const handleContactForwardFromChange = (key: string) => {
+    setContactForwardFromKey(key);
+  };
+
   const handleSendContactReply = async (thread: any) => {
-    const sendableReplyBody = getSendableContactReplyBody(contactReplyText || "");
     const plainReply = getPlainText(getDraftContactReplyBody(contactReplyText || "")).trim();
 
     if (!thread?.trackingId) {
@@ -2569,8 +2676,17 @@ const handleDeleteContact = async () => {
       return;
     }
 
+    // The From dropdown decides the mailbox; the thread's own inbox stands in
+    // when the dropdown could not be loaded. A body going out as a new email
+    // leaves the quoted trail behind.
     const threadMessages = Array.isArray(thread?.messages) ? thread.messages : [];
+    const selectedMailbox = getSelectedContactReplyMailbox(thread);
+    const startsNewThread = contactReplyStartsNewThread(thread);
+    const sendableReplyBody = startsNewThread
+      ? getDraftContactReplyBody(contactReplyText || "")
+      : getSendableContactReplyBody(contactReplyText || "");
     const replyOutboxId =
+      selectedMailbox?.inboxId ??
       getInboxIdValue(thread) ??
       getInboxIdValue(thread?.lastMessage) ??
       threadMessages.map(getInboxIdValue).find(Boolean);
@@ -2586,6 +2702,7 @@ const handleDeleteContact = async () => {
     }
 
     const replyProvider =
+      selectedMailbox?.provider ||
       getProviderValue(thread) ||
       getProviderValue(thread?.lastMessage) ||
       getProviderValue(threadMessages.find((message: any) => getProviderValue(message)));
@@ -2625,7 +2742,7 @@ const handleDeleteContact = async () => {
         messageId: `temp-${Date.now()}`,
         subject: `Re: ${thread.subject || ""}`.trim(),
         body: sendableReplyBody,
-        fromEmail: thread?.lastMessage?.toEmail || thread?.contactEmail || contact?.email || "",
+        fromEmail: selectedMailbox?.emailAddress || thread?.lastMessage?.toEmail || "",
         toEmail: thread.contactEmail || contact?.email || "",
         date: new Date().toISOString(),
         isRead: true,
@@ -2648,8 +2765,15 @@ const handleDeleteContact = async () => {
         };
       };
 
-      setEmailTimeline((prev) => prev.map(updateThreadWithReply));
-      setSelectedContactThread((prev: any) => (prev?.trackingId === thread.trackingId ? updateThreadWithReply(prev) : prev));
+      // Sent from another mailbox, this left as a new email under its own
+      // tracking id, so it belongs in Sent and this thread is untouched.
+      if (startsNewThread) {
+        setContactMailTab("sent");
+        setSelectedContactThread(null);
+      } else {
+        setEmailTimeline((prev) => prev.map(updateThreadWithReply));
+        setSelectedContactThread((prev: any) => (prev?.trackingId === thread.trackingId ? updateThreadWithReply(prev) : prev));
+      }
       setContactReplyText("");
       setContactReplyTrailHtml("");
       setContactReplyCcEmails([]);
@@ -2776,8 +2900,12 @@ const handleDeleteContact = async () => {
     const forwardRecipient = getContactForwardRecipient();
     if (!thread?.trackingId || !forwardRecipient || !contactForwardMessage.trim()) return;
 
+    // The From dropdown decides the mailbox; the thread's own inbox stands in
+    // when the dropdown could not be loaded.
     const threadMessages = Array.isArray(thread?.messages) ? thread.messages : [];
+    const forwardMailbox = getSelectedContactForwardMailbox(thread);
     const forwardOutboxId =
+      forwardMailbox?.inboxId ??
       getInboxIdValue(thread) ??
       getInboxIdValue(thread?.lastMessage) ??
       threadMessages.map(getInboxIdValue).find(Boolean);
@@ -2787,7 +2915,7 @@ const handleDeleteContact = async () => {
       return;
     }
 
-    const forwardProvider = getContactThreadProvider(thread);
+    const forwardProvider = forwardMailbox?.provider || getContactThreadProvider(thread);
     if (!forwardProvider) {
       showContactMailError("Thread provider not found.");
       return;
@@ -4018,9 +4146,46 @@ dispatch(closePanel());
     };
   }, [showContactReplySection, showContactForwardSection, selectedContactThread?.trackingId, token]);
 
-  // Load the mailbox signature into reply and forward drafts. The thread
-  // carries the inbox it arrived on, so the signature is resolved from that
-  // inbox rather than the compose "From" selection.
+  // The addresses a reply or a forward can be sent from - the same list the
+  // Inbox From picker uses, so both surfaces offer the same mailboxes.
+  useEffect(() => {
+    if ((!showContactReplySection && !showContactForwardSection) || !effectiveUserId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    axios
+      .get(`${API_BASE_URL}/api/Inbox/Inbox_dropdown?clientId=${effectiveUserId}`, {
+        headers: {
+          accept: "*/*",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      })
+      .then((response) => {
+        if (!isCancelled) setContactReplyFromOptions(response.data?.data || []);
+      })
+      .catch((error) => {
+        if (isCancelled) return;
+        console.error("Failed to load reply From addresses:", error);
+        showContactMailError("Could not load From addresses.");
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [showContactReplySection, showContactForwardSection, effectiveUserId, token]);
+
+  // The From choice belongs to the draft it was made in, so opening or closing
+  // a composer and switching thread all take it back to the thread's own
+  // mailbox.
+  useEffect(() => {
+    setContactReplyFromKey("");
+    setContactForwardFromKey("");
+  }, [showContactReplySection, showContactForwardSection, selectedContactThread?.trackingId]);
+
+  // Load the mailbox signature into reply and forward drafts, from the mailbox
+  // that composer's From dropdown is set to.
   useEffect(() => {
     const thread = selectedContactThread;
 
@@ -4029,11 +4194,17 @@ dispatch(closePanel());
     }
 
     const threadMessages = Array.isArray(thread?.messages) ? thread.messages : [];
+    const selectedMailbox = showContactForwardSection
+      ? getSelectedContactForwardMailbox(thread)
+      : getSelectedContactReplyMailbox(thread);
     const signatureInboxId =
+      selectedMailbox?.inboxId ??
       getInboxIdValue(thread) ??
       getInboxIdValue(thread?.lastMessage) ??
       threadMessages.map(getInboxIdValue).find(Boolean);
-    const signatureProvider = normalizeSignatureProvider(getContactThreadProvider(thread));
+    const signatureProvider = normalizeSignatureProvider(
+      selectedMailbox?.provider || getContactThreadProvider(thread)
+    );
 
     if (!signatureInboxId || !signatureProvider) {
       return;
@@ -4055,22 +4226,24 @@ dispatch(closePanel());
 
         if (isCancelled) return;
 
+        // A mailbox with no signature still has to clear the one the previous
+        // From choice left in the draft, so an empty one is applied as well.
         const signatureHtml = response.data?.signatureHtml || "";
-        if (!signatureHtml) return;
 
         if (showContactForwardSection) {
           setContactForwardMessage((currentForwardMessage) =>
-            appendContactForwardSignature(currentForwardMessage, signatureHtml)
+            applyContactReplySignature(currentForwardMessage, signatureHtml)
           );
         } else {
           setContactReplyText((currentReplyText) => {
-            const { draftHtml, trailHtml } = splitContactReplyTrail(currentReplyText || "");
-            if (draftHtml.includes(contactReplySignatureMarker)) {
-              return currentReplyText;
-            }
+            const withSignature = applyContactReplySignature(currentReplyText || "", signatureHtml);
+            const { trailHtml } = splitContactReplyTrail(withSignature);
 
-            const compactDraftHtml = draftHtml.replace(/(?:<br\s*\/?>|\s)+$/gi, "");
-            return `${compactDraftHtml}<br/><br/><div ${contactReplySignatureMarker}>${signatureHtml}</div>${trailHtml || contactReplyTrailHtml}`;
+            // The trail can still be on its way when the signature lands. It
+            // is left out on purpose once the draft is going out as a new
+            // email.
+            if (trailHtml || contactReplyStartsNewThread(thread)) return withSignature;
+            return `${withSignature}${contactReplyTrailHtml}`;
           });
         }
       } catch (error) {
@@ -4085,7 +4258,7 @@ dispatch(closePanel());
     return () => {
       isCancelled = true;
     };
-  }, [showContactReplySection, showContactForwardSection, selectedContactThread?.trackingId, effectiveUserId, token]);
+  }, [showContactReplySection, showContactForwardSection, selectedContactThread?.trackingId, contactReplyFromKey, contactForwardFromKey, contactReplyFromOptions, effectiveUserId, token]);
 
   useEffect(() => {
     setSelectedContactThread(null);
@@ -4579,6 +4752,30 @@ dispatch(closePanel());
 
             <div className="composer-recipients">
               <div className="composer-recipient-row">
+                <span className="composer-recipient-label">From</span>
+                <div className="composer-recipient-field">
+                  <select
+                    className="composer-recipient-select"
+                    aria-label="Send this forward from"
+                    value={
+                      getSelectedContactForwardMailbox(activeThread)
+                        ? contactMailboxKey(getSelectedContactForwardMailbox(activeThread) as ContactReplyMailbox)
+                        : ""
+                    }
+                    onChange={(event) => handleContactForwardFromChange(event.target.value)}
+                  >
+                    {!getSelectedContactForwardMailbox(activeThread) && (
+                      <option value="">Select a mailbox...</option>
+                    )}
+                    {contactReplyFromOptions.map((mailbox) => (
+                      <option key={contactMailboxKey(mailbox)} value={contactMailboxKey(mailbox)}>
+                        {mailbox.emailAddress}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="composer-recipient-row">
                 <span className="composer-recipient-label">To</span>
                 <div className="composer-recipient-field">
                   <RecipientChipInput
@@ -4811,6 +5008,37 @@ dispatch(closePanel());
             </div>
 
             <div className="composer-recipients">
+              <div className="composer-recipient-row">
+                <span className="composer-recipient-label">From</span>
+                <div className="composer-recipient-field">
+                  <select
+                    className="composer-recipient-select"
+                    aria-label="Send this reply from"
+                    value={
+                      getSelectedContactReplyMailbox(activeThread)
+                        ? contactMailboxKey(getSelectedContactReplyMailbox(activeThread) as ContactReplyMailbox)
+                        : ""
+                    }
+                    onChange={(event) => handleContactReplyFromChange(event.target.value, activeThread)}
+                  >
+                    {!getSelectedContactReplyMailbox(activeThread) && (
+                      <option value="">Select a mailbox...</option>
+                    )}
+                    {contactReplyFromOptions.map((mailbox) => (
+                      <option key={contactMailboxKey(mailbox)} value={contactMailboxKey(mailbox)}>
+                        {mailbox.emailAddress}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {contactReplyStartsNewThread(activeThread) && (
+                <div className="composer-recipient-note">
+                  {getSelectedContactReplyMailbox(activeThread)?.emailAddress} is not the address this
+                  conversation runs on, so this goes out as a new email rather than a reply on the
+                  thread - the quoted history is left out, and it lands in Sent.
+                </div>
+              )}
               <div className="composer-recipient-row">
                 <span className="composer-recipient-label">To</span>
                 <div className="composer-recipient-field">

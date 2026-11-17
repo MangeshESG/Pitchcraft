@@ -154,6 +154,18 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [replyText, setReplyText] = useState<string>('');
+  // The mailbox the open reply goes out from, as "<provider>:<inboxId>". Empty
+  // means the mailbox the thread itself runs on. Any other choice cannot stay
+  // on the thread - see replyStartsNewThread.
+  const [replyFromKey, setReplyFromKey] = useState<string>('');
+  // The same for the forward composer. A forward is always a new email, so
+  // this only decides which mailbox it leaves from.
+  const [forwardFromKey, setForwardFromKey] = useState<string>('');
+  // The quoted history, held aside while the draft is addressed from another
+  // mailbox, so switching back to the thread's own address restores it. A ref,
+  // not state: nothing renders it, and it is written while the draft is being
+  // rewritten.
+  const stashedReplyTrailRef = useRef<string>('');
   const [kraftFinalPrompt, setKraftFinalPrompt] = useState<string>('');
   const [kraftWebSearchData, setKraftWebSearchData] = useState<string>('');
   // Remaining personalization inputs returned by /api/email-generation/generate,
@@ -238,6 +250,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   useEffect(() => {
     if (!showReplySection && !showForwardSection) setManualInstruction('');
   }, [showReplySection, showForwardSection]);
+  // The From choice and the stashed trail belong to the draft they were made
+  // in, so closing the composer - by sending, closing, or switching tab or
+  // thread - drops both.
+  useEffect(() => {
+    if (!showReplySection) {
+      setReplyFromKey('');
+      stashedReplyTrailRef.current = '';
+    }
+  }, [showReplySection]);
   const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
   const mailDetailRef = useRef<HTMLDivElement>(null);
   const [showBulkDeleteDropdown, setShowBulkDeleteDropdown] = useState(false);
@@ -382,6 +403,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [pendingDeleteThreadId, setPendingDeleteThreadId] = useState<string | null>(null);
   const replyTrailMarker = 'data-reply-email-trail="true"';
   const forwardSignatureMarker = 'data-forward-email-signature="true"';
+  const replySignatureMarker = 'data-reply-email-signature="true"';
   const replyTrailTrackingId = activeTab === 'inbox'
     ? selectedThread?.trackingId
     : activeTab === 'sent'
@@ -742,12 +764,37 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     );
   };
 
-  const fetchDefaultSignature = useCallback(async () => {
-    if (!selectedInboxId || !selectedProvider) return '';
+  // Point the reader at a mailbox the way the inbox picker does, so its own
+  // lists load. Needed after a reply leaves from another mailbox: every tab,
+  // Sent included, is scoped to the inbox being viewed, so the email would
+  // otherwise land somewhere the user cannot see.
+  const switchToMailbox = (mailbox: InboxDropdownItem) => {
+    if (mailbox.inboxId === selectedInboxId && mailbox.provider === selectedProvider) return;
+
+    inboxFetchRequestRef.current += 1;
+    setThreads([]);
+    setSelectedThreadIds([]);
+    setInboxCurrentPage(1);
+    setInboxTotalCount(0);
+    setInboxTotalPages(0);
+    setSelectedInboxId(mailbox.inboxId);
+    setSelectedProvider(mailbox.provider);
+    localStorage.setItem(
+      lastSelectedInboxStorageKey,
+      JSON.stringify({ inboxId: mailbox.inboxId, provider: mailbox.provider })
+    );
+  };
+
+  // With no mailbox this reads the signature of the inbox being viewed; the
+  // reply composer passes whichever mailbox its From dropdown is set to.
+  const fetchDefaultSignature = useCallback(async (mailbox?: InboxDropdownItem) => {
+    const signatureInboxId = mailbox?.inboxId ?? selectedInboxId;
+    const signatureProvider = mailbox?.provider ?? selectedProvider;
+    if (!signatureInboxId || !signatureProvider) return '';
     
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${selectedInboxId}&Provider=${selectedProvider}&Mathod=Inbox`,
+        `${API_BASE_URL}/api/Crm/Single_signatures/${effectiveUserId}?InboxId=${signatureInboxId}&Provider=${encodeURIComponent(signatureProvider)}&Mathod=Inbox`,
         {
           headers: {
             accept: '*/*',
@@ -770,7 +817,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
     let isCancelled = false;
     const loadForwardSignature = async () => {
-      const signature = await fetchDefaultSignature();
+      // The signature of whatever the From row shows, which starts out as the
+      // mailbox the thread runs on. Later changes come through
+      // handleForwardFromChange, so this only has to cover the first load.
+      const signature = await fetchDefaultSignature(getSelectedForwardMailbox(getActiveThread()));
       if (!isCancelled && signature) {
         setForwardMessage((currentForwardMessage) =>
           appendForwardSignature(currentForwardMessage, signature)
@@ -1314,16 +1364,23 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }
   };
 
-  const sendReplyEmail = (trackingId: string) => {
-    const sendableReplyBody = getSendableReplyBody(replyText);
+  const sendReplyEmail = (trackingId: string, thread?: InboxThread | null) => {
+    // Outboxid is the mailbox the backend sends from, and what it compares
+    // against the thread's original sender to decide between a reply on this
+    // thread and a new email. A body that is going out as a new email drops
+    // the quoted trail.
+    const replyMailbox = getSelectedReplyMailbox(thread);
+    const sendableReplyBody = replyStartsNewThread(thread)
+      ? getDraftReplyBody(replyText)
+      : getSendableReplyBody(replyText);
     const formData = new FormData();
     formData.append('TrackingId', trackingId);
     formData.append('ClientId', String(parseInt(effectiveUserId)));
     formData.append('ReplyBody', sendableReplyBody);
-    formData.append('Outboxid', String(selectedInboxId || 0));
+    formData.append('Outboxid', String(replyMailbox?.inboxId || selectedInboxId || 0));
     formData.append('CC', mergeRecipients(replyCcEmails, parseRecipientInput(replyCcDraft)).join(','));
     formData.append('BCC', mergeRecipients(replyBccEmails, parseRecipientInput(replyBccDraft)).join(','));
-    formData.append('Provider', selectedProvider);
+    formData.append('Provider', replyMailbox?.provider || selectedProvider);
     replyAttachments.forEach((file) => {
       formData.append('Attachments', file);
     });
@@ -1505,7 +1562,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setIsSending(true);
     setError('');
     try {
-      const response = await sendReplyEmail(replyThread.trackingId);
+      const startsNewThread = replyStartsNewThread(replyThread);
+      const response = await sendReplyEmail(replyThread.trackingId, replyThread);
 
       if (response.data.success) {
         // Add the sent message to the thread immediately
@@ -1514,7 +1572,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           messageId: `temp-${Date.now()}`,
           subject: `Re: ${replyThread.subject}`,
           body: getSendableReplyBody(replyText),
-          fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
+          fromEmail: getSelectedReplyMailbox(replyThread)?.emailAddress || '',
           toEmail: replyThread.contactEmail,
           toRecipients: replyThread.contactEmail,
           ccEmail: mergeRecipients(replyCcEmails, parseRecipientInput(replyCcDraft)).join(', ') || null,
@@ -1532,8 +1590,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           lastMessageDate: sentMessage.date
         };
 
-        // Put the thread back where it came from and refresh that tab's list.
-        if (activeTab === 'unassigned') {
+        // Sent from another mailbox, this left as a new email under its own
+        // tracking id, so it belongs in Sent and this thread is untouched.
+        if (startsNewThread) {
+          const sentFromMailbox = getSelectedReplyMailbox(replyThread);
+          if (sentFromMailbox) switchToMailbox(sentFromMailbox);
+          handleTabChange('sent');
+          setRefreshSentTab(prev => prev + 1);
+        } else if (activeTab === 'unassigned') {
           setSelectedUnassignedThread(updatedThread);
           setRefreshUnassignedTab(prev => prev + 1);
         } else if (activeTab === 'allmessages' || activeTab === 'all') {
@@ -1974,6 +2038,129 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const getSelectedInboxAddress = (): string =>
     inboxList.find((inbox) => inbox.inboxId === selectedInboxId)?.emailAddress || '';
 
+  // A mailbox is identified by provider and id together: the two sources
+  // behind the dropdown (IMAP credentials and OAuth tokens) number their rows
+  // separately, so the id alone is not unique.
+  const mailboxKey = (inbox: InboxDropdownItem): string => `${inbox.provider}:${inbox.inboxId}`;
+
+  // The mailbox this conversation runs on - the address the contact has been
+  // writing to. That is our own address on the oldest message in the thread:
+  // its From when we started the thread, its To when they did. If neither
+  // matches a connected mailbox, the inbox being viewed stands in.
+  const getOriginalReplyMailbox = (thread?: InboxThread | null): InboxDropdownItem | undefined => {
+    const oldestMessage = [...(thread?.messages || [])].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    )[0];
+    const ownAddressCandidates = (
+      oldestMessage && isReceivedInboxMessage(oldestMessage)
+        ? [oldestMessage?.toEmail, oldestMessage?.fromEmail]
+        : [oldestMessage?.fromEmail, oldestMessage?.toEmail]
+    )
+      .map((address) => extractEmailAddress(String(address || '')).toLowerCase())
+      .filter(Boolean);
+
+    const threadMailbox = ownAddressCandidates
+      .map((address) => inboxList.find((inbox) => inbox.emailAddress.toLowerCase() === address))
+      .find(Boolean);
+
+    return (
+      threadMailbox ||
+      inboxList.find((inbox) => inbox.inboxId === selectedInboxId && inbox.provider === selectedProvider) ||
+      inboxList.find((inbox) => inbox.inboxId === selectedInboxId)
+    );
+  };
+
+  const getSelectedReplyMailbox = (thread?: InboxThread | null): InboxDropdownItem | undefined =>
+    inboxList.find((inbox) => mailboxKey(inbox) === replyFromKey) || getOriginalReplyMailbox(thread);
+
+  const getSelectedForwardMailbox = (thread?: InboxThread | null): InboxDropdownItem | undefined =>
+    inboxList.find((inbox) => mailboxKey(inbox) === forwardFromKey) || getOriginalReplyMailbox(thread);
+
+  // A reply can only stay on the thread while it goes out from the address the
+  // thread runs on. From any other mailbox the backend sends a new email under
+  // a new tracking id, so the draft drops the quoted trail and the result
+  // belongs in Sent rather than under this thread.
+  const replyStartsNewThread = (thread?: InboxThread | null): boolean => {
+    const originalMailbox = getOriginalReplyMailbox(thread);
+    const selectedMailbox = getSelectedReplyMailbox(thread);
+
+    return (
+      !!originalMailbox && !!selectedMailbox &&
+      selectedMailbox.emailAddress.toLowerCase() !== originalMailbox.emailAddress.toLowerCase()
+    );
+  };
+
+  // Swap in the signature of the selected From mailbox, leaving the rest of
+  // the draft and the quoted trail where they are.
+  const applyReplySignature = (html: string, signatureHtml: string): string => {
+    const { draftHtml, trailHtml } = splitReplyTrail(html || '');
+    const draft = document.createElement('div');
+    draft.innerHTML = draftHtml;
+    draft.querySelector(`[${replySignatureMarker}]`)?.remove();
+
+    const compactDraftHtml = draft.innerHTML.replace(/(?:<br\s*\/?>|\s)+$/gi, '');
+    const normalizedSignature = signatureHtml.replace(/^(?:<br\s*\/?>|\s)+/gi, '');
+    const signatureBlock = normalizedSignature
+      ? `<br/><br/><div ${replySignatureMarker}>${normalizedSignature}</div>`
+      : '';
+
+    return `${compactDraftHtml}${signatureBlock}${trailHtml}`;
+  };
+
+  // Swap in the signature of the selected From mailbox of a forward. The
+  // forward keeps its quoted original either way: a forward is a new email
+  // whichever mailbox it leaves from, and the backend quotes it itself.
+  const applyForwardSignature = (html: string, signatureHtml: string): string => {
+    const { draftHtml, trailHtml } = splitReplyTrail(html || '');
+    const draft = document.createElement('div');
+    draft.innerHTML = draftHtml;
+    draft.querySelector(`[${forwardSignatureMarker}]`)?.remove();
+
+    const compactDraftHtml = draft.innerHTML.replace(/(?:<br\s*\/?>|\s)+$/gi, '');
+    const normalizedSignature = signatureHtml.replace(/^(?:<br\s*\/?>|\s)+/gi, '');
+    const signatureBlock = normalizedSignature
+      ? `<br/><br/><div ${forwardSignatureMarker}>${normalizedSignature}</div>`
+      : '';
+
+    return `${compactDraftHtml}${signatureBlock}${trailHtml}`;
+  };
+
+  const handleForwardFromChange = async (key: string) => {
+    setForwardFromKey(key);
+
+    const mailbox = inboxList.find((inbox) => mailboxKey(inbox) === key);
+    const signature = await fetchDefaultSignature(mailbox);
+    setForwardMessage((currentForwardMessage) =>
+      applyForwardSignature(currentForwardMessage, signature)
+    );
+  };
+
+  // Picking another From address loads that mailbox's signature and, because
+  // the send then starts a new email, takes the quoted history out of the
+  // draft; going back to the thread's own address puts it back.
+  const handleReplyFromChange = async (key: string, thread?: InboxThread | null) => {
+    setReplyFromKey(key);
+
+    const mailbox = inboxList.find((inbox) => mailboxKey(inbox) === key);
+    const originalMailbox = getOriginalReplyMailbox(thread);
+    const startsNewThread =
+      !!mailbox && !!originalMailbox &&
+      mailbox.emailAddress.toLowerCase() !== originalMailbox.emailAddress.toLowerCase();
+    const signature = await fetchDefaultSignature(mailbox);
+
+    setReplyText((currentReplyText) => {
+      const withSignature = applyReplySignature(currentReplyText, signature);
+      const { draftHtml, trailHtml } = splitReplyTrail(withSignature);
+
+      if (startsNewThread) {
+        if (trailHtml) stashedReplyTrailRef.current = trailHtml;
+        return draftHtml;
+      }
+
+      return trailHtml ? withSignature : `${draftHtml}${stashedReplyTrailRef.current}`;
+    });
+  };
+
   // The message the reading pane shows - the newest received one in the thread.
   const getLatestReceivedMessage = (thread?: InboxThread | null): InboxMessage | null => {
     const received = (thread?.messages || []).filter(isReceivedInboxMessage);
@@ -2006,8 +2193,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const openReplyComposer = async (thread?: InboxThread | null, replyAll = false) => {
-    const signature = await fetchDefaultSignature();
-    setReplyText(signature);
+    // The reply starts on the mailbox the thread runs on, with that mailbox's
+    // signature; that is what the From dropdown then shows.
+    const mailbox = getOriginalReplyMailbox(thread);
+    setReplyFromKey(mailbox ? mailboxKey(mailbox) : '');
+    stashedReplyTrailRef.current = '';
+    const signature = await fetchDefaultSignature(mailbox);
+    setReplyText(applyReplySignature('', signature));
     setShowForwardSection(false);
     if (replyAll) {
       const ccList = getReplyAllCcList(thread);
@@ -2089,8 +2281,38 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   );
 
   // To / Cc / Bcc as one bordered block, the way the redesign frames them.
-  const renderComposerRecipients = (toEmail?: string) => (
+  const renderComposerRecipients = (thread?: InboxThread | null) => {
+    const toEmail = thread?.contactEmail;
+    const selectedMailbox = getSelectedReplyMailbox(thread);
+    const startsNewThread = replyStartsNewThread(thread);
+
+    return (
     <div className="composer-recipients">
+      <div className="composer-recipient-row">
+        <span className="composer-recipient-label">From</span>
+        <div className="composer-recipient-field">
+          <select
+            className="composer-recipient-select"
+            aria-label="Send this reply from"
+            value={selectedMailbox ? mailboxKey(selectedMailbox) : ''}
+            onChange={(event) => handleReplyFromChange(event.target.value, thread)}
+          >
+            {!selectedMailbox && <option value="">Select a mailbox...</option>}
+            {inboxList.map((inbox) => (
+              <option key={mailboxKey(inbox)} value={mailboxKey(inbox)}>
+                {inbox.emailAddress}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {startsNewThread && (
+        <div className="composer-recipient-note">
+          {selectedMailbox?.emailAddress} is not the address this conversation runs on, so this
+          goes out as a new email rather than a reply on the thread - the quoted history is left
+          out, and it lands in Sent.
+        </div>
+      )}
       <div className="composer-recipient-row">
         <span className="composer-recipient-label">To</span>
         <div className="composer-recipient-field">
@@ -2172,7 +2394,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   // The reply composer, shared by the Associated, External and All-messages
   // readers. Each used to carry its own copy of this markup.
@@ -2233,7 +2456,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           </button>
         </div>
 
-        {renderComposerRecipients(thread?.contactEmail)}
+        {renderComposerRecipients(thread)}
 
         <style>
           {`
@@ -2346,6 +2569,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   const openForwardModal = (thread: InboxThread) => {
     setForwardTrackingId(thread.trackingId);
+    setForwardFromKey('');
     setForwardEmail('');
     setForwardDraft('');
     setForwardCcEmails([]);
@@ -2361,6 +2585,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   const closeForwardModal = () => {
     if (isForwarding) return;
+    setForwardFromKey('');
     setForwardEmail('');
     setForwardDraft('');
     setForwardCcEmails([]);
@@ -2383,6 +2608,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     const forwardRecipient = getForwardRecipient();
     if (!forwardTrackingId || !forwardRecipient || !forwardMessage.trim()) return;
 
+    // outboxId and Provider are what the backend sends from; the thread's own
+    // mailbox stands in when the dropdown has nothing resolved.
+    const forwardMailbox = getSelectedForwardMailbox(getActiveThread());
+
     setIsForwarding(true);
     try {
       const response = await axios.post(
@@ -2392,10 +2621,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           clientId: parseInt(effectiveUserId),
           forwardToEmail: forwardRecipient,
           forwardMessage: getSendableReplyBody(forwardMessage),
-          outboxId: selectedInboxId || 0,
+          outboxId: forwardMailbox?.inboxId || selectedInboxId || 0,
           ccEmail: mergeRecipients(forwardCcEmails, parseRecipientInput(forwardCcDraft)).join(','),
           bccEmail: mergeRecipients(forwardBccEmails, parseRecipientInput(forwardBccDraft)).join(','),
-          Provider: selectedProvider
+          Provider: forwardMailbox?.provider || selectedProvider
         },
         {
           headers: {
@@ -2450,6 +2679,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const renderForwardSection = () => {
     const editorMaxWidth =
       outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%';
+    const forwardMailbox = getSelectedForwardMailbox(getActiveThread());
+    const forwardMailboxValue = forwardMailbox ? mailboxKey(forwardMailbox) : '';
 
     return (
     <form
@@ -2503,6 +2734,24 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       </div>
 
       <div className="composer-recipients">
+        <div className="composer-recipient-row">
+          <span className="composer-recipient-label">From</span>
+          <div className="composer-recipient-field">
+            <select
+              className="composer-recipient-select"
+              aria-label="Send this forward from"
+              value={forwardMailboxValue}
+              onChange={(event) => handleForwardFromChange(event.target.value)}
+            >
+              {!forwardMailboxValue && <option value="">Select a mailbox...</option>}
+              {inboxList.map((inbox) => (
+                <option key={mailboxKey(inbox)} value={mailboxKey(inbox)}>
+                  {inbox.emailAddress}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         <div className="composer-recipient-row">
           <span className="composer-recipient-label">To</span>
           <div className="composer-recipient-field">
