@@ -20,6 +20,7 @@ import "./LoginPage.css";
 import { RootState } from "../Redux/store";
 import pitchLogo from "../assets/images/pitch_logo.png";
 import LoginCaptcha from "./LoginCaptcha";
+import { takeSessionExpiredNotice } from "../utils/session";
 
 type ViewMode = "login" | "register" | "forgot" | "otp";
 
@@ -96,7 +97,10 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const dispatch = useDispatch();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  // Seeded with the reason the session ended, when an expired token is what
+  // sent the user back here, so the form explains itself instead of just
+  // appearing. Reading it also clears it, so it shows once.
+  const [error, setError] = useState(takeSessionExpiredNotice);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
