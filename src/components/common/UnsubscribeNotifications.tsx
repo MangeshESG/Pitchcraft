@@ -9,7 +9,7 @@ interface NotificationItem {
   contactId: number | null;
   contactName: string | null;
   email: string;
-  source: "UnsubscribeByToken" | "OneClick" | "WebsiteContact";
+  source: "UnsubscribeByToken" | "OneClick" | "WebsiteContact" | "WebsiteContactRepeat";
   createdAt: string;
   isRead: boolean;
 }
@@ -26,6 +26,11 @@ const mergeItems = (existing: NotificationItem[], incoming: NotificationItem[]) 
   incoming.forEach(item => byId.set(item.id, item));
   return Array.from(byId.values()).sort((a, b) => b.id - a.id);
 };
+
+const notificationText = (source: NotificationItem["source"]) =>
+  source === "WebsiteContact" ? "was added from the website."
+    : source === "WebsiteContactRepeat" ? "sent another enquiry from the website."
+    : "unsubscribed.";
 
 const notificationTime = (value: string) => {
   const utcValue = /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`;
@@ -215,7 +220,7 @@ const UnsubscribeNotifications: React.FC<{ clientId?: string; token: string | nu
       {loading && <p className="unsubscribe-notifications__status">Loading notifications…</p>}
       <ul className="unsubscribe-notifications__list">{items.map(item => <li key={item.id} className={item.isRead ? "" : "is-unread"}>
         <span className="unsubscribe-notifications__dot" aria-label={item.isRead ? "Read" : "Unread"} />
-        <div><p><strong>{item.contactName || item.email}</strong> {item.source === "WebsiteContact" ? "was added from the website." : "unsubscribed."}</p>
+        <div><p><strong>{item.contactName || item.email}</strong> {notificationText(item.source)}</p>
           {item.contactName && <span className="unsubscribe-notifications__email">{item.email}</span>}
           <time dateTime={item.createdAt}>{notificationTime(item.createdAt)}</time>
         </div>
