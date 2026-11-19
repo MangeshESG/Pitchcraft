@@ -240,6 +240,8 @@ const Template: React.FC<TemplateProps> = ({
   const createCampaignClickInFlightRef = useRef(false);
   const DEFAULT_USER_TEMPLATE_ID = 65;
   const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL 2.0";
+  // Base templates that stay hidden from non-admin users
+  const ADMIN_ONLY_TEMPLATE_NAMES = ["tester"];
   const isAdmin = userRole?.toUpperCase() === "ADMIN";
   const normalizeClientId = (value?: string | null) => {
     const trimmedValue = value?.trim();
@@ -356,20 +358,33 @@ const Template: React.FC<TemplateProps> = ({
       const data = await response.json();
       const defs: TemplateDefinition[] = data.templateDefinitions || [];
 
-      // ✅ All roles (admin and non-admin) → see every active template
-      setTemplateDefinitions(defs);
+      // ✅ Admin → every active template.
+      // ✅ Non-admin → same list minus the admin-only ones (e.g. "Tester").
+      const visibleDefs = isAdmin
+        ? defs
+        : defs.filter(
+            (d) =>
+              !ADMIN_ONLY_TEMPLATE_NAMES.includes(
+                (d.templateName || "").trim().toLowerCase(),
+              ),
+          );
 
-      if (defs.length > 0) {
+      setTemplateDefinitions(visibleDefs);
+
+      if (visibleDefs.length > 0) {
         // Preselect PKB-Final when available, otherwise the first template
         const defaultTemplate =
-          defs.find((d) => d.id === DEFAULT_USER_TEMPLATE_ID) || defs[0];
+          visibleDefs.find((d) => d.id === DEFAULT_USER_TEMPLATE_ID) ||
+          visibleDefs[0];
         setSelectedTemplateDefinitionId(defaultTemplate.id);
+      } else {
+        setSelectedTemplateDefinitionId(null);
       }
     } catch (error) {
       console.error(error);
       setTemplateDefinitions([]);
     }
-  }, []);
+  }, [isAdmin]);
 
   // Fetch campaign templates
   const fetchCampaignTemplates = useCallback(async () => {
