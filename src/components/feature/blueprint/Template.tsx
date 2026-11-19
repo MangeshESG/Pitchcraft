@@ -356,25 +356,20 @@ const Template: React.FC<TemplateProps> = ({
       const data = await response.json();
       const defs: TemplateDefinition[] = data.templateDefinitions || [];
 
-      if (isAdmin) {
-        // ✅ Admin → see all templates
-        setTemplateDefinitions(defs);
+      // ✅ All roles (admin and non-admin) → see every active template
+      setTemplateDefinitions(defs);
 
-        if (defs.length > 0) {
-          setSelectedTemplateDefinitionId(defs[0].id);
-        }
-      } else {
-        // ✅ USER → force PKB-Final only
-        const pkbTemplate = defs.find((d) => d.id === DEFAULT_USER_TEMPLATE_ID);
-
-        setTemplateDefinitions(pkbTemplate ? [pkbTemplate] : []);
-        setSelectedTemplateDefinitionId(DEFAULT_USER_TEMPLATE_ID);
+      if (defs.length > 0) {
+        // Preselect PKB-Final when available, otherwise the first template
+        const defaultTemplate =
+          defs.find((d) => d.id === DEFAULT_USER_TEMPLATE_ID) || defs[0];
+        setSelectedTemplateDefinitionId(defaultTemplate.id);
       }
     } catch (error) {
       console.error(error);
       setTemplateDefinitions([]);
     }
-  }, [isAdmin]);
+  }, []);
 
   // Fetch campaign templates
   const fetchCampaignTemplates = useCallback(async () => {
@@ -486,19 +481,13 @@ const Template: React.FC<TemplateProps> = ({
       return;
     }
 
-    // ✅ ROLE-BASED TEMPLATE RESOLUTION (TS SAFE)
-    let finalTemplateDefinitionId: number;
-
-    if (isAdmin) {
-      if (selectedTemplateDefinitionId == null) {
-        appModal.showError("Please select a template definition first");
-        return;
-      }
-      finalTemplateDefinitionId = selectedTemplateDefinitionId;
-    } else {
-      // 🔒 USER → force PKB-Final
-      finalTemplateDefinitionId = DEFAULT_USER_TEMPLATE_ID;
+    // ✅ TEMPLATE RESOLUTION — every role picks from the dropdown
+    if (selectedTemplateDefinitionId == null) {
+      appModal.showError("Please select a template definition first");
+      return;
     }
+
+    const finalTemplateDefinitionId: number = selectedTemplateDefinitionId;
 
     setIsCreatingCampaign(true);
 
@@ -1274,24 +1263,22 @@ const Template: React.FC<TemplateProps> = ({
               </div>
             ) : (
               <>
-                {isAdmin && (
-                  <div className="form-group" style={{ marginBottom: "20px" }}>
-                    <label>
-                      Select base template <span style={{ color: "red" }}>*</span>
-                    </label>
-                    <select
-                      value={selectedTemplateDefinitionId || ""}
-                      onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
-                    >
-                      <option value="">-- Select a template definition --</option>
-                      {templateDefinitions.map((def) => (
-                        <option key={def.id} value={def.id}>
-                          {def.templateName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                <div className="form-group" style={{ marginBottom: "20px" }}>
+                  <label>
+                    Select base template <span style={{ color: "red" }}>*</span>
+                  </label>
+                  <select
+                    value={selectedTemplateDefinitionId || ""}
+                    onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
+                  >
+                    <option value="">-- Select a template definition --</option>
+                    {templateDefinitions.map((def) => (
+                      <option key={def.id} value={def.id}>
+                        {def.templateName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 <div className="form-group" style={{ marginBottom: "20px" }}>
                   <label htmlFor="templateName" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>

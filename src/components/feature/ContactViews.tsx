@@ -1160,9 +1160,29 @@ const handleDeleteContacts = () => {
     };
   };
 
-  const fetchViews = async () => {
+  /**
+   * Stable signature for a value, used to tell a poll that returned identical
+   * data from one that returned a real update. Key order is stable because
+   * every row comes out of the same normalizer.
+   */
+  const signatureOf = (value: unknown) => {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      // A cyclic or non-serializable payload is treated as always-changed.
+      return null;
+    }
+  };
+
+  /**
+   * @param background When true this is the 30s poll, not a user action: it
+   * shows no spinner and leaves state untouched unless the data really changed,
+   * so an unchanged list does not re-render (and does not lose scroll or
+   * selection) every interval.
+   */
+  const fetchViews = async (background = false) => {
     if (!clientId) return;
-    setIsLoadingViews(true);
+    if (!background) setIsLoadingViews(true);
     try {
       const data = await fetchClientViews(clientId);
       const metaMap = loadViewMetaMap(clientId);
@@ -1173,19 +1193,27 @@ const handleDeleteContacts = () => {
           sensitivity: "base",
         })
       );
-      setViews(merged);
+      const mergedSignature = signatureOf(merged);
+      setViews((previous) =>
+        mergedSignature !== null && signatureOf(previous) === mergedSignature
+          ? previous
+          : merged
+      );
       setViewContactCounts((previous) => {
         const next = { ...previous };
         merged.filter((view) => view.isSystem).forEach((view) => {
           if (view.contactCount !== undefined) next[view.id] = view.contactCount;
         });
-        return next;
+        // Returning the same object keeps the pager from re-rendering when the
+        // counts came back identical.
+        return signatureOf(previous) === signatureOf(next) ? previous : next;
       });
     } catch (error) {
       console.error("Error fetching views:", error);
-      setViews([]);
+      // A failed poll must not blank a list that is already on screen.
+      if (!background) setViews([]);
     } finally {
-      setIsLoadingViews(false);
+      if (!background) setIsLoadingViews(false);
     }
   };
 
@@ -1868,11 +1896,17 @@ const handleDeleteContacts = () => {
   };
 
   const updateViewCountCache = (viewId: number, count: number) => {
-    setViewContactCounts((prev) => ({ ...prev, [viewId]: count }));
+    // Both setters rebuild their container, so writing an unchanged count would
+    // re-render the whole list on every background refresh.
+    setViewContactCounts((prev) =>
+      prev[viewId] === count ? prev : { ...prev, [viewId]: count }
+    );
     setViews((prev) =>
-      prev.map((item) =>
-        item.id === viewId ? { ...item, contactCount: count } : item
-      )
+      prev.some((item) => item.id === viewId && item.contactCount !== count)
+        ? prev.map((item) =>
+            item.id === viewId ? { ...item, contactCount: count } : item
+          )
+        : prev
     );
   };
 
@@ -1918,8 +1952,24 @@ const handleDeleteContacts = () => {
       }
       
       // Only update if this is still the selected view (avoid race conditions)
-      setBaseViewContacts(contacts);
-      setViewContacts(contacts);
+      if (background) {
+        // A poll that returned the same rows leaves the table alone: replacing
+        // the array would re-render it (and drop any client-side filter applied
+        // through FilterBuilder) for no reason.
+        const contactsSignature = signatureOf(contacts);
+        let rowsChanged = true;
+        setBaseViewContacts((previous) => {
+          if (contactsSignature !== null && signatureOf(previous) === contactsSignature) {
+            rowsChanged = false;
+            return previous;
+          }
+          return contacts;
+        });
+        if (rowsChanged) setViewContacts(contacts);
+      } else {
+        setBaseViewContacts(contacts);
+        setViewContacts(contacts);
+      }
       setViewMetaMissing(metaMissing);
       if (!metaMissing) {
         // An unsaved filter's count belongs to the pager only - writing it to
@@ -1938,11 +1988,15 @@ const handleDeleteContacts = () => {
       }
 
       console.error("Error fetching view contacts:", error);
-      setBaseViewContacts([]);
-      setViewContacts([]);
-      setViewMetaMissing(false);
-      setDraftFilteredTotal(null);
-      showContactMessage("Failed to load view contacts.", "error");
+      // A failed background poll keeps the rows that are already on screen
+      // instead of emptying the table and shouting at the user.
+      if (!background) {
+        setBaseViewContacts([]);
+        setViewContacts([]);
+        setViewMetaMissing(false);
+        setDraftFilteredTotal(null);
+        showContactMessage("Failed to load view contacts.", "error");
+      }
     } finally {
       if (activeViewFetchKeyRef.current === fetchKey) {
         activeViewFetchKeyRef.current = null;
@@ -2233,7 +2287,7 @@ const handleDeleteContacts = () => {
       if (viewMode === "detail" && selectedView?.isSystem) {
         void fetchContactsForView(selectedView, null, true);
       } else if (viewMode === "list") {
-        void fetchViews();
+        void fetchViews(true);
       }
     };
     const timer = window.setInterval(refreshSystemView, 30000);
