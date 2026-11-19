@@ -547,7 +547,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       contactId: number,
       checkType: ValidationCheckType,
       suggestions: ValidationSuggestion[],
-      applied?: AppliedSuggestion | null
+      applied?: AppliedSuggestion | AppliedSuggestion[] | null
     ) => {
       const suggestionsJson = JSON.stringify(suggestions);
       // Which of the four blobs on the row this list belongs to.
@@ -564,18 +564,38 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           },
         };
 
-        // Absent on a dismissal: nothing was written to the contact.
-        if (applied) {
-          next[applied.field] = applied.value;
+        // Empty on a dismissal: nothing was written to the contact. An
+        // array when several corrections were accepted at once, which is one
+        // patch rather than one per correction.
+        const written = applied ? (Array.isArray(applied) ? applied : [applied]) : [];
+
+        written.forEach((change) => {
+          if (change.customFieldName) {
+            // A custom attribute does not sit on the row as a column of its
+            // own: the grid keys them by name inside `customFields`, so that
+            // is the one place patching it will be seen. Both copies are
+            // written because the table reads the flattened key and the
+            // filters read the nested object.
+            next.customFields = {
+              ...(next.customFields ?? {}),
+              [change.customFieldName]: change.value,
+            };
+            next[change.customFieldName] = change.value;
+          } else {
+            // columnKey, not field: the four company columns reach the row
+            // camel-cased, so `company_industry` has to be written as
+            // `companyIndustry` or the cell never changes.
+            next[change.columnKey || change.field] = change.value;
+          }
 
           // A name correction rebuilds first and last as well, and those are
           // the columns the grid actually shows.
-          if (applied.field === "full_name") {
-            next.full_name = applied.fullName ?? applied.value;
-            next.first_name = applied.firstName ?? next.first_name;
-            next.last_name = applied.lastName ?? next.last_name;
+          if (change.field === "full_name") {
+            next.full_name = change.fullName ?? change.value;
+            next.first_name = change.firstName ?? next.first_name;
+            next.last_name = change.lastName ?? next.last_name;
           }
-        }
+        });
 
         return next;
       };

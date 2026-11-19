@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  suggestionFieldLabel,
+  suggestionLabel,
   type ValidationSuggestion,
 } from "../../../api/contactValidation";
 
@@ -15,6 +15,12 @@ interface SuggestionListProps {
     suggestion: ValidationSuggestion,
     action: "accept" | "dismiss"
   ) => Promise<void>;
+  /**
+   * Applies every pending correction at once. Omitted leaves only the
+   * per-suggestion buttons, which is the right default anywhere one
+   * correction is the normal case.
+   */
+  onResolveAll?: () => Promise<void>;
   /** Called on any click, so a popover host can pin itself open. */
   onInteract?: () => void;
   /**
@@ -44,12 +50,34 @@ interface SuggestionListProps {
 const SuggestionList: React.FC<SuggestionListProps> = ({
   suggestions,
   onResolve,
+  onResolveAll,
   onInteract,
   compact = false,
 }) => {
   /** The suggestion currently in flight, so only its own buttons go quiet. */
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [isApplyingAll, setIsApplyingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const pendingCount = suggestions.filter(
+    (suggestion) => suggestion.status === "pending"
+  ).length;
+
+  const applyAll = async () => {
+    if (!onResolveAll) return;
+
+    onInteract?.();
+    setIsApplyingAll(true);
+    setError(null);
+
+    try {
+      await onResolveAll();
+    } catch (problem: any) {
+      setError(problem?.message ?? "Those could not be saved.");
+    } finally {
+      setIsApplyingAll(false);
+    }
+  };
 
   const resolve = async (
     suggestion: ValidationSuggestion,
@@ -101,10 +129,39 @@ const SuggestionList: React.FC<SuggestionListProps> = ({
         </div>
       )}
 
+      {/* One button for a reviewed set. It only appears from the second
+          pending correction, because below that it is the same click as the
+          card's own Accept, in a second place. */}
+      {onResolveAll && pendingCount > 1 && (
+        <div style={{ marginBottom: compact ? 6 : 8 }}>
+          <button
+            type="button"
+            onClick={() => void applyAll()}
+            disabled={isApplyingAll || !!busyId}
+            style={{
+              width: "100%",
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "1px solid #3f9f42",
+              background: "#3f9f42",
+              color: "#fff",
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: isApplyingAll || busyId ? "not-allowed" : "pointer",
+              opacity: isApplyingAll || busyId ? 0.6 : 1,
+            }}
+          >
+            {isApplyingAll ? "Applying…" : `Accept all ${pendingCount}`}
+          </button>
+        </div>
+      )}
+
       <div style={{ display: "grid", gap: compact ? 6 : 8 }}>
         {suggestions.map((suggestion) => {
           const isPending = suggestion.status === "pending";
-          const isBusy = busyId === suggestion.id;
+          // Every pending card goes quiet while the bulk apply runs, because
+          // the bulk call is about to resolve this one too.
+          const isBusy = busyId === suggestion.id || isApplyingAll;
 
           return (
             <div
@@ -131,7 +188,7 @@ const SuggestionList: React.FC<SuggestionListProps> = ({
                   marginBottom: 4,
                 }}
               >
-                {suggestionFieldLabel(suggestion.field)}
+                {suggestionLabel(suggestion)}
               </div>
 
               <div
@@ -145,6 +202,10 @@ const SuggestionList: React.FC<SuggestionListProps> = ({
                     rather than an instruction — a user who does not recognise
                     the old value should not be accepting the new one. */}
                 <span style={{ color: "#9ca3af", textDecoration: "line-through" }}>
+                  {/* "(empty)" is the common case for a data enhancement
+                      proposal rather than an edge case: filling a blank column
+                      is what that check is for. It still reads as a before and
+                      after, because accepting one is still a write. */}
                   {suggestion.current?.trim() || "(empty)"}
                 </span>
                 {compact ? <br /> : <span style={{ color: "#9ca3af", margin: "0 6px" }}>→</span>}

@@ -2,6 +2,7 @@ import React from "react";
 import ValidationCell, { parseSources } from "./ValidationCell";
 import CheckActions from "./CheckActions";
 import {
+  acceptAllSuggestions,
   acceptSuggestion,
   deleteContact,
   dismissSuggestion,
@@ -50,6 +51,9 @@ export const VALIDATION_COLUMN_LABELS: Record<string, string> = {
   emailValidityConfidence: "Email validity",
   emailValidityComments: "Email validity comments",
   emailCheckedAt: "Email last checked",
+  dataEnhancementConfidence: "Data Enhancement",
+  dataEnhancementComments: "Data Enhancement comments",
+  dataEnhancementCheckedAt: "Data Enhancement last checked",
   isVerified: "Verified",
   verifiedAt: "Verified on",
 };
@@ -59,6 +63,7 @@ export const VALIDATION_CHECK_LABELS: Record<ValidationCheckType, string> = {
   data_integrity: "Data Integrity Check",
   live_contact: "Employment Match",
   email_verification: "Email verification",
+  data_enhancement: "Customisable Data Enhancement",
 };
 
 const SCORE_COLUMN_BY_CHECK: Record<ValidationCheckType, string> = {
@@ -66,6 +71,7 @@ const SCORE_COLUMN_BY_CHECK: Record<ValidationCheckType, string> = {
   data_integrity: "dataIntegrityConfidence",
   live_contact: "liveContactConfidence",
   email_verification: "emailValidityConfidence",
+  data_enhancement: "dataEnhancementConfidence",
 };
 
 export const getValidationScoreColumn = (checkType: ValidationCheckType): string =>
@@ -80,7 +86,7 @@ export const getValidationScoreColumn = (checkType: ValidationCheckType): string
  * panel. The same picture in both places is what ties the column to the check
  * the user chose to run.
  */
-export const VALIDATION_CHECK_ICONS: Record<ValidationCheckType, string> = {
+export const VALIDATION_CHECK_ICONS: Partial<Record<ValidationCheckType, string>> = {
   contact_fit: targetAudienceIcon,
   data_integrity: dataIntegrityIcon,
   live_contact: employmentMatchIcon,
@@ -92,10 +98,12 @@ export const VALIDATION_CHECK_ICONS: Record<ValidationCheckType, string> = {
  * `headerIcons` so the narrow heading becomes the icon rather than initials.
  */
 export const VALIDATION_HEADER_ICONS: Record<string, string> = Object.fromEntries(
-  (Object.keys(VALIDATION_CHECK_ICONS) as ValidationCheckType[]).map((checkType) => [
-    SCORE_COLUMN_BY_CHECK[checkType],
-    VALIDATION_CHECK_ICONS[checkType],
-  ])
+  (Object.keys(VALIDATION_CHECK_ICONS) as ValidationCheckType[])
+    .filter((checkType) => !!VALIDATION_CHECK_ICONS[checkType])
+    .map((checkType) => [
+      SCORE_COLUMN_BY_CHECK[checkType],
+      VALIDATION_CHECK_ICONS[checkType] as string,
+    ])
 );
 
 /**
@@ -124,6 +132,7 @@ export const VALIDATION_EXCLUDED_FIELDS = [
   "dataIntegritySuggestions",
   "liveContactSuggestions",
   "emailValiditySuggestions",
+  "dataEnhancementSuggestions",
   "contactFitComments",
   "contactFitCheckedAt",
   "dataIntegrityComments",
@@ -132,6 +141,8 @@ export const VALIDATION_EXCLUDED_FIELDS = [
   "liveContactCheckedAt",
   "emailValidityComments",
   "emailCheckedAt",
+  "dataEnhancementComments",
+  "dataEnhancementCheckedAt",
   "verifiedAt",
 ];
 
@@ -153,6 +164,7 @@ export const VALIDATION_DEFAULT_VISIBLE_COLUMNS = [
   "dataIntegrityConfidence",
   "liveContactConfidence",
   "emailValidityConfidence",
+  "dataEnhancementConfidence",
   "lastChecked",
   "isVerified",
 ];
@@ -340,6 +352,7 @@ const scoreCell =
             checkLabel={CHECK_LABELS[check.checkType]}
             suggestions={actions.read(row, check.checkType)}
             onResolve={actions.resolverFor(row, check.checkType)}
+            onResolveAll={actions.resolveAllFor(row, check.checkType)}
             // Nothing left to set once the score is 100, however it got there
             // — so the button goes rather than sitting in the panel looking
             // like an action still worth taking. The corrections and the
@@ -399,6 +412,14 @@ const CHECKS: {
     scoreKey: "emailValidityConfidence",
     commentKey: "emailValidityComments",
     dateKey: "emailCheckedAt",
+  },
+  {
+    key: "enhanced",
+    short: "Filled",
+    checkType: "data_enhancement",
+    scoreKey: "dataEnhancementConfidence",
+    commentKey: "dataEnhancementComments",
+    dateKey: "dataEnhancementCheckedAt",
   },
 ];
 
@@ -503,7 +524,12 @@ export interface ValidationFormatterOptions {
     contactId: number,
     checkType: ValidationCheckType,
     suggestions: ValidationSuggestion[],
-    applied?: AppliedSuggestion | null
+    /**
+     * An array when several corrections were accepted together. The row is
+     * patched once with all of them rather than once per correction, so a
+     * contact whose name, title and industry were all filled re-renders once.
+     */
+    applied?: AppliedSuggestion | AppliedSuggestion[] | null
   ) => void;
   /**
    * Raises one check's score to 100 on the row on screen.
@@ -525,6 +551,7 @@ const CHECK_LABELS: Record<ValidationCheckType, string> = {
   data_integrity: "Data integrity",
   live_contact: "Live contact",
   email_verification: "Email validity",
+  data_enhancement: "Data enhancement",
 };
 
 interface CheckActionHandlers {
@@ -538,6 +565,10 @@ interface CheckActionHandlers {
         action: "accept" | "dismiss"
       ) => Promise<void>)
     | undefined;
+  resolveAllFor: (
+    row: any,
+    checkType: ValidationCheckType
+  ) => (() => Promise<void>) | undefined;
   verifierFor: (
     row: any,
     checkType: ValidationCheckType
@@ -570,6 +601,19 @@ const buildCheckActionHandlers = (
                 options.clientId!, contactId, checkType, suggestion.id, options.resolvedBy)
             : await dismissSuggestion(
                 options.clientId!, contactId, checkType, suggestion.id, options.resolvedBy);
+
+        options.onSuggestionResolved?.(
+          contactId, checkType, response.suggestions, response.applied);
+      };
+    },
+
+    resolveAllFor: (row: any, checkType) => {
+      const contactId = contactIdOf(row);
+      if (!contactId) return undefined;
+
+      return async () => {
+        const response = await acceptAllSuggestions(
+          options.clientId!, contactId, checkType, options.resolvedBy);
 
         options.onSuggestionResolved?.(
           contactId, checkType, response.suggestions, response.applied);
@@ -633,11 +677,13 @@ export const createValidationFormatters = (
   dataIntegrityComments: commentCell,
   liveContactComments: commentCell,
   emailValidityComments: commentCell,
+  dataEnhancementComments: commentCell,
 
   contactFitCheckedAt: checkedAtCell,
   dataIntegrityCheckedAt: checkedAtCell,
   liveContactCheckedAt: checkedAtCell,
   emailCheckedAt: checkedAtCell,
+  dataEnhancementCheckedAt: checkedAtCell,
   verifiedAt: checkedAtCell,
 
   isVerified: verifiedCell,
@@ -669,6 +715,7 @@ export const VALIDATION_FILTER_FIELDS: {
   { key: "dataIntegrityConfidence", label: VALIDATION_COLUMN_LABELS.dataIntegrityConfidence, type: "number" },
   { key: "liveContactConfidence", label: VALIDATION_COLUMN_LABELS.liveContactConfidence, type: "number" },
   { key: "emailValidityConfidence", label: VALIDATION_COLUMN_LABELS.emailValidityConfidence, type: "number" },
+  { key: "dataEnhancementConfidence", label: VALIDATION_COLUMN_LABELS.dataEnhancementConfidence, type: "number" },
   { key: "isVerified", label: VALIDATION_COLUMN_LABELS.isVerified, type: "boolean" },
   { key: "lastChecked", label: VALIDATION_COLUMN_LABELS.lastChecked, type: "date" },
 ];

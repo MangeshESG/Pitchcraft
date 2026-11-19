@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  acceptAllSuggestions,
   acceptSuggestion,
   ContactValidationResult,
   dismissSuggestion,
@@ -26,7 +27,7 @@ interface ContactVerificationTabProps {
   onContactUpdated?: (applied: AppliedSuggestion) => void;
 }
 
-/** The four checks, in the order the spec introduces them. */
+/** The checks, in the order the spec introduces them. */
 const CHECKS = [
   {
     key: "contactFit",
@@ -52,6 +53,12 @@ const CHECKS = [
     checkType: "email_verification",
     label: "Email validity",
     blurb: "Is the address real and deliverable?",
+  },
+  {
+    key: "dataEnhancement",
+    checkType: "data_enhancement",
+    label: "Customisable Data Enhancement",
+    blurb: "How much of what the last run was asked to fill it could establish.",
   },
 ] as const;
 
@@ -136,6 +143,27 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
     onShowMessage?.(response.message, "success");
   };
 
+  /**
+   * Applies everything this check still has pending on the contact.
+   *
+   * One call rather than a loop over the single endpoint: the server writes
+   * them in one save, so a half-applied set cannot be left behind by a
+   * connection that drops in the middle of eight round trips.
+   */
+  const resolveAll = async (
+    checkType: ValidationCheckType,
+    suggestionsKey: string
+  ) => {
+    const response = await acceptAllSuggestions(clientId, contactId, checkType);
+
+    setResult((prev) =>
+      prev ? { ...prev, [suggestionsKey]: response.suggestions } : prev);
+
+    response.applied.forEach((change) => onContactUpdated?.(change));
+
+    onShowMessage?.(response.message, "success");
+  };
+
   if (isLoading) {
     return <div style={{ padding: "32px 0", color: "#6b7280", fontSize: 13 }}>Loading…</div>;
   }
@@ -196,7 +224,7 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
         </button>
       </div>
 
-      {/* ---------- The four checks ---------- */}
+      {/* ---------- The checks ---------- */}
       {!hasAnyCheck && (
         <div
           style={{
@@ -305,6 +333,8 @@ const ContactVerificationTab: React.FC<ContactVerificationTabProps> = ({
                     onResolve={(suggestion, action) =>
                       resolveSuggestion(
                         check.checkType, suggestionsKey, suggestion, action)}
+                    onResolveAll={() =>
+                      resolveAll(check.checkType, suggestionsKey)}
                   />
                 )}
               </div>

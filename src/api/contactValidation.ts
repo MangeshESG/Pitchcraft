@@ -26,7 +26,8 @@ export type ValidationCheckType =
   | "contact_fit"
   | "data_integrity"
   | "live_contact"
-  | "email_verification";
+  | "email_verification"
+  | "data_enhancement";
 
 export interface CheckTypeInfo {
   key: ValidationCheckType;
@@ -34,6 +35,29 @@ export interface CheckTypeInfo {
   description: string;
   requiresBrief: boolean;
   usesWebSearch: boolean;
+  /** True for the one check that is told at run time which columns to work on. */
+  requiresFields?: boolean;
+}
+
+/**
+ * One column a Customisable Data Enhancement run can be pointed at.
+ *
+ * The list comes from the API rather than being assembled here, because the
+ * keys have to be the ones a run will accept: a picker offering a column the
+ * runner would silently drop is the failure that endpoint exists to prevent.
+ */
+export interface EnhancementField {
+  /** `job_title`, or `custom:17` for a custom attribute. */
+  key: string;
+  label: string;
+  /** What the column is for. Empty for a custom attribute. */
+  description?: string;
+  isCustom: boolean;
+  customFieldId?: number | null;
+  /** text | number | date | dropdown - a custom attribute's type. */
+  fieldType?: string | null;
+  /** A dropdown's permitted values. */
+  options?: string[];
 }
 
 export interface ContactFitBrief {
@@ -72,6 +96,10 @@ export interface ValidationJob {
   calculatedCost: number;
   creditsCharged: number;
   elapsedMs: number;
+  /** The columns an enhancement run was pointed at. Empty for every other check. */
+  targetFields?: string[];
+  /** What the user typed into the run panel. */
+  instructions?: string | null;
   errorMessage?: string | null;
   createdAt: string;
   startedAt?: string | null;
@@ -95,8 +123,18 @@ export interface ValidationSource {
 export interface ValidationSuggestion {
   /** Stable within one check result; posted back so the server resolves the right one. */
   id: string;
-  /** A contact column the check is allowed to correct, e.g. "job_title". */
+  /**
+   * A contact column the check is allowed to correct, e.g. "job_title" - or,
+   * for the enhancement check, `custom:17` for a custom attribute.
+   */
   field: string;
+  /**
+   * What the column is called on screen, stored with the suggestion by the run
+   * that made it. Only the enhancement check sets it: `custom:17` means
+   * nothing to a grid cell, and the alternative is every cell loading the
+   * client's field definitions to render one label.
+   */
+  label?: string | null;
   /** What the record said when the check ran. */
   current?: string | null;
   suggested: string;
@@ -110,10 +148,28 @@ export interface ValidationSuggestion {
 /** What the contact row now holds, after a suggestion was accepted. */
 export interface AppliedSuggestion {
   field: string;
+  /**
+   * The name this value arrives under on a contact row, which is not always
+   * the field key: the four company columns are camel-cased by the API, so
+   * `company_industry` is written to the row as `companyIndustry`. Patching a
+   * row under the key instead would be a write that reports success and
+   * changes nothing on screen.
+   *
+   * Null for a custom attribute, which has no column of its own on the row -
+   * `customFieldName` is where that one lives.
+   */
+  columnKey?: string | null;
   value: string;
   fullName?: string | null;
   firstName?: string | null;
   lastName?: string | null;
+  /**
+   * Set when the value went to a custom attribute rather than a contact
+   * column. The grid keys a row's custom values by the attribute's name, so
+   * that is what a row patch needs to find the cell that just changed.
+   */
+  customFieldId?: number | null;
+  customFieldName?: string | null;
 }
 
 /**
@@ -134,6 +190,19 @@ export const SUGGESTION_FIELDS: Record<string, { label: string; column: string }
   linkedin_url: { label: "LinkedIn URL", column: "linkedin_url" },
 };
 
+/**
+ * How one suggestion names the column it is about.
+ *
+ * The label the run stored wins, because the enhancement check's columns can
+ * be the client's own attributes and nothing compiled in here knows their
+ * names. The four fixed checks never set it and fall through to the table
+ * above, so their labels stay in one place.
+ */
+export const suggestionLabel = (suggestion: {
+  field: string;
+  label?: string | null;
+}): string => suggestion.label?.trim() || suggestionFieldLabel(suggestion.field);
+
 export const suggestionFieldLabel = (field: string): string =>
   SUGGESTION_FIELDS[field]?.label ?? field;
 
@@ -149,6 +218,7 @@ export const VALIDATION_SCORE_KEYS: Record<ValidationCheckType, string> = {
   data_integrity: "dataIntegrityConfidence",
   live_contact: "liveContactConfidence",
   email_verification: "emailValidityConfidence",
+  data_enhancement: "dataEnhancementConfidence",
 };
 
 /**
@@ -215,6 +285,7 @@ export const SUGGESTION_ROW_KEYS: Record<ValidationCheckType, string> = {
   data_integrity: "dataIntegritySuggestions",
   live_contact: "liveContactSuggestions",
   email_verification: "emailValiditySuggestions",
+  data_enhancement: "dataEnhancementSuggestions",
 };
 
 /**
@@ -252,11 +323,15 @@ export interface ContactValidationResult {
   emailValiditySource?: string | null;
   emailValidityComments?: string | null;
   emailCheckedAt?: string | null;
+  dataEnhancementConfidence?: number | null;
+  dataEnhancementComments?: string | null;
+  dataEnhancementCheckedAt?: string | null;
   sources: ValidationSource[];
   contactFitSuggestions?: ValidationSuggestion[];
   dataIntegritySuggestions?: ValidationSuggestion[];
   liveContactSuggestions?: ValidationSuggestion[];
   emailValiditySuggestions?: ValidationSuggestion[];
+  dataEnhancementSuggestions?: ValidationSuggestion[];
   isVerified: boolean;
   verifiedAt?: string | null;
   verifiedBy?: string | null;
@@ -428,6 +503,22 @@ export const deleteBrief = async (
 
 // ------------------------------------------------------------------ runs
 
+/**
+ * The columns a Customisable Data Enhancement run can be pointed at: the
+ * contact's own, then this client's custom attributes, in the order they
+ * arranged them.
+ */
+export const fetchEnhancementFields = async (
+  clientId: string | number
+): Promise<EnhancementField[]> => {
+  const json = await readJson(
+    await fetch(`${BASE}/enhancement-fields?clientId=${clientId}`),
+    "The column list could not be loaded"
+  );
+
+  return Array.isArray(json?.fields) ? json.fields : [];
+};
+
 export const fetchCheckTypes = async (): Promise<CheckTypeInfo[]> => {
   const json = await readJson(
     await fetch(`${BASE}/check-types`),
@@ -442,6 +533,10 @@ export const runValidation = async (request: {
   checkType: ValidationCheckType;
   contactIds: number[];
   briefId?: number | null;
+  /** Enhancement only: the columns to fill or check. */
+  fields?: string[];
+  /** Enhancement only: what the user asked for, in their own words. */
+  instructions?: string | null;
   requestedBy?: string;
 }): Promise<ValidationJob> => {
   const json = await postJson(
@@ -557,6 +652,42 @@ export const acceptSuggestion = (
   resolvedBy?: string
 ): Promise<ResolveSuggestionResponse> =>
   resolveSuggestion("accept", clientId, contactId, checkType, suggestionId, resolvedBy);
+
+/**
+ * Applies every correction this check still has pending on one contact, in one
+ * call.
+ *
+ * The single-suggestion endpoint is still the normal path: a correction is a
+ * write to a customer record, and each one deserves to be read first. This is
+ * for the case that stops being reasonable - an enhancement run asked for eight
+ * columns comes back with eight proposals, the user reads them once, and
+ * clicking Accept eight times is eight round trips re-patching the same row.
+ *
+ * The server applies them one at a time through the same checks, so anything it
+ * could not write is reported and left pending rather than failing the rest.
+ */
+export const acceptAllSuggestions = async (
+  clientId: string | number,
+  contactId: number,
+  checkType: ValidationCheckType,
+  resolvedBy?: string
+): Promise<{
+  message: string;
+  applied: AppliedSuggestion[];
+  suggestions: ValidationSuggestion[];
+}> => {
+  const json = await postJson(
+    `${BASE}/suggestions/accept-all`,
+    { clientId: Number(clientId), contactId, checkType, resolvedBy },
+    "The corrections could not be applied"
+  );
+
+  return {
+    message: json?.message ?? "Done.",
+    applied: Array.isArray(json?.applied) ? json.applied : [],
+    suggestions: Array.isArray(json?.suggestions) ? json.suggestions : [],
+  };
+};
 
 /** Marks a suggestion dismissed. The contact is not touched. */
 export const dismissSuggestion = (

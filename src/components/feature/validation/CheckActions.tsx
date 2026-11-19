@@ -13,6 +13,8 @@ interface CheckActionsProps {
     suggestion: ValidationSuggestion,
     action: "accept" | "dismiss"
   ) => Promise<void>;
+  /** Applies every pending correction on this contact for this check at once. */
+  onResolveAll?: () => Promise<void>;
   /** Sets this one score to 100. */
   onVerify?: () => Promise<void>;
   /** Deletes the contact. Confirmed inside the panel first. */
@@ -50,6 +52,7 @@ const CheckActions: React.FC<CheckActionsProps> = ({
   checkLabel,
   suggestions,
   onResolve,
+  onResolveAll,
   onVerify,
   onDelete,
 }) => {
@@ -169,6 +172,7 @@ const CheckActions: React.FC<CheckActionsProps> = ({
           compact
           suggestions={suggestions}
           onResolve={onResolve}
+          onResolveAll={onResolveAll}
         />
       ) : (
         <p style={{ margin: "0 0 4px", color: "#6b7280", fontSize: 12.5 }}>
