@@ -57,7 +57,7 @@ const CHECKS = [
   {
     key: "dataEnhancement",
     checkType: "data_enhancement",
-    label: "Customisable Data Enhancement",
+    label: "Customisable data enhancement",
     blurb: "How much of what the last run was asked to fill it could establish.",
   },
 ] as const;

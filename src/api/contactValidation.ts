@@ -689,6 +689,49 @@ export const acceptAllSuggestions = async (
   };
 };
 
+/**
+ * Applies every pending correction one check holds, across a whole selection
+ * of contacts, in one call.
+ *
+ * {@link acceptAllSuggestions} is the same action on one contact, and stays
+ * the normal path — a correction is a write to a customer record, and each one
+ * deserves to be read. This is for after that reading has happened at the
+ * level of the run rather than the row: an enhancement run over a list comes
+ * back with a proposal on nearly every contact, and once the user has decided
+ * the run was good, accepting them one at a time is the same decision typed
+ * out several hundred times.
+ *
+ * A contact with nothing pending is skipped rather than failing the request,
+ * so the counts in the reply are what actually happened, not what was asked
+ * for.
+ */
+export const acceptAllSuggestionsBulk = async (
+  clientId: string | number,
+  contactIds: number[],
+  checkType: ValidationCheckType,
+  resolvedBy?: string
+): Promise<{
+  message: string;
+  /** Corrections written, counted across every contact. */
+  appliedCount: number;
+  /** Proposals that no longer name a writable column, and stay pending. */
+  refusedCount: number;
+  contactsUpdated: number;
+}> => {
+  const json = await postJson(
+    `${BASE}/suggestions/accept-all-bulk`,
+    { clientId: Number(clientId), contactIds, checkType, resolvedBy },
+    "The corrections could not be applied"
+  );
+
+  return {
+    message: json?.message ?? "Done.",
+    appliedCount: Number(json?.appliedCount ?? 0),
+    refusedCount: Number(json?.refusedCount ?? 0),
+    contactsUpdated: Number(json?.contactsUpdated ?? 0),
+  };
+};
+
 /** Marks a suggestion dismissed. The contact is not touched. */
 export const dismissSuggestion = (
   clientId: string | number,

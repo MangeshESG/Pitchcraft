@@ -8,6 +8,7 @@ import {
   validationBulkCheckFor,
 } from './validation/validationColumns';
 import {
+  acceptAllSuggestionsBulk,
   verifyCheckScores,
   type ValidationCheckType,
 } from '../../api/contactValidation';
@@ -52,6 +53,17 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
   const [updateValue, setUpdateValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  /**
+   * Whether to write the check's pending corrections to the contacts as well
+   * as raising the score.
+   *
+   * Off by default, and deliberately so: a correction is a write to a customer
+   * record, and the per-contact popover exists because each one is worth
+   * reading. Ticking this says the reading has already happened at the level
+   * of the run — which is the honest description of what a user does after
+   * sampling a few rows of an enhancement run and finding it good.
+   */
+  const [acceptSuggestions, setAcceptSuggestions] = useState(false);
   
   const { toast, showSuccess, showError, hideToast } = useToast();
 
@@ -90,6 +102,11 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
   // can be set to, so choosing one fills it in rather than asking for it.
   useEffect(() => {
     setUpdateValue(validationBulkCheckFor(selectedColumn) ? VERIFIED_SCORE : '');
+    // Never carried across a change of field. It reads as a tick against the
+    // check that is on screen, so leaving it set while the user moves from
+    // Data Enhancement to Email Validity would apply corrections they never
+    // looked at.
+    setAcceptSuggestions(false);
   }, [selectedColumn]);
 
   // Fetch contact columns when panel opens
@@ -220,13 +237,33 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
        * email address.
        */
       if (selectedColumnData.checkType) {
+        const contactIds = selectedContactIds.map((id) => parseInt(id));
+
+        /**
+         * The corrections go first, then the score.
+         *
+         * In that order the score is the last word on a contact whose data has
+         * already been fixed. The other way round, a failure halfway would
+         * leave rows reading 100 with the corrections they were scored for
+         * still sitting unapplied.
+         */
+        const acceptMessage = acceptSuggestions
+          ? (
+              await acceptAllSuggestionsBulk(
+                clientId,
+                contactIds,
+                selectedColumnData.checkType
+              )
+            ).message
+          : null;
+
         const message = await verifyCheckScores(
           clientId,
-          selectedContactIds.map((id) => parseInt(id)),
+          contactIds,
           selectedColumnData.checkType
         );
 
-        showSuccess(message);
+        showSuccess(acceptMessage ? `${acceptMessage} ${message}` : message);
 
         if (onUpdateComplete) {
           onUpdateComplete();
@@ -234,6 +271,7 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
 
         setSelectedColumn('');
         setUpdateValue('');
+        setAcceptSuggestions(false);
         onClose();
         return;
       }
@@ -336,7 +374,7 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
               {selectedColumnData.label} is set to 100 for the selected
               contact{selectedContactIds.length === 1 ? '' : 's'} and marked as
               updated by hand, which the score says when you hover it. The other
-              three checks are left as they are.
+              checks are left as they are.
             </div>
           </div>
         );
@@ -572,6 +610,50 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
           </label>
           {renderValueInput()}
         </div>
+
+        {/*
+          Accepting the check's corrections for the whole selection.
+
+          Kept as an opt-in beside the score rather than folded into it,
+          because the two are different claims: raising a score says "I have
+          looked at these and they are fine", while this one says "write what
+          the run proposed into the records". A user who means only the first
+          must not have their contacts rewritten on the way past.
+        */}
+        {selectedColumnData?.checkType && (
+          <label
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "flex-start",
+              marginBottom: 16,
+              padding: "12px",
+              borderRadius: 8,
+              border: `1px solid ${acceptSuggestions ? "#9ed0a3" : "#e3e8e3"}`,
+              background: acceptSuggestions ? "#f1f8f2" : "#fafbfa",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={acceptSuggestions}
+              onChange={(e) => setAcceptSuggestions(e.target.checked)}
+              style={{ marginTop: 2, width: 16, height: 16, cursor: "pointer", accentColor: "#3f9f42" }}
+            />
+            <span style={{ fontSize: 13, lineHeight: 1.55, color: "#333" }}>
+              <span style={{ fontWeight: 600, display: "block", marginBottom: 2 }}>
+                Also accept every AI suggestion from this check
+              </span>
+              <span style={{ color: "#5c6b5c" }}>
+                Each pending correction {selectedColumnData.label} found is
+                written to the contact — the same as opening every row and
+                clicking Accept all. Corrections already accepted or dismissed
+                are left alone, and anything that no longer names a column this
+                check can write stays pending and is reported back.
+              </span>
+            </span>
+          </label>
+        )}
       </CommonSidePanel>
       
       {/* Toast Message - Outside the panel for proper z-index */}
