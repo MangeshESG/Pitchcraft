@@ -16,15 +16,6 @@ import {
   ChevronDown,
   Volume2,
   VolumeX,
-  Palette,
-  Magnet,
-  Search,
-  Target,
-  RotateCcw,
-  Zap,
-  TrendingUp,
-  User,
-  Megaphone,
   Edit3,
   Image as ImageIcon,
   Ban,
@@ -953,24 +944,10 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
             {isEditMode && !conversationStarted && selectedPlaceholder && (
               <div className="empty-conversation"><p>Preparing conversation…</p></div>
             )}
-            {/* Welcome hero */}
-            {!isEditMode && (
-              <div style={{ textAlign: "center", padding: "28px 20px 12px" }}>
-                <div style={{ width: 104, height: 104, borderRadius: "50%", background: "radial-gradient(circle, #eafaf0 0%, #f7fdf9 65%, transparent 100%)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-                  <img src={witchLogo} alt="Blueprint Assistant" style={{ width: 78, height: 78, objectFit: "contain" }} />
-                </div>
-                <h2 style={{ fontSize: 26, fontWeight: 800, color: "#111827", lineHeight: 1.2 }}>
-                  Hi! I am your <span style={{ color: "#3f9f42" }}>Blueprint Assistant</span>
-                </h2>
-              </div>
-            )}
             {(conversationStarted || isEditMode) && (
               <div className="messages-list">
                 {messages.map((msg, idx) => (
-                  <div key={idx} className={`message-wrapper ${msg.type}`} style={msg.type === "bot" ? { alignItems: "flex-start", gap: 10 } : undefined}>
-                    {msg.type === "bot" && (
-                      <img src={witchLogo} alt="" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "contain", background: "#f0fdf4", border: "1.5px solid #86efac", padding: 3, flexShrink: 0, marginTop: 2 }} />
-                    )}
+                  <div key={idx} className={`message-wrapper ${msg.type}`}>
                     <div className={`message-bubble ${msg.type}`}>
                       {renderMessageContent(msg.content)}
                       <div className={`message-time ${msg.type}`}>
@@ -982,7 +959,6 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                 {isTyping && (
                   <div className="typing-indicator">
                     <div className="typing-dots-row">
-                      <div className="typing-avatar"><img src={witchLogo} alt="" style={{ width: 22, height: 22, objectFit: "contain" }} /></div>
                       <div className="typing-dots-bubble">
                         <div className="typing-dot" />
                         <div className="typing-dot" />
@@ -1104,7 +1080,6 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
           <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0" }}>
             {/* Bot intro */}
             <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 14, color: "#374151", display: "flex", gap: 10, alignItems: "flex-start" }}>
-              <img src={witchLogo} alt="" style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "contain", background: "#f0fdf4", border: "1.5px solid #86efac", padding: 3, flexShrink: 0 }} />
               <span>Here's what I derived. Have a quick read — you can approve, ask me to refine it, or rewrite from scratch.</span>
             </div>
 
@@ -1160,35 +1135,6 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
               </div>
             )}
 
-            {/* Refinement quick actions */}
-            {!isTyping && (
-              <div style={{ marginBottom: 12 }}>
-                <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", marginBottom: 12, letterSpacing: "0.05em", fontWeight: 600 }}>REFINE THIS BLUEPRINT</p>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-                  {[
-                    { icon: Palette, color: "#16a34a", bg: "#eafaf0", label: "Change theme", msg: "Let's change the theme of the blueprint." },
-                    { icon: Magnet, color: "#9333ea", bg: "#f5edfe", label: "Change hook", msg: "Let's change the hook." },
-                    { icon: Search, color: "#0d9488", bg: "#e6f7f5", label: "Change personalization search", msg: "Let's change the personalization search." },
-                    { icon: RefreshCw, color: "#ea580c", bg: "#fef1e7", label: "Retry with different reference emails", msg: "Retry with different reference emails." },
-                    { icon: Target, color: "#2563eb", bg: "#e8f0fe", label: "Make it closer to my reference emails personalization", msg: "Make it closer to my reference emails' personalization." },
-                  ].map((a) => {
-                    const Icon = a.icon;
-                    return (
-                      <button key={a.label}
-                        onClick={() => handleSendMessage(a.msg)}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = a.color; e.currentTarget.style.background = "#fbfdfc"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fff"; }}
-                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", fontWeight: 500, transition: "border-color 0.15s, background 0.15s" }}>
-                        <span style={{ width: 26, height: 26, borderRadius: 8, background: a.bg, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          <Icon size={15} color={a.color} />
-                        </span>
-                        {a.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Refinement chat input */}
@@ -1228,7 +1174,6 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
             <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0" }}>
               {/* Bot intro */}
               <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 14, color: "#374151", display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <img src={witchLogo} alt="" style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "contain", background: "#f0fdf4", border: "1.5px solid #86efac", padding: 3, flexShrink: 0 }} />
                 <span>Here's the example email I derived from your blueprint. Approve it to open the editor, or refine it below.</span>
               </div>
 
@@ -1326,41 +1271,12 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                 </div>
               )}
 
-              {/* Quick refinement cards */}
-              <div style={{ marginBottom: 16 }}>
-                <p style={{ fontSize: 12, color: "#6b7280", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 2 }}>QUICK REFINEMENTS</p>
-                <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 12 }}>Refine your email quickly with these options.</p>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {[
-                    { icon: RotateCcw, color: "#ea580c", label: "Revert to last version", msg: "Revert to the last version." },
-                    { icon: Target, color: "#2563eb", label: "Make closer to reference email", msg: "Make it closer to my reference email." },
-                    { icon: Zap, color: "#ca8a04", label: "Make it shorter", msg: "Make the email shorter." },
-                    { icon: TrendingUp, color: "#9333ea", label: "Make it longer", msg: "Make the email longer." },
-                    { icon: User, color: "#16a34a", label: "Make personalization more deep", msg: "Make the personalization deeper." },
-                    { icon: Megaphone, color: "#db2777", label: "Softer CTA", msg: "Use a softer call to action." },
-                    { icon: Target, color: "#e11d48", label: "More direct", msg: "Make it more direct." },
-                  ].map((a) => {
-                    const Icon = a.icon;
-                    return (
-                      <button key={a.label}
-                        onClick={() => handleSendMessage(a.msg)}
-                        disabled={isTyping}
-                        onMouseEnter={(e) => { if (!isTyping) { e.currentTarget.style.borderColor = a.color; e.currentTarget.style.background = "#fbfdfc"; } }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fff"; }}
-                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff", fontSize: 13, cursor: isTyping ? "not-allowed" : "pointer", color: "#374151", fontWeight: 500, opacity: isTyping ? 0.5 : 1, transition: "border-color 0.15s, background 0.15s", maxWidth: 220, textAlign: "left" }}>
-                        <Icon size={18} color={a.color} style={{ flexShrink: 0 }} />
-                        {a.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
 
             {/* Chat input for refinements */}
             <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", background: "#fff", flexShrink: 0 }}>
-              <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-                ⓘ You can type any instruction here — e.g. "make it shorter", "softer CTA", "change the personalization".
+              <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+                ⓘ You can type any instruction here.
               </p>
               <div style={{ marginBottom: 10 }}>
                 <BlueprintChatInput
