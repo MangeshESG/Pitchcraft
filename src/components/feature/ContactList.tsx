@@ -1304,6 +1304,16 @@ const formatTimeIST = formatUserTime;
     }
   };
 
+  /**
+   * Whether the list detail's filter builder is open.
+   *
+   * It is held here rather than inside the builder because the button that
+   * opens it now lives in the grid's own header, beside Refresh and Add
+   * contact — the two are in different components, so the state they share
+   * has to sit above both.
+   */
+  const [isDetailFilterOpen, setIsDetailFilterOpen] = useState(false);
+
   // Add view mode states
   const [viewMode, setViewMode] = useState<"list" | "detail">("list");
   const [viewsDetailMode, setViewsDetailMode] = useState(false);
@@ -3006,10 +3016,27 @@ const filterFields: any = useMemo(() => {
                   }}
                   isRefreshing={isLoadingDetail}
                   columnNameMap={columnNameMap}
+                  headerActions={
+                    <button
+                      type="button"
+                      className="fb-trigger"
+                      onClick={() => setIsDetailFilterOpen((open) => !open)}
+                      aria-expanded={isDetailFilterOpen}
+                    >
+                      + Build view
+                    </button>
+                  }
                   customHeader={
                     <>
-                      <div style={{ marginBottom: 16 }}>
+                      {/* No gap under it while it is closed: the builder
+                          renders nothing, but stays mounted so the rules
+                          already built survive being hidden. */}
+                      <div style={{ marginBottom: isDetailFilterOpen ? 16 : 0 }}>
                         <FilterBuilder
+                          collapsed={!isDetailFilterOpen}
+                          onCollapsedChange={(collapsed) =>
+                            setIsDetailFilterOpen(!collapsed)
+                          }
                           data={allDetailContacts}
                           fields={filterFields}
                           onFiltered={(data) => {

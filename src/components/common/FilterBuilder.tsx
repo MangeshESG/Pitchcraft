@@ -88,6 +88,19 @@ export interface Props<T> {
    */
   onApplyFilters?: (filtersJson: string) => void | Promise<void>;
   hideApplyButton?: boolean;
+  /**
+   * Lets the surface own the "+ Build view" button, so it can sit in the
+   * detail header beside Refresh and Add contact rather than on a line of its
+   * own underneath. Passing it makes the collapse controlled: the builder then
+   * draws nothing at all while collapsed, because the caller is already
+   * drawing the control that opens it.
+   *
+   * The builder still stays mounted while collapsed, so rules that have been
+   * built survive being hidden — which is why this is a flag rather than the
+   * caller simply not rendering it.
+   */
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
   clientId?: string | number;
   viewEditor?: ViewEditorConfig;
   saveViewConfig?: {
@@ -365,15 +378,27 @@ function FilterBuilder<T extends Record<string, any>>({
   onFiltersJsonChange,
   onApplyFilters,
   hideApplyButton = false,
+  collapsed,
+  onCollapsedChange,
   clientId,
   viewEditor,
   saveViewConfig,
 }: Props<T>) {
   const isViewEditor = !!viewEditor;
   const [groups, setGroups] = useState<FilterGroup[]>([createGroup()]);
-  const [isCollapsed, setIsCollapsed] = useState(
+  const [internalCollapsed, setInternalCollapsed] = useState(
     isViewEditor && viewEditor?.startExpanded ? false : true
   );
+
+  // Controlled as soon as the caller passes a state to follow; otherwise the
+  // builder keeps its own, which is every surface that still shows the
+  // trigger below the header.
+  const isCollapseControlled = collapsed !== undefined;
+  const isCollapsed = isCollapseControlled ? collapsed : internalCollapsed;
+  const setIsCollapsed = (next: boolean) => {
+    if (!isCollapseControlled) setInternalCollapsed(next);
+    onCollapsedChange?.(next);
+  };
   const [showSavePanel, setShowSavePanel] = useState(false);
   const [viewName, setViewName] = useState("");
   const [viewDescription, setViewDescription] = useState("");
@@ -1110,6 +1135,10 @@ function FilterBuilder<T extends Record<string, any>>({
   };
 
   if (isCollapsed) {
+    // The caller draws the trigger when it owns the state, so a second one
+    // here would be the same button twice in two different places.
+    if (isCollapseControlled) return null;
+
     return (
       <button
         type="button"

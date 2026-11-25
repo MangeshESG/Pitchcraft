@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CommonSidePanel from "../../common/CommonSidePanel";
-import { VALIDATION_CHECK_ICONS, VALIDATION_CHECK_LABELS } from "./validationColumns";
+import { VALIDATION_CHECK_ICONS_COMPACT, VALIDATION_CHECK_LABELS } from "./validationColumns";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import {
   CheckTypeInfo,
@@ -43,8 +43,12 @@ interface ValidationRunPanelProps {
 /** How often a running job is polled. */
 const POLL_MS = 3000;
 
-/** The grid headings use the same pictures, so there is one definition. */
-const CHECK_ICONS: Partial<Record<ValidationCheckType, string>> = VALIDATION_CHECK_ICONS;
+/**
+ * The compact badges — the same artwork the grid headings carry, so the card
+ * a user picks a check from and the column that check fills are recognisably
+ * the same thing.
+ */
+const CHECK_ICONS: Record<ValidationCheckType, string> = VALIDATION_CHECK_ICONS_COMPACT;
 
 /**
  * The ceiling the API enforces on one enhancement run. Repeated here so the
@@ -499,46 +503,41 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
                   opacity: isRunning ? 0.6 : 1,
                 }}
               >
+                {/* Badge, name and radio on one line: the badge is the
+                    picture of the name beside it, and a line of its own only
+                    pushed the two apart. No tile or border behind it — the
+                    badge is already a drawn mark on its own ground. */}
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
+                    gap: 10,
                   }}
                 >
-                  <span
+                  <img
+                    src={CHECK_ICONS[type.key]}
+                    alt=""
                     aria-hidden="true"
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 36,
-                      height: 36,
+                      width: 60,
+                      height: 60,
                       flexShrink: 0,
-                      borderRadius: 9,
-                      border: "1px solid #e8eaee",
-                      background: "#fff",
+                      maxWidth: "none",
+                      objectFit: "contain",
+                    }}
+                  />
+
+                  <span
+                    style={{
+                      flex: "1 1 auto",
+                      minWidth: 0,
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      color: "#0b1220",
+                      lineHeight: 1.35,
                     }}
                   >
-                    {CHECK_ICONS[type.key] ? (
-                      <img
-                        src={CHECK_ICONS[type.key]}
-                        alt=""
-                        style={{ width: 26, height: 26, maxWidth: "none", objectFit: "contain" }}
-                      />
-                    ) : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                        <path
-                          fill="none"
-                          stroke="#3f9f42"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M4 5h16v14H4zM4 10h16M10 10v9"
-                        />
-                      </svg>
-                    )}
+                    {VALIDATION_CHECK_LABELS[type.key] || type.label}
                   </span>
 
                   {/* A real radio, so the keyboard and screen readers see one
@@ -552,10 +551,6 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
                     style={{ width: 16, height: 16, margin: 0, flexShrink: 0, accentColor: "#3f9f42" }}
                   />
                 </div>
-
-                <span style={{ fontSize: 13.5, fontWeight: 600, color: "#0b1220" }}>
-                  {VALIDATION_CHECK_LABELS[type.key] || type.label}
-                </span>
 
                 <span style={{ fontSize: 12.5, color: "#6b7280", lineHeight: 1.5 }}>
                   {type.key === "email_verification"

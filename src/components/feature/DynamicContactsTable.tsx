@@ -125,6 +125,13 @@ interface DynamicContactsTableProps {
   backLabel?: string;
   onAddItem?: () => void;
   onRefresh?: () => void | Promise<void>;
+  /**
+   * Anything the surface wants in the detail header between Refresh and Add
+   * contact — the filter builder's trigger, today. It is a slot rather than a
+   * prop per button because what belongs there is the surface's business, not
+   * the grid's.
+   */
+  headerActions?: React.ReactNode;
   isRefreshing?: boolean;
   hideSearch?: boolean;
   customHeader?: React.ReactNode;
@@ -353,6 +360,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   backLabel = "Back",
   onAddItem,
   onRefresh,
+  headerActions,
   isRefreshing = false,
   hideSearch = false,
   customHeader,
@@ -1077,6 +1085,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             {onRefresh && (
               <GridRefreshButton onClick={onRefresh} loading={isRefreshing} />
             )}
+            {headerActions}
             {onAddItem && (
               <button className="dt-btn-default" onClick={onAddItem}>
                 <svg viewBox="0 0 24 24" width="14" height="14">
@@ -1091,11 +1100,12 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
       <div className="dt-custom-header-row">
         <div className="dt-custom-header-content">{customHeader}</div>
-        {viewMode === "detail" && (onRefresh || onAddItem) && (
+        {viewMode === "detail" && (onRefresh || onAddItem || headerActions) && (
           <div className="dt-detail-actions dt-detail-actions--mobile">
             {onRefresh && (
               <GridRefreshButton onClick={onRefresh} loading={isRefreshing} />
             )}
+            {headerActions}
             {onAddItem && (
               <button className="dt-btn-default" onClick={onAddItem}>
                 <svg viewBox="0 0 24 24" width="14" height="14">

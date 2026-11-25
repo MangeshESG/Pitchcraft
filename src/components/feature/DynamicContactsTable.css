@@ -58,6 +58,9 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .dt-detail-actions { flex-shrink: 0; display: flex; gap: 8px; }
+/* A button the surface puts in the header stands the same height as the
+   grid's own two beside it. */
+.dt-detail-actions .fb-trigger { height: 36px; }
 .dt-detail-actions--mobile { display: none; }
 .dt-custom-header-row,
 .dt-custom-header-content { display: contents; }
@@ -326,9 +329,14 @@
  * A shortened heading drawn as the check's own icon: the artwork alone, with
  * no disc or ring behind it, shown whole inside the heading's box.
  */
+/*
+ * Big enough for the badge to be read as the badge it is: each one carries its
+ * own name curved around the rim, and below about 60px that lettering closes
+ * up into a grey ring and the heading says nothing at all.
+ */
 .dt-th-icon {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 44px;
+  width: 64px; height: 64px;
   flex-shrink: 0;
   vertical-align: middle;
 }

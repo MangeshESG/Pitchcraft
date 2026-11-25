@@ -18,10 +18,11 @@ import {
   type ValidationSuggestion,
 } from "../../../api/contactValidation";
 import { formatUserDate } from "../../common/dateTimePreferences";
-import targetAudienceIcon from "../../../assets/validation/Target_Audience_Match_curved_large_text.png";
-import employmentMatchIcon from "../../../assets/validation/Employment_Match_curved_large_text.png";
-import emailVerificationIcon from "../../../assets/validation/email-verification.png";
-import dataIntegrityIcon from "../../../assets/validation/Data_Integrity_Check_curved_large_text.png";
+import targetAudienceIconCompact from "../../../assets/validation/Target Match (compact).png";
+import employmentMatchIconCompact from "../../../assets/validation/Employment Match (compact).png";
+import emailVerificationIconCompact from "../../../assets/validation/Email Verified (compact).png";
+import dataIntegrityIconCompact from "../../../assets/validation/Integrity Check (compact).png";
+import dataEnhancementIconCompact from "../../../assets/validation/Data Enhanced (compact).png";
 import { useGridDetailOn } from "../../common/GridDetailMode";
 
 /**
@@ -78,32 +79,35 @@ export const getValidationScoreColumn = (checkType: ValidationCheckType): string
   SCORE_COLUMN_BY_CHECK[checkType];
 
 /**
- * The artwork each check is known by.
+ * The artwork each check is known by: the badge drawn for a small space — no
+ * outer ring, a heavy glyph, the name set in few thick letters.
  *
- * It is the run panel's picture of the check, reused as the grid heading: a
- * column too narrow for "Target Audience Match" otherwise falls back to
- * "TAM", four letters that mean nothing to someone who has not read the
- * panel. The same picture in both places is what ties the column to the check
- * the user chose to run.
+ * It is the run panel's picture of the check and the grid's heading for the
+ * column that check fills. A column too narrow for "Target Audience Match"
+ * otherwise falls back to "TAM", four letters that mean nothing to someone who
+ * has not read the panel; the same picture in both places is what ties the
+ * column to the check the user chose to run. Every check has one, so neither
+ * the panel nor a heading needs a drawn stand-in for an odd one out.
  */
-export const VALIDATION_CHECK_ICONS: Partial<Record<ValidationCheckType, string>> = {
-  contact_fit: targetAudienceIcon,
-  data_integrity: dataIntegrityIcon,
-  live_contact: employmentMatchIcon,
-  email_verification: emailVerificationIcon,
+export const VALIDATION_CHECK_ICONS_COMPACT: Record<ValidationCheckType, string> = {
+  contact_fit: targetAudienceIconCompact,
+  data_integrity: dataIntegrityIconCompact,
+  live_contact: employmentMatchIconCompact,
+  email_verification: emailVerificationIconCompact,
+  data_enhancement: dataEnhancementIconCompact,
 };
 
 /**
- * The same artwork, keyed by the score column it heads — what a grid hands to
- * `headerIcons` so the narrow heading becomes the icon rather than initials.
+ * The compact artwork, keyed by the score column it heads — what a grid hands
+ * to `headerIcons` so the narrow heading becomes the icon rather than initials.
  */
 export const VALIDATION_HEADER_ICONS: Record<string, string> = Object.fromEntries(
-  (Object.keys(VALIDATION_CHECK_ICONS) as ValidationCheckType[])
-    .filter((checkType) => !!VALIDATION_CHECK_ICONS[checkType])
-    .map((checkType) => [
+  (Object.keys(VALIDATION_CHECK_ICONS_COMPACT) as ValidationCheckType[]).map(
+    (checkType) => [
       SCORE_COLUMN_BY_CHECK[checkType],
-      VALIDATION_CHECK_ICONS[checkType] as string,
-    ])
+      VALIDATION_CHECK_ICONS_COMPACT[checkType],
+    ]
+  )
 );
 
 /**
