@@ -1,6 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import API_BASE_URL from "../../config";
-import DynamicContactsTable from "./DynamicContactsTable";
+import DynamicContactsTable, { BulkAction } from "./DynamicContactsTable";
+import {
+  BulkEditActionIcon,
+  CloneActionIcon,
+  DeleteActionIcon,
+  SegmentActionIcon,
+  UnsubscribeActionIcon,
+} from "./contactBulkActionIcons";
 import useColumnPreferences from "../../hooks/useColumnPreferences";
 import PaginationControls from "./PaginationControls";
 import FilterBuilder from "../common/FilterBuilder";
@@ -10,7 +17,6 @@ import CommonSidePanel from "../common/CommonSidePanel";
 import "./ContactList.new.css";
 import WebsiteGlobeIcon from "../common/WebsiteGlobeIcon";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import duplicateIcon from "../../assets/images/icons/duplicate.png";
 import BulkUpdatePanel from "./BulkUpdatePanel";
 import SegmentModal from "../common/SegmentModal";
 import { formatIsoDate, formatUserDate } from "../common/dateTimePreferences";
@@ -721,6 +727,10 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const showValidateViewContactsPanel =
   activePanel === "validate-view-contacts-panel";
 
+  /** The Enrich panel, for the same reason: its own key, its own selection. */
+  const showEnrichViewContactsPanel =
+  activePanel === "enrich-view-contacts-panel";
+
   const appModal = useAppModal(); // ✅ correct place
   const { toast, showToast, hideToast } = useToast();
   const { triggerRefresh } = useAppData();
@@ -760,6 +770,20 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           }
         : null,
     [activeValidationJob]
+  );
+  /** The same, for the Enrich panel's run — the two can be in flight at once. */
+  const [activeEnrichJob, setActiveEnrichJob] = useState<ValidationJob | null>(null);
+  const enrichProgress = useMemo(
+    () =>
+      activeEnrichJob
+        ? {
+            processed: activeEnrichJob.processedCount,
+            total: activeEnrichJob.contactCount,
+            isFinished: activeEnrichJob.isFinished,
+            failed: activeEnrichJob.status === "failed",
+          }
+        : null,
+    [activeEnrichJob]
   );
 
   useEffect(() => {
@@ -2027,6 +2051,88 @@ const handleDeleteContacts = () => {
     }
   };
 
+  /**
+   * What happens when a run from either panel finishes.
+   *
+   * Validation and enrichment land in the same grid and are read back the same
+   * way, so the two panels share one handler rather than keeping two copies
+   * that have to be changed together.
+   */
+  const handleRunCompleted = (job: ValidationJob) => {
+    if (job.status !== "failed" && job.processedCount > 0 && selectedView) {
+      setValidationColumnToReveal({
+        key: getValidationScoreColumn(job.checkType),
+        requestId: job.id,
+        scopeId: selectedView.id,
+      });
+    }
+
+    // Pull the new scores into the grid. The selection is deliberately kept: a
+    // user who has just validated fifty contacts often wants to run a second
+    // check over the same fifty.
+    if (selectedView) {
+      fetchContactsForView(selectedView);
+    }
+  };
+
+  /**
+   * What the selection bar offers once rows are ticked.
+   *
+   * The same six actions the list and segment grids show, in the same order.
+   * Validate and Enrich are not here; the grid renders those itself, because
+   * they double as the progress bar of a run in flight.
+   */
+  const viewBulkActions: BulkAction[] = useMemo(() => {
+    const actions: BulkAction[] = [
+      {
+        key: "segment",
+        label: "Add to segment",
+        icon: <SegmentActionIcon />,
+        onClick: () => dispatch(openPanel("save-segment-modal")),
+      },
+      {
+        key: "bulk-edit",
+        label: "Bulk edit",
+        icon: <BulkEditActionIcon />,
+        onClick: () => dispatch(openPanel("bulk-update-view-panel")),
+      },
+      {
+        key: "unsubscribe",
+        label: "Unsubscribe",
+        icon: <UnsubscribeActionIcon />,
+        disabled: isUnsubscribing,
+        title: isUnsubscribing ? "Processing…" : "Unsubscribe these contacts",
+        onClick: handleUnsubscribeContacts,
+      },
+    ];
+
+    // Copying is a one-contact action: with several ticked there is no single
+    // record to copy, so the action is absent rather than present and refusing.
+    if (selectedContacts.size === 1) {
+      actions.push({
+        key: "clone",
+        label: "Clone",
+        icon: <CloneActionIcon />,
+        disabled: isCloningContact,
+        title: isCloningContact ? "Cloning…" : "Clone this contact",
+        onClick: handleCloneContacts,
+      });
+    }
+
+    actions.push({
+      key: "delete",
+      label: "Delete",
+      icon: <DeleteActionIcon />,
+      danger: true,
+      disabled: isDeletingContact,
+      title: isDeletingContact ? "Deleting…" : "Delete these contacts",
+      onClick: handleDeleteContacts,
+    });
+
+    return actions;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedContacts, isUnsubscribing, isCloningContact, isDeletingContact]);
+
   const handleDownloadView = async (view: ViewItem) => {
     setDownloadingViewId(view.id);
     try {
@@ -2377,191 +2483,6 @@ const handleDeleteContacts = () => {
       </div>
     )}
 
-    {/* ✅ BULK ACTION BAR */}
-{selectedContacts.size > 0 && (
-  <div
-    style={{
-      marginBottom: 16,
-      padding: "12px 16px",
-      background: "#f0f7ff",
-      borderRadius: 6,
-      display: "flex",
-      alignItems: "center",
-      gap: 16,
-    }}
-  >
-    <span style={{ fontWeight: 500 }}>
-      {selectedContacts.size} contact
-      {selectedContacts.size > 1 ? "s" : ""} selected
-    </span>
-
-    <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-      {selectedContacts.size === 1 && (
-        <button
-          className="button secondary"
-          onClick={handleCloneContacts}
-          disabled={isCloningContact}
-          style={{
-            background: "none",
-            color: "#3f9f42",
-            border: "none",
-            borderRadius: "12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "40px",
-            height: "40px",
-            padding: "0",
-            cursor: isCloningContact ? "not-allowed" : "pointer",
-            opacity: isCloningContact ? 0.6 : 1,
-          }}
-          title={isCloningContact ? "Cloning..." : "Clone contact"}
-        >
-          <img
-            src={duplicateIcon}
-            alt="Clone"
-            style={{
-              width: 22,
-              height: 22,
-              objectFit: "contain",
-              filter:
-                "invert(47%) sepia(82%) saturate(397%) hue-rotate(84deg) brightness(95%) contrast(90%)",
-            }}
-          />
-        </button>
-      )}
-
-      <button
-        className="button secondary"
-        onClick={handleDeleteContacts}
-        disabled={isDeletingContact}
-        style={{
-          background: "none",
-          color: "#3f9f42",
-          border: "none",
-          borderRadius: "12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "40px",
-          height: "40px",
-          padding: "0",
-          cursor: isDeletingContact ? "not-allowed" : "pointer",
-          opacity: isDeletingContact ? 0.6 : 1,
-        }}
-        title={isDeletingContact ? "Deleting..." : "Delete contacts"}
-      >
-        <FontAwesomeIcon
-          icon={faTrashAlt}
-          style={{ fontSize: 20, color: "#3f9f42" }}
-        />
-      </button>
-
-      <button
-        className="button secondary"
-        onClick={handleUnsubscribeContacts}
-        disabled={isUnsubscribing}
-        style={{
-          background: "none",
-          color: "#3f9f42",
-          border: "none",
-          borderRadius: "12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "40px",
-          height: "40px",
-          padding: "0",
-          cursor: isUnsubscribing ? "not-allowed" : "pointer",
-          opacity: isUnsubscribing ? 0.6 : 1,
-        }}
-        title={isUnsubscribing ? "Processing..." : "Unsubscribe"}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22">
-          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2"></path>
-          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M14.25 17.25h6" strokeWidth="2"></path>
-          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2"></path>
-          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2"></path>
-        </svg>
-      </button>
-
-      <button
-        className="button primary"
-        onClick={() => 
-          //setShowSaveSegmentModal(true)
-          dispatch(openPanel("save-segment-modal"))
-
-        }
-        style={{
-          backgroundColor: "transparent",
-          borderColor: "transparent",
-          color: "#3f9f42",
-          border: "none",
-          borderRadius: "12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "40px",
-          height: "40px",
-          padding: "0",
-          cursor: "pointer",
-        }}
-        title="Segment"
-      >
-        <svg
-          width="30"
-          height="30"
-          viewBox="0 0 100 100"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M50 50H85C85 69.33 69.33 85 50 85C30.67 85 15 69.33 15 50C15 30.67 30.67 15 50 15V50Z"
-            stroke="#3f9f42"
-            strokeWidth="6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M60 40V15C73.8071 15 85 26.1929 85 40H60Z"
-            stroke="#3f9f42"
-            strokeWidth="6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-
-      <button
-        className="button secondary"
-        onClick={() => 
-          //setShowBulkUpdatePanel(true)
-          dispatch(openPanel("bulk-update-view-panel"))
-        }
-        style={{
-          background: "none",
-          color: "#3f9f42",
-          border: "none",
-          borderRadius: "12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "40px",
-          height: "40px",
-          padding: "0",
-          cursor: "pointer",
-        }}
-        title="Bulk Update"
-      >
-        <FontAwesomeIcon
-          icon={faEdit}
-          style={{ fontSize: 20, color: "#3f9f42" }}
-        />
-      </button>
-
-    </div>
-  </div>
-)}
 
   </>
 );
@@ -2712,6 +2633,13 @@ const handleDeleteContacts = () => {
                 selectedCount: selectedContacts.size,
                 progress: validationProgress,
               }}
+              enrichAction={{
+                onClick: () => dispatch(openPanel("enrich-view-contacts-panel")),
+                selectedCount: selectedContacts.size,
+                progress: enrichProgress,
+              }}
+              bulkActions={viewBulkActions}
+              onClearSelection={() => setSelectedContacts(new Set())}
               customAttributeClientId={clientId}
               data={viewContacts}
               isLoading={isLoadingViewContacts}
@@ -2937,24 +2865,21 @@ const handleDeleteContacts = () => {
         clientId={String(clientId)}
         contactIds={validationContactIds}
         onJobChange={setActiveValidationJob}
-        onCompleted={(job) => {
-          if (job.status !== "failed" && job.processedCount > 0) {
-            if (selectedView) {
-              setValidationColumnToReveal({
-                key: getValidationScoreColumn(job.checkType),
-                requestId: job.id,
-                scopeId: selectedView.id,
-              });
-            }
-          }
+        onCompleted={handleRunCompleted}
+        onShowMessage={showContactMessage}
+      />
 
-          // Pull the new scores into the grid. The selection is deliberately
-          // kept: a user who has just validated fifty contacts often wants to
-          // run a second check over the same fifty.
-          if (selectedView) {
-            fetchContactsForView(selectedView);
-          }
-        }}
+      {/* The other half of the checks — email discovery and Customisable Data
+          Enhancement — behind the Enrich button. Same panel, its own run. */}
+      <ValidationRunPanel
+        mode="enrich"
+        isOpen={showEnrichViewContactsPanel}
+        isAdmin={isAdmin}
+        onClose={() => dispatch(closePanel())}
+        clientId={String(clientId)}
+        contactIds={validationContactIds}
+        onJobChange={setActiveEnrichJob}
+        onCompleted={handleRunCompleted}
         onShowMessage={showContactMessage}
       />
 

@@ -3,7 +3,14 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import API_BASE_URL from "../../config";
 import "./ContactList.css";
-import DynamicContactsTable from "./DynamicContactsTable";
+import DynamicContactsTable, { BulkAction } from "./DynamicContactsTable";
+import {
+  BulkEditActionIcon,
+  CloneActionIcon,
+  DeleteActionIcon,
+  SegmentActionIcon,
+  UnsubscribeActionIcon,
+} from "./contactBulkActionIcons";
 import ToastMessage from "../common/ToastMessage";
 import AddContactModal from "./AddContactModal";
 import EditContactModal from "./contact_profile/EditContactModal";
@@ -31,7 +38,6 @@ import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import deleteIcon from "../../assets/images/deleteiconn.png";
-import duplicateIcon from "../../assets/images/icons/duplicate.png";
 import {
   TRACKING_BOT_CLICK_FIELD,
   TRACKING_CLICK_FIELD,
@@ -365,6 +371,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   const showValidateContactsPanel =
   activePanel === "validate-contacts-panel";
+
+  /**
+   * The Enrich panel. A key of its own, not a flag on the validation panel:
+   * MainPage keeps visited tabs mounted, so one key shared between two panels
+   * would open both and leave the user looking at whichever stacked on top.
+   */
+  const showEnrichContactsPanel =
+  activePanel === "enrich-contacts-panel";
 
   const showAddContactCommonModal =
   activePanel === "add-contact-modal";
@@ -1326,6 +1340,20 @@ const formatTimeIST = formatUserTime;
         : null,
     [activeValidationJob]
   );
+  /** The same, for the Enrich panel's run — the two can be in flight at once. */
+  const [activeEnrichJob, setActiveEnrichJob] = useState<ValidationJob | null>(null);
+  const enrichProgress = useMemo(
+    () =>
+      activeEnrichJob
+        ? {
+            processed: activeEnrichJob.processedCount,
+            total: activeEnrichJob.contactCount,
+            isFinished: activeEnrichJob.isFinished,
+            failed: activeEnrichJob.status === "failed",
+          }
+        : null,
+    [activeEnrichJob]
+  );
   const segmentColumnPreferences = useColumnPreferences(effectiveUserId, {
     scope: selectedSegmentForView ? { scopeType: "segment", scopeId: selectedSegmentForView.id } : null,
     customFieldIdByName,
@@ -2253,6 +2281,146 @@ const formatTimeIST = formatUserTime;
         .filter((id) => !isNaN(id) && id > 0),
     [viewMode, segmentViewMode, detailSelectedContacts, selectedContacts]
   );
+
+  /**
+   * What happens when a run from either panel finishes.
+   *
+   * Validation and enrichment land in the same grid and are read back the same
+   * way, so the two panels share one handler rather than keeping two copies
+   * that have to be changed together.
+   */
+  const handleValidationRunCompleted = (job: ValidationJob) => {
+    if (job.status !== "failed" && job.processedCount > 0) {
+      const key = getValidationScoreColumn(job.checkType);
+      if (viewMode === "detail" && selectedDataFileForView) {
+        setValidationColumnToReveal({ key, requestId: job.id, scopeType: "list", scopeId: selectedDataFileForView.id });
+      } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+        setValidationColumnToReveal({ key, requestId: job.id, scopeType: "segment", scopeId: selectedSegmentForView.id });
+      }
+    }
+
+    // Pull the new scores into whichever grid is on screen. The selection is
+    // deliberately kept: a user who has just validated fifty contacts often
+    // wants to run a second check over the same fifty.
+    if (viewMode === "detail" && selectedDataFileForView) {
+      fetchDetailContacts("list", selectedDataFileForView);
+    } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+      fetchDetailContacts("segment", selectedSegmentForView);
+    } else if (selectedDataFile) {
+      fetchContacts();
+    }
+  };
+
+  /**
+   * Copies the one contact that is ticked.
+   *
+   * Lives beside the actions rather than inside the bar so the list grid and
+   * the segment grid can share it — they differ only in which scope is
+   * reloaded afterwards, and that is the scope the user is looking at.
+   */
+  const cloneSelectedDetailContact = async () => {
+    const contactId = Array.from(detailSelectedContacts)[0];
+    if (!contactId) return;
+
+    try {
+      setIsCloningContact(true);
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/clone-contact?contactId=${contactId}`,
+        { method: "POST", headers: { accept: "*/*" } }
+      );
+      if (!response.ok) throw new Error("Failed to clone contact");
+
+      showContactMessage("Contact cloned successfully!", "success");
+
+      if (viewMode === "detail" && selectedDataFileForView) {
+        fetchDetailContacts("list", selectedDataFileForView);
+      } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+        fetchDetailContacts("segment", selectedSegmentForView);
+      }
+      setDetailSelectedContacts(new Set());
+    } catch (error) {
+      showContactMessage("Failed to clone contact", "error");
+    } finally {
+      setIsCloningContact(false);
+    }
+  };
+
+  /**
+   * What the selection bar offers once rows are ticked.
+   *
+   * One array for both detail grids: they showed the same six actions as two
+   * near-identical blocks of inline-styled icon buttons, and the pair had
+   * already drifted — one said "Delete contacts" and the other "Remove" for
+   * the same button. Validate and Enrich are not here; the grid renders those
+   * itself, because they double as the progress bar of a run in flight.
+   */
+  const detailBulkActions: BulkAction[] = useMemo(() => {
+    const actions: BulkAction[] = [
+      {
+        key: "segment",
+        label: "Add to segment",
+        icon: <SegmentActionIcon />,
+        onClick: () => {
+          dispatch(openPanel("save-segment-modal"));
+          if (segments.length === 0) fetchSegments();
+        },
+      },
+      {
+        key: "bulk-edit",
+        label: "Bulk edit",
+        icon: <BulkEditActionIcon />,
+        onClick: () => dispatch(openPanel("bulk-update-contacts-panel")),
+      },
+      {
+        key: "unsubscribe",
+        label: "Unsubscribe",
+        icon: <UnsubscribeActionIcon />,
+        disabled: isUnsubscribing,
+        title: isUnsubscribing ? "Processing…" : "Unsubscribe these contacts",
+        onClick: handleUnsubscribeContacts,
+      },
+    ];
+
+    // Copying is a one-contact action: with several ticked there is no single
+    // record to copy, so the action is absent rather than present and refusing.
+    if (detailSelectedContacts.size === 1) {
+      actions.push({
+        key: "clone",
+        label: "Clone",
+        icon: <CloneActionIcon />,
+        disabled: isCloningContact,
+        title: isCloningContact ? "Cloning…" : "Clone this contact",
+        onClick: cloneSelectedDetailContact,
+      });
+    }
+
+    actions.push({
+      key: "delete",
+      label: "Delete",
+      icon: <DeleteActionIcon />,
+      danger: true,
+      disabled: isDeletingContact,
+      title: isDeletingContact ? "Deleting…" : "Delete these contacts",
+      onClick: () => {
+        setDeleteContactCount(detailSelectedContacts.size);
+        setShowDeleteConfirmation(true);
+      },
+    });
+
+    return actions;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    detailSelectedContacts,
+    isUnsubscribing,
+    isCloningContact,
+    isDeletingContact,
+    segments.length,
+    viewMode,
+    segmentViewMode,
+    selectedDataFileForView,
+    selectedSegmentForView,
+  ]);
+
   const segmentFilteredContacts = useMemo(() => {
     let filtered = segmentContacts.filter((contact) => {
       const searchLower = segmentSearchQuery.toLowerCase()
@@ -2583,6 +2751,13 @@ const filterFields: any = useMemo(() => {
                     selectedCount: detailSelectedContacts.size,
                     progress: validationProgress,
                   }}
+                  enrichAction={{
+                    onClick: () => dispatch(openPanel("enrich-contacts-panel")),
+                    selectedCount: detailSelectedContacts.size,
+                    progress: enrichProgress,
+                  }}
+                  bulkActions={detailBulkActions}
+                  onClearSelection={() => setDetailSelectedContacts(new Set())}
                   customAttributeDefinitions={customFields}
                   data={filteredDetailContacts}
                   isLoading={isLoadingDetail}
@@ -2875,220 +3050,6 @@ const filterFields: any = useMemo(() => {
                           }}
                         />
                       </div>
-                      {detailSelectedContacts.size > 0 && (
-                        <div
-                          style={{
-                            marginBottom: 16,
-                            padding: "12px 16px",
-                            background: "#f0f7ff",
-                            borderRadius: 6,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 16,
-                          }}
-                        >
-                          <span style={{ fontWeight: 500 }}>
-                            {detailSelectedContacts.size} contact
-                            {detailSelectedContacts.size > 1 ? "s" : ""} selected
-                          </span>
-                          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-                            {detailSelectedContacts.size === 1 && (
-                              <button
-                                className="button secondary"
-                                onClick={async () => {
-                                  const contactId = Array.from(
-                                    detailSelectedContacts
-                                  )[0];
-                                  try {
-                                    setIsCloningContact(true);
-                                    const response = await fetch(
-                                      `${API_BASE_URL}/api/Crm/clone-contact?contactId=${contactId}`,
-                                      { method: "POST", headers: { accept: "*/*" } }
-                                    );
-                                    if (!response.ok)
-                                      throw new Error("Failed to clone contact");
-                                    showContactMessage("Contact cloned successfully!", "success");
-                                    if (selectedDataFileForView) {
-                                      fetchDetailContacts(
-                                        "list",
-                                        selectedDataFileForView
-                                      );
-                                    }
-                                    setDetailSelectedContacts(new Set());
-                                  } catch (error) {
-                                    showContactMessage("Failed to clone contact", "error");
-                                  } finally {
-                                    setIsCloningContact(false);
-                                  }
-                                }}
-                                disabled={isCloningContact}
-                                style={{
-                                  background: "none",
-                                  color: "#3f9f42",
-                                  border: "none",
-                                  borderRadius: "12px",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  width: "40px",
-                                  height: "40px",
-                                  padding: "0",
-                                  cursor: isCloningContact ? "not-allowed" : "pointer",
-                                  opacity: isCloningContact ? 0.6 : 1
-                                }}
-                                title={isCloningContact ? "Cloning..." : "Clone contact"}
-                              >
-                                <img
-                                  src={duplicateIcon}
-                                  alt="Clone"
-                                  style={{
-                                    width: 22,
-                                    height: 22,
-                                    objectFit: "contain",
-                                    filter: "invert(47%) sepia(82%) saturate(397%) hue-rotate(84deg) brightness(95%) contrast(90%)"
-                                  }}
-                                />
-                              </button>
-                            )}
-                            <button
-                              className="button secondary"
-                              onClick={() => {
-                                setDeleteContactCount(detailSelectedContacts.size);
-                                setShowDeleteConfirmation(true);
-                              }}
-                              disabled={isDeletingContact}
-                              style={{
-                                background: "none",
-                                color: "#3f9f42",
-                                border: "none",
-                                borderRadius: "12px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: "40px",
-                                height: "40px",
-                                padding: "0",
-                                cursor: isDeletingContact ? "not-allowed" : "pointer",
-                                opacity: isDeletingContact ? 0.6 : 1
-                              }}
-                              title={isDeletingContact ? "Deleting..." : "Delete contacts"}
-                            >
-                              <FontAwesomeIcon
-                                icon={faTrashAlt}
-                                style={{ fontSize: 20, color: "#3f9f42" }}
-                              />
-                            </button>
-                            <button
-                              className="button secondary"
-                              onClick={handleUnsubscribeContacts}
-                              disabled={isUnsubscribing}
-                              style={{
-                                background: "none",
-                                color: "#3f9f42",
-                                border: "none",
-                                borderRadius: "12px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: "40px",
-                                height: "40px",
-                                padding: "0",
-                                cursor: isUnsubscribing ? "not-allowed" : "pointer",
-                                opacity: isUnsubscribing ? 0.6 : 1
-                              }}
-                              title={isUnsubscribing ? "Processing..." : "Unsubscribe"}
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22">
-                                <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2"></path>
-                                <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M14.25 17.25h6" strokeWidth="2"></path>
-                                <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2"></path>
-                                <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2"></path>
-                              </svg>
-                            </button>
-                            <button
-                              className="button primary"
-                              onClick={() => {
-                                //setShowSaveSegmentModal(true);
-                                dispatch(openPanel("save-segment-modal"));
-
-                                if (segments.length === 0) {
-                                  fetchSegments();
-                                }
-                              }}
-                              style={{
-                                backgroundColor: 'transparent',
-                                borderColor: 'transparent',
-                                color: '#3f9f42',
-                                border: 'none',
-                                borderRadius: '12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '40px',
-                                height: '40px',
-                                padding: '0',
-                                cursor: 'pointer'
-                              }}
-                              title="Segment"
-                            >
-                              <svg
-                                width="30"
-                                height="30"
-                                viewBox="0 0 100 100"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  d="M50 50H85C85 69.33 69.33 85 50 85C30.67 85 15 69.33 15 50C15 30.67 30.67 15 50 15V50Z"
-                                  stroke="#3f9f42"
-                                  strokeWidth="6"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                                <path
-                                  d="M60 40V15C73.8071 15 85 26.1929 85 40H60Z"
-                                  stroke="#3f9f42"
-                                  strokeWidth="6"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            </button>
-                            <button
-                              className="button secondary"
-                              onClick={() => 
-                                //setShowBulkUpdatePanel(true)
-                                dispatch(openPanel("bulk-update-contacts-panel"))
-                              }
-                              style={{
-                                background: "none",
-                                color: "#3f9f42",
-                                border: "none",
-                                borderRadius: "12px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: "40px",
-                                height: "40px",
-                                padding: "0",
-                                cursor: "pointer"
-                              }}
-                              title="Bulk update"
-                            >
-                              <FontAwesomeIcon
-                                icon={faEdit}
-                                style={{ fontSize: 20, color: "#3f9f42" }}
-                              />
-                            </button>
-                            <ValidateContactsButton
-                              variant="icon"
-                              title="Validation checks"
-                              progress={validationProgress}
-                              onClick={() => dispatch(openPanel("validate-contacts-panel"))}
-                            />
-                          </div>
-                        </div>
-                      )}
                     </>
                   }
                 // customColumns={customColumns}
@@ -3691,6 +3652,13 @@ const filterFields: any = useMemo(() => {
                     selectedCount: detailSelectedContacts.size,
                     progress: validationProgress,
                   }}
+                  enrichAction={{
+                    onClick: () => dispatch(openPanel("enrich-contacts-panel")),
+                    selectedCount: detailSelectedContacts.size,
+                    progress: enrichProgress,
+                  }}
+                  bulkActions={detailBulkActions}
+                  onClearSelection={() => setDetailSelectedContacts(new Set())}
                   customAttributeDefinitions={customFields}
                   columnNameMap={columnNameMap}
                   data={detailContacts}
@@ -3970,210 +3938,6 @@ const filterFields: any = useMemo(() => {
                           }}
                         />
                       </div>
-                      {detailSelectedContacts.size > 0 && (
-                      <div
-                        style={{
-                          marginBottom: 16,
-                          padding: "12px 16px",
-                          background: "#f0f7ff",
-                          borderRadius: 6,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 16,
-                        }}
-                      >
-                        <span style={{ fontWeight: 500 }}>
-                          {detailSelectedContacts.size} contact
-                          {detailSelectedContacts.size > 1 ? "s" : ""} selected
-                        </span>
-                        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-                          {detailSelectedContacts.size === 1 && (
-                            <button
-                              className="button secondary"
-                              onClick={async () => {
-                                const contactId = Array.from(detailSelectedContacts)[0];
-                                try {
-                                  setIsCloningContact(true);
-                                  const response = await fetch(
-                                    `${API_BASE_URL}/api/Crm/clone-contact?contactId=${contactId}`,
-                                    { method: "POST", headers: { "accept": "*/*" } }
-                                  );
-                                  if (!response.ok) throw new Error("Failed to clone contact");
-                                  showContactMessage("Contact cloned successfully!", "success");
-                                  if (selectedSegmentForView) {
-                                    fetchDetailContacts("segment", selectedSegmentForView);
-                                  }
-                                  setDetailSelectedContacts(new Set());
-                                } catch (error) {
-                                  showContactMessage("Failed to clone contact", "error");
-                                } finally {
-                                  setIsCloningContact(false);
-                                }
-                              }}
-                              disabled={isCloningContact}
-                              style={{
-                                background: "none",
-                                color: "#3f9f42",
-                                border: "none",
-                                borderRadius: "12px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: "40px",
-                                height: "40px",
-                                padding: "0",
-                                cursor: isCloningContact ? "not-allowed" : "pointer",
-                                opacity: isCloningContact ? 0.6 : 1
-                              }}
-                              title={isCloningContact ? "Cloning..." : "Clone contact"}
-                            >
-                              <img
-                                src={duplicateIcon}
-                                alt="Clone"
-                                style={{
-                                  width: 22,
-                                  height: 22,
-                                  objectFit: "contain",
-                                  filter: "invert(47%) sepia(82%) saturate(397%) hue-rotate(84deg) brightness(95%) contrast(90%)"
-                                }}
-                              />
-                            </button>
-                          )}
-                          <button
-                            className="button secondary"
-                            onClick={() => {
-                              setDeleteContactCount(detailSelectedContacts.size);
-                              setShowDeleteConfirmation(true);
-                            }}
-                            disabled={isDeletingContact}
-                            style={{
-                              background: "none",
-                              color: "#3f9f42",
-                              border: "none",
-                              borderRadius: "12px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: "40px",
-                              height: "40px",
-                              padding: "0",
-                              cursor: isDeletingContact ? "not-allowed" : "pointer",
-                              opacity: isDeletingContact ? 0.6 : 1
-                            }}
-                            title={isDeletingContact ? "Deleting..." : "Remove"}
-                          >
-                            <FontAwesomeIcon
-                              icon={faTrashAlt}
-                              style={{ fontSize: 20, color: "#3f9f42" }}
-                            />
-                          </button>
-                          <button
-                            className="button secondary"
-                            onClick={handleUnsubscribeContacts}
-                            disabled={isUnsubscribing}
-                            style={{
-                              background: "none",
-                              color: "#3f9f42",
-                              border: "none",
-                              borderRadius: "12px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: "40px",
-                              height: "40px",
-                              padding: "0",
-                              cursor: isUnsubscribing ? "not-allowed" : "pointer",
-                              opacity: isUnsubscribing ? 0.6 : 1
-                            }}
-                            title={isUnsubscribing ? "Processing..." : "Unsubscribe"}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22">
-                              <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2"></path>
-                              <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M14.25 17.25h6" strokeWidth="2"></path>
-                              <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2"></path>
-                              <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2"></path>
-                            </svg>
-                          </button>
-                          <button
-                            className="button primary"
-                            onClick={() => 
-                              //setShowSaveSegmentModal(true)
-                              dispatch(openPanel("save-segment-modal"))
-                            }
-                            style={{ 
-                              backgroundColor: 'transparent',
-                              borderColor: 'transparent',
-                              color: '#3f9f42',
-                              border: 'none',
-                              borderRadius: '12px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '40px',
-                              height: '40px',
-                              padding: '0',
-                              cursor: 'pointer'
-                            }}
-                            title="Segment"
-                          >
-                            <svg
-                              width="30"
-                              height="30"
-                              viewBox="0 0 100 100"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M50 50H85C85 69.33 69.33 85 50 85C30.67 85 15 69.33 15 50C15 30.67 30.67 15 50 15V50Z"
-                                stroke="#3f9f42"
-                                strokeWidth="6"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                              <path
-                                d="M60 40V15C73.8071 15 85 26.1929 85 40H60Z"
-                                stroke="#3f9f42"
-                                strokeWidth="6"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            className="button secondary"
-                            onClick={() => 
-                              //setShowBulkUpdatePanel(true)
-                              dispatch(openPanel("bulk-update-contacts-panel"))
-                            }
-                            style={{
-                              background: "none",
-                              color: "#3f9f42",
-                              border: "none",
-                              borderRadius: "12px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: "40px",
-                              height: "40px",
-                              padding: "0",
-                              cursor: "pointer"
-                            }}
-                            title="Bulk Update"
-                          >
-                            <FontAwesomeIcon
-                              icon={faEdit}
-                              style={{ fontSize: 20, color: "#3f9f42" }}
-                            />
-                          </button>
-                          <ValidateContactsButton
-                            variant="icon"
-                            title="Validation checks"
-                            progress={validationProgress}
-                            onClick={() => dispatch(openPanel("validate-contacts-panel"))}
-                          />
-                        </div>
-                      </div>
-                      )}
                     </>
                   }
                 />
@@ -4785,28 +4549,22 @@ const filterFields: any = useMemo(() => {
         clientId={effectiveUserId ?? ""}
         contactIds={activeSelectedContactIds}
         onJobChange={setActiveValidationJob}
-        onCompleted={(job) => {
-          if (job.status !== "failed" && job.processedCount > 0) {
-            const key = getValidationScoreColumn(job.checkType);
-            if (viewMode === "detail" && selectedDataFileForView) {
-              setValidationColumnToReveal({ key, requestId: job.id, scopeType: "list", scopeId: selectedDataFileForView.id });
-            } else if (segmentViewMode === "detail" && selectedSegmentForView) {
-              setValidationColumnToReveal({ key, requestId: job.id, scopeType: "segment", scopeId: selectedSegmentForView.id });
-            }
-          }
-
-          // Pull the new scores into whichever grid is on screen. The
-          // selection is deliberately kept: a user who has just validated
-          // fifty contacts often wants to run a second check over the same
-          // fifty.
-          if (viewMode === "detail" && selectedDataFileForView) {
-            fetchDetailContacts("list", selectedDataFileForView);
-          } else if (segmentViewMode === "detail" && selectedSegmentForView) {
-            fetchDetailContacts("segment", selectedSegmentForView);
-          } else if (selectedDataFile) {
-            fetchContacts();
-          }
-        }}
+        onCompleted={handleValidationRunCompleted}
+        onShowMessage={(message, type) =>
+          showContactMessage(message, type === "error" ? "error" : type === "info" ? "info" : "success")
+        }
+      />
+      {/* The other half of the checks — email discovery and Customisable Data
+          Enhancement — behind the Enrich button. Same panel, its own run. */}
+      <ValidationRunPanel
+        mode="enrich"
+        isOpen={showEnrichContactsPanel}
+        isAdmin={userRole === "ADMIN"}
+        onClose={() => dispatch(closePanel())}
+        clientId={effectiveUserId ?? ""}
+        contactIds={activeSelectedContactIds}
+        onJobChange={setActiveEnrichJob}
+        onCompleted={handleValidationRunCompleted}
         onShowMessage={(message, type) =>
           showContactMessage(message, type === "error" ? "error" : type === "info" ? "info" : "success")
         }

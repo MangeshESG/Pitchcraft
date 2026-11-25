@@ -62,7 +62,7 @@ export const VALIDATION_CHECK_LABELS: Record<ValidationCheckType, string> = {
   contact_fit: "Target Audience Match",
   data_integrity: "Data Integrity Check",
   live_contact: "Employment Match",
-  email_verification: "Email verification",
+  email_verification: "Email Verification",
   data_enhancement: "Customisable Data Enhancement",
 };
 

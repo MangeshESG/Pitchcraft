@@ -484,6 +484,78 @@
   background: #fff;
 }
 
+/* ============ SELECTION BAR ============ */
+/*
+ * Takes the toolbar's place while rows are ticked, so the actions sit on the
+ * row the user is already looking at rather than in a strip of their own above
+ * the grid with the toolbar still underneath it.
+ */
+.dt-selbar {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 6px;
+  min-height: 54px;
+  margin-bottom: 12px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: #f1f8f2;
+  border: 1px solid #dceadd;
+  box-sizing: border-box;
+}
+.dt-selbar__count {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding-right: 4px;
+  font-size: 13.5px; font-weight: 600; color: var(--dt-ink);
+  white-space: nowrap;
+}
+.dt-selbar__num {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--dt-brand); color: #fff;
+  font-size: 12px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.dt-selbar__clear {
+  background: none; border: 0; padding: 0 4px;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  color: var(--dt-ink-soft);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.dt-selbar__clear:hover { color: var(--dt-brand); }
+.dt-selbar__sep {
+  width: 1px; height: 24px; margin: 0 6px;
+  background: #cfe0d1;
+}
+/* Pushes the destructive actions to the far end, away from the rest. */
+.dt-selbar__spacer { flex: 1 1 auto; min-width: 8px; }
+
+.dt-selbar__btn {
+  height: 38px; padding: 0 12px;
+  background: transparent; border: 0; border-radius: 8px;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  color: var(--dt-ink-soft);
+  display: inline-flex; align-items: center; gap: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.dt-selbar__btn:hover { background: rgba(63, 159, 66, 0.10); color: var(--dt-ink); }
+.dt-selbar__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.dt-selbar__btn:disabled:hover { background: transparent; color: var(--dt-ink-soft); }
+.dt-selbar__btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+.dt-selbar__btn.is-danger { color: #c2321f; }
+.dt-selbar__btn.is-danger:hover { background: rgba(220, 38, 38, 0.10); color: #b91c1c; }
+
+/* The run buttons keep their own shape, so they read as the same control the
+   toolbar offers rather than becoming two more words in a row of words. */
+.dt-selbar .dt-btn-tertiary { background: #fff; }
+
+@media (max-width: 720px) {
+  .dt-selbar__spacer { display: none; }
+  .dt-selbar__btn { padding: 0 10px; }
+}
+
 /* ============ BULK BAR ============ */
 .dt-bulkbar {
   position: fixed; left: 50%; bottom: 32px;

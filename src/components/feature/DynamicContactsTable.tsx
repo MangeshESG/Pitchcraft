@@ -32,7 +32,12 @@ export interface BulkAction {
   key: string;
   label: string;
   icon?: React.ReactNode;
+  /** Destructive actions sit apart, at the far end of the bar. */
   danger?: boolean;
+  /** Greys the action out — "Deleting…" while the last click is still running. */
+  disabled?: boolean;
+  /** Hover text, when the label alone does not say enough. */
+  title?: string;
   onClick: (selectedIds: string[]) => void;
 }
 
@@ -67,6 +72,17 @@ interface DynamicContactsTableProps {
     onClick: () => void;
     selectedCount: number;
     /** The run in flight, so the button can stand in as its progress bar. */
+    progress?: ValidationRunProgress | null;
+  };
+  /**
+   * The Enrich action, which opens the second run panel — email discovery and
+   * Customisable Data Enhancement. Same shape as `validationAction` because it
+   * is the same button with a different word; a grid that offers one usually
+   * offers both, but they are separate props so a grid can offer only one.
+   */
+  enrichAction?: {
+    onClick: () => void;
+    selectedCount: number;
     progress?: ValidationRunProgress | null;
   };
   customColumns?: ColumnConfig[];
@@ -135,9 +151,17 @@ interface DynamicContactsTableProps {
 
   currentTab?: string;
 
-  /** Optional floating bulk-action bar buttons */
+  /**
+   * What can be done with the rows that are ticked.
+   *
+   * These render in the toolbar row itself, which the selection takes over
+   * while anything is ticked — the search, the Columns button and the
+   * pagination are all for choosing rows, and once rows have been chosen they
+   * are in the way of the thing the user is now doing. Grids that pass no
+   * actions keep their toolbar and get the floating bar at the foot instead.
+   */
   bulkActions?: BulkAction[];
-  /** Called when the bulk bar "Clear" button is pressed */
+  /** Called when the selection bar's "Clear" button is pressed */
   onClearSelection?: () => void;
 
   /**
@@ -312,6 +336,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   autoGenerateColumns = true,
   showDetailToggle = false,
   validationAction,
+  enrichAction,
   customColumns,
   excludeFields = [],
   includeFields = [],
@@ -957,8 +982,31 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     });
   };
 
+  const selectedCount = selectedItems?.size ?? 0;
+
+  /**
+   * Whether the selection takes over the toolbar row.
+   *
+   * Only for grids that gave the bar something to do. On a grid with no bulk
+   * actions the bar would be a count and a Clear link that had swallowed the
+   * search box, so those keep the toolbar and the floating bar at the foot.
+   */
+  const hasInlineSelectionBar =
+    selectedCount > 0 &&
+    ((bulkActions?.length ?? 0) > 0 || !!validationAction || !!enrichAction);
+
+  const clearSelection = () => {
+    if (onClearSelection) {
+      onClearSelection();
+      return;
+    }
+    Array.from(selectedItems ?? []).forEach((id) => onSelectItem?.(id));
+  };
+
   // ---------- Floating bulk bar ----------
   const renderBulkBar = () => {
+    // Never both: the inline bar already carries the count and the Clear.
+    if (hasInlineSelectionBar) return null;
     if (!selectedItems || selectedItems.size === 0) return null;
     const ids     = Array.from(selectedItems);
     const actions = bulkActions || [];
@@ -981,16 +1029,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             </button>
           ))}
           <div className="dt-bulkbar__sep" />
-          <button
-            onClick={() => {
-              if (onClearSelection) {
-                onClearSelection();
-              } else {
-                ids.forEach((id) => onSelectItem?.(id));
-              }
-            }}
-            className="dt-bulkbar__clear"
-          >
+          <button onClick={clearSelection} className="dt-bulkbar__clear">
             <svg viewBox="0 0 24 24" width="14" height="14">
               <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="m6 6 12 12M18 6 6 18"/>
             </svg>
@@ -1069,8 +1108,78 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         )}
       </div>
 
+      {/* Selection bar — stands in for the toolbar while rows are ticked. */}
+      {hasInlineSelectionBar && (
+        <div className="dt-selbar">
+          <span className="dt-selbar__count">
+            <span className="dt-selbar__num">{selectedCount}</span>
+            selected
+          </span>
+
+          <button type="button" className="dt-selbar__clear" onClick={clearSelection}>
+            Clear
+          </button>
+
+          <span className="dt-selbar__sep" aria-hidden="true" />
+
+          {/* The two run panels keep their own buttons rather than becoming
+              plain actions: they double as the progress bar of a run that is
+              still going, which a bare label cannot do. */}
+          {validationAction && (
+            <ValidateContactsButton
+              label="Validate"
+              onClick={validationAction.onClick}
+              progress={validationAction.progress}
+              title="Validation checks"
+            />
+          )}
+          {enrichAction && (
+            <ValidateContactsButton
+              mode="enrich"
+              onClick={enrichAction.onClick}
+              progress={enrichAction.progress}
+              title="Find missing emails, or fill and check any column with AI"
+            />
+          )}
+
+          {(bulkActions ?? [])
+            .filter((action) => !action.danger)
+            .map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                className="dt-selbar__btn"
+                onClick={() => action.onClick(Array.from(selectedItems ?? []))}
+                disabled={action.disabled}
+                title={action.title || action.label}
+              >
+                {action.icon}
+                {action.label}
+              </button>
+            ))}
+
+          <span className="dt-selbar__spacer" />
+
+          {(bulkActions ?? [])
+            .filter((action) => action.danger)
+            .map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                className="dt-selbar__btn is-danger"
+                onClick={() => action.onClick(Array.from(selectedItems ?? []))}
+                disabled={action.disabled}
+                title={action.title || action.label}
+              >
+                {action.icon}
+                {action.label}
+              </button>
+            ))}
+        </div>
+      )}
+
       {/* Toolbar */}
-      {!hideSearch && (
+      {!hideSearch && !hasInlineSelectionBar && (
         <div className="dt-toolbar">
           <div className="dt-toolbar__left">
             <div className="dt-search">
@@ -1094,7 +1203,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
           <div className="dt-toolbar__right">
             {/* Validation + detail switch read as one control, so they share a frame. */}
-            {(validationAction || showDetailToggle) && (
+            {(validationAction || enrichAction || showDetailToggle) && (
               <div className="dt-action-group">
                 {validationAction && (
                   <ValidateContactsButton
@@ -1105,6 +1214,19 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                       validationAction.selectedCount === 0
                         ? "Select contact(s) to use validation checks"
                         : "Validation checks"
+                    }
+                  />
+                )}
+                {enrichAction && (
+                  <ValidateContactsButton
+                    mode="enrich"
+                    onClick={enrichAction.onClick}
+                    progress={enrichAction.progress}
+                    disabled={enrichAction.selectedCount === 0}
+                    title={
+                      enrichAction.selectedCount === 0
+                        ? "Select contact(s) to enrich"
+                        : "Find missing emails, or fill and check any column with AI"
                     }
                   />
                 )}

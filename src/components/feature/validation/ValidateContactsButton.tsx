@@ -1,4 +1,5 @@
 import React from "react";
+import { RunMode } from "./checkGroups";
 
 export interface ValidationRunProgress {
   processed: number;
@@ -20,6 +21,24 @@ export interface ValidationRunProgress {
  * can be closed and the grid used meanwhile, so without this the run would
  * disappear from the screen entirely until it finished.
  */
+/** Sparkles — the Enrich action: data added rather than data scored. */
+const SparkleIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M12 3.2 13.7 8l4.8 1.7-4.8 1.7L12 16.2 10.3 11.4 5.5 9.7 10.3 8 12 3.2Z"
+      stroke="#3f9f42"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M18.2 15.1 19 17.2l2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8.8-2.1Z"
+      stroke="#3f9f42"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 /** Shield with a tick. */
 const ShieldTickIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -49,7 +68,31 @@ const ValidateContactsButton: React.FC<{
    * bulk-action bar uses, where every action is an icon and a tooltip.
    */
   variant?: "toolbar" | "icon";
-}> = ({ onClick, title = "Validate contacts", disabled = false, progress = null, variant = "toolbar" }) => {
+  /**
+   * Which of the two run panels this button opens. The two share everything
+   * but their word and their picture, so they share a component rather than
+   * a copy that drifts.
+   */
+  mode?: RunMode;
+  /**
+   * Overrides the word on the button. The selection bar has less room than the
+   * toolbar and says "Validate" where the toolbar says "Validation checks".
+   */
+  label?: string;
+}> = ({
+  onClick,
+  title,
+  disabled = false,
+  progress = null,
+  variant = "toolbar",
+  mode = "validate",
+  label: labelOverride,
+}) => {
+  const isEnrich = mode === "enrich";
+  const label = labelOverride ?? (isEnrich ? "Enrich" : "Validation checks");
+  const tooltip = title ?? label;
+  const Icon = isEnrich ? SparkleIcon : ShieldTickIcon;
+  const runningWord = isEnrich ? "Enriching" : "Validating";
   const isRunning = !!progress && !progress.isFinished;
   const percent =
     progress && progress.total > 0
@@ -65,8 +108,8 @@ const ValidateContactsButton: React.FC<{
         aria-disabled={disabled}
         title={
           isRunning
-            ? `Validating ${progress!.processed} of ${progress!.total} contacts — click to reopen`
-            : title
+            ? `${runningWord} ${progress!.processed} of ${progress!.total} contacts — click to reopen`
+            : tooltip
         }
         style={{
           background: "none",
@@ -83,7 +126,7 @@ const ValidateContactsButton: React.FC<{
           opacity: disabled ? 0.5 : 1,
         }}
       >
-        {isRunning ? <span className="dt-spinner" aria-hidden="true" /> : <ShieldTickIcon size={22} />}
+        {isRunning ? <span className="dt-spinner" aria-hidden="true" /> : <Icon size={22} />}
       </button>
     );
   }
@@ -94,12 +137,12 @@ const ValidateContactsButton: React.FC<{
         type="button"
         className="dt-btn-tertiary dt-validate-btn is-running"
         onClick={onClick}
-        title={`Validating ${progress!.processed} of ${progress!.total} contacts — click to reopen`}
+        title={`${runningWord} ${progress!.processed} of ${progress!.total} contacts — click to reopen`}
       >
         <span className="dt-validate-progress">
           <span className="dt-validate-progress__head">
             <span className="dt-spinner" aria-hidden="true" />
-            Validating
+            {runningWord}
             <span className="dt-validate-progress__count">
               {progress!.processed}/{progress!.total}
             </span>
@@ -121,14 +164,14 @@ const ValidateContactsButton: React.FC<{
       className="dt-btn-tertiary dt-validate-btn"
       onClick={disabled ? undefined : onClick}
       aria-disabled={disabled}
-      title={title}
+      title={tooltip}
       style={{
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : 1,
       }}
     >
-      <ShieldTickIcon />
-      Validation checks
+      <Icon />
+      {label}
     </button>
   );
 };

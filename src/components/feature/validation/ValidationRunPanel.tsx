@@ -16,10 +16,17 @@ import {
   fetchJob,
   runValidation,
 } from "../../../api/contactValidation";
+import { DEFAULT_CHECK_BY_MODE, RunMode, modeForCheck } from "./checkGroups";
 
 interface ValidationRunPanelProps {
   isOpen: boolean;
   isAdmin?: boolean;
+  /**
+   * Which half of the checks this panel offers. "validate" scores what is
+   * already on the record; "enrich" goes and finds what is not. See
+   * `checkGroups` for why they are two panels and not one.
+   */
+  mode?: RunMode;
   onClose: () => void;
   clientId: string | number;
   contactIds: number[];
@@ -58,6 +65,21 @@ const labelStyle: React.CSSProperties = {
 };
 
 /**
+ * The price on a check's card, as a badge.
+ *
+ * Email discovery is the one check priced per contact, so it costs ten times
+ * what the others do for the same selection — amber against the green of the
+ * per-ten checks, which differ in lightness as well as hue so the two are
+ * still apart for anyone who cannot separate the colours.
+ */
+const creditPillFor = (
+  checkType: ValidationCheckType
+): { text: string; bg: string; fg: string } =>
+  checkType === "email_verification"
+    ? { text: "1 credit per contact", bg: "#fff1e0", fg: "#8a4b00" }
+    : { text: "1 credit per 10 contacts", bg: "#eef6ef", fg: "#2b6c2e" };
+
+/**
  * Starts one Audience Assurance check over the selected contacts and follows
  * it to the end.
  *
@@ -68,6 +90,7 @@ const labelStyle: React.CSSProperties = {
 const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
   isOpen,
   isAdmin = false,
+  mode = "validate",
   onClose,
   clientId,
   contactIds,
@@ -77,7 +100,9 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
 }) => {
   const [checkTypes, setCheckTypes] = useState<CheckTypeInfo[]>([]);
   const [briefs, setBriefs] = useState<ContactFitBrief[]>([]);
-  const [checkType, setCheckType] = useState<ValidationCheckType>("data_integrity");
+  const [checkType, setCheckType] = useState<ValidationCheckType>(
+    DEFAULT_CHECK_BY_MODE[mode]
+  );
   const [briefId, setBriefId] = useState<number | null>(null);
   /** The columns a Customisable Data Enhancement run can be pointed at. */
   const [enhancementFields, setEnhancementFields] = useState<EnhancementField[]>([]);
@@ -96,9 +121,11 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
   // existed when the run was started.
   const onCompletedRef = useRef(onCompleted);
   const onShowMessageRef = useRef(onShowMessage);
+  const modeRef = useRef(mode);
   useEffect(() => {
     onCompletedRef.current = onCompleted;
     onShowMessageRef.current = onShowMessage;
+    modeRef.current = mode;
   });
 
   const credits = creditsForContacts(contactIds.length, checkType);
@@ -119,7 +146,22 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
 
         if (cancelled) return;
 
-        setCheckTypes(types);
+        // Only this panel's half of the checks. The API answers with all five
+        // — it has no idea the UI splits them — so the split is applied here
+        // rather than asking for two endpoints that differ by a filter.
+        const mine = types.filter((type) => modeForCheck(type.key) === mode);
+
+        setCheckTypes(mine);
+        // A check left selected from the other panel would otherwise stay in
+        // state with no card on screen to show it, and the footer would start
+        // a run the user cannot see they asked for.
+        setCheckType((current) =>
+          mine.some((type) => type.key === current)
+            ? current
+            : mine.find((type) => type.key === DEFAULT_CHECK_BY_MODE[mode])?.key ??
+              mine[0]?.key ??
+              current
+        );
         setBriefs(savedBriefs);
         setBriefId(savedBriefs.find((b) => b.isDefault)?.id ?? savedBriefs[0]?.id ?? null);
       } catch (loadError: any) {
@@ -130,7 +172,7 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, clientId]);
+  }, [isOpen, clientId, mode]);
 
   // ---------- The enhancement column list ----------
   //
@@ -171,20 +213,45 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
     })();
   }, [isOpen, clientId, checkType]);
 
-  /** The picker's two groups, narrowed by whatever has been typed in the search. */
+  /**
+   * The picker's rows, narrowed by whatever has been typed in the search.
+   *
+   * One flat list in the order the API sends, with no "Contact fields" /
+   * "Custom attributes" headings over it: the headings were the only thing
+   * between a user and the column they came for, they pushed the rows that
+   * matched a search below the fold, and a row already says what it is — a
+   * custom attribute carries its type in its own second line. Searching
+   * covers the custom ones too, so nothing needs a group to be found.
+   */
   const visibleFields = useMemo(() => {
     const needle = fieldSearch.trim().toLowerCase();
+    if (!needle) return enhancementFields;
 
-    const matches = (field: EnhancementField) =>
-      !needle ||
-      field.label.toLowerCase().includes(needle) ||
-      field.key.toLowerCase().includes(needle);
-
-    return {
-      system: enhancementFields.filter((field) => !field.isCustom && matches(field)),
-      custom: enhancementFields.filter((field) => field.isCustom && matches(field)),
-    };
+    return enhancementFields.filter(
+      (field) =>
+        field.label.toLowerCase().includes(needle) ||
+        field.key.toLowerCase().includes(needle)
+    );
   }, [enhancementFields, fieldSearch]);
+
+  /**
+   * The chosen columns, in the order they were ticked, ready to be shown as
+   * chips above the picker.
+   *
+   * The picker scrolls and the ticks scatter through it, so without this the
+   * only sign of what a run will actually cover is a count — and a user who
+   * has scrolled past the top cannot see whether "Name" is still on. Falls
+   * back to the key for a column whose definition has not arrived yet, so a
+   * chip is never blank.
+   */
+  const selectedFieldChips = useMemo(
+    () =>
+      selectedFields.map((key) => ({
+        key,
+        label: enhancementFields.find((field) => field.key === key)?.label ?? key,
+      })),
+    [selectedFields, enhancementFields]
+  );
 
   const toggleField = (key: string) => {
     setSelectedFields((current) =>
@@ -229,17 +296,19 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
 
         if (latest.status === "failed") {
           onShowMessageRef.current?.(
-            latest.errorMessage || "The validation run failed.",
+            latest.errorMessage || "The run failed.",
             "error"
           );
         } else if (latest.status === "partial") {
           onShowMessageRef.current?.(
-            `${latest.processedCount} of ${latest.contactCount} contacts were validated. ${latest.failedCount} could not be.`,
+            `${latest.processedCount} of ${latest.contactCount} contacts were processed. ${latest.failedCount} could not be.`,
             "info"
           );
         } else {
           onShowMessageRef.current?.(
-            `${latest.processedCount} contact${latest.processedCount === 1 ? "" : "s"} validated.`,
+            `${latest.processedCount} contact${
+              latest.processedCount === 1 ? "" : "s"
+            } ${modeRef.current === "enrich" ? "enriched" : "validated"}.`,
             "success"
           );
         }
@@ -278,7 +347,10 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
       // The server's refusals are written for the user — no brief chosen, not
       // enough credit — so they are shown as-is inside the panel rather than
       // flashed past in a toast.
-      setError(startError?.message ?? "The validation run could not be started.");
+      setError(
+        startError?.message ??
+          `The ${mode === "enrich" ? "enrichment" : "validation"} run could not be started.`
+      );
     } finally {
       setIsStarting(false);
     }
@@ -299,38 +371,74 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
     return Math.round((job.processedCount / job.contactCount) * 100);
   }, [job]);
 
+
+  const contactCount = contactIds.length;
+  const plural = contactCount === 1 ? "" : "s";
+  const needsFields = !!selected?.requiresFields;
+  const noFieldsYet = needsFields && selectedFields.length === 0;
+
   return (
     <CommonSidePanel
       isOpen={isOpen}
       onClose={onClose}
-      title="Validate contacts"
+      title={mode === "enrich" ? "Enrich contacts" : "Validate contacts"}
       width={520}
       footerContent={
-        <>
-          <button onClick={onClose} className="button secondary" style={lessPriorityButtonStyle}>
-            {job?.isFinished ? "Close" : "Cancel"}
-          </button>
-          <button
-            className="button primary"
-            onClick={start}
-            disabled={!canStart}
-            style={{
-              ...defaultButtonStyle,
-              cursor: canStart ? "pointer" : "not-allowed",
-              opacity: canStart ? 1 : 0.5,
-            }}
-          >
-            {isStarting
-              ? "Starting…"
-              : isRunning
-                ? "Running…"
-                : job?.isFinished
-                  ? "Run again"
-                  : selected?.requiresFields
-                    ? `Enhance ${contactIds.length} contact${contactIds.length === 1 ? "" : "s"}`
-                    : `Validate ${contactIds.length} contact${contactIds.length === 1 ? "" : "s"}`}
-          </button>
-        </>
+        // The cost lives beside the button that spends it, so the figure is
+        // still on screen after the column list has been scrolled past.
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 13 }}>
+            <span style={{ fontWeight: 600, color: "#0b1220", fontSize: 13.5 }}>
+              {contactCount} contact{plural} · {credits} credit
+              {credits === 1 ? "" : "s"}
+            </span>
+            <span style={{ color: "#6b7280", lineHeight: 1.45 }}>
+              {creditNoteFor(checkType)}
+            </span>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button onClick={onClose} className="button secondary" style={lessPriorityButtonStyle}>
+              {job?.isFinished ? "Close" : "Cancel"}
+            </button>
+
+            <button
+              className="button primary"
+              onClick={start}
+              disabled={!canStart}
+              style={{
+                ...defaultButtonStyle,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: canStart ? "pointer" : "not-allowed",
+                opacity: canStart ? 1 : 0.5,
+              }}
+            >
+              {mode === "enrich" && (
+                <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8z"
+                  />
+                </svg>
+              )}
+              {isStarting
+                ? "Starting…"
+                : isRunning
+                  ? "Running…"
+                  : job?.isFinished
+                    ? "Run again"
+                    : noFieldsYet
+                      ? "Pick at least one column"
+                      : `${mode === "enrich" ? "Enrich" : "Validate"} ${contactCount} contact${plural}`}
+            </button>
+          </div>
+        </div>
       }
     >
       {error && (
@@ -350,24 +458,41 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
         </div>
       )}
 
+      <p style={{ margin: "0 0 18px", fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>
+        {mode === "enrich"
+          ? `Choose what to do for the ${contactCount} selected contact${plural}.`
+          : `Choose a check to run over the ${contactCount} selected contact${plural}.`}
+      </p>
+
       {/* ---------- Which check ---------- */}
       <div style={{ marginBottom: 22 }}>
-        <label style={labelStyle}>Check</label>
+        <label style={labelStyle}>
+          {mode === "enrich" ? "What do you want to do?" : "Check"}
+        </label>
 
-        <div style={{ display: "grid", gap: 8 }}>
+        <div
+          style={{
+            display: "grid",
+            gap: 10,
+            // Enrich offers two choices that fit side by side; a validate
+            // check's description is longer than a half-width card can hold.
+            gridTemplateColumns:
+              mode === "enrich" ? "repeat(auto-fit, minmax(min(210px, 100%), 1fr))" : "1fr",
+          }}
+        >
           {checkTypes.map((type) => {
             const isSelected = type.key === checkType;
+            const pill = creditPillFor(type.key);
 
             return (
-              <button
+              <label
                 key={type.key}
-                type="button"
-                onClick={() => setCheckType(type.key)}
-                disabled={isRunning}
                 style={{
-                  textAlign: "left",
-                  padding: "12px 14px",
-                  borderRadius: 10,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  padding: "14px",
+                  borderRadius: 12,
                   border: `1.5px solid ${isSelected ? "#3f9f42" : "#e8eaee"}`,
                   background: isSelected ? "#f1f8f2" : "#fff",
                   cursor: isRunning ? "not-allowed" : "pointer",
@@ -382,26 +507,79 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
                     gap: 8,
                   }}
                 >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 10, fontSize: 13.5, fontWeight: 600, color: "#0b1220" }}>
-                    {CHECK_ICONS[type.key] && (
-                      <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, flexShrink: 0 }}>
-                        <img src={CHECK_ICONS[type.key]} alt="" style={{ width: "100%", height: "100%", maxWidth: "none", objectFit: "contain" }} />
-                      </span>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 36,
+                      height: 36,
+                      flexShrink: 0,
+                      borderRadius: 9,
+                      border: "1px solid #e8eaee",
+                      background: "#fff",
+                    }}
+                  >
+                    {CHECK_ICONS[type.key] ? (
+                      <img
+                        src={CHECK_ICONS[type.key]}
+                        alt=""
+                        style={{ width: 26, height: 26, maxWidth: "none", objectFit: "contain" }}
+                      />
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          fill="none"
+                          stroke="#3f9f42"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M4 5h16v14H4zM4 10h16M10 10v9"
+                        />
+                      </svg>
                     )}
-                    {VALIDATION_CHECK_LABELS[type.key] || type.label}
                   </span>
 
-
+                  {/* A real radio, so the keyboard and screen readers see one
+                      choice out of a set rather than a row of buttons. */}
+                  <input
+                    type="radio"
+                    name={`validation-check-${mode}`}
+                    checked={isSelected}
+                    disabled={isRunning}
+                    onChange={() => setCheckType(type.key)}
+                    style={{ width: 16, height: 16, margin: 0, flexShrink: 0, accentColor: "#3f9f42" }}
+                  />
                 </div>
-                <div style={{ marginTop: 4, fontSize: 12.5, color: "#6b7280", lineHeight: 1.5 }}>
+
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: "#0b1220" }}>
+                  {VALIDATION_CHECK_LABELS[type.key] || type.label}
+                </span>
+
+                <span style={{ fontSize: 12.5, color: "#6b7280", lineHeight: 1.5 }}>
                   {type.key === "email_verification"
                     ? type.description
                         .replace(/Prospeo/gi, "Stage 1")
                         .replace(/(?:an? AI )?web search/gi, "Stage 2")
                         .replace(/Hunter/gi, "Stage 3")
                     : type.description}
-                </div>
-              </button>
+                </span>
+
+                <span
+                  style={{
+                    alignSelf: "flex-start",
+                    padding: "2px 9px",
+                    borderRadius: 999,
+                    background: pill.bg,
+                    color: pill.fg,
+                    fontSize: 11.5,
+                    fontWeight: 500,
+                  }}
+                >
+                  {pill.text}
+                </span>
+              </label>
             );
           })}
         </div>
@@ -453,34 +631,161 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
       )}
 
       {/* ---------- Which columns, and what to do with them ---------- */}
-      {selected?.requiresFields && (
+      {needsFields && (
         <>
           <div style={{ marginBottom: 22 }}>
-            <label style={labelStyle}>
-              Columns to fill or check
-              <span style={{ marginLeft: 8, fontWeight: 500, color: "#6b7280" }}>
-                {selectedFields.length} selected
-              </span>
-            </label>
-
-            <input
-              value={fieldSearch}
-              onChange={(e) => setFieldSearch(e.target.value)}
-              placeholder="Search columns…"
-              disabled={isRunning}
+            <div
               style={{
-                width: "100%",
-                padding: "8px 12px",
-                marginBottom: 8,
-                borderRadius: 8,
-                border: "1px solid #e8eaee",
-                fontSize: 13,
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                gap: 10,
               }}
-            />
+            >
+              <label style={{ ...labelStyle, marginBottom: 6 }}>Columns to fill or check</label>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
+                <span style={{ color: "#6b7280" }}>{selectedFields.length} selected</span>
+                {selectedFields.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFields([])}
+                    disabled={isRunning}
+                    style={{
+                      padding: 0,
+                      border: 0,
+                      background: "transparent",
+                      fontFamily: "inherit",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      color: "#3f9f42",
+                      cursor: isRunning ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* What is on, at a glance — and a way to take one back off
+                without hunting for its row in the list. */}
+            {selectedFieldChips.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 8,
+                  padding: "8px 9px",
+                  borderRadius: 10,
+                  border: "1px solid #dceadd",
+                  background: "#f1f8f2",
+                }}
+              >
+                {selectedFieldChips.map((chip) => (
+                  <span
+                    key={chip.key}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "4px 4px 4px 10px",
+                      borderRadius: 999,
+                      border: "1px solid #bcdcbe",
+                      background: "#fff",
+                      fontSize: 12.5,
+                      fontWeight: 500,
+                      color: "#0b1220",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {chip.label}
+                    <button
+                      type="button"
+                      onClick={() => toggleField(chip.key)}
+                      disabled={isRunning}
+                      aria-label={`Remove ${chip.label}`}
+                      title={`Remove ${chip.label}`}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 18,
+                        height: 18,
+                        padding: 0,
+                        borderRadius: "50%",
+                        border: 0,
+                        background: "transparent",
+                        color: "#6b7280",
+                        fontSize: 14,
+                        lineHeight: 1,
+                        cursor: isRunning ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.6"
+                          strokeLinecap="round"
+                          d="m6 6 12 12M18 6 6 18"
+                        />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <label style={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  left: 11,
+                  display: "inline-flex",
+                  color: "#9ca3af",
+                  pointerEvents: "none",
+                }}
+              >
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+              </span>
+
+              <input
+                value={fieldSearch}
+                onChange={(e) => setFieldSearch(e.target.value)}
+                placeholder="Search columns, including custom attributes…"
+                aria-label="Search columns"
+                disabled={isRunning}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px 8px 34px",
+                  marginBottom: 8,
+                  borderRadius: 8,
+                  border: "1px solid #e8eaee",
+                  fontSize: 13,
+                  boxSizing: "border-box",
+                }}
+              />
+            </label>
 
             <div
               style={{
-                maxHeight: 240,
+                maxHeight: 260,
                 overflowY: "auto",
                 border: "1px solid #e8eaee",
                 borderRadius: 10,
@@ -494,109 +799,115 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
                 </div>
               )}
 
-              {!isLoadingFields &&
-                visibleFields.system.length === 0 &&
-                visibleFields.custom.length === 0 && (
-                  <div style={{ padding: "12px 10px", fontSize: 13, color: "#6b7280" }}>
-                    No columns match that search.
-                  </div>
-                )}
+              {!isLoadingFields && visibleFields.length === 0 && (
+                <div style={{ padding: "12px 10px", fontSize: 13, color: "#6b7280" }}>
+                  No columns match that search.
+                </div>
+              )}
 
-              {(
-                [
-                  ["Contact fields", visibleFields.system],
-                  ["Custom attributes", visibleFields.custom],
-                ] as [string, EnhancementField[]][]
-              ).map(([groupLabel, group]) =>
-                group.length === 0 ? null : (
-                  <div key={groupLabel} style={{ marginBottom: 4 }}>
-                    <div
-                      style={{
-                        padding: "6px 10px 4px",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                        color: "#9ca3af",
-                      }}
-                    >
-                      {groupLabel}
-                    </div>
+              {visibleFields.map((field) => {
+                const isSelected = selectedFields.includes(field.key);
+                // At the ceiling the unselected rows go quiet rather than
+                // disappearing, so the limit explains itself instead of the
+                // list seeming to break.
+                const isBlocked =
+                  !isSelected && selectedFields.length >= MAX_ENHANCEMENT_FIELDS;
 
-                    {group.map((field) => {
-                      const isSelected = selectedFields.includes(field.key);
-                      // At the ceiling the unselected rows go quiet rather
-                      // than disappearing, so the limit explains itself
-                      // instead of the list seeming to break.
-                      const isBlocked =
-                        !isSelected && selectedFields.length >= MAX_ENHANCEMENT_FIELDS;
+                return (
+                  <label
+                    key={field.key}
+                    title={field.description || undefined}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 9,
+                      padding: "7px 10px",
+                      borderRadius: 8,
+                      cursor: isRunning || isBlocked ? "not-allowed" : "pointer",
+                      background: isSelected ? "#f1f8f2" : "transparent",
+                      opacity: isBlocked ? 0.45 : 1,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      disabled={isRunning || isBlocked}
+                      onChange={() => toggleField(field.key)}
+                      style={{ marginTop: 2, accentColor: "#3f9f42" }}
+                    />
 
-                      return (
-                        <label
-                          key={field.key}
-                          title={field.description || undefined}
+                    <span style={{ minWidth: 0 }}>
+                      <span
+                        style={{
+                          display: "block",
+                          fontSize: 13,
+                          fontWeight: isSelected ? 600 : 500,
+                          color: "#0b1220",
+                        }}
+                      >
+                        {field.label}
+                      </span>
+
+                      {(field.description || field.isCustom) && (
+                        <span
                           style={{
-                            display: "flex",
-                            alignItems: "flex-start",
-                            gap: 9,
-                            padding: "7px 10px",
-                            borderRadius: 8,
-                            cursor: isRunning || isBlocked ? "not-allowed" : "pointer",
-                            background: isSelected ? "#f1f8f2" : "transparent",
-                            opacity: isBlocked ? 0.45 : 1,
+                            display: "block",
+                            marginTop: 2,
+                            fontSize: 11.5,
+                            lineHeight: 1.45,
+                            color: "#6b7280",
                           }}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            disabled={isRunning || isBlocked}
-                            onChange={() => toggleField(field.key)}
-                            style={{ marginTop: 2, accentColor: "#3f9f42" }}
-                          />
-
-                          <span style={{ minWidth: 0 }}>
-                            <span
-                              style={{
-                                display: "block",
-                                fontSize: 13,
-                                fontWeight: isSelected ? 600 : 500,
-                                color: "#0b1220",
-                              }}
-                            >
-                              {field.label}
-                            </span>
-
-                            {(field.description || field.isCustom) && (
-                              <span
-                                style={{
-                                  display: "block",
-                                  marginTop: 2,
-                                  fontSize: 11.5,
-                                  lineHeight: 1.45,
-                                  color: "#6b7280",
-                                }}
-                              >
-                                {field.description ||
-                                  (field.options && field.options.length > 0
-                                    ? `One of: ${field.options.join(", ")}`
-                                    : `Custom attribute (${field.fieldType || "text"})`)}
-                              </span>
-                            )}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )
-              )}
+                          {field.description ||
+                            (field.options && field.options.length > 0
+                              ? `One of: ${field.options.join(", ")}`
+                              : `Custom attribute (${field.fieldType || "text"})`)}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
 
-            <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280", lineHeight: 1.5 }}>
-              A column that already has a value is checked rather than
-              overwritten — you will be shown the old value beside the proposed
-              one, and nothing is written until you accept it.
-              {selectedFields.length >= MAX_ENHANCEMENT_FIELDS &&
-                ` ${MAX_ENHANCEMENT_FIELDS} columns is the most one run can cover.`}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 9,
+                marginTop: 8,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #eef0f3",
+                background: "#f8f9fa",
+                fontSize: 12,
+                color: "#6b7280",
+                lineHeight: 1.5,
+              }}
+            >
+              <span aria-hidden="true" style={{ display: "inline-flex", marginTop: 1, flexShrink: 0 }}>
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 11v5M12 8h.01" />
+                </svg>
+              </span>
+
+              <span>
+                A column that already has a value is checked rather than overwritten — you
+                will be shown the old value beside the proposed one, and nothing is written
+                until you accept it.
+                {selectedFields.length >= MAX_ENHANCEMENT_FIELDS &&
+                  ` ${MAX_ENHANCEMENT_FIELDS} columns is the most one run can cover.`}
+              </span>
             </div>
           </div>
 
@@ -629,6 +940,7 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
                 fontSize: 13,
                 lineHeight: 1.5,
                 fontFamily: "inherit",
+                boxSizing: "border-box",
                 resize: "vertical",
               }}
             />
@@ -639,29 +951,6 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
           </div>
         </>
       )}
-
-      {/* ---------- Cost ---------- */}
-      <div
-        style={{
-          marginBottom: 22,
-          padding: "12px 14px",
-          borderRadius: 10,
-          background: "#f8f9fa",
-          border: "1px solid #eef0f3",
-          fontSize: 13,
-          color: "#374151",
-          lineHeight: 1.6,
-        }}
-      >
-        <strong>{contactIds.length}</strong> contact
-        {contactIds.length === 1 ? "" : "s"} selected · costs{" "}
-        <strong>
-          {credits} credit{credits === 1 ? "" : "s"}
-        </strong>
-        <div style={{ marginTop: 2, fontSize: 12, color: "#6b7280" }}>
-          {creditNoteFor(checkType)}
-        </div>
-      </div>
 
       {/* ---------- Progress ---------- */}
       {job && (
@@ -686,7 +975,7 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
           >
             <span>
               {job.status === "queued" && "Waiting to start…"}
-              {job.status === "running" && "Validating…"}
+              {job.status === "running" && (mode === "enrich" ? "Enriching…" : "Validating…")}
               {job.status === "completed" && "Finished"}
               {job.status === "partial" && "Finished with gaps"}
               {job.status === "failed" && "Failed"}
@@ -737,18 +1026,18 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
 
             {isAdmin && (
               <>
-            <span>Tokens</span>
-            <span style={{ textAlign: "right", color: "#0b1220" }}>
-              {job.totalTokens.toLocaleString()}
-            </span>
+                <span>Tokens</span>
+                <span style={{ textAlign: "right", color: "#0b1220" }}>
+                  {job.totalTokens.toLocaleString()}
+                </span>
 
-            <span>Estimated cost</span>
-            <span style={{ textAlign: "right", color: "#0b1220" }}>
-              ${job.calculatedCost.toFixed(4)}
-            </span>
-
+                <span>Estimated cost</span>
+                <span style={{ textAlign: "right", color: "#0b1220" }}>
+                  ${job.calculatedCost.toFixed(4)}
+                </span>
               </>
             )}
+
             <span>Credits charged</span>
             <span style={{ textAlign: "right", color: "#0b1220" }}>{job.creditsCharged}</span>
           </div>
