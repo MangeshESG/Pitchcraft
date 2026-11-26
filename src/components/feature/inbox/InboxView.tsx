@@ -1597,6 +1597,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           if (sentFromMailbox) switchToMailbox(sentFromMailbox);
           handleTabChange('sent');
           setRefreshSentTab(prev => prev + 1);
+        } else if (activeTab === 'sent') {
+          setSelectedSentThread(updatedThread);
+          setRefreshSentTab(prev => prev + 1);
         } else if (activeTab === 'unassigned') {
           setSelectedUnassignedThread(updatedThread);
           setRefreshUnassignedTab(prev => prev + 1);
@@ -2170,10 +2173,21 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     )[0];
   };
 
+  const getLatestThreadMessage = (thread?: InboxThread | null): InboxMessage | null => {
+    const messages = thread?.messages || [];
+    if (!messages.length) return null;
+    return [...messages].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    )[0];
+  };
+
   // Everyone else on the message: the rest of its To line plus its Cc, minus
   // this inbox and minus the address the reply already goes to.
   const getReplyAllCcList = (thread?: InboxThread | null): string[] => {
-    const message = getLatestReceivedMessage(thread);
+    // A Sent item carries no received message, so fall back to the newest
+    // message on the thread - the one we sent, whose To and Cc name everyone
+    // else on it.
+    const message = getLatestReceivedMessage(thread) || getLatestThreadMessage(thread);
     if (!message) return [];
     const excluded = new Set(
       [getSelectedInboxAddress(), thread?.contactEmail, message.fromEmail]
@@ -2246,27 +2260,23 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   // action row at the foot of a message card, so both stay in step.
   const renderMailActionButtons = (thread?: InboxThread | null) => (
     <>
-      {activeTab !== 'sent' && (
-        <>
-          <button
-            type="button"
-            className="btn-pill btn-reply"
-            onClick={() => openReplyComposer(thread)}
-          >
-            <FontAwesomeIcon icon={faReply} />
-            Reply
-          </button>
-          <button
-            type="button"
-            className="btn-pill btn-replyall"
-            title="Reply to everyone on this email"
-            onClick={() => openReplyComposer(thread, true)}
-          >
-            <FontAwesomeIcon icon={faReplyAll} />
-            Reply all
-          </button>
-        </>
-      )}
+      <button
+        type="button"
+        className="btn-pill btn-reply"
+        onClick={() => openReplyComposer(thread)}
+      >
+        <FontAwesomeIcon icon={faReply} />
+        Reply
+      </button>
+      <button
+        type="button"
+        className="btn-pill btn-replyall"
+        title="Reply to everyone on this email"
+        onClick={() => openReplyComposer(thread, true)}
+      >
+        <FontAwesomeIcon icon={faReplyAll} />
+        Reply all
+      </button>
       {thread && (
         <button
           type="button"
@@ -2403,7 +2413,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     const latestMessage = getLatestReceivedMessage(thread);
     const replyToName = latestMessage
       ? latestMessage.contactName || extractSenderName(latestMessage.fromEmail)
-      : '';
+      : getLatestThreadMessage(thread)?.contactName ||
+        extractSenderName(thread?.contactEmail || '');
     const contactId = thread?.contactId ?? null;
     const editorMaxWidth =
       outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%';
@@ -4178,6 +4189,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   </div>
                 );})}
                 {showForwardSection && renderForwardSection()}
+
+                {/* Reply / Reply all / Forward */}
+                {!showReplySection && !showForwardSection && (
+                  <div className="reply-button-sticky">
+                    {renderMailActionButtons(selectedSentThread)}
+                  </div>
+                )}
+
+                {showReplySection && renderReplyComposer(selectedSentThread)}
               </div>
             ) : selectedUnassignedThread ? (
               <div className="mail-detail" ref={mailDetailRef}>

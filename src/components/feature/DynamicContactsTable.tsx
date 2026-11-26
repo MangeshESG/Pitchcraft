@@ -114,7 +114,12 @@ interface DynamicContactsTableProps {
    * column with an icon here shows that icon in place of its initials, and the
    * written-out name stays on hover either way.
    */
-  headerIcons?: Record<string, string>;
+  /**
+   * A glyph to set before a heading's text, by column key. The heading still
+   * reads as its own name — the glyph is a way of finding the column again,
+   * not a replacement for the word. A string is taken as an image URL.
+   */
+  headerIcons?: Record<string, React.ReactNode>;
   searchFields?: string[];
   primaryKey?: string;
 
@@ -1345,22 +1350,27 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                           onChange={(e) => handleSelectAll(e.target.checked)}
                         />
                       ) : (
-                        <span className="dt-th-label">
+                        <span
+                          className={`dt-th-label${headerIcon ? " dt-th-label--stacked" : ""}`}
+                        >
+                          {headerIcon && (
+                            <span className="dt-th-icon" aria-hidden="true">
+                              {typeof headerIcon === "string" ? (
+                                <img src={headerIcon} alt="" />
+                              ) : (
+                                headerIcon
+                              )}
+                            </span>
+                          )}
                           {isIconColumn ? (
-                            <abbr className="dt-th-abbr" title={fullLabel}>
+                            <abbr className="dt-th-abbr dt-th-text" title={fullLabel}>
                               <span className="dt-th-abbr__short">
-                                {headerIcon ? (
-                                  <span className="dt-th-icon" aria-hidden="true">
-                                    <img src={headerIcon} alt="" />
-                                  </span>
-                                ) : (
-                                  abbreviateLabel(fullLabel)
-                                )}
+                                {abbreviateLabel(fullLabel)}
                               </span>
                               <span className="dt-th-abbr__full">{fullLabel}</span>
                             </abbr>
                           ) : (
-                            fullLabel
+                            <span className="dt-th-text">{fullLabel}</span>
                           )}
                           {sortable && (
                             <svg viewBox="0 0 24 24" className={`dt-sort-icon${isSorted ? " is-active" : ""}`}>

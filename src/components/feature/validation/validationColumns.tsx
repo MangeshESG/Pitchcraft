@@ -18,11 +18,6 @@ import {
   type ValidationSuggestion,
 } from "../../../api/contactValidation";
 import { formatUserDate } from "../../common/dateTimePreferences";
-import targetAudienceIconCompact from "../../../assets/validation/Target Match (compact).png";
-import employmentMatchIconCompact from "../../../assets/validation/Employment Match (compact).png";
-import emailVerificationIconCompact from "../../../assets/validation/Email Verified (compact).png";
-import dataIntegrityIconCompact from "../../../assets/validation/Integrity Check (compact).png";
-import dataEnhancementIconCompact from "../../../assets/validation/Data Enhanced (compact).png";
 import { useGridDetailOn } from "../../common/GridDetailMode";
 
 /**
@@ -79,36 +74,109 @@ export const getValidationScoreColumn = (checkType: ValidationCheckType): string
   SCORE_COLUMN_BY_CHECK[checkType];
 
 /**
- * The artwork each check is known by: the badge drawn for a small space — no
- * outer ring, a heavy glyph, the name set in few thick letters.
+ * The mark each check is drawn as: one line glyph in brand green, sized by
+ * whoever shows it.
  *
- * It is the run panel's picture of the check and the grid's heading for the
- * column that check fills. A column too narrow for "Target Audience Match"
- * otherwise falls back to "TAM", four letters that mean nothing to someone who
- * has not read the panel; the same picture in both places is what ties the
- * column to the check the user chose to run. Every check has one, so neither
- * the panel nor a heading needs a drawn stand-in for an odd one out.
+ * One drawing serves the run panel's cards and the heading of the column that
+ * check fills, so the two can never drift: the picture beside "Employment
+ * Match" in the panel is the picture at the top of its column. Strokes rather
+ * than lettered badges, because at heading size lettering inside the mark
+ * competes with the heading beside it.
  */
-export const VALIDATION_CHECK_ICONS_COMPACT: Record<ValidationCheckType, string> = {
-  contact_fit: targetAudienceIconCompact,
-  data_integrity: dataIntegrityIconCompact,
-  live_contact: employmentMatchIconCompact,
-  email_verification: emailVerificationIconCompact,
-  data_enhancement: dataEnhancementIconCompact,
+const CHECK_GLYPH_SHAPES: Record<ValidationCheckType, React.ReactNode> = {
+  // Target Audience Match — a group of people: who the audience is.
+  contact_fit: (
+    <>
+      <circle cx="12" cy="8" r="3" />
+      <path d="M6.8 19a5.2 5.2 0 0 1 10.4 0" />
+      <circle cx="4.8" cy="10.6" r="2" />
+      <circle cx="19.2" cy="10.6" r="2" />
+      <path d="M2 17.4a3.4 3.4 0 0 1 3.6-2.3M22 17.4a3.4 3.4 0 0 0-3.6-2.3" />
+    </>
+  ),
+
+  // Data Integrity Check — a stack of records: the data itself.
+  data_integrity: (
+    <>
+      <ellipse cx="12" cy="5.8" rx="7" ry="2.8" />
+      <path d="M5 5.8v12.4c0 1.55 3.13 2.8 7 2.8s7-1.25 7-2.8V5.8" />
+      <path d="M19 10c0 1.55-3.13 2.8-7 2.8S5 11.55 5 10" />
+      <path d="M19 14.2c0 1.55-3.13 2.8-7 2.8s-7-1.25-7-2.8" />
+    </>
+  ),
+
+  // Employment Match — a briefcase: still in that job.
+  live_contact: (
+    <>
+      <rect x="2.8" y="7" width="18.4" height="13" rx="2.4" />
+      <path d="M9 7V5.6A1.6 1.6 0 0 1 10.6 4h2.8A1.6 1.6 0 0 1 15 5.6V7" />
+      <path d="M2.8 12.4h18.4" />
+      <rect x="10.4" y="10.8" width="3.2" height="3.2" rx="0.9" />
+    </>
+  ),
+
+  // Email Verification — an envelope, confirmed.
+  email_verification: (
+    <>
+      <path d="M21.2 11.4V7.4A2.4 2.4 0 0 0 18.8 5H4.4A2.4 2.4 0 0 0 2 7.4v9.2A2.4 2.4 0 0 0 4.4 19H12" />
+      <path d="m2.4 7.6 8.5 5.6a2 2 0 0 0 2.2 0l8.5-5.6" />
+      <circle cx="18" cy="17.2" r="4" />
+      <path d="m16.3 17.3 1.2 1.2 2.2-2.4" />
+    </>
+  ),
+
+  // Data Enhancement — sparkles: values that were not there before.
+  data_enhancement: (
+    <>
+      <path d="M9.6 3.4 11.2 8l4.6 1.6-4.6 1.6-1.6 4.6L8 11.2 3.4 9.6 8 8z" />
+      <path d="M17.6 14 18.5 16.5 21 17.4l-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9z" />
+    </>
+  ),
 };
 
 /**
- * The compact artwork, keyed by the score column it heads — what a grid hands
- * to `headerIcons` so the narrow heading becomes the icon rather than initials.
+ * A check's glyph at any size. Stroke width eases as it grows so a large one
+ * does not read as a heavy blob.
  */
-export const VALIDATION_HEADER_ICONS: Record<string, string> = Object.fromEntries(
-  (Object.keys(VALIDATION_CHECK_ICONS_COMPACT) as ValidationCheckType[]).map(
-    (checkType) => [
-      SCORE_COLUMN_BY_CHECK[checkType],
-      VALIDATION_CHECK_ICONS_COMPACT[checkType],
-    ]
-  )
+export const ValidationCheckGlyph: React.FC<{
+  checkType: ValidationCheckType;
+  size?: number;
+}> = ({ checkType, size = 18 }) => (
+  <svg
+    viewBox="0 0 24 24"
+    width={size}
+    height={size}
+    fill="none"
+    stroke="#3f9f42"
+    strokeWidth={size >= 28 ? 1.5 : 1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    style={{ flexShrink: 0, display: "block" }}
+  >
+    {CHECK_GLYPH_SHAPES[checkType]}
+  </svg>
 );
+
+/**
+ * The glyph each score column is headed by, keyed by that column — what a grid
+ * hands to `headerIcons`.
+ *
+ * Keyed by column rather than by check so the same slot is open to any column
+ * later: the grid asks "has this column a glyph?", which is the shape a
+ * per-column setting would take.
+ */
+export const VALIDATION_HEADER_ICONS: Record<string, React.ReactNode> = {
+  [SCORE_COLUMN_BY_CHECK.contact_fit]: <ValidationCheckGlyph checkType="contact_fit" />,
+  [SCORE_COLUMN_BY_CHECK.data_integrity]: <ValidationCheckGlyph checkType="data_integrity" />,
+  [SCORE_COLUMN_BY_CHECK.live_contact]: <ValidationCheckGlyph checkType="live_contact" />,
+  [SCORE_COLUMN_BY_CHECK.email_verification]: (
+    <ValidationCheckGlyph checkType="email_verification" />
+  ),
+  [SCORE_COLUMN_BY_CHECK.data_enhancement]: (
+    <ValidationCheckGlyph checkType="data_enhancement" />
+  ),
+};
 
 /**
  * Validation fields that travel on the row but never become columns.

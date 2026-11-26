@@ -8,6 +8,7 @@ import {
   faEdit,
   faEnvelopeOpen,
   faGear,
+  faComments,
   faList,
   faRobot, // Add this for Campaign Builder
 } from "@fortawesome/free-solid-svg-icons";
@@ -46,6 +47,7 @@ import DeepSeekSearchGenerator from "./feature/blueprint/DeepSeekSearchGenerator
 import Settings from "./feature/Settings";
 import Profile from "./feature/Profile";
 import AdminSettings from "./feature/AdminSettings";
+import ChatSupport from "./feature/ChatSupport";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
@@ -592,6 +594,8 @@ const MainPage: React.FC = () => {
               : "Mail Schedules - Configure email, schedule sends and review analytics";
         case "Settings":
           return "Settings - Application settings and tracking";
+        case "Chat":
+          return "Chat - Live chat support inbox";
         case "Profile":
           return "Profile - Edit your account details";
         case "MyPlan":
@@ -4110,6 +4114,32 @@ try {
                         </ul>
                       )}
                     </li>
+
+                    {/* Chat is the Serviceji hub inbox embedded in an iframe.
+                        It is a support console rather than a customer-facing
+                        screen, so only admins see the entry. */}
+                    {userRole === "ADMIN" && (
+                      <li className={tab === "Chat" ? "active" : ""}>
+                        <button
+                          onClick={() => {
+                            setTab("Chat");
+                            setShowMailSubmenu(false);
+                            setShowContactsSubmenu(false);
+                            setShowSettingsSubmenu(false);
+                          }}
+                          className="side-menu-button"
+                          title="Live chat support inbox"
+                        >
+                          <span className="menu-icon">
+                            <FontAwesomeIcon
+                              icon={faComments}
+                              className=" text-[#333333] text-lg"
+                            />
+                          </span>
+                          <span className="menu-text">Chat</span>
+                        </button>
+                      </li>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -4177,14 +4207,14 @@ try {
         <main className={`flex-1 overflow-y-auto h-[calc(100%-87px)] ${
           tab === "Dashboard" || tab === "MyPlan"
             ? "bg-white"
-            : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Profile" || tab === "Mail"
+            : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Profile" || tab === "Mail" || tab === "Chat"
               ? "bg-[#fafbfc]"
               : "bg-[#eeeeee]"
-        } ${tab === "Dashboard" || tab === "MyPlan" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Profile" || tab === "Output" || tab === "Mail" ? "p-0" : "p-[20px]"}`}>
+        } ${tab === "Dashboard" || tab === "MyPlan" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Profile" || tab === "Output" || tab === "Mail" || tab === "Chat" ? "p-0" : "p-[20px]"}`}>
           <div
             className={`
                rounded-md
-              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "MyPlan" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" && tab !== "Profile" && tab !== "Output" && tab !== "Mail" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
+              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "MyPlan" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" && tab !== "Profile" && tab !== "Output" && tab !== "Mail" && tab !== "Chat" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
             `}
           >
             {/* Main Content Area */}
@@ -4431,6 +4461,12 @@ try {
                 )}
               </div>
             )}
+            {shouldRenderTab("Chat") && userRole === "ADMIN" && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Chat")}>
+                <ChatSupport />
+              </div>
+            )}
+
             {shouldRenderTab("Profile") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Profile")}>
                 <Profile selectedClient={selectedClient} />

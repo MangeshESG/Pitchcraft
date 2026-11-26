@@ -118,12 +118,6 @@ const ICON_COLUMNS = [
   'hasWebSearchData',
 ];
 
-/**
- * The validation scores read as icon columns too — a number and an info dot —
- * but only until "Show details" spells the result out in the cell.
- */
-const COMPACT_ICON_COLUMNS = Object.values(VALIDATION_SCORE_KEYS);
-
 const menuBtnStyle = {
   width: "100%",
   padding: "8px 18px",
@@ -2820,7 +2814,6 @@ const filterFields: any = useMemo(() => {
                   persistedColumnLayout={listColumnPreferences.layout}
                   defaultVisibleColumns={defaultVisibleColumns}
                   iconColumns={ICON_COLUMNS}
-                  compactIconColumns={COMPACT_ICON_COLUMNS}
                   headerIcons={VALIDATION_HEADER_ICONS}
                   customFormatters={{
                     ...validationFormatters,
@@ -3739,7 +3732,6 @@ const filterFields: any = useMemo(() => {
                   persistedColumnLayout={segmentColumnPreferences.layout}
                   defaultVisibleColumns={defaultVisibleColumns}
                   iconColumns={ICON_COLUMNS}
-                  compactIconColumns={COMPACT_ICON_COLUMNS}
                   headerIcons={VALIDATION_HEADER_ICONS}
                   customFormatters={{
                     ...validationFormatters,

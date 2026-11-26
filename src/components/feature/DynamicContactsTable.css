@@ -329,20 +329,38 @@
  * A shortened heading drawn as the check's own icon: the artwork alone, with
  * no disc or ring behind it, shown whole inside the heading's box.
  */
-/*
- * Big enough for the badge to be read as the badge it is: each one carries its
- * own name curved around the rim, and below about 60px that lettering closes
- * up into a grey ring and the heading says nothing at all.
- */
+/* The glyph before a heading's text: sized to the line it sits on. */
 .dt-th-icon {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 64px; height: 64px;
+  width: 18px; height: 18px;
   flex-shrink: 0;
   vertical-align: middle;
 }
 .dt-th-icon img {
   width: 100%; height: 100%; max-width: none;
   object-fit: contain;
+}
+/*
+ * A heading that carries a glyph puts it on a line of its own and lets the
+ * words wrap underneath, so the column takes only the width its longest word
+ * needs instead of the whole name on one line.
+ */
+.dt-th-label--stacked {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 5px;
+  max-width: 104px;
+  white-space: normal;
+  line-height: 1.3;
+}
+.dt-th-label--stacked .dt-th-icon {
+  flex: 0 0 100%;
+  justify-content: flex-start;
+}
+.dt-th-label--stacked .dt-th-text {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .dt-table--abbr .dt-th-abbr__full { display: none; }
 /* Must stay last: the measuring pass lays every heading out written out. */

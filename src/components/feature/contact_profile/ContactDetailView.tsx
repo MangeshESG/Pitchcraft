@@ -4482,7 +4482,7 @@ dispatch(closePanel());
           <div className="read-head-actions">
             {/* Same actions the Inbox header carries, so both readers behave
                 alike. Hidden while a composer is open, as in the Inbox. */}
-            {contactMailTab !== "sent" && !showContactReplySection && !showContactForwardSection && (
+            {!showContactReplySection && !showContactForwardSection && (
               <>
                 <button
                   type="button"
@@ -4661,7 +4661,7 @@ dispatch(closePanel());
               </div>
             );
           })}
-          {contactMailTab !== "sent" && !showContactReplySection && !showContactForwardSection && (
+          {!showContactReplySection && !showContactForwardSection && (
             <div className="reply-button-sticky">
               <button
                 type="button"
@@ -4950,7 +4950,7 @@ dispatch(closePanel());
             </div>
           </form>
         )}
-        {contactMailTab !== "sent" && showContactReplySection && (
+        {showContactReplySection && (
           <div className="reply-section composer-card">
             <div className="composer-head">
               <FontAwesomeIcon icon={faReply} />

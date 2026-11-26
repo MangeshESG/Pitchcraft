@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CommonSidePanel from "../../common/CommonSidePanel";
-import { VALIDATION_CHECK_ICONS_COMPACT, VALIDATION_CHECK_LABELS } from "./validationColumns";
+import {
+  ValidationCheckGlyph,
+  VALIDATION_CHECK_LABELS,
+} from "./validationColumns";
 import { defaultButtonStyle, lessPriorityButtonStyle } from "../../../styles/buttonStyles";
 import {
   CheckTypeInfo,
@@ -42,13 +45,6 @@ interface ValidationRunPanelProps {
 
 /** How often a running job is polled. */
 const POLL_MS = 3000;
-
-/**
- * The compact badges — the same artwork the grid headings carry, so the card
- * a user picks a check from and the column that check fills are recognisably
- * the same thing.
- */
-const CHECK_ICONS: Record<ValidationCheckType, string> = VALIDATION_CHECK_ICONS_COMPACT;
 
 /**
  * The ceiling the API enforces on one enhancement run. Repeated here so the
@@ -503,10 +499,11 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
                   opacity: isRunning ? 0.6 : 1,
                 }}
               >
-                {/* Badge, name and radio on one line: the badge is the
-                    picture of the name beside it, and a line of its own only
-                    pushed the two apart. No tile or border behind it — the
-                    badge is already a drawn mark on its own ground. */}
+                {/* Mark, name and radio on one line: the mark is the picture
+                    of the name beside it, and a line of its own only pushed
+                    the two apart. The same glyph heads this check's column, so
+                    the card teaches the heading. A pale tile behind it keeps
+                    the thin strokes from disappearing against the card. */}
                 <div
                   style={{
                     display: "flex",
@@ -514,18 +511,21 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
                     gap: 10,
                   }}
                 >
-                  <img
-                    src={CHECK_ICONS[type.key]}
-                    alt=""
+                  <span
                     aria-hidden="true"
                     style={{
-                      width: 60,
-                      height: 60,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 38,
+                      height: 38,
                       flexShrink: 0,
-                      maxWidth: "none",
-                      objectFit: "contain",
+                      borderRadius: 11,
+                      background: "#f1f8f2",
                     }}
-                  />
+                  >
+                    <ValidationCheckGlyph checkType={type.key} size={22} />
+                  </span>
 
                   <span
                     style={{
