@@ -104,6 +104,7 @@
 // ============================================================
 
 import React from "react";
+import FavoriteCollectionStar from "../common/FavoriteCollectionStar";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faMagnifyingGlass,
@@ -368,6 +369,8 @@ const sortIcon = (active: boolean, dir: "asc" | "desc") =>
   active ? (dir === "asc" ? faSortUp : faSortDown) : faSort;
 
 interface RowsProps {
+  favoriteClientId?: string | number;
+  favoriteType?: "list" | "view";
   data: DataFile[];
   isLoading: boolean;
   sortKey: string;
@@ -449,6 +452,8 @@ export const ContactsListsRows: React.FC<RowsProps> = (p) => (
           <div className="ct-row__date">{p.formatDate(file.created_at)}</div>
           <div className="ct-row__desc">{file.description || "—"}</div>
           <div className="ct-row__actions">
+            {p.favoriteClientId && file.id !== -1 && <FavoriteCollectionStar
+              clientId={p.favoriteClientId} itemType={p.favoriteType || "list"} itemId={file.id} />}
             {file.id !== -1 && (
               <button
                 title="More"

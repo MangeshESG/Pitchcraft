@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import API_BASE_URL from "../../config";
+import FavoriteContactStar from "../common/FavoriteContactStar";
 import DynamicContactsTable from "./DynamicContactsTable";
 import useColumnPreferences from "../../hooks/useColumnPreferences";
 import PaginationControls from "./PaginationControls";
@@ -1369,7 +1370,7 @@ const handleDeleteContacts = () => {
     setViewContactCounts({});
     setDownloadingViewId(null);
     const pendingViewState = loadViewState(clientId);
-    if (pendingViewState?.source !== "campaign-data-source") {
+    if (pendingViewState?.source !== "campaign-data-source" && pendingViewState?.source !== "dashboard") {
       clearViewState(clientId);
     }
   }, [clientId]);
@@ -1391,10 +1392,10 @@ const handleDeleteContacts = () => {
       const shouldApplyPersistedView =
         viewMode !== "detail" ||
         selectedView?.id !== persistedState.viewId ||
-        persistedState.source === "campaign-data-source";
+        (persistedState.source === "campaign-data-source" || persistedState.source === "dashboard");
 
       if (shouldApplyPersistedView) {
-        if (persistedState.source === "campaign-data-source") {
+        if (persistedState.source === "campaign-data-source" || persistedState.source === "dashboard") {
           skipNextViewStateSaveRef.current = true;
           clearViewState(clientId);
         }
@@ -2659,6 +2660,8 @@ const handleDeleteContacts = () => {
               placeholder="Search a view name or ID"
             />
             <ContactsListsRows
+              favoriteClientId={clientId}
+              favoriteType="view"
               data={paginatedViews.map((v) => ({
                 id: v.id,
                 isSystem: v.isSystem,
@@ -2734,15 +2737,18 @@ const handleDeleteContacts = () => {
               }}
               onOpenProfile={openContactProfile}
               leadingColumn={{
-                header: "Image",
-                width: "64px",
+                header: "Contact",
+                width: "88px",
                 render: (row: any) => (
-                  <ViewContactProfileAvatar
-                    key={`${row.id}-${clientId}`}
-                    contact={row}
-                    clientId={clientId}
-                    onOpen={openContactProfile}
-                  />
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <FavoriteContactStar clientId={clientId} contactId={row.id} />
+                    <ViewContactProfileAvatar
+                      key={`${row.id}-${clientId}`}
+                      contact={row}
+                      clientId={clientId}
+                      onOpen={openContactProfile}
+                    />
+                  </span>
                 ),
               }}
               totalItems={

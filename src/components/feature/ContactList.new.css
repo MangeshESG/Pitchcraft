@@ -273,7 +273,7 @@
 }
 .ct-rows__head, .ct-row {
   display: grid;
-  grid-template-columns: 14px 2fr 90px 90px 120px 1.4fr 60px;
+  grid-template-columns: 14px 2fr 90px 90px 120px 1.4fr 68px;
   gap: 16px; align-items: center; padding: 12px 20px;
 }
 .ct-rows__head {
@@ -445,7 +445,7 @@
   /* Rows become cards on mobile */
   .ct-rows__head { display: none; }
   .ct-row {
-    grid-template-columns: 14px minmax(0, 1fr) 32px;
+    grid-template-columns: 14px minmax(0, 1fr) 64px;
     grid-template-areas:
       "rail name actions"
       "rail desc desc"

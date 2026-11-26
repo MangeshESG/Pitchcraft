@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import API_BASE_URL from "../../config";
+import FavoriteContactStar, { FAVORITES_CHANGED_EVENT } from "../common/FavoriteContactStar";
+import { COLLECTION_FAVORITES_CHANGED, fetchFavoriteCollections } from "../common/FavoriteCollectionStar";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
@@ -80,6 +82,26 @@ interface DashboardSummary {
 interface ContactListResponse {
   contacts?: ContactApiRow[];
   hasNextPage?: boolean;
+}
+
+interface DashboardList {
+  id: number;
+  name: string;
+  contactCount: number;
+  isWebsiteContactList: boolean;
+}
+
+interface DashboardView {
+  id: number;
+  name: string;
+  description?: string;
+}
+
+interface RecentUnsubscribe {
+  email: string;
+  name?: string;
+  company?: string;
+  createdAt: string;
 }
 
 export interface DashboardProps {
@@ -583,6 +605,14 @@ const PostOnboardingView: React.FC<{
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(emptyDashboardSummary);
   const [contactPage, setContactPage] = useState(1);
   const [contactSearch, setContactSearch] = useState("");
+  const [contactTab, setContactTab] = useState<"all" | "favorites">("all");
+  const [showGraph, setShowGraph] = useState(false);
+  const [dashboardLists, setDashboardLists] = useState<DashboardList[]>([]);
+  const [dashboardViews, setDashboardViews] = useState<DashboardView[]>([]);
+  const [favoriteListIds, setFavoriteListIds] = useState<number[]>([]);
+  const [favoriteViewIds, setFavoriteViewIds] = useState<number[]>([]);
+  const [recentUnsubscribed, setRecentUnsubscribed] = useState<RecentUnsubscribe[]>([]);
+  const cardsClientRef = useRef("");
   const [dateRange, setDateRange] = useState<DateRange>("1d");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -599,6 +629,7 @@ const PostOnboardingView: React.FC<{
       clientId: requestedClientId,
       pageNumber: String(contactPage),
       pageSize: String(PAGE_SIZE),
+      favoritesOnly: String(contactTab === "favorites"),
     });
     const trimmedSearch = contactSearch.trim();
     if (trimmedSearch) params.set("search", trimmedSearch);
@@ -670,6 +701,55 @@ const PostOnboardingView: React.FC<{
     setRefreshing(true);
     fetchDashboardSummary().finally(() => setRefreshing(false));
     fetchContactList();
+    void fetchDashboardCards();
+  };
+
+  const fetchDashboardCards = async () => {
+    if (!clientId) return;
+    const key = String(clientId);
+    const [lists, views, favorites, unsubscribed] = await Promise.allSettled([
+      fetch(`${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${key}`).then((r) => r.ok ? r.json() : []),
+      fetch(`${API_BASE_URL}/api/Crm/views-by-client?clientId=${key}`).then((r) => r.ok ? r.json() : []),
+      fetchFavoriteCollections(key),
+      fetch(`${API_BASE_URL}/api/Crm/dashboard-recent-unsubscribed?clientId=${key}`).then((r) => r.ok ? r.json() : []),
+    ]);
+    if (cardsClientRef.current !== key) return;
+    if (lists.status === "fulfilled") setDashboardLists(lists.value);
+    if (views.status === "fulfilled") setDashboardViews(views.value);
+    if (favorites.status === "fulfilled") {
+      setFavoriteListIds(favorites.value.listIds);
+      setFavoriteViewIds(favorites.value.viewIds);
+    }
+    if (unsubscribed.status === "fulfilled") setRecentUnsubscribed(unsubscribed.value);
+  };
+
+  useEffect(() => {
+    cardsClientRef.current = String(clientId || "");
+    setDashboardLists([]);
+    setDashboardViews([]);
+    setFavoriteListIds([]);
+    setFavoriteViewIds([]);
+    setRecentUnsubscribed([]);
+    void fetchDashboardCards();
+  }, [clientId]);
+
+  useEffect(() => {
+    const onChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ clientId: string; changed: boolean }>).detail;
+      if (detail?.clientId === String(clientId) && detail.changed) void fetchDashboardCards();
+    };
+    window.addEventListener(COLLECTION_FAVORITES_CHANGED, onChanged);
+    return () => window.removeEventListener(COLLECTION_FAVORITES_CHANGED, onChanged);
+  }, [clientId]);
+
+  const openList = (id: number) => navigate(`/main?tab=DataCampaigns&subtab=List&dataFileId=${id}&clientId=${clientId}&t=${Date.now()}`);
+  const openView = (id: number) => {
+    sessionStorage.setItem(`crm_view_state_${clientId}`, JSON.stringify({ viewId: id, viewMode: "detail", source: "dashboard" }));
+    navigate(`/main?tab=DataCampaigns&subtab=View&t=${Date.now()}`);
+  };
+  const openViews = () => {
+    sessionStorage.removeItem(`crm_view_state_${clientId}`);
+    navigate(`/main?tab=DataCampaigns&subtab=View&t=${Date.now()}`);
   };
 
   useEffect(() => {
@@ -702,7 +782,19 @@ const PostOnboardingView: React.FC<{
       fetchContactList();
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [clientId, contactPage, contactSearch]);
+  }, [clientId, contactPage, contactSearch, contactTab]);
+
+  useEffect(() => {
+    const onFavoritesChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ clientId: string; changed: boolean }>).detail;
+      if (contactTab === "favorites" && detail?.changed && detail.clientId === String(clientId)) {
+        if (contactPage !== 1) setContactPage(1);
+        else fetchContactList();
+      }
+    };
+    window.addEventListener(FAVORITES_CHANGED_EVENT, onFavoritesChanged);
+    return () => window.removeEventListener(FAVORITES_CHANGED_EVENT, onFavoritesChanged);
+  }, [clientId, contactTab, contactPage, contactSearch]);
 
   useEffect(() => {
     if (!clientId) {
@@ -883,8 +975,14 @@ const PostOnboardingView: React.FC<{
         ))}
       </div>
 
-      {/* Chart */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 max-sm:p-4 max-sm:min-w-0">
+      <div className="flex justify-end">
+        <button type="button" onClick={() => setShowGraph((current) => !current)}
+          className="rounded-lg border border-[#3f9f42] px-4 py-2 text-[13px] font-medium text-[#2f7a33] hover:bg-[#f2faf3]">
+          {showGraph ? "Switch to cards" : "Switch to graph"}
+        </button>
+      </div>
+
+      {showGraph ? <div className="rounded-2xl border border-gray-200 bg-white p-5 max-sm:p-4 max-sm:min-w-0">
         <div className="flex items-center justify-between max-sm:flex-col max-sm:items-stretch max-sm:gap-3">
           <div>
             <div className="text-[15px] font-semibold text-gray-900">
@@ -906,14 +1004,77 @@ const PostOnboardingView: React.FC<{
         <div className="mt-3 h-[220px] max-sm:h-[200px] max-sm:min-w-0">
           <DualLineAreaChart data={chartData} />
         </div>
-      </div>
+      </div> : <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="rounded-xl border border-gray-200 bg-white min-h-[175px]">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-gray-900"><span className="text-amber-500">★</span> Favorite lists</h2>
+            <button type="button" className="text-xs font-medium text-[#2f7a33]" onClick={() => navigate(`/main?tab=DataCampaigns&subtab=List&category=all&t=${Date.now()}`)}>View all</button>
+          </div>
+          <div className="max-h-56 overflow-y-auto p-3">
+            {dashboardLists.filter((list) => favoriteListIds.includes(list.id)).map((list) =>
+              <button key={list.id} type="button" onClick={() => openList(list.id)} className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left hover:bg-gray-50">
+                <span className="truncate text-sm font-medium text-gray-800">{list.name}</span>
+                <span className="shrink-0 text-xs text-gray-500">{list.contactCount ?? 0}</span>
+              </button>)}
+            {!dashboardLists.some((list) => favoriteListIds.includes(list.id)) && <p className="px-2 py-3 text-xs text-gray-500">Star a list to see it here.</p>}
+          </div>
+        </section>
+        <section className="rounded-xl border border-gray-200 bg-white min-h-[175px]">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-gray-900"><span className="text-amber-500">★</span> Favorite views</h2>
+            <button type="button" className="text-xs font-medium text-[#2f7a33]" onClick={openViews}>View all</button>
+          </div>
+          <div className="max-h-56 overflow-y-auto p-3">
+            {dashboardViews.filter((view) => favoriteViewIds.includes(view.id)).map((view) =>
+              <button key={view.id} type="button" onClick={() => openView(view.id)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-gray-50">
+                <span className="truncate text-sm font-medium text-gray-800">{view.name}</span>
+              </button>)}
+            {!dashboardViews.some((view) => favoriteViewIds.includes(view.id)) && <p className="px-2 py-3 text-xs text-gray-500">Star a view to see it here.</p>}
+          </div>
+        </section>
+        <section className="rounded-xl border border-gray-200 bg-white min-h-[175px]">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-gray-900"><span className="text-orange-500">⊘</span> Unsubscribed</h2>
+            <button type="button" className="text-xs font-medium text-[#2f7a33]" onClick={() => openView(-2)}>Go to view ›</button>
+          </div>
+          <div className="p-3">
+            <p className="px-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">Recently unsubscribed</p>
+            {recentUnsubscribed.map((contact, index) =>
+              <button key={`${contact.email}-${index}`} type="button" onClick={() => openView(-2)} className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left hover:bg-gray-50">
+                <span className="min-w-0"><strong className="block truncate text-xs text-gray-800">{contact.name || contact.email}</strong><span className="block truncate text-[11px] text-gray-500">{contact.company || contact.email}</span></span>
+                <span className="shrink-0 text-[10px] text-gray-400">{new Date(contact.createdAt).toLocaleDateString()}</span>
+              </button>)}
+            {recentUnsubscribed.length === 0 && <p className="px-2 py-3 text-xs text-gray-500">No unsubscribed contacts yet.</p>}
+            <button type="button" onClick={() => openView(-2)} className="mt-2 w-full rounded-lg border border-[#3f9f42] px-3 py-2 text-xs font-medium text-[#2f7a33]">Go to unsubscribed view ↗</button>
+          </div>
+        </section>
+        <section className="rounded-xl border border-gray-200 bg-white min-h-[150px]">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-gray-900"><span className="text-blue-500">◎</span> Website enquiries</h2>
+            <button type="button" className="text-xs font-medium text-[#2f7a33]" onClick={() => navigate(`/main?tab=DataCampaigns&subtab=List&category=website&t=${Date.now()}`)}>All websites</button>
+          </div>
+          <div className="max-h-56 overflow-y-auto p-3">
+            {dashboardLists.filter((list) => list.isWebsiteContactList).map((list) =>
+              <button key={list.id} type="button" onClick={() => openList(list.id)} className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left hover:bg-gray-50">
+                <span className="truncate text-sm font-medium text-gray-800">{list.name}</span>
+                <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-600">{list.contactCount ?? 0} enquiries ›</span>
+              </button>)}
+            {!dashboardLists.some((list) => list.isWebsiteContactList) && <p className="px-2 py-3 text-xs text-gray-500">No website contact lists yet.</p>}
+          </div>
+        </section>
+      </div>}
 
       {/* All Contacts */}
-      {(contacts.length > 0 || contactTotal > 0 || contactsLoading || contactSearch.trim()) && (
+      {clientId && (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 max-sm:p-4 max-sm:min-w-0">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <div className="text-[15px] font-semibold text-gray-900">All contacts</div>
+              <div className="flex items-center gap-4 text-[15px] font-semibold">
+                <button type="button" onClick={() => { setContactTab("all"); setContactPage(1); }}
+                  className={contactTab === "all" ? "text-[#3f9f42] border-b-2 border-[#3f9f42]" : "text-gray-500"}>All contacts</button>
+                <button type="button" onClick={() => { setContactTab("favorites"); setContactPage(1); }}
+                  className={contactTab === "favorites" ? "text-[#3f9f42] border-b-2 border-[#3f9f42]" : "text-gray-500"}>Favorites</button>
+              </div>
               <div className="text-[12px] text-gray-500 mt-0.5">
                 Page {contactPage}
               </div>
@@ -940,6 +1101,7 @@ const PostOnboardingView: React.FC<{
             <table className="w-full min-w-[820px] text-[13px]">
               <thead>
                 <tr className="text-left text-gray-400 text-[11px] uppercase tracking-wider border-b border-gray-100">
+                  <th className="font-medium pb-2">Favorite</th>
                   <th className="font-medium pb-2">Name</th>
                   <th className="font-medium pb-2">Email</th>
                   <th className="font-medium pb-2">Company</th>
@@ -951,6 +1113,7 @@ const PostOnboardingView: React.FC<{
               <tbody className="divide-y divide-gray-100">
                 {contacts.slice(0, PAGE_SIZE).map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="py-2.5"><FavoriteContactStar clientId={clientId} contactId={c.id} /></td>
                     <td className="py-2.5 max-w-[160px] truncate">
                       <a
                         href={`/#/contact-details/${c.id}?tab=DataCampaigns&subtab=List&dataFileId=${c.dataFileId}&clientId=${clientId}`}
@@ -972,8 +1135,8 @@ const PostOnboardingView: React.FC<{
                 ))}
                 {!contactsLoading && contacts.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-6 text-center text-gray-400">
-                      No contacts found
+                    <td colSpan={7} className="py-6 text-center text-gray-400">
+                      {contactTab === "favorites" ? "No favorite contacts yet" : "No contacts found"}
                     </td>
                   </tr>
                 )}

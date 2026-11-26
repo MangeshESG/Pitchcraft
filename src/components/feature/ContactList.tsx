@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import API_BASE_URL from "../../config";
+import FavoriteContactStar from "../common/FavoriteContactStar";
 import "./ContactList.css";
 import DynamicContactsTable from "./DynamicContactsTable";
 import ToastMessage from "../common/ToastMessage";
@@ -1201,6 +1202,14 @@ const formatTimeIST = formatUserTime;
 
   const [listSearch, setListSearch] = useState("");
   const [listCategory, setListCategory] = useState<"all" | "systems" | "website" | number>("all");
+
+  useEffect(() => {
+    const category = searchParams.get("category");
+    if (activeSubTab === "List" && (category === "website" || category === "all")) {
+      setListCategory(category);
+      setCurrentPageLists(1);
+    }
+  }, [activeSubTab, searchParams]);
   const [listSortKey, setListSortKey] = useState("")
   const [listSortDirection, setListSortDirection] = useState("asc")
   const [listActionsAnchor, setListActionsAnchor] = useState<string | null>(
@@ -2532,6 +2541,8 @@ const filterFields: any = useMemo(() => {
                         placeholder="Search a list name or ID"
                       />
                       <ContactsListsRows
+                        favoriteClientId={effectiveUserId}
+                        favoriteType="list"
                         data={currentData}
                         isLoading={isLoading}
                         sortKey={listSortKey}
@@ -2606,15 +2617,18 @@ const filterFields: any = useMemo(() => {
                   }}
                   onOpenProfile={openContactProfile}
                   leadingColumn={{
-                    header: "Image",
-                    width: "64px",
+                    header: "Contact",
+                    width: "88px",
                     render: (row: Contact) => (
-                      <ContactProfileAvatar
-                        key={`${row.id}-${effectiveUserId}`}
-                        contact={row}
-                        clientId={effectiveUserId}
-                        onOpen={openContactProfile}
-                      />
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <FavoriteContactStar clientId={effectiveUserId} contactId={row.id} />
+                        <ContactProfileAvatar
+                          key={`${row.id}-${effectiveUserId}`}
+                          contact={row}
+                          clientId={effectiveUserId}
+                          onOpen={openContactProfile}
+                        />
+                      </span>
                     ),
                   }}
                   selectedItems={detailSelectedContacts}
@@ -3715,15 +3729,18 @@ const filterFields: any = useMemo(() => {
                   }}
                   onOpenProfile={openContactProfile}
                   leadingColumn={{
-                    header: "Image",
-                    width: "64px",
+                    header: "Contact",
+                    width: "88px",
                     render: (row: Contact) => (
-                      <ContactProfileAvatar
-                        key={`${row.id}-${effectiveUserId}`}
-                        contact={row}
-                        clientId={effectiveUserId}
-                        onOpen={openContactProfile}
-                      />
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <FavoriteContactStar clientId={effectiveUserId} contactId={row.id} />
+                        <ContactProfileAvatar
+                          key={`${row.id}-${effectiveUserId}`}
+                          contact={row}
+                          clientId={effectiveUserId}
+                          onOpen={openContactProfile}
+                        />
+                      </span>
                     ),
                   }}
                   selectedItems={detailSelectedContacts}

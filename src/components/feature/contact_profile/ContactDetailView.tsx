@@ -30,6 +30,7 @@ import {
   faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import { faEdit, faTrashAlt, faSquarePlus } from "@fortawesome/free-regular-svg-icons";
+import FavoriteContactStar from "../../common/FavoriteContactStar";
 import EditContactModal from "./EditContactModal";
 import ContactIdentityHeader from "./ContactIdentityHeader";
 import { useAppData } from "../../../contexts/AppDataContext";
@@ -6102,6 +6103,8 @@ dispatch(closePanel());
                     </button>
                   </div>
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                  <FavoriteContactStar clientId={effectiveUserId} contactId={Number(contactId)}
+                    style={{ fontSize: 26 }} />
                   <button
                     type="button"
                     onClick={() => setShowContactDeleteConfirmation(true)}
