@@ -9,15 +9,19 @@ import {
   CheckTypeInfo,
   ContactFitBrief,
   EnhancementField,
+  EnrichmentPreset,
   ValidationCheckType,
   ValidationJob,
   creditsForContacts,
   creditNoteFor,
+  deleteEnrichmentPreset,
   fetchBriefs,
   fetchCheckTypes,
   fetchEnhancementFields,
+  fetchEnrichmentPresets,
   fetchJob,
   runValidation,
+  saveEnrichmentPreset,
 } from "../../../api/contactValidation";
 import { DEFAULT_CHECK_BY_MODE, RunMode, modeForCheck } from "./checkGroups";
 
@@ -110,6 +114,14 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
   const [instructions, setInstructions] = useState("");
   const [fieldSearch, setFieldSearch] = useState("");
   const [isLoadingFields, setIsLoadingFields] = useState(false);
+  /** The saved column-and-instruction combinations for this account. */
+  const [presets, setPresets] = useState<EnrichmentPreset[]>([]);
+  const [activePresetId, setActivePresetId] = useState<number | null>(null);
+  const [isLoadingPresets, setIsLoadingPresets] = useState(false);
+  const [isSavingPreset, setIsSavingPreset] = useState(false);
+  /** Null while the name field is closed; a string once "Save as preset" is clicked. */
+  const [presetDraftName, setPresetDraftName] = useState<string | null>(null);
+  const [presetDraftIsDefault, setPresetDraftIsDefault] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [job, setJob] = useState<ValidationJob | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +224,170 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
       }
     })();
   }, [isOpen, clientId, checkType]);
+
+  // ---------- The saved presets ----------
+  //
+  // Loaded beside the column list, for the same check and the same reason: a
+  // preset is a list of column keys, and it is only meaningful next to the
+  // picker those keys belong to.
+
+  const presetsRequestRef = useRef(0);
+
+  /**
+   * What the form holds right now, for the effects that must not clobber it.
+   * Read through a ref rather than listed as a dependency, so arriving
+   * presets cannot re-run the fetch that produced them.
+   */
+  const selectionRef = useRef({ fields: selectedFields, instructions });
+  useEffect(() => {
+    selectionRef.current = { fields: selectedFields, instructions };
+  });
+
+  /** The default is applied once per opening, never twice over one session. */
+  const appliedDefaultRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) appliedDefaultRef.current = false;
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !clientId) return;
+    if (checkType !== "data_enhancement") return;
+
+    const requestId = ++presetsRequestRef.current;
+    setIsLoadingPresets(true);
+
+    (async () => {
+      try {
+        const saved = await fetchEnrichmentPresets(clientId);
+
+        if (presetsRequestRef.current !== requestId) return;
+
+        setPresets(saved);
+
+        // The usual run, ready to start. Applied only over an untouched form:
+        // a user who has already ticked three columns must not watch the
+        // selection be replaced by a late reply.
+        const fallback = saved.find((preset) => preset.isDefault);
+
+        if (
+          fallback &&
+          !appliedDefaultRef.current &&
+          selectionRef.current.fields.length === 0 &&
+          !selectionRef.current.instructions.trim()
+        ) {
+          appliedDefaultRef.current = true;
+          setSelectedFields(fallback.fields.slice(0, MAX_ENHANCEMENT_FIELDS));
+          setInstructions((fallback.instructions ?? "").slice(0, MAX_INSTRUCTION_LENGTH));
+          setActivePresetId(fallback.id);
+        }
+      } catch (loadError: any) {
+        if (presetsRequestRef.current === requestId) {
+          setError(loadError?.message ?? "The presets could not be loaded.");
+        }
+      } finally {
+        if (presetsRequestRef.current === requestId) setIsLoadingPresets(false);
+      }
+    })();
+  }, [isOpen, clientId, checkType]);
+
+  const activePreset = useMemo(
+    () => presets.find((preset) => preset.id === activePresetId) ?? null,
+    [presets, activePresetId]
+  );
+
+  /**
+   * Whether the form has moved away from the preset it was filled from.
+   *
+   * Order is not part of it: the same columns ticked in a different order is
+   * the same run, and saying otherwise would offer "Update" to someone who
+   * has changed nothing.
+   */
+  const isPresetDirty = useMemo(() => {
+    if (!activePreset) return false;
+
+    const saved = [...activePreset.fields].sort().join("|");
+    const current = [...selectedFields].sort().join("|");
+
+    return (
+      saved !== current ||
+      (activePreset.instructions ?? "").trim() !== instructions.trim()
+    );
+  }, [activePreset, selectedFields, instructions]);
+
+  /** Fills the form from a preset. Nothing is run — that is still a click away. */
+  const applyPreset = (preset: EnrichmentPreset) => {
+    setActivePresetId(preset.id);
+    setSelectedFields(preset.fields.slice(0, MAX_ENHANCEMENT_FIELDS));
+    setInstructions((preset.instructions ?? "").slice(0, MAX_INSTRUCTION_LENGTH));
+    setPresetDraftName(null);
+    setPresetDraftIsDefault(false);
+  };
+
+  /**
+   * Stores what is on screen. With a preset passed, that preset is overwritten
+   * under its own name; without one, the name in the draft field creates a new
+   * one.
+   */
+  const storePreset = async (overwrite: EnrichmentPreset | null) => {
+    const name = (overwrite?.name ?? presetDraftName ?? "").trim();
+    if (!name || selectedFields.length === 0) return;
+
+    setError(null);
+    setIsSavingPreset(true);
+
+    try {
+      const saved = await saveEnrichmentPreset(clientId, {
+        id: overwrite?.id,
+        name,
+        fields: selectedFields,
+        instructions: instructions.trim() || null,
+        isDefault: overwrite ? overwrite.isDefault : presetDraftIsDefault,
+        updatedBy: String(clientId),
+      });
+
+      setPresets((current) => {
+        const without = current.filter((preset) => preset.id !== saved.id);
+
+        // The server clears the flag on whatever else held it, so this list
+        // has to as well — otherwise two chips would wear the default mark.
+        const rest = saved.isDefault
+          ? without.map((preset) => ({ ...preset, isDefault: false }))
+          : without;
+
+        return [...rest, saved].sort(
+          (a, b) =>
+            Number(b.isDefault) - Number(a.isDefault) || a.name.localeCompare(b.name)
+        );
+      });
+
+      setActivePresetId(saved.id);
+      setPresetDraftName(null);
+      setPresetDraftIsDefault(false);
+      onShowMessage?.(`Preset "${saved.name}" saved.`, "success");
+    } catch (saveError: any) {
+      setError(saveError?.message ?? "The preset could not be saved.");
+    } finally {
+      setIsSavingPreset(false);
+    }
+  };
+
+  const removePreset = async (preset: EnrichmentPreset) => {
+    const confirmed = window.confirm(
+      `Delete the preset "${preset.name}"? The columns it filled in stay selected.`
+    );
+
+    if (!confirmed) return;
+
+    setError(null);
+
+    try {
+      await deleteEnrichmentPreset(clientId, preset.id);
+      setPresets((current) => current.filter((row) => row.id !== preset.id));
+      setActivePresetId((current) => (current === preset.id ? null : current));
+    } catch (deleteError: any) {
+      setError(deleteError?.message ?? "The preset could not be deleted.");
+    }
+  };
 
   /**
    * The picker's rows, narrowed by whatever has been typed in the search.
@@ -628,6 +804,366 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
       {/* ---------- Which columns, and what to do with them ---------- */}
       {needsFields && (
         <>
+          {/* ---------- Presets ---------- */}
+          {/* First under the two cards, because it is the shortest route to a
+              run: everything below is what a preset fills in, and someone who
+              has the one they use never needs to read any of it. */}
+          <div style={{ marginBottom: 22 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                gap: 10,
+                marginBottom: 8,
+              }}
+            >
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Presets</label>
+
+              {presetDraftName === null && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPresetDraftName("");
+                    setPresetDraftIsDefault(false);
+                  }}
+                  disabled={isRunning || selectedFields.length === 0}
+                  title={
+                    selectedFields.length === 0
+                      ? "Pick the columns you want to keep first"
+                      : "Save these columns and this instruction under a name"
+                  }
+                  style={{
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    fontFamily: "inherit",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    color: "#3f9f42",
+                    cursor:
+                      isRunning || selectedFields.length === 0 ? "not-allowed" : "pointer",
+                    opacity: isRunning || selectedFields.length === 0 ? 0.45 : 1,
+                  }}
+                >
+                  Save as preset
+                </button>
+              )}
+            </div>
+
+            {isLoadingPresets && presets.length === 0 ? (
+              <div
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #eef0f3",
+                  background: "#f8f9fa",
+                  fontSize: 12.5,
+                  color: "#6b7280",
+                }}
+              >
+                Loading presets…
+              </div>
+            ) : presets.length === 0 ? (
+              <div
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #eef0f3",
+                  background: "#f8f9fa",
+                  fontSize: 12,
+                  color: "#6b7280",
+                  lineHeight: 1.5,
+                }}
+              >
+                No presets yet. Pick the columns and write the instruction you use every
+                time, then save them here — they will be waiting the next time you open
+                this panel.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {presets.map((preset) => {
+                  const isActive = preset.id === activePresetId;
+
+                  return (
+                    <span
+                      key={preset.id}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        borderRadius: 999,
+                        border: `1px solid ${isActive ? "#3f9f42" : "#e8eaee"}`,
+                        background: isActive ? "#f1f8f2" : "#fff",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => applyPreset(preset)}
+                        disabled={isRunning}
+                        title={
+                          preset.instructions
+                            ? `${preset.fields.length} columns · ${preset.instructions}`
+                            : `${preset.fields.length} columns`
+                        }
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "5px 4px 5px 11px",
+                          border: 0,
+                          borderRadius: "999px 0 0 999px",
+                          background: "transparent",
+                          fontFamily: "inherit",
+                          fontSize: 12.5,
+                          fontWeight: isActive ? 600 : 500,
+                          color: "#0b1220",
+                          lineHeight: 1.4,
+                          cursor: isRunning ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {preset.isDefault && (
+                          <svg
+                            width="11"
+                            height="11"
+                            viewBox="0 0 24 24"
+                            fill="#3f9f42"
+                            aria-label="Applied by default"
+                          >
+                            <path d="M12 2.5l2.9 6.1 6.6.9-4.8 4.7 1.2 6.6L12 17.7 6.1 20.8l1.2-6.6L2.5 9.5l6.6-.9z" />
+                          </svg>
+                        )}
+
+                        {preset.name}
+
+                        <span style={{ color: "#6b7280", fontWeight: 500 }}>
+                          {preset.fields.length}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => removePreset(preset)}
+                        disabled={isRunning}
+                        aria-label={`Delete ${preset.name}`}
+                        title={`Delete ${preset.name}`}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 22,
+                          height: 22,
+                          marginRight: 4,
+                          padding: 0,
+                          borderRadius: "50%",
+                          border: 0,
+                          background: "transparent",
+                          color: "#9ca3af",
+                          cursor: isRunning ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.6"
+                            strokeLinecap="round"
+                            d="m6 6 12 12M18 6 6 18"
+                          />
+                        </svg>
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Naming a new preset. Inline rather than a dialog — what is
+                being saved is the form behind it, which a dialog would hide. */}
+            {presetDraftName !== null && (
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 8,
+                  marginTop: 8,
+                  padding: "10px 11px",
+                  borderRadius: 10,
+                  border: "1px solid #dceadd",
+                  background: "#f1f8f2",
+                }}
+              >
+                <input
+                  value={presetDraftName}
+                  onChange={(e) => setPresetDraftName(e.target.value.slice(0, 200))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void storePreset(null);
+                    }
+                    if (e.key === "Escape") setPresetDraftName(null);
+                  }}
+                  autoFocus
+                  placeholder="Name this preset, e.g. Weekly firmographics"
+                  aria-label="Preset name"
+                  style={{
+                    flex: "1 1 190px",
+                    minWidth: 0,
+                    padding: "8px 11px",
+                    borderRadius: 8,
+                    border: "1px solid #bcdcbe",
+                    fontSize: 13,
+                    fontFamily: "inherit",
+                    background: "#fff",
+                    boxSizing: "border-box",
+                  }}
+                />
+
+                <label
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 12.5,
+                    color: "#374151",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={presetDraftIsDefault}
+                    onChange={(e) => setPresetDraftIsDefault(e.target.checked)}
+                    style={{ margin: 0, accentColor: "#3f9f42" }}
+                  />
+                  Use by default
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => void storePreset(null)}
+                  disabled={isSavingPreset || !presetDraftName.trim()}
+                  style={{
+                    ...defaultButtonStyle,
+                    padding: "7px 14px",
+                    fontSize: 12.5,
+                    cursor:
+                      isSavingPreset || !presetDraftName.trim() ? "not-allowed" : "pointer",
+                    opacity: isSavingPreset || !presetDraftName.trim() ? 0.5 : 1,
+                  }}
+                >
+                  {isSavingPreset ? "Saving…" : "Save"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPresetDraftName(null)}
+                  style={{
+                    ...lessPriorityButtonStyle,
+                    padding: "7px 14px",
+                    fontSize: 12.5,
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {/* The applied preset no longer matches the form. Said plainly,
+                with both ways out, rather than silently saving over it. */}
+            {activePreset && isPresetDirty && presetDraftName === null && (
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 10,
+                  marginTop: 8,
+                  fontSize: 12,
+                  color: "#6b7280",
+                }}
+              >
+                <span style={{ flex: "1 1 160px", lineHeight: 1.5 }}>
+                  “{activePreset.name}” has been changed.
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => void storePreset(activePreset)}
+                  disabled={isSavingPreset || isRunning || selectedFields.length === 0}
+                  style={{
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    fontFamily: "inherit",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    color: "#3f9f42",
+                    cursor: isSavingPreset || isRunning ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isSavingPreset ? "Saving…" : "Update preset"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyPreset(activePreset)}
+                  disabled={isRunning}
+                  style={{
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    fontFamily: "inherit",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    color: "#6b7280",
+                    cursor: isRunning ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Undo changes
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ---------- The user's own instruction ---------- */}
+          <div style={{ marginBottom: 22 }}>
+            <label style={labelStyle}>
+              Instructions
+              <span style={{ marginLeft: 8, fontWeight: 500, color: "#6b7280" }}>
+                optional
+              </span>
+            </label>
+
+            <textarea
+              value={instructions}
+              onChange={(e) =>
+                setInstructions(e.target.value.slice(0, MAX_INSTRUCTION_LENGTH))
+              }
+              disabled={isRunning}
+              rows={4}
+              placeholder={
+                "e.g. Use the company's own website as the source wherever you can. " +
+                "For industry, use one or two words. Leave a column alone if you cannot " +
+                "find solid evidence for it."
+              }
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #e8eaee",
+                fontSize: 13,
+                lineHeight: 1.5,
+                fontFamily: "inherit",
+                boxSizing: "border-box",
+                resize: "vertical",
+              }}
+            />
+
+            <div style={{ marginTop: 4, fontSize: 11.5, color: "#9ca3af", textAlign: "right" }}>
+              {instructions.length} / {MAX_INSTRUCTION_LENGTH}
+            </div>
+          </div>
+
           <div style={{ marginBottom: 22 }}>
             <div
               style={{
@@ -778,10 +1314,12 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
               />
             </label>
 
+            {/* No inner scroll: the list is as tall as it needs to be and
+                the panel is the only thing that scrolls. Two scrollbars one
+                inside the other meant the rows a search had matched could sit
+                below the fold of a box that itself sat below the fold. */}
             <div
               style={{
-                maxHeight: 260,
-                overflowY: "auto",
                 border: "1px solid #e8eaee",
                 borderRadius: 10,
                 padding: "6px 4px",
@@ -906,44 +1444,6 @@ const ValidationRunPanel: React.FC<ValidationRunPanelProps> = ({
             </div>
           </div>
 
-          {/* ---------- The user's own instruction ---------- */}
-          <div style={{ marginBottom: 22 }}>
-            <label style={labelStyle}>
-              Instructions
-              <span style={{ marginLeft: 8, fontWeight: 500, color: "#6b7280" }}>
-                optional
-              </span>
-            </label>
-
-            <textarea
-              value={instructions}
-              onChange={(e) =>
-                setInstructions(e.target.value.slice(0, MAX_INSTRUCTION_LENGTH))
-              }
-              disabled={isRunning}
-              rows={4}
-              placeholder={
-                "e.g. Use the company's own website as the source wherever you can. " +
-                "For industry, use one or two words. Leave a column alone if you cannot " +
-                "find solid evidence for it."
-              }
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 8,
-                border: "1px solid #e8eaee",
-                fontSize: 13,
-                lineHeight: 1.5,
-                fontFamily: "inherit",
-                boxSizing: "border-box",
-                resize: "vertical",
-              }}
-            />
-
-            <div style={{ marginTop: 4, fontSize: 11.5, color: "#9ca3af", textAlign: "right" }}>
-              {instructions.length} / {MAX_INSTRUCTION_LENGTH}
-            </div>
-          </div>
         </>
       )}
 

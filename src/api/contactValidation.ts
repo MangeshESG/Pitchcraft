@@ -60,6 +60,28 @@ export interface EnhancementField {
   options?: string[];
 }
 
+/**
+ * A saved column-and-instruction combination for the enhancement check.
+ *
+ * The same enrichment gets run week after week - the same eight columns, the
+ * same paragraph about preferring the company's own website - so a preset is
+ * the difference between one click and rebuilding the selection by hand. Held
+ * per client, which is the account the panel runs in wherever it was opened
+ * from, so it is there again next time.
+ */
+export interface EnrichmentPreset {
+  id: number;
+  name: string;
+  /** The column keys, in the order they were saved. */
+  fields: string[];
+  instructions?: string | null;
+  /** Applied on its own when the enhancement check is first chosen. */
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+}
+
 export interface ContactFitBrief {
   id: number;
   name: string;
@@ -498,6 +520,78 @@ export const deleteBrief = async (
     `${BASE}/briefs/delete/${briefId}?clientId=${clientId}`,
     {},
     "The brief could not be deleted"
+  );
+};
+
+// --------------------------------------------------------------- presets
+
+const toPreset = (raw: any): EnrichmentPreset => ({
+  id: Number(raw?.id) || 0,
+  name: raw?.name ?? "",
+  fields: Array.isArray(raw?.fields) ? raw.fields.filter(Boolean) : [],
+  instructions: raw?.instructions ?? null,
+  isDefault: !!raw?.isDefault,
+  createdAt: raw?.createdAt ?? "",
+  updatedAt: raw?.updatedAt ?? null,
+  updatedBy: raw?.updatedBy ?? null,
+});
+
+export const fetchEnrichmentPresets = async (
+  clientId: string | number
+): Promise<EnrichmentPreset[]> => {
+  const json = await readJson(
+    await fetch(`${BASE}/presets?clientId=${clientId}`),
+    "Presets could not be loaded"
+  );
+
+  return Array.isArray(json?.presets) ? json.presets.map(toPreset) : [];
+};
+
+/** Creates a preset, or overwrites the one whose id is given. */
+export const saveEnrichmentPreset = async (
+  clientId: string | number,
+  preset: {
+    id?: number;
+    name: string;
+    fields: string[];
+    instructions?: string | null;
+    isDefault?: boolean;
+    updatedBy?: string;
+  }
+): Promise<EnrichmentPreset> => {
+  const json = await postJson(
+    `${BASE}/presets`,
+    {
+      ...preset,
+      id: preset.id ?? 0,
+      isDefault: !!preset.isDefault,
+      clientId: Number(clientId),
+    },
+    "The preset could not be saved"
+  );
+
+  return toPreset(json.preset);
+};
+
+export const setDefaultEnrichmentPreset = async (
+  clientId: string | number,
+  presetId: number
+): Promise<void> => {
+  await postJson(
+    `${BASE}/presets/set-default?clientId=${clientId}&presetId=${presetId}`,
+    {},
+    "The default could not be changed"
+  );
+};
+
+export const deleteEnrichmentPreset = async (
+  clientId: string | number,
+  presetId: number
+): Promise<void> => {
+  await postJson(
+    `${BASE}/presets/delete/${presetId}?clientId=${clientId}`,
+    {},
+    "The preset could not be deleted"
   );
 };
 
