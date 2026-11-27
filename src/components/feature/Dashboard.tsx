@@ -104,6 +104,13 @@ interface RecentUnsubscribe {
   createdAt: string;
 }
 
+interface RecentMailEvent {
+  email?: string;
+  name?: string;
+  detail?: string;
+  date?: string;
+}
+
 export interface DashboardProps {
   /** Override automatic detection: if you know setup is complete, pass true. */
   setupComplete?: boolean;
@@ -608,11 +615,16 @@ const PostOnboardingView: React.FC<{
   const [contactTab, setContactTab] = useState<"all" | "favorites">("all");
   const [showGraph, setShowGraph] = useState(false);
   const [dashboardLists, setDashboardLists] = useState<DashboardList[]>([]);
+  const [websiteFilteredCounts, setWebsiteFilteredCounts] = useState<Record<number, number> | null>(null);
   const [dashboardViews, setDashboardViews] = useState<DashboardView[]>([]);
   const [favoriteListIds, setFavoriteListIds] = useState<number[]>([]);
   const [favoriteViewIds, setFavoriteViewIds] = useState<number[]>([]);
   const [recentUnsubscribed, setRecentUnsubscribed] = useState<RecentUnsubscribe[]>([]);
+  const [activityTab, setActivityTab] = useState<"unsubscribe" | "bounce" | "autoReply">("unsubscribe");
+  const [recentBounceBack, setRecentBounceBack] = useState<RecentMailEvent[]>([]);
+  const [recentAutoReplies, setRecentAutoReplies] = useState<RecentMailEvent[]>([]);
   const cardsClientRef = useRef("");
+  const cardsRequestRef = useRef(0);
   const [dateRange, setDateRange] = useState<DateRange>("1d");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -707,13 +719,16 @@ const PostOnboardingView: React.FC<{
   const fetchDashboardCards = async () => {
     if (!clientId) return;
     const key = String(clientId);
-    const [lists, views, favorites, unsubscribed] = await Promise.allSettled([
+    const requestId = ++cardsRequestRef.current;
+    const [lists, views, favorites, unsubscribed, mailEvents, websiteCounts] = await Promise.allSettled([
       fetch(`${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${key}`).then((r) => r.ok ? r.json() : []),
       fetch(`${API_BASE_URL}/api/Crm/views-by-client?clientId=${key}`).then((r) => r.ok ? r.json() : []),
       fetchFavoriteCollections(key),
-      fetch(`${API_BASE_URL}/api/Crm/dashboard-recent-unsubscribed?clientId=${key}`).then((r) => r.ok ? r.json() : []),
+      fetch(`${API_BASE_URL}/api/Crm/dashboard-recent-unsubscribed?clientId=${key}&dateRange=${dateRange}`).then((r) => r.ok ? r.json() : []),
+      fetch(`${API_BASE_URL}/api/Crm/dashboard-recent-mail-events?clientId=${key}&dateRange=${dateRange}`).then((r) => r.ok ? r.json() : null),
+      fetch(`${API_BASE_URL}/api/Crm/dashboard-website-enquiries?clientId=${key}&dateRange=${dateRange}`).then((r) => r.ok ? r.json() : null),
     ]);
-    if (cardsClientRef.current !== key) return;
+    if (cardsClientRef.current !== key || cardsRequestRef.current !== requestId) return;
     if (lists.status === "fulfilled") setDashboardLists(lists.value);
     if (views.status === "fulfilled") setDashboardViews(views.value);
     if (favorites.status === "fulfilled") {
@@ -721,17 +736,31 @@ const PostOnboardingView: React.FC<{
       setFavoriteViewIds(favorites.value.viewIds);
     }
     if (unsubscribed.status === "fulfilled") setRecentUnsubscribed(unsubscribed.value);
+    if (mailEvents.status === "fulfilled" && mailEvents.value) {
+      setRecentBounceBack(mailEvents.value.bounceBack || []);
+      setRecentAutoReplies(mailEvents.value.autoReplies || []);
+    }
+    if (websiteCounts.status === "fulfilled" && Array.isArray(websiteCounts.value)) {
+      setWebsiteFilteredCounts(Object.fromEntries(websiteCounts.value.map((item: { dataFileId: number; filteredCount: number }) => [item.dataFileId, item.filteredCount])));
+    }
   };
 
   useEffect(() => {
-    cardsClientRef.current = String(clientId || "");
-    setDashboardLists([]);
-    setDashboardViews([]);
-    setFavoriteListIds([]);
-    setFavoriteViewIds([]);
+    const key = String(clientId || "");
+    if (cardsClientRef.current !== key) {
+      setActivityTab("unsubscribe");
+      setDashboardLists([]);
+      setDashboardViews([]);
+      setFavoriteListIds([]);
+      setFavoriteViewIds([]);
+    }
+    cardsClientRef.current = key;
     setRecentUnsubscribed([]);
+    setRecentBounceBack([]);
+    setRecentAutoReplies([]);
+    setWebsiteFilteredCounts(null);
     void fetchDashboardCards();
-  }, [clientId]);
+  }, [clientId, dateRange]);
 
   useEffect(() => {
     const onChanged = (event: Event) => {
@@ -740,7 +769,7 @@ const PostOnboardingView: React.FC<{
     };
     window.addEventListener(COLLECTION_FAVORITES_CHANGED, onChanged);
     return () => window.removeEventListener(COLLECTION_FAVORITES_CHANGED, onChanged);
-  }, [clientId]);
+  }, [clientId, dateRange]);
 
   const openList = (id: number) => navigate(`/main?tab=DataCampaigns&subtab=List&dataFileId=${id}&clientId=${clientId}&t=${Date.now()}`);
   const openView = (id: number) => {
@@ -1033,19 +1062,33 @@ const PostOnboardingView: React.FC<{
           </div>
         </section>
         <section className="rounded-xl border border-gray-200 bg-white min-h-[175px]">
-          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-gray-900"><span className="text-orange-500">⊘</span> Unsubscribed</h2>
-            <button type="button" className="text-xs font-medium text-[#2f7a33]" onClick={() => openView(-2)}>Go to view ›</button>
+          <div className="flex items-center justify-between gap-1 border-b border-gray-100 px-2">
+            <h2 className="sr-only">Contact and mail activity</h2>
+            <div className="flex min-w-0 gap-0.5 overflow-x-auto" role="tablist" aria-label="Contact and mail activity">
+              {([ ["unsubscribe", "Unsubscribed"], ["bounce", "Bounce back"], ["autoReply", "Auto replies"] ] as const).map(([key, label]) =>
+                <button key={key} type="button" role="tab" aria-selected={activityTab === key}
+                  onClick={() => setActivityTab(key)}
+                  className={`shrink-0 whitespace-nowrap px-1.5 py-3 text-sm font-semibold ${activityTab === key ? "border-b-2 border-[#3f9f42] text-[#2f7a33]" : "text-gray-500 hover:text-gray-800"}`}>
+                  {label}
+                </button>)}
+            </div>
+            <button type="button" className="shrink-0 px-1 text-sm font-semibold text-[#2f7a33]" title={activityTab === "unsubscribe" ? "Go to view" : "Go to mail"} aria-label={activityTab === "unsubscribe" ? "Go to view" : "Go to mail"} onClick={() => activityTab === "unsubscribe" ? openView(-2) : navigate(`/main?tab=Mail&mailSubTab=${activityTab === "bounce" ? "Dashboard" : "Inbox"}`)}>›</button>
           </div>
           <div className="p-3">
-            <p className="px-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">Recently unsubscribed</p>
-            {recentUnsubscribed.map((contact, index) =>
+            <p className="px-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">Recently {activityTab === "unsubscribe" ? "unsubscribed" : activityTab === "bounce" ? "bounced" : "auto replied"}</p>
+            {activityTab === "unsubscribe" && recentUnsubscribed.map((contact, index) =>
               <button key={`${contact.email}-${index}`} type="button" onClick={() => openView(-2)} className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left hover:bg-gray-50">
                 <span className="min-w-0"><strong className="block truncate text-xs text-gray-800">{contact.name || contact.email}</strong><span className="block truncate text-[11px] text-gray-500">{contact.company || contact.email}</span></span>
                 <span className="shrink-0 text-[10px] text-gray-400">{new Date(contact.createdAt).toLocaleDateString()}</span>
               </button>)}
-            {recentUnsubscribed.length === 0 && <p className="px-2 py-3 text-xs text-gray-500">No unsubscribed contacts yet.</p>}
-            <button type="button" onClick={() => openView(-2)} className="mt-2 w-full rounded-lg border border-[#3f9f42] px-3 py-2 text-xs font-medium text-[#2f7a33]">Go to unsubscribed view ↗</button>
+            {activityTab === "unsubscribe" && recentUnsubscribed.length === 0 && <p className="px-2 py-3 text-xs text-gray-500">No unsubscribed contacts yet.</p>}
+            {activityTab !== "unsubscribe" && (activityTab === "bounce" ? recentBounceBack : recentAutoReplies).map((item, index) =>
+              <div key={`${item.email}-${index}`} className="flex items-center justify-between gap-2 rounded-lg px-2 py-2">
+                <span className="min-w-0"><strong className="block truncate text-xs text-gray-800">{item.name || item.email || "Contact"}</strong><span className="block truncate text-[11px] text-gray-500">{item.detail || item.email || "—"}</span></span>
+                {item.date && <span className="shrink-0 text-[10px] text-gray-400">{new Date(item.date).toLocaleDateString()}</span>}
+              </div>)}
+            {activityTab === "bounce" && recentBounceBack.length === 0 && <p className="px-2 py-3 text-xs text-gray-500">No bounce backs yet.</p>}
+            {activityTab === "autoReply" && recentAutoReplies.length === 0 && <p className="px-2 py-3 text-xs text-gray-500">No auto replies yet.</p>}
           </div>
         </section>
         <section className="rounded-xl border border-gray-200 bg-white min-h-[150px]">
@@ -1057,7 +1100,7 @@ const PostOnboardingView: React.FC<{
             {dashboardLists.filter((list) => list.isWebsiteContactList).map((list) =>
               <button key={list.id} type="button" onClick={() => openList(list.id)} className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left hover:bg-gray-50">
                 <span className="truncate text-sm font-medium text-gray-800">{list.name}</span>
-                <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-600">{list.contactCount ?? 0} enquiries ›</span>
+                <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-600">{websiteFilteredCounts === null ? "—" : websiteFilteredCounts[list.id] ?? 0}/{list.contactCount ?? 0} enquiries ›</span>
               </button>)}
             {!dashboardLists.some((list) => list.isWebsiteContactList) && <p className="px-2 py-3 text-xs text-gray-500">No website contact lists yet.</p>}
           </div>
@@ -1070,10 +1113,10 @@ const PostOnboardingView: React.FC<{
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <div className="flex items-center gap-4 text-[15px] font-semibold">
-                <button type="button" onClick={() => { setContactTab("all"); setContactPage(1); }}
-                  className={contactTab === "all" ? "text-[#3f9f42] border-b-2 border-[#3f9f42]" : "text-gray-500"}>All contacts</button>
                 <button type="button" onClick={() => { setContactTab("favorites"); setContactPage(1); }}
                   className={contactTab === "favorites" ? "text-[#3f9f42] border-b-2 border-[#3f9f42]" : "text-gray-500"}>Favorites</button>
+                <button type="button" onClick={() => { setContactTab("all"); setContactPage(1); }}
+                  className={contactTab === "all" ? "text-[#3f9f42] border-b-2 border-[#3f9f42]" : "text-gray-500"}>All contacts</button>
               </div>
               <div className="text-[12px] text-gray-500 mt-0.5">
                 Page {contactPage}
